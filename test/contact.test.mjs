@@ -25,6 +25,40 @@ test('each seed makes its own language, and the same seed the same one', () => {
   }
 });
 
+test('no language has a rude or plain English name, a people named exactly like their home, or two names a letter apart', () => {
+  // The finder's list, as leading syllables, plus the plain words seen on screen. Kept apart from the game's own list.
+  const rude = /^(fuk|suk|kok|kum|pis|dik|pus|kike|shit|paki|rape|nazi|pedo|nig|peni)/i;
+  const plain = /^(house|soul|sail|man|men|sin|hell|kill|the|then|them|this|his|him|her|sun|son|gun|home|name|time)$/i;
+  const near = (a, b) => {
+    a = a.toLowerCase(); b = b.toLowerCase();
+    if (a.startsWith(b) || b.startsWith(a)) return true;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    // One letter changed, added or dropped.
+    const [x, y] = a.length <= b.length ? [a, b] : [b, a];
+    for (let i = 0; i <= x.length; i++) {
+      if (x.length === y.length ? i < x.length && x.slice(0, i) + y[i] + x.slice(i + 1) === y : x.slice(0, i) + y[i] + x.slice(i) === y) return true;
+    }
+    return false;
+  };
+  for (let seed = 1; seed <= 20000; seed++) {
+    const L = makeLanguage(seed);
+    const where = `language ${seed}`;
+    // Every capitalised word in what they say is a name, apart from the first word of a phrase that starts with an image.
+    const spoken = new Set(Object.values(L.phrases).flatMap(t => t.split(/[^\p{L}]+/u).filter((w, i) => w && /^\p{Lu}/u.test(w) && !(i === 0 && /^(The|Sails)$/.test(w)))));
+    for (const w of spoken) assert.ok(L.names.includes(w), `${where}: ${w} is spoken but not among its names`);
+    assert.ok(L.names.includes(L.home) && L.names.includes(L.captain));
+    for (const w of [...L.names, L.people]) {
+      assert.doesNotMatch(w, rude, `${where}: ${w}`);
+      assert.doesNotMatch(w, plain, `${where}: ${w}`);
+    }
+    assert.notEqual(L.people, L.home, `${where}: the people are called exactly what their home is`);
+    assert.ok(!L.names.includes(L.people), `${where}: a hero or place is called ${L.people}, like the people`);
+    for (let i = 0; i < L.names.length; i++) {
+      for (let j = i + 1; j < L.names.length; j++) assert.ok(!near(L.names[i], L.names[j]), `${where}: ${L.names[i]} and ${L.names[j]} are too alike`);
+    }
+  }
+});
+
 test('answering right every time makes first contact, for any seed', () => {
   for (let seed = 1; seed <= 200; seed++) {
     const g = win(newGame({ seed }));

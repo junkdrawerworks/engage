@@ -68,6 +68,42 @@ export const DANGERS = {
   },
 };
 
+// Made-up names sometimes land on a real word. These are turned away and rolled again.
+// RUDE is matched anywhere in a name (so "Fukzai" goes as well as "Fuk"); PLAIN are ordinary English words and
+// short first names, matched whole, because "Geshael at House" reads as a mistake.
+const RUDE = ('fuk fuq suk kok kum pis dik dyk pus kunt shit tit nig kike paki rape rapi nazi pedo peni anus anal homo fag hore bich jiz kill hell '
+  + 'lesb damn dago puta puto kaka butt vagi semen urin satan isis mofo arse ass sodom tard negr gook jap nude horn porn dildo kondom vulva testi '
+  + 'rekt herpes taliban').split(' ');
+const PLAIN = new Set(('baba baby bail bake baker bale ban banana bar base bath ben bevy bike bin bite body bon bone bony bore both bozo bum bun bur '
+  + 'bus busy dal dale dan dare data date daze death defy demon den deny devil dim dime din dine diner dis dodo dome don dos dose dote dour dove doze '
+  + 'duke duly dum dun dune duty face fade fail fair faith fak fake fame fan far fate fek fem fifi fik file fin fine finer fir fire five fok for fore '
+  + 'foul four fun fur fury fuse fyk gaga gain gal gale game gar gas gate gave gaze gel gem gene gin give gone gore gory gum gun guru gus gym habit '
+  + 'hail hair halo ham hamas hare has hate have haze hazy hem hen her here hero hers hide him hire his hobo hole holy home hon honor hope hose hotel '
+  + 'hour house huge hula hum human hun jade jail jam jan jar jen jesus jim jive joke jon judo july june jury kale ken kil kilo kim kin kit kite '
+  + 'koala labor lady laid lain lair lake lam lama lame lane laser late later lazy lemon lenin les level life like lily lima lime limit limo line '
+  + 'liner liver lobe local logo lol lone lore lose loser loud louse love lube lulu lunar lure made mail maim main major make maker male mam mama man '
+  + 'mane many mar mare mate math maze medal mega mel melon memo men menu mere meta metal meter mile mime min mine miner mini minor mis mode model '
+  + 'mole mom mon money mope more most motel moth motor mouse mouth mum muse music mute nail nam name nan nana nape native nature navy never nil nine '
+  + 'nobody node none nope nor north nose nosy note noun nova number nun paid pail pain pair pak pal pale pam pan pane panel papa paper par pare pas '
+  + 'path pen per peso piano pile pilot pin pine pipe pith pity poke pol polar pole polo pom pony pose posy potato pour power puk puma pun pur pure '
+  + 'putin radar rage rail rain rake ram ran rare rate raze razor rely rem ride rider rim ripe rise rival river robe robin rode role ron rope rose '
+  + 'rota rove ruby rude rule ruler rum rumor run safe saga sage said sail sake sal salad sale sam same san sane sari sik silo sin sir sis site size '
+  + 'sober soda sofa soho soil sol solar sole solo some son sonar sore souk soul soup sour south sugar sum sumo sun super sure sus taco tail take '
+  + 'taken taker tale tam tame tan tape tar teeth tel ten than the them then thin this thou thus tide tidy tiger til tile tim time timer tin tiny '
+  + 'tire tofu toga token tom tomato ton tone tony tore total tote tour towel tube tun tuna tune tuner tutu vail vain val vale van vane vapor vary '
+  + 'vase very veto vile vim vin vine virus visa vise visit vital viva vocal vol von vote voter yoga youth zany zen zero zone zulu').split(' '));
+const bad = w => { const l = w.toLowerCase(); return PLAIN.has(l) || RUDE.some(x => l.includes(x)); };
+// Two names a reader would mix up: one is the start of the other, or they differ by a single letter.
+function alike(a, b) {
+  a = a.toLowerCase(); b = b.toLowerCase();
+  if (a.length > b.length) [a, b] = [b, a];
+  if (b.startsWith(a)) return true;
+  if (b.length - a.length > 1) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  return a.length === b.length ? a.slice(i + 1) === b.slice(i + 1) : a.slice(i) === b.slice(i + 1);
+}
+
 export function rng(seed) {
   let a = seed >>> 0; // mulberry32
   return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -89,11 +125,22 @@ export function makeLanguage(seed) {
       for (let i = 0; i < n; i++) w += pick(r, cons) + pick(r, vows) + (r() < 0.3 ? pick(r, codas) : '');
       if (n === 1 && !codas.some(c => w.endsWith(c))) w += pick(r, codas);
       w = w[0].toUpperCase() + w.slice(1);
-      if (w.length >= 3 && w.length <= 9 && !used.has(w) && !/^(.{2,})\1$/i.test(w)) { used.add(w); return w; }
+      if (w.length >= 3 && w.length <= 9 && !/^(.{2,})\1$/i.test(w) && !bad(w) && ![...used].some(u => alike(u, w))) { used.add(w); return w; }
     }
   };
   const home = word();
-  const people = home.replace(/[aeiouy]+$/, '') + pick(r, ['i', 'ari', 'ans', 'en', 'ites']);
+  // What they're called, from their home: "Jimthi" could give "the Jimthi" again, so take the next ending along
+  // until it reads as a different word.
+  const endings = ['i', 'ari', 'ans', 'en', 'ites'];
+  const stem = home.replace(/[aeiouy]+$/, '');
+  let people = home;
+  for (let i = Math.floor(r() * endings.length), n = 0; n < endings.length; n++) {
+    people = stem + endings[(i + n) % endings.length];
+    if (people !== home && !bad(people)) break;
+  }
+  // No hero or place may be called after the people, or nearly: `used` is checked for near misses too.
+  // (The people's own name is close to their home's on purpose, so it goes in after it is chosen.)
+  used.add(people);
   const pronouns = [['his', 'him'], ['her', 'her'], ['their', 'them']];
   const phrases = {};
   for (const [id] of MEANINGS) {
@@ -107,8 +154,10 @@ export function makeLanguage(seed) {
   const [his, him] = pick(r, pronouns);
   const danger = pick(r, Object.keys(DANGERS));
   // The story they'll tell about this day, if it goes well.
-  phrases.story = `${captain} and the stranger at ${word()}`;
-  return { seed, home, people, captain, his, him, danger, phrases, look: Math.floor(r() * 2 ** 31) };
+  const story = word();
+  phrases.story = `${captain} and the stranger at ${story}`;
+  const look = Math.floor(r() * 2 ** 31);
+  return { seed, home, people, captain, his, him, danger, phrases, look, names: [...used].filter(w => w !== people) };
 }
 
 // The encounter, beat by beat. Each beat has what they say (a few ways, tried in turn when you need to hear it again),
