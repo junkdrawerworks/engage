@@ -7,34 +7,95 @@
   "display": "standalone",
   "background_color": "#05070d",
   "theme_color": "#05070d",
+  "screenshots": [
+    {
+      "src": "docs/phone-helm.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "The bridge in Earth’s orbit, with Proxima Centauri chosen: 4.23 light years away, 1 day at warp 9"
+    },
+    {
+      "src": "docs/phone-warp.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "At warp 9 toward Proxima Centauri, the stars streaking past"
+    },
+    {
+      "src": "docs/phone-log.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Arrived at Proxima Centauri: the captain’s log on what the ship found"
+    },
+    {
+      "src": "docs/phone-xeno.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "The xenobiology lab: a creature grown for a desert world, with its field notes"
+    },
+    {
+      "src": "docs/phone-tonight.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tonight’s sky: the real sky over you, with the stars Starfleet knows tagged"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Tonight’s sky",
       "short_name": "Sky",
       "description": "Point your phone up and see which stars Starfleet knows",
       "url": "tonight.html",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "Kobayashi Maru",
       "short_name": "Maru",
       "description": "The Academy’s no-win test",
       "url": "maru.html",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "First contact",
       "short_name": "Contact",
       "description": "Answer an unknown ship in its own language",
       "url": "contact.html",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "Long missions",
       "short_name": "Missions",
       "description": "Where the Voyagers and other real ships are now",
       "url": "missions.html",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ],
   "icons": [

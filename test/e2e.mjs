@@ -293,6 +293,72 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await ctxB.close();
 }
 
+// On this phone, in Bridge settings: once the offline copy is in, it says every room works with no signal; where the
+// browser offers to install, a button does it; on an iPhone a line says how, and in Safari another says why it is
+// worth it. The browser is asked once ever to keep Engage's storage, after the first log entry or the first jar.
+{
+  const ctxP = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await ctxP.addInitScript(() => {
+    if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true }));
+    StorageManager.prototype.persist = async function () { localStorage.setItem('asks', String(Number(localStorage.getItem('asks') || 0) + 1)); sessionStorage.setItem('kept', '1'); return true; };
+    StorageManager.prototype.persisted = async function () { return !!sessionStorage.getItem('kept'); };
+  });
+  const p = await ctxP.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
+  await p.tap('#open-settings');
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all eight rooms work with no signal.', null, { timeout: 20000 })
+    .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
+  assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
+  assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
+  assert.equal(await p.locator('#phone-kept').isHidden(), true);
+  // The browser offers to install: the button asks it to, once.
+  await p.evaluate(() => {
+    const offer = new Event('beforeinstallprompt', { cancelable: true });
+    offer.prompt = () => { window.prompted = (window.prompted || 0) + 1; };
+    offer.userChoice = Promise.resolve({ outcome: 'accepted' });
+    dispatchEvent(offer);
+  });
+  await p.tap('#install');
+  await p.waitForFunction(() => document.getElementById('install').hidden);
+  assert.equal(await p.evaluate(() => window.prompted), 1, 'Install Engage did not ask the browser to install');
+  await p.locator('#settings .close').tap();
+  // Asked once, after the first entry, not after the second.
+  assert.equal(await p.evaluate(() => localStorage.getItem('asks')), null, 'the browser was asked to keep an empty log');
+  await p.evaluate(() => engage.jump('Vega'));
+  await p.waitForFunction(() => localStorage.getItem('asks') === '1');
+  await p.evaluate(() => { engage.closeSheets(); engage.jump('Altair'); });
+  await p.waitForTimeout(300);
+  assert.equal(await p.evaluate(() => localStorage.getItem('asks')), '1', 'the browser was asked twice to keep the log');
+  // And Bridge settings says it agreed.
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-settings');
+  await p.waitForFunction(() => !document.getElementById('phone-kept').hidden);
+  await p.locator('#settings .close').tap();
+  // The first jar asks too, where nothing has yet.
+  await p.evaluate(() => { localStorage.removeItem('engage.asked-to-keep'); sessionStorage.removeItem('kept'); });
+  await p.goto(base + 'xeno.html');
+  await p.waitForFunction(() => window.xeno);
+  await p.tap('#keep');
+  await p.waitForFunction(() => localStorage.getItem('asks') === '2');
+  await ctxP.close();
+  // An iPhone in Safari: how to install, and why.
+  const iphone = await browser.newContext({ ...pw.devices['iPhone 13'], serviceWorkers: 'block' });
+  const q = await iphone.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  await q.addInitScript(() => localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })));
+  await q.goto(base);
+  await bridgeReady(q);
+  await q.tap('#open-settings');
+  await q.waitForFunction(() => !document.getElementById('phone').hidden);
+  assert.equal(await q.locator('#phone-ios').innerText(), 'To install: Share, then Add to Home Screen.');
+  assert.match(await q.locator('#phone-safari').innerText(), /^Safari deletes what a site has saved after seven days/);
+  assert.equal(await q.locator('#phone-copy').isHidden(), true, 'a copy for no signal was promised with no service worker to keep it');
+  await iphone.close();
+}
+
 // On a phone on its side the chosen star sits above the helm, the star you arrive at clear of the log, and the settings
 // scroll as a whole; on the narrowest phones the warp slider gets a row of its own.
 for (const viewport of [{ width: 844, height: 390 }, { width: 320, height: 568 }]) {

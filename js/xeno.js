@@ -5,7 +5,7 @@ import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeTex
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
-import { keep, unkept, watch } from './store.js';
+import { askToKeep, keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 
 const KEY = 'engage.xeno.v1';
@@ -188,6 +188,7 @@ function toggleKeep() {
   // With the shelf full again there is nowhere to put back the one just let go, so its Undo goes too.
   if (gone && saved.jars.length >= JAR_MAX) { clearTimeout(gone.timer); gone = null; }
   save();
+  if (i < 0 && !unsaved) askToKeep(); // once ever: the browser is asked to keep Engage's storage
   renderKeep();
   renderJars();
 }

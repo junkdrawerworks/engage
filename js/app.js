@@ -7,8 +7,8 @@ import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inT
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { LIVE, share } from './share.js';
-import { current, keep, watch } from './store.js';
-import { roomList } from './rooms.js';
+import { askToKeep, current, keep, watch } from './store.js';
+import { ROOMS, inWords, roomList } from './rooms.js';
 import { backCloses, swipeDown } from './sheets.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
@@ -689,7 +689,7 @@ function arrive() {
   while (state.log.some(e => e.id === entry.id)) entry.id++;
   state.log.unshift(entry);
   state.ly += T.ly;
-  save();
+  if (save()) askToKeep(); // once ever: the first entry kept is worth keeping
   $('readout').hidden = true;
   helmAway(false);
   setTarget(null, false);
@@ -925,6 +925,60 @@ function renderLog() {
   drawLog();
 }
 
+// ---------- On this phone ----------
+
+// Bridge settings says what the README promises: that Engage works with no signal once its copy is kept, and that
+// it installs. Where the browser offers to install, a button does it; on an iPhone, where only the Share menu can,
+// a line says how. Safari deletes a site's saved data after seven days of Safari use without a visit, but not an
+// app's added to the Home Screen (WebKit, "Full Third-Party Cookie Blocking and More", 24 March 2020): there a
+// quiet line says so. And where the browser has agreed to keep the log (see askToKeep in js/store.js), it says that.
+let installAsk = null; // the browser's offer to install, kept for the button
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installAsk = e; showPhone(); });
+addEventListener('appinstalled', () => { installAsk = null; showPhone(); });
+
+const ua = navigator.userAgent;
+const iOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+const safari = /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|Edg\/|Firefox|Android/.test(ua);
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+let phoneTimer = 0;
+async function showPhone() {
+  clearTimeout(phoneTimer);
+  if ($('settings').hidden) return;
+  const home = installed();
+  $('phone-installed').hidden = !home;
+  $('install').hidden = home || !installAsk;
+  $('phone-ios').hidden = home || !iOS || !!installAsk;
+  $('phone-safari').hidden = home || !safari;
+  let kept = false;
+  try { kept = !!(await navigator.storage?.persisted?.()); } catch { /* can't say */ }
+  $('phone-kept').hidden = !kept;
+  const copy = await copyKept();
+  if (copy) {
+    const whole = copy.total && copy.have >= copy.total;
+    $('phone-copy').textContent = whole ? `Kept on this device: all ${inWords(ROOMS.length + 1)} rooms work with no signal.`
+      : copy.total ? `Saving a copy for use with no signal: ${copy.have} of ${copy.total} files.` : 'Saving a copy for use with no signal…';
+    if (!whole) phoneTimer = setTimeout(showPhone, 2000); // while it fills, the count goes on
+  }
+  $('phone-copy').hidden = !copy;
+  $('phone').hidden = [...$('phone').querySelectorAll('p, button')].every(el => el.hidden);
+}
+
+// How much of the offline copy the service worker has: { have, total } files, { total: 0 } while it is still being
+// set up, or null where there is none (the single-file copy, a browser without service workers).
+async function copyKept() {
+  let reg = null;
+  try { reg = await navigator.serviceWorker?.getRegistration(); } catch { /* none */ }
+  if (!reg) return null;
+  if (!reg.active) return { have: 0, total: 0 };
+  return new Promise(resolve => {
+    const ch = new MessageChannel();
+    const late = setTimeout(() => resolve(null), 3000);
+    ch.port1.onmessage = e => { clearTimeout(late); resolve(e.data && Number.isInteger(e.data.have) ? e.data : null); };
+    reg.active.postMessage('engage-copy?', [ch.port2]);
+  });
+}
+
 // ---------- Back from another room ----------
 
 // Every room's Back is a plain link to the bridge, which loads afresh: the log entry you were reading when you
@@ -1124,7 +1178,15 @@ function bind() {
       setTarget(Number(again.dataset.again ?? again.dataset.course));
     });
   }
-  $('open-settings').addEventListener('click', e => openSheet('settings', e.currentTarget));
+  $('open-settings').addEventListener('click', e => { openSheet('settings', e.currentTarget); showPhone(); });
+  $('install').addEventListener('click', async () => {
+    const asked = installAsk;
+    if (!asked) return;
+    installAsk = null; // the browser offers it once
+    asked.prompt();
+    try { await asked.userChoice; } catch { /* closed */ }
+    showPhone();
+  });
   $('look-home').addEventListener('click', lookHome);
   $('arrival-home').addEventListener('click', lookHome);
   // The log entry goes away as Set course opens, so focus comes back to the destination button instead.

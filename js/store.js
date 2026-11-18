@@ -16,6 +16,19 @@ export function keep(key, value) {
   }
 }
 
+// Asks the browser, once ever, to keep Engage's storage when it runs short of room, instead of clearing it with
+// everything else: called after the first log entry or the first jar is kept. Chrome answers by itself, from how much
+// the site is used; Firefox asks the person. Whether it agreed shows in Bridge settings.
+const ASKED = 'engage.asked-to-keep';
+export async function askToKeep() {
+  try {
+    if (!navigator.storage?.persist || localStorage.getItem(ASKED)) return;
+    if (await navigator.storage.persisted()) return;
+    localStorage.setItem(ASKED, '1');
+    await navigator.storage.persist();
+  } catch { /* no storage to ask about */ }
+}
+
 // The line a room shows where its record is listed when the last save didn't work, in the bridge's words:
 // "This browser's storage is full: this run won't be kept."
 export function unkept(why, room, thing) {
