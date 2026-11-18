@@ -4112,6 +4112,10 @@ for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'ton
     assert.ok(s.name && s.short_name.length <= 12 && s.description, `the shortcut to ${s.url} is missing a name or a description`);
     assert.match(await readFile(join(root, s.url), 'utf8'), new RegExp(`<title>${s.name} · Engage</title>`), `the shortcut called ${s.name} opens a page with another title`);
     for (const i of s.icons) assert.ok(shell.includes(i.src) && i.sizes === '192x192', `${s.name}'s icon ${i.src} is not kept for offline`);
+    // Each has the picture of its own room's round button, not the app's icon again.
+    assert.deepEqual(s.icons.map(i => i.src), [`img/shortcut-${s.url.replace('.html', '')}.png`], `the shortcut to ${s.name} has no icon of its own`);
+    const png = await readFile(join(root, s.icons[0].src));
+    assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [192, 192], `${s.icons[0].src} is not 192 × 192`);
   }
 }
 const all = createHash('sha1');
