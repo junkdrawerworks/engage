@@ -8,6 +8,7 @@ import {
 import { warpSpeed, stardate, plural } from './physics.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
+import { LIVE, share } from './share.js';
 
 const KEY = 'engage.missions.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -92,6 +93,7 @@ function choose(id, fromMap = false) {
   const ship = byId(id);
   view = ship.near ? 'earth' : 'sun';
   history.replaceState(null, '', '#' + id);
+  document.title = `${ship.name} · Long missions · Engage`;
   for (const b of $('fleet').children) b.setAttribute('aria-selected', String(b.dataset.id === id));
   if (!fromMap) $('fleet').querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: still.matches ? 'auto' : 'smooth' });
   fillFile(ship);
@@ -147,6 +149,16 @@ function hail() {
   // on its way, its "0.004% of the way there" moves on every second, for hours.
   const said = $('hail-note').textContent;
   $('hail-said').textContent = $('hail-said').textContent === said ? `${said}\u00a0` : said;
+}
+
+// A link to the ship's file, with how far she is and how long a signal takes at this moment, as the file has them.
+function shareShip(button) {
+  const ship = byId(sel);
+  return share(button, {
+    title: `${ship.name}, from Engage’s long missions`,
+    text: `${ship.name} is ${$('earth-km').textContent} from Earth right now, and a signal takes ${$('signal').textContent} to reach her, one way.`,
+    url: `${LIVE}missions.html#${sel}`,
+  });
 }
 
 function hailLabel(ship, state) {
@@ -522,6 +534,7 @@ function frame(now) {
 
 function bind() {
   $('hail').addEventListener('click', hail);
+  $('share-ship').addEventListener('click', e => shareShip(e.currentTarget));
   // A hail sent from another tab is on its way here too, and the next one sent here won't write over it.
   watch(KEY, () => { saved.hails = load().hails; tick(true); });
   $('view-sun').addEventListener('click', () => { setView('sun'); if (byId(sel).near) choose('v1'); });

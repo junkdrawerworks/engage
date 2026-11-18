@@ -12,6 +12,7 @@ import {
 } from './astro.js';
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
+import { LIVE, share } from './share.js';
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -813,13 +814,31 @@ function fillCard(s) {
   $('card-facts').hidden = !facts;
   setText('card-been', been);
   $('card-been').hidden = !been;
+  // A star can be sent: its link turns this sky to it and opens this card. (The planets and the Moon have no link.)
+  $('card-share-row').hidden = !linkName(s);
+  const tab = `${nameOf(s)} · Tonight’s sky · Engage`;
+  if (document.title !== tab) document.title = tab;
+}
+// The name a link to a star's card carries: the catalogue's, when that name leads back to this star.
+const linkName = s => (s.kind === 'star' && cat.byName.get(cat.names[s.i]) === s.i ? cat.names[s.i] : '');
+function shareStar(button) {
+  const name = sel && linkName(sel);
+  if (!name) return null;
+  return share(button, {
+    title: `${nameOf(sel)}, in tonight’s sky`,
+    text: `${nameOf(sel)} (${$('card-sub').textContent}): find it in your sky tonight.`,
+    url: `${LIVE}tonight.html#star=${encodeURIComponent(name)}`,
+  });
 }
 const setText = (id, text) => { if ($(id).textContent !== text) $(id).textContent = text; };
 
 // With the card up, turn the view (when looking by hand) so the thing sits in the sky that's left above it.
 function frameAboveCard() {
   if (sensing || !sel || !B) return;
-  const card = $('card').getBoundingClientRect();
+  // Where the card comes to rest: its place in the layout, not where it is on screen, which for its first third of a
+  // second is up to 40 px lower as it slides in. (Measured on the way up, a star straight overhead was judged clear
+  // of the card and then covered by it.)
+  const card = { top: $('card').offsetTop, left: $('card').offsetLeft };
   const free = card.left > W / 2 ? { x: card.left / 2, y: H / 2 } : { x: W / 2, y: Math.max(110, (card.top + 80) / 2) };
   const p = project(selLocal());
   if (p && p.z > 0 && Math.abs(p.x - free.x) < W * 0.4 && p.y > 90 && p.y < card.top - 30 && card.left <= W / 2) return;
@@ -947,6 +966,7 @@ function closeSheets() {
   for (const s of SHEETS) $(s).hidden = true;
   $('scrim').hidden = true;
   document.body.classList.remove('carded');
+  document.title = 'Tonight’s sky · Engage';
   sel = null;
   dirty = true;
   behind(); // before focus goes back: nothing behind a sheet can take it while the sheet is up
@@ -1081,6 +1101,7 @@ function bind() {
   });
   $('scrim').addEventListener('click', closeSheets);
   for (const b of document.querySelectorAll('[data-close]')) b.addEventListener('click', closeSheets);
+  $('card-share').addEventListener('click', e => shareStar(e.currentTarget));
   document.addEventListener('keydown', e => {
     if (e.key === 'Tab') keepTab(e);
     if (e.key === 'Escape') closeSheets();

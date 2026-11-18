@@ -77,6 +77,7 @@ function put(c, animate) {
     if (on) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: still.matches ? 'auto' : 'smooth' });
   });
   try { history.replaceState(null, '', `#${linkOf(c)}`); } catch { /* fine */ }
+  document.title = `${c.name.common} · Xenobiology lab · Engage`;
   if (still.matches) frame(performance.now());
 }
 

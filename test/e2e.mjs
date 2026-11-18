@@ -3357,6 +3357,94 @@ await page.emulateMedia({ reducedMotion: null });
   await two.close();
 }
 
+// Every room whose address brings something back can send it. A text link under its buttons hands the share sheet
+// (stood in for here) a link to the live site, and that link opens the same thing; only the bridge and the lab had
+// one, and an installed app has no address bar to copy from. And the tab is named after what is on screen, so the
+// history, a bookmark and the browser's own share sheet say which ship, file, star or creature it is.
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.addInitScript(() => { navigator.share = async data => { window.shared = data; }; });
+  const LIVE = 'https://junkdrawer.works/engage/';
+  const sharedFrom = async sel => {
+    await p.evaluate(() => { window.shared = null; });
+    const b = p.locator(sel);
+    await b.scrollIntoViewIfNeeded();
+    assert.ok((await b.boundingBox()).height >= 44, `${sel} is under 44 px tall`);
+    await b.tap();
+    return p.evaluate(() => window.shared);
+  };
+
+  // The warp scale: the place, and the warp factor now on the slider. The address used to repeat the "?warp=" the
+  // page was opened with, however far the slider had moved since.
+  await p.goto(base + 'warp.html?warp=5#vega');
+  await p.waitForFunction(() => window.warpScale?.trip);
+  assert.equal(await p.title(), 'Vega · Warp scale · Engage');
+  await p.evaluate(() => warpScale.setCustom(9.9));
+  assert.match(p.url(), /warp\.html\?warp=9\.9#vega$/, 'the address still gives the warp factor the page was opened with');
+  let sent = await sharedFrom('#place [data-share]');
+  assert.equal(sent.url, LIVE + 'warp.html?warp=9.9#vega');
+  assert.match(sent.text, /^Earth to Vega: \d+ days at warp 9\.9, 25 years for light\.$/);
+  await p.evaluate(() => warpScale.select('delta'));
+  assert.equal(await p.title(), 'Where Voyager was stranded · Warp scale · Engage');
+  assert.match((await sharedFrom('#place [data-share]')).text, /^Earth to where Voyager was stranded: /);
+  await p.goto(base + 'survey.html');
+  await p.goto(sent.url.replace(LIVE, base));
+  await p.waitForFunction(() => window.warpScale?.trip);
+  assert.deepEqual(await p.evaluate(() => [warpScale.place, document.getElementById('custom-warp').value]), ['vega', '9.9'], 'the shared race opened somewhere else, or at another warp factor');
+
+  // Long missions: the ship, with how far she is and how long a signal takes at this moment.
+  await p.goto(base + 'missions.html#v2');
+  await p.waitForFunction(() => window.missions && document.getElementById('signal').textContent);
+  assert.equal(await p.title(), 'Voyager 2 · Long missions · Engage');
+  sent = await sharedFrom('#share-ship');
+  assert.equal(sent.url, LIVE + 'missions.html#v2');
+  assert.match(sent.text, /^Voyager 2 is [\d,]{14,} km from Earth right now, and a signal takes \d\d h \d\d m \d\d s to reach her, one way\.$/);
+  await p.evaluate(() => missions.choose('nh'));
+  assert.equal(await p.title(), 'New Horizons · Long missions · Engage');
+  assert.equal((await sharedFrom('#share-ship')).url, LIVE + 'missions.html#nh');
+
+  // The planetary survey: the file on screen.
+  await p.goto(base + 'survey.html#Y');
+  await p.waitForFunction(() => window.survey && document.querySelector('#file h2'));
+  assert.equal(await p.title(), 'Class Y · Planetary survey · Engage');
+  sent = await sharedFrom('#file [data-share]');
+  assert.deepEqual([sent.url, sent.text], [LIVE + 'survey.html#Y', 'Class Y, Demon class: toxic and deadly. A survey file from Engage.']);
+  await p.evaluate(() => survey.open('ice-giant'));
+  assert.equal(await p.title(), 'Ice giant · Planetary survey · Engage');
+  assert.equal((await sharedFrom('#file [data-share]')).url, LIVE + 'survey.html#ice-giant');
+  await p.evaluate(() => survey.mode('drill'));
+  assert.equal(await p.title(), 'Cover your tracks · Planetary survey · Engage');
+
+  // Tonight's sky: a star's card. The planets and the Moon have no link that opens them, so no share either.
+  await p.goto(base + 'tonight.html#star=Vega');
+  await p.waitForFunction(() => window.tonight && !document.getElementById('card').hidden);
+  const star = await p.locator('#card-title').innerText();
+  assert.equal(await p.title(), `${star} · Tonight’s sky · Engage`);
+  sent = await sharedFrom('#card-share');
+  assert.equal(sent.url, LIVE + 'tonight.html#star=Vega');
+  assert.ok(sent.text.startsWith(`${star} (`) && sent.text.endsWith('find it in your sky tonight.'), `the message does not name the star: ${sent.text}`);
+  await p.evaluate(() => tonight.show({ kind: 'planet', name: 'mars' }));
+  assert.equal(await p.title(), 'Mars · Tonight’s sky · Engage');
+  assert.equal(await p.locator('#card-share-row').isHidden(), true, 'a planet’s card offers a link, though no link opens it');
+  await p.locator('#card [data-close]').tap();
+  assert.equal(await p.title(), 'Tonight’s sky · Engage');
+
+  // The lab and the bridge had a share button already; their tabs are named too.
+  await p.goto(base + 'xeno.html#M-5');
+  await p.waitForFunction(() => window.xeno?.current);
+  assert.equal(await p.title(), `${await p.evaluate(() => xeno.current.name.common)} · Xenobiology lab · Engage`);
+  await p.goto(base);
+  await bridgeReady(p);
+  assert.equal(await p.title(), 'Engage');
+  await p.evaluate(() => engage.jump('Vega'));
+  assert.equal(await p.title(), 'Vega · Engage');
+  await p.evaluate(() => engage.jump('Sol'));
+  assert.equal(await p.title(), 'Engage');
+  await c.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];
@@ -3371,7 +3459,10 @@ const shell = [...sw.match(/SHELL = \[([^\]]*)\]/)[1].replace(/\/\/.*/g, '').mat
 const cacheName = sw.match(/const CACHE = '(engage-v[0-9]+)'/)[1];
 await until(() => page.evaluate(async ([name, n]) => (await (await caches.open(name)).keys()).length >= n, [cacheName, shell.length]), 20000, 'the offline copy was never filled');
 const titles = {};
-for (const room of ROOMS) { await page.goto(base + room); titles[room] = await page.title(); }
+// A room's tab is named after what is on screen ("Vega · Warp scale · Engage", and on the bridge "Vega · Engage"),
+// so a room is told by how its title ends: with the title its file has.
+for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await readFile(join(root, room || 'index.html'), 'utf8')).match(/<title>(.*?)<\/title>/)[1]; }
+const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
 const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale' };
@@ -3380,7 +3471,7 @@ net = 'down';
 await ctx.setOffline(true);
 for (const room of ROOMS) {
   await page.goto(base + room).catch(() => {});
-  assert.equal(await page.title(), titles[room], `${room || 'the bridge'} did not open offline`);
+  assert.equal(await roomTitle(), titles[room], `${room || 'the bridge'} did not open offline`);
   await drawn(room).catch(() => assert.fail(`${room || 'the bridge'} opened offline but its script never ran`));
 }
 await ctx.setOffline(false);
@@ -3393,7 +3484,7 @@ for (const room of ROOMS) {
   await page.goto(base + room, { timeout: 10000 }).catch(() => {});
   await drawn(room).catch(() => {});
   const took = Date.now() - t0;
-  assert.equal(await page.title(), titles[room], `${room || 'the bridge'} did not open on a stalled connection`);
+  assert.equal(await roomTitle(), titles[room], `${room || 'the bridge'} did not open on a stalled connection`);
   assert.ok(took < 8000, `${room || 'the bridge'} took ${took} ms to open on a stalled connection`);
   await drawn(room).catch(() => assert.fail(`${room || 'the bridge'} opened on a stalled connection but its script never ran`));
 }

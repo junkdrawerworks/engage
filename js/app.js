@@ -27,6 +27,8 @@ const XENO = SURVEY.replace('survey.html', 'xeno.html');
 const MISSIONS = SURVEY.replace('survey.html', 'missions.html');
 // Tonight's sky, likewise.
 const TONIGHT = 'tonight.html';
+// And the warp scale.
+const SCALE = 'warp.html';
 const $ = id => document.getElementById(id);
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 const DEG = Math.PI / 180;
@@ -453,7 +455,7 @@ function updateWarp() {
   $('warp-out').textContent = w.toFixed(1).replace(/\.0$/, '');
   $('warp-speed').textContent = `${Math.round(warpSpeed(w)).toLocaleString('en-US')} × the speed of light`;
   $('warp').style.setProperty('--fill', `${(w - 1) / 8.9 * 100}%`);
-  $('open-scale').href = `warp.html?warp=${w}`;
+  $('open-scale').href = `${SCALE}?warp=${w}`;
   updateTrip();
 }
 
@@ -475,6 +477,9 @@ function updateHud() {
   } else {
     $('status').textContent = 'Holding';
     $('where').textContent = state.at === 0 ? 'Earth orbit' : titleFor(cat, state.at);
+    // The tab, the history and the browser's own share sheet name the star the ship is at.
+    const title = state.at === 0 ? 'Engage' : `${titleFor(cat, state.at)} · Engage`;
+    if (document.title !== title) document.title = title;
   }
   const far = !trip && cat.unmeasured[state.at] ? 'Distance not measured' : `${formatLy(fromSol)} from Sol`;
   $('when').innerHTML = `<span>${sd}</span> <span>${fromSol < 0.001 ? 'Home' : far}</span>`; // the dot between them is drawn by the stylesheet

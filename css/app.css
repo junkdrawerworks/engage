@@ -180,6 +180,10 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .entry-actions a:hover, .entry-actions button:hover { border-color: var(--cyan); }
 .entry-actions [data-again], .entry-actions [data-course] { border-color: rgba(255, 181, 74, 0.55); color: var(--amber); }
 .share-link { flex: 1 1 100%; min-width: 0; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.04); font-size: 14px; }
+/* A room's share link: a text link under its buttons, the way the lab's Send this creature is. */
+.share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; margin: 0; }
+.share-row .text-button { color: #6fe3a4; font-size: 13px; min-height: 44px; padding: 12px 0; }
+.share-row .share-link { color: var(--text); margin-bottom: 8px; }
 .past { border: 1px solid var(--line); border-radius: 14px; margin: 10px 0; background: rgba(255, 255, 255, 0.02); }
 .past summary { list-style: none; cursor: pointer; padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
 .past summary::-webkit-details-marker { display: none; }

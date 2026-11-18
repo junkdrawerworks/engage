@@ -3,6 +3,7 @@ import { CLASSES, byId, label, quizReadings, grows } from './classes.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
+import { LIVE, share } from './share.js';
 
 const KEY = 'engage.survey.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -135,6 +136,17 @@ function openFile(i, push = true) {
     if (k === at) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: still.matches ? 'auto' : 'smooth' });
   });
   if (push) try { history.replaceState(null, '', `#${c.id}`); } catch { /* fine */ }
+  if (mode === 'files') document.title = `${label(c)} · Planetary survey · Engage`;
+}
+
+// A link to the file on screen.
+function shareFile(button) {
+  const c = order[at];
+  return share(button, {
+    title: `${label(c)}, from Engage’s planetary survey`,
+    text: `${label(c)}${c.letter ? `, ${c.name}` : ''}: ${midSentence(c.short)}. A survey file from Engage.`,
+    url: `${LIVE}survey.html#${encodeURIComponent(c.id)}`,
+  });
 }
 
 function fileHtml(c) {
@@ -169,6 +181,7 @@ function fileHtml(c) {
     ${worlds ? `<ul class="worlds">${worlds}</ul>` : '<p class="none">No real planet known to fit yet.</p>'}
     <h3>Life</h3>
     <a class="fly" href="${XENO}#${esc(c.id)}"${AWAY}>Grow a creature for ${esc(label(c))} <span aria-hidden="true">→</span></a>
+    <p class="share-row"><button class="text-button" type="button" data-share>Share this file</button></p>
   `;
 }
 
@@ -325,6 +338,7 @@ function setMode(m, push = true) {
     if (!drill || drill.answered) drill = newWorld();
     renderDrill();
     if (push) try { history.replaceState(null, '', '#drill'); } catch { /* fine */ }
+    document.title = 'Cover your tracks · Planetary survey · Engage';
   } else {
     openFile(at, push);
   }
@@ -344,6 +358,7 @@ function fromHash() {
 
 function bind() {
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  $('file').addEventListener('click', e => { const b = e.target.closest('[data-share]'); if (b) shareFile(b); });
   $('prev').addEventListener('click', () => openFile(at - 1));
   $('next').addEventListener('click', () => openFile(at + 1));
   $('choices').addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) answer(b.dataset.id); });

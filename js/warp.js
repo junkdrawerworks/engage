@@ -7,6 +7,7 @@ import {
 } from './warp-scale.js';
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
+import { LIVE, share } from './share.js';
 
 const KEY = 'engage.warp.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -39,6 +40,16 @@ function save() { keep(KEY, { place: place.id, warp: custom }); } // only where 
 const warpName = w => `Warp ${w.toFixed(2).replace(/\.?0+$/, '')}`;
 const times = n => `${n < 10 ? n.toFixed(n < 1 ? 5 : 1).replace(/\.?0+$/, '') : Math.round(n).toLocaleString('en-US')} × light`;
 const laneLabel = l => (l.id === 'custom' ? warpName(custom) : l.label);
+// A place's name in the middle of a sentence: "the Moon", "where Voyager was stranded".
+const inText = p => p.name.replace(/^(The|Where) /, w => w.toLowerCase());
+
+// The address names the place and the warp factor now on the slider, so it can be copied, bookmarked or shared as it
+// stands (it used to repeat whatever "?warp=" the page was opened with, however far the slider had moved since).
+const query = () => `?warp=${custom}`;
+function address() {
+  try { history.replaceState(null, '', `${query()}#${place.id}`); } catch { /* fine */ }
+  document.title = `${place.name} · Warp scale · Engage`;
+}
 
 // ---------- Working out the trip ----------
 
@@ -60,7 +71,7 @@ function select(id, { scroll = false, quiet = false } = {}) {
   race = null;
   plan();
   if (!quiet) save();
-  try { history.replaceState(null, '', `${location.search}#${id}`); } catch { /* fine */ }
+  address();
   renderPlace();
   renderLadder();
   setButton();
@@ -78,6 +89,7 @@ function setCustom(w, quiet = false) {
   race = null;
   plan();
   if (!quiet) save();
+  address();
   renderPlace();
   setButton();
   note(startNote());
@@ -143,8 +155,7 @@ function note(text) {
 }
 
 function startNote() {
-  const where = place.name.replace(/^The /, 'the ');
-  return `Five ships leave Earth together for ${where}. The clock speeds up as they go, so even the slowest gets there.`;
+  return `Five ships leave Earth together for ${inText(place)}. The clock speeds up as they go, so even the slowest gets there.`;
 }
 
 function endNote() {
@@ -325,8 +336,19 @@ function renderPlace() {
     ${p.trek ? `<p class="trek"><b>Star Trek</b> ${esc(p.trek)}</p>` : ''}
     <table class="times" id="times"><caption>Leaving Earth now</caption><tbody>${rows}</tbody></table>
     ${p.course ? `<a class="to-file" href="${BRIDGE}?course=${encodeURIComponent(p.course)}"${AWAY}>Set course on the bridge <span aria-hidden="true">→</span></a>` : ''}
+    <p class="share-row"><button class="text-button" type="button" data-share>Share this race</button></p>
   `;
   markArrived(race?.done ? Infinity : 0);
+}
+
+// A link to this race: the place, and the warp factor on the slider, on the live site.
+function shareRace(button) {
+  const mine = trip.lanes.find(l => l.id === 'custom'), light = trip.lanes.find(l => l.id === 'w1');
+  return share(button, {
+    title: `${place.name}, on Engage’s warp scale`,
+    text: `Earth to ${inText(place)}: ${formatSpan(mine.years)} at ${warpName(custom).toLowerCase()}, ${formatSpan(light.years)} for light.`,
+    url: `${LIVE}warp.html${query()}#${place.id}`,
+  });
 }
 
 const shortTick = name => ({ 'light-second': '1 sec', 'light-minute': '1 min', 'light-hour': '1 hr', 'light-day': '1 day', 'light year': '1 yr', '1,000 ly': '1,000 yr', 'million ly': '1M yr' })[name];
@@ -361,6 +383,7 @@ const fromLink = () => {
 
 $('go').addEventListener('click', engage);
 $('custom-warp').addEventListener('input', e => setCustom(Number(e.target.value)));
+$('place').addEventListener('click', e => { const b = e.target.closest('[data-share]'); if (b) shareRace(b); });
 $('ladder').addEventListener('click', e => {
   const b = e.target.closest('[data-id]');
   if (b) select(b.dataset.id, { scroll: true });
