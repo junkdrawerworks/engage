@@ -225,11 +225,16 @@ function crew(g, who, text, tone) {
 export const phrase = (g, id) => g.lang.phrases[id];
 export const beat = g => BEATS[g.beat];
 
-// Their next way of putting the current beat. Once they've used them all they start over, and their patience wears.
-function again(g, out) {
+// Their next way of putting the current beat. Once they've used them all they start over, and their patience wears:
+// that is what waiting costs. `charged` is for a turn that has already cost patience (a reply they didn't follow,
+// Standard, weapons), so one misunderstanding never costs two.
+function again(g, out, charged = false) {
   const b = BEATS[g.beat];
   const i = g.tries[g.beat] || 0;
-  if (i >= b.lines.length) lose(g, out, 'The captain waits, then says it all again, more slowly.');
+  if (i >= b.lines.length) {
+    const why = 'The captain waits, then says it all again, more slowly.';
+    if (charged) out.push(crew(g, 'Communications', why)); else lose(g, out, why);
+  }
   if (g.over) return;
   out.push(them(g, ...b.lines[i % b.lines.length]));
   g.tries[g.beat] = i + 1;
@@ -264,7 +269,10 @@ export function act(g, what) {
   g.turn++;
   if (what === 'listen') {
     out.push(crew(g, 'You', 'You wait and listen.', 'you'));
+    g.listens = (g.listens || 0) + 1;
     again(g, out);
+    // The first time, say what waiting costs, so the dot that goes later isn't a surprise.
+    if (g.listens === 1 && !g.over) out.push(crew(g, 'Communications', 'They’ll put it another way while they have one. After that, waiting wears on them too.'));
   } else if (what === 'standard') {
     out.push(crew(g, 'You', 'This is a Federation starship. We come in peace. Do you understand me?', 'you'));
     g.standard++;
@@ -272,7 +280,7 @@ export function act(g, what) {
       ? 'The captain listens politely, then shakes {his} head and spreads {his} hands.'
       : 'The captain’s shoulders drop. {His} crew mutter to each other.'.replace('{His}', g.lang.his[0].toUpperCase() + g.lang.his.slice(1))));
     if (g.standard > 1) lose(g, out);
-    if (!g.over) again(g, out);
+    if (!g.over) again(g, out, true);
   } else if (what === 'shields') {
     g.shields = !g.shields;
     out.push(crew(g, 'Tactical', g.shields ? 'Shields up.' : 'Shields down.'));
@@ -305,7 +313,7 @@ function reply(g, ids, out) {
     out.push(them(g, ['fight', 'no'], 'Weapons come up on their ship. The captain shouts the words twice, then waves {his} crew back from their stations.'));
     g.misses++;
     lose(g, out); lose(g, out);
-    if (!g.over) again(g, out);
+    if (!g.over) again(g, out, true);
     return;
   }
   const yes = b.accept.some(id => said.has(id));
@@ -327,7 +335,7 @@ function reply(g, ids, out) {
     ? 'The captain tilts {his} head and repeats your words back, slowly, like a question.'
     : 'The captain frowns and holds up a hand.'));
   lose(g, out);
-  if (!g.over) again(g, out);
+  if (!g.over) again(g, out, true);
 }
 
 // The debrief: what happened, what each phrase meant, and how much of it you worked out.

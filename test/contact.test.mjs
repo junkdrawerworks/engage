@@ -1,7 +1,7 @@
 // First contact's language and rules, checked without a browser:  node --test test/contact.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, debrief, hint, makeLanguage, MEANINGS, PATIENCE, BEAT_IDS } from '../js/contact-sim.js';
+import { newGame, act, debrief, hint, makeLanguage, rng, MEANINGS, PATIENCE, BEAT_IDS } from '../js/contact-sim.js';
 
 // Plays the right answer each turn, from what has been heard so far.
 function win(g) {
@@ -49,6 +49,30 @@ test('saying things that make no sense wears their patience out', () => {
   assert.equal(g.over, 'silence');
   assert.equal(g.patience, 0);
   assert.ok(g.heard.includes('understand') && g.heard.includes('no'), 'they never said they did not understand');
+});
+
+test('five misunderstandings close the channel, never four, and nothing but weapons costs two at once', () => {
+  for (let seed = 1; seed <= 60; seed++) {
+    // Only wrong replies, on the greeting: "we" alone is never an answer to it.
+    const g = newGame({ seed });
+    const left = [];
+    for (let i = 0; i < PATIENCE; i++) {
+      assert.equal(g.over, null, `seed ${seed}: the channel closed after ${i} wrong replies (${left})`);
+      act(g, { say: ['we'] });
+      left.push(g.patience);
+    }
+    assert.deepEqual(left, [4, 3, 2, 1, 0], `seed ${seed}`);
+    assert.equal(g.over, 'silence');
+    // Any mix of things that aren't weapons: each costs one at most.
+    const h = newGame({ seed });
+    const r = rng(seed);
+    while (!h.over && h.turn < 80) {
+      const before = h.patience;
+      const what = ['listen', 'standard', { say: ['we'] }, { say: ['you', 'no'] }, { say: [hint(h)] }, 'listen'][Math.floor(r() * 6)];
+      act(h, what);
+      assert.ok(before - h.patience <= 1, `seed ${seed}: ${JSON.stringify(what)} cost ${before - h.patience} at once`);
+    }
+  }
 });
 
 test('you can only say what you have heard, and only three phrases at once', () => {
@@ -100,6 +124,10 @@ test('listening again gives another way of putting it, and only wears on them on
   assert.ok(g.heard.includes('you'), 'the second way of saying hello did not come');
   act(g, 'listen');
   assert.equal(g.patience, PATIENCE - 1);
+  // The first wait says what waiting will cost, once.
+  const told = g.log.filter(l => /waiting wears on them/.test(l.text || ''));
+  assert.equal(told.length, 1);
+  assert.ok(g.log.indexOf(told[0]) < 6, 'the warning came after the cost');
 });
 
 test('turning down their offer, or leaving, ends it another way', () => {
