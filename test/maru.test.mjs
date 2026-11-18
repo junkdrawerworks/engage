@@ -8,6 +8,7 @@ function play(plan, opts = {}) {
   for (const id of plan) { if (g.over) break; act(g, id); }
   return g;
 }
+const gradeOf = (e, name) => e.grades.find(x => x.name === name);
 const keepGoing = g => {
   while (!g.over && g.turn < 60) act(g, orders(g).find(o => !o.done && ['phasers', 'evade', 'hail'].includes(o.id)).id);
   return g;
@@ -153,6 +154,46 @@ test('a reprogrammed run that leaves anyone behind, or fires a shot, is graded l
     assert.equal(x.grades.length, 5, `${plan}: four grades and honesty`);
     assert.notEqual(x.title, 'Changed the rules');
   }
+});
+
+test('in the reprogrammed simulator, asking first costs nobody: every careful opening still wins', () => {
+  const beams = ['beam', 'beam', 'beam', 'beam', 'beam', 'beam'];
+  for (const seed of [7, 9, 123]) {
+    for (const opening of [['hail-maru'], ['starfleet'], ['scan'], ['hail-maru', 'starfleet', 'scan'], ['scan', 'hail-maru']]) {
+      const g = newGame({ seed, rewritten: true });
+      const said = [];
+      for (const id of [...opening, 'enter', ...beams, 'warp']) said.push(...act(g, id).lines);
+      assert.equal(g.lifeSupportLost, 0, `${opening}: the Maru lost people while the cadet waited outside`);
+      assert.equal(g.aboard, MARU, `${opening}: not everyone came across`);
+      const e = evaluate(g);
+      assert.equal(e.outcome, 'rewritten', `seed ${seed}, ${opening}: ${e.title}, ${e.summary}`);
+      assert.equal(e.title, 'Changed the rules');
+      assert.ok(!said.some(l => /Life support is failing/.test(l.text)), 'the Maru still reported losses');
+      if (opening.includes('hail-maru')) assert.ok(said.some(l => l.who === 'Kobayashi Maru' && /holding/.test(l.text)), 'the Maru did not say her air was holding');
+    }
+  }
+  // Talking to the Klingons on the way doesn't spoil it either; a shot still does.
+  assert.equal(evaluate(play(['hail-maru', 'enter', 'hail', 'surrender', ...beams, 'warp'], { rewritten: true })).outcome, 'rewritten');
+  assert.notEqual(evaluate(play(['hail-maru', 'starfleet', 'scan', 'enter', 'phasers', ...beams, 'warp'], { rewritten: true })).outcome, 'rewritten');
+  // The normal test is as it was: waiting outside costs 12 a turn.
+  const n = play(['hail-maru', 'starfleet', 'scan']);
+  assert.equal(n.lifeSupportLost, 36);
+  assert.equal(n.maru.aboard, MARU - 36);
+});
+
+test('the reprogrammed Klingons answer a surrender in character, and Nerve does not mention guns that never fired', () => {
+  const g = newGame({ seed: 7, rewritten: true });
+  act(g, 'enter');
+  const lines = act(g, 'surrender').lines.map(l => l.text);
+  assert.ok(lines.some(t => /no quarrel/.test(t)), lines.join(' | '));
+  assert.ok(!lines.some(t => /cowards/.test(t)));
+  act(g, 'beam'); act(g, 'warp');
+  const e = evaluate(g);
+  assert.doesNotMatch(gradeOf(e, 'Nerve').why, /under their guns/);
+  assert.ok(!e.note.some(t => /never accept/.test(t)));
+  // In the normal test the guns do fire, and the line stays.
+  assert.match(gradeOf(evaluate(play(['enter', 'beam', 'warp'])), 'Nerve').why, /under their guns/);
+  assert.ok(act(play(['enter']), 'surrender').lines.some(l => /cowards/.test(l.text)));
 });
 
 test('every ending gets four grades and a note', () => {

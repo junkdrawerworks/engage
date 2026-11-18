@@ -55,7 +55,7 @@ export function orders(g) {
     { id: 'hail', label: 'Hail the Klingons', sub: g.flags.playerFired ? 'After you fired on them' : g.flags.hailedKlingons ? 'They answered once' : 'Talk before shooting' },
     { id: 'evade', label: 'Evasive maneuvers', sub: 'Halves the damage this turn' },
     { id: 'warp', label: 'Go to warp', sub: g.flags.warpDown ? 'Warp drive is offline' : g.aboard ? `Leave with the ${g.aboard} you have aboard` : 'Leave the Maru behind', done: g.flags.warpDown },
-    { id: 'surrender', label: 'Offer surrender', sub: g.flags.surrendered ? 'They refused' : 'Ask them to take prisoners', done: g.flags.surrendered },
+    { id: 'surrender', label: 'Offer surrender', sub: g.flags.surrendered ? (g.rewritten ? 'They want no prisoners' : 'They refused') : 'Ask them to take prisoners', done: g.flags.surrendered },
   ];
   if (g.hull <= ABANDON_HULL) list.push({ id: 'abandon', label: 'Abandon ship', sub: 'Crew to the lifeboats, set the self-destruct', danger: true });
   return list;
@@ -72,7 +72,10 @@ export function act(g, id) {
   if (g.where === 'outside') {
     if (id === 'hail-maru') {
       g.flags.hailedMaru = true;
-      say('Kobayashi Maru', 'This is the Kobayashi Maru. We’ve struck a gravitic mine and lost all power. Hull breached, 381 aboard, life support failing. Please help us.');
+      // In the reprogrammed simulator the Maru's air holds, and she says so: waiting out here costs nobody.
+      say('Kobayashi Maru', g.rewritten
+        ? 'This is the Kobayashi Maru. We’ve struck a gravitic mine and lost all power. Hull breached, 381 aboard. Life support is holding, for now. Please help us.'
+        : 'This is the Kobayashi Maru. We’ve struck a gravitic mine and lost all power. Hull breached, 381 aboard, life support failing. Please help us.');
     } else if (id === 'starfleet') {
       g.flags.calledStarfleet = true;
       say('Starfleet Command', 'The Maru is inside the Neutral Zone. Entering it violates the treaty with the Klingon Empire. Proceed at your discretion.');
@@ -97,7 +100,9 @@ export function act(g, id) {
         : 'Federation ship, you have violated the treaty. Leave Klingon space or be destroyed.', 'klingon');
       return { events, lines };
     }
-    lifeSupport(g, LIFE_SUPPORT, say);
+    // The cadet who rewrote the conditions took the Maru's failing air out with the Klingons' guns:
+    // otherwise asking first, which the examiner praises, would quietly put the one win out of reach.
+    if (!g.rewritten) lifeSupport(g, LIFE_SUPPORT, say);
     return { events, lines };
   }
 
@@ -156,7 +161,7 @@ export function act(g, id) {
   } else if (id === 'surrender') {
     g.flags.surrendered = true;
     say('Communications', 'Offering our surrender on all frequencies.');
-    say('Klingon commander', 'Klingons do not take prisoners from cowards.', 'klingon');
+    say('Klingon commander', g.rewritten ? 'We have no quarrel with you today. Take your people.' : 'Klingons do not take prisoners from cowards.', 'klingon');
   } else if (id === 'abandon') {
     g.over = 'abandoned';
     events.push({ type: 'abandon' });
@@ -336,7 +341,7 @@ export function evaluate(g) {
     { name: 'Compassion', score: clamp(compassion), why: !went ? 'You never went to them.' : g.beamedEver ? `You brought ${people(g.beamedEver)} off the Maru${g.over === 'destroyed' ? ', though they died with your ship' : ''}.` : 'You went in, but nobody came off the Maru.' },
     { name: 'Judgment', score: clamp(judgment), why: `${Math.round(kept * 100)}% of the ${(CREW + MARU).toLocaleString('en-US')} lives in your hands came through${prisoners ? ', as prisoners' : ''}.` },
     { name: 'Restraint', score: clamp(restraint), why: !went ? 'You never broke the treaty.' : f.firedFirst ? 'You fired the first shot.' : f.hailedKlingons ? 'You talked before you shot.' : f.playerFired ? 'You fired only after they did.' : 'You never fired a shot.' },
-    { name: 'Nerve', score: clamp(nerve), why: !went ? 'You decided from a safe distance.' : g.over === 'warp' ? `You held for ${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'} under their guns, then ran.` : g.over === 'abandoned' ? 'You were the last off the ship.' : `You held your post for ${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'}, to the end.` },
+    { name: 'Nerve', score: clamp(nerve), why: !went ? 'You decided from a safe distance.' : g.over === 'warp' ? (f.klingonsFired ? `You held for ${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'} under their guns, then ran.` : `You stayed ${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'} alongside the Maru, and nobody fired.`) : g.over === 'abandoned' ? 'You were the last off the ship.' : `You held your post for ${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'}, to the end.` },
   ].map(x => ({ ...x, letter: letter(x.score) }));
   if (g.rewritten) grades.push(honesty);
 
@@ -347,7 +352,7 @@ export function evaluate(g) {
   if (f.firedFirst) note.push('Your phasers opened the battle. To the Klingons, that was the Federation declaring war.');
   else if (f.held) note.push('Talking first bought you one quiet turn.');
   if (f.beamedUnderFire) note.push(`You dropped your shields ${f.beamedUnderFire === 1 ? 'once' : f.beamedUnderFire === 2 ? 'twice' : `${f.beamedUnderFire} times`} to bring people across, and your own crew paid for it. That trade is the test.`);
-  if (f.surrendered) note.push('You offered to surrender. In this simulation the Klingons never accept.');
+  if (f.surrendered) note.push(g.rewritten ? 'You offered to surrender to ships you had told not to fire.' : 'You offered to surrender. In this simulation the Klingons never accept.');
   if (afterMaru > 1 && g.over === 'destroyed') note.push(`You stayed ${afterMaru} turns after the Maru was gone, with nothing left to save.`);
   if (g.over === 'stayed') note.push('Some captains would call it the only sane choice. The board wants to know if you could live with it.');
 
