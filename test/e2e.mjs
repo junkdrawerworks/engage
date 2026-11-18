@@ -1913,6 +1913,102 @@ await page.emulateMedia({ reducedMotion: null });
   await odd.close();
 }
 
+// First contact by keyboard, start to finish. The notebook used to be built again at every guess and every turn, so
+// one press of the down arrow on a meaning menu chose "Hello, meeting" and dropped the keyboard's place to the page:
+// the second meaning couldn't be reached. Say it and Send dropped it too. The channel was rewritten at each line, so
+// a screen reader read the conversation from the top every time, and never heard their patience, which is drawn.
+{
+  const keys = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+  const p = await keys.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  const settled = () => p.waitForFunction(() => !window.contact.busy);
+  const at = () => p.evaluate(() => {
+    const a = document.activeElement;
+    return !a || a === document.body ? 'the page' : a.id || `${a.closest('li')?.dataset.id || ''} ${a.className || a.tagName.toLowerCase()}`.trim();
+  });
+  await p.focus('#start');
+  await p.keyboard.press('Enter');
+  await settled();
+  assert.equal(await at(), 'listen', 'answering the hail left the keyboard nowhere');
+  // The picture parts say what they show.
+  assert.equal(await p.getByRole('img', { name: 'Their patience: 5 of 5' }).count(), 1, 'their patience has no name a screen reader can read');
+  assert.equal(await p.getByRole('img', { name: /^Viewscreen: their captain, calm\.$/ }).count(), 1, 'the viewscreen doesn’t say what it shows');
+  // From here on, count what is added to the channel and what is taken out of it.
+  await p.evaluate(() => {
+    window.channel = { added: 0, removed: 0 };
+    new MutationObserver(all => { for (const m of all) if (m.target.id === 'comms') { window.channel.added += m.addedNodes.length; window.channel.removed += m.removedNodes.length; } })
+      .observe(document.getElementById('comms'), { childList: true });
+  });
+  const lines = await p.locator('#comms > p').count();
+  const first = await p.evaluate(() => document.querySelector('#book li').dataset.id);
+  await p.locator('#book select').first().focus();
+  await p.keyboard.press('ArrowDown');
+  assert.equal(await p.locator('#book select').first().inputValue(), 'meet');
+  assert.equal(await at(), `${first} select`.replace('select', 'tagged'), 'one press of the down arrow threw the keyboard out of the notebook');
+  await p.keyboard.press('ArrowDown');
+  assert.equal(await p.locator('#book select').first().inputValue(), 'we', 'the second meaning on the menu can’t be reached with the arrow keys');
+  assert.equal(await at(), `${first} tagged`);
+  assert.equal(await p.locator(`#comms .ph[data-id="${first}"] small`).first().innerText(), 'We, us?', 'the guess does not show on the channel');
+  assert.equal(await p.locator('#book-n').innerText(), '1 of 2 guessed');
+  assert.deepEqual(await p.evaluate(() => window.channel), { added: 0, removed: 0 }, 'a guess in the notebook rewrote the channel');
+  // The menu's first line fits the menu: "What does it mean?" was cut off at this width.
+  const fits = await p.evaluate(() => {
+    const s = document.querySelectorAll('#book select')[1], g = document.createElement('canvas').getContext('2d');
+    g.font = getComputedStyle(s).font;
+    return [s.options[0].text, g.measureText(s.options[0].text).width < s.clientWidth - 40];
+  });
+  assert.deepEqual(fits, ['Meaning?', true]);
+  // Say it keeps the keyboard on the phrase, which is marked as used and can't be said twice.
+  await p.locator('#book .ph-add').nth(1).focus();
+  await p.keyboard.press('Enter');
+  assert.equal(await p.locator('#reply li').count(), 1);
+  assert.match(await at(), / ph-add$/, 'Say it dropped the keyboard’s place');
+  assert.equal(await p.evaluate(() => document.activeElement.getAttribute('aria-disabled')), 'true');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.locator('#reply li').count(), 1, 'a phrase already in the reply was added again');
+  // Send moves on to Listen again. "We" is no answer to hello: their patience drops, and the channel says so in words.
+  await p.focus('#send');
+  await p.keyboard.press('Enter');
+  assert.equal(await at(), 'listen', 'Send dropped the keyboard’s place');
+  await settled();
+  assert.equal(await p.getByRole('img', { name: 'Their patience: 4 of 5' }).count(), 1);
+  assert.equal(await p.locator('#comms > p.sr').last().textContent(), 'Their patience: 4 of 5.', 'the channel did not say their patience dropped');
+  const now = await p.locator('#comms > p').count();
+  assert.deepEqual(await p.evaluate(() => window.channel), { added: now - lines, removed: 0 }, 'the channel was rewritten, not added to');
+  assert.equal(await p.evaluate(() => document.querySelectorAll('#book li').length), new Set(await p.evaluate(() => [...document.querySelectorAll('#book li')].map(li => li.dataset.id))).size);
+  // Taking a phrase out of the reply, and Clear, hand the keyboard on too.
+  await p.locator('#book .ph-add').nth(0).focus();
+  await p.keyboard.press('Enter');
+  await p.locator('#book .ph-add').nth(1).focus();
+  await p.keyboard.press('Enter');
+  await p.locator('#reply button').first().focus();
+  await p.keyboard.press('Enter');
+  assert.match(await p.evaluate(() => document.activeElement.getAttribute('aria-label')), /^Take “.*” out$/, 'taking a phrase out dropped the keyboard’s place');
+  await p.keyboard.press('Enter');
+  assert.match(await at(), / ph-add$/);
+  assert.equal(await p.locator('#reply li').count(), 0);
+  // The rest of the encounter, with nothing but the keyboard: after every key the keyboard is somewhere.
+  for (let n = 0; n < 25 && !(await p.evaluate(() => window.contact.game.over)); n++) {
+    const id = await p.evaluate(() => window.contact.hint());
+    await p.locator(`#book li[data-id="${id}"] .ph-add`).focus();
+    await p.keyboard.press('Enter');
+    assert.notEqual(await at(), 'the page');
+    await p.focus('#send');
+    await p.keyboard.press('Enter');
+    assert.notEqual(await at(), 'the page', 'Send dropped the keyboard’s place');
+    await settled();
+    assert.notEqual(await at(), 'the page', 'the keyboard’s place was lost when their answer came');
+  }
+  assert.equal(await p.evaluate(() => window.contact.game.over), 'contact');
+  assert.equal(await at(), 'send', 'the end of the encounter left the keyboard nowhere');
+  assert.equal(await p.evaluate(() => window.channel.removed), 0);
+  await p.keyboard.press('Enter');
+  assert.equal(await p.locator('#eval-title').innerText(), 'First contact');
+  await keys.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

@@ -1,6 +1,6 @@
 // First contact: the page. The rules and the language are in contact-sim.js and the viewscreen in contact-art.js;
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
-import { newGame, act, debrief, fluencyOf, hint, phrase, standing, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, phrase, standing, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -79,10 +79,14 @@ function start(seed = Date.now()) {
   shown = 0;
   logged = 0;
   lastEval = null;
+  patienceSaid = g.patience;
   $('comms').innerHTML = '';
+  $('book').innerHTML = '';
   $('subtitle').innerHTML = '';
   showScreen('sim');
   play(g.log.slice());
+  // With a keyboard, the encounter starts where the first thing to do is: listening again.
+  $('listen').focus({ preventScroll: true });
 }
 
 // ---------- Each exchange ----------
@@ -106,8 +110,26 @@ function play(lines) {
     busy = false;
     renderLog();
     update();
+    sayPatience();
     if (g.over) record();
+    // The buttons a finished encounter switches off can't hold the keyboard's place: Read the debrief takes it.
+    if (g.over && lostFocus()) $('send').focus({ preventScroll: true });
   }, fast ? 0 : t + 200);
+}
+
+// Whether the keyboard's place has gone with a control that was switched off or taken away.
+const lostFocus = () => !document.activeElement || document.activeElement === document.body || document.activeElement.disabled;
+
+// The dots over the viewscreen are a picture. When one goes out, the channel says so in words, for a screen reader:
+// their patience is the one thing that can end the encounter, and it used to go unread.
+let patienceSaid = PATIENCE;
+function sayPatience() {
+  if (g.patience >= patienceSaid) return;
+  patienceSaid = g.patience;
+  const p = document.createElement('p');
+  p.className = 'sr';
+  p.textContent = `Their patience: ${g.patience} of ${PATIENCE}.`;
+  $('comms').append(p);
 }
 
 // Their captain says a line: subtitles, a moving mouth and a few tones.
@@ -122,6 +144,8 @@ function send() {
   const said = reply;
   reply = [];
   bringIntoView(document.querySelector('.screen-wrap'));
+  // Send switches itself off until there is a reply again, so the keyboard's place moves on to Listen again.
+  if (document.activeElement === $('send')) $('listen').focus({ preventScroll: true });
   play(act(g, { say: said }));
 }
 
@@ -142,6 +166,7 @@ function update() {
   const over = !!(g && g.over);
   $('patience').innerHTML = Array.from({ length: PATIENCE }, (_, i) => `<i${i >= g.patience ? ' class="gone"' : ''}></i>`).join('');
   $('patience').setAttribute('aria-label', `Their patience: ${g.patience} of ${PATIENCE}`);
+  describeScreen();
   $('who-tag').textContent = over ? (g.over === 'contact' ? `The ${g.lang.people}` : 'Channel closed') : 'Unknown vessel';
   document.querySelector('.side').classList.toggle('busy', busy);
   $('shields').textContent = g.shields ? 'Lower shields' : 'Raise shields';
@@ -158,48 +183,95 @@ function update() {
   renderBook();
 }
 
+const guessOf = id => (g.tags[id] ? `${MEANING[g.tags[id]]}?` : '');
+
 function renderReply() {
-  $('reply').innerHTML = reply.map((id, i) => `<li><span class="t">“${esc(phrase(g, id))}”${g.tags[id] ? `<small>${esc(MEANING[g.tags[id]])}?</small>` : ''}</span>
-    <button type="button" data-i="${i}" aria-label="Take it out">${X}</button></li>`).join('');
+  $('reply').innerHTML = reply.map((id, i) => `<li><span class="t" data-id="${id}">“${esc(phrase(g, id))}”${g.tags[id] ? `<small>${esc(guessOf(id))}</small>` : ''}</span>
+    <button type="button" data-i="${i}" aria-label="Take “${esc(phrase(g, id))}” out">${X}</button></li>`).join('');
   $('reply-empty').hidden = reply.length > 0 || g.over;
   $('clear').hidden = reply.length < 2;
 }
 
-let bookSize = 0;
+// The notebook, brought up to date in place: a row is made once, when its phrase is first heard, and after that only
+// what has changed in it is touched. It used to be built again from nothing at every turn and every guess, which
+// threw away whichever menu or button had the keyboard's place (one press of the down arrow on a menu, and the next
+// press went to the page), and left a screen reader at the top of the page.
+const OPTIONS = `<option value="">Meaning?</option>${MEANINGS.map(([id, label]) => `<option value="${id}">${esc(label)}</option>`).join('')}`;
 function renderBook() {
   // Only what's been heard on screen so far, so new phrases turn up as they're said.
   const said = new Set(g.log.slice(0, shown).flatMap(l => (l.who === 'them' ? l.ids : [])));
   const heard = g.heard.filter(id => id !== 'story' && said.has(id));
   const count = id => g.log.slice(0, shown).reduce((n, l) => n + (l.who === 'them' ? l.ids.filter(x => x === id).length : 0), 0);
-  const full = reply.length >= MAX_REPLY || g.over || busy;
-  const opts = `<option value="">What does it mean?</option>${MEANINGS.map(([id, label]) => `<option value="${id}">${esc(label)}</option>`).join('')}`;
-  $('book').innerHTML = heard.map((id, i) => `<li${i >= bookSize && bookSize ? ' class="new"' : ''}>
-    <button class="ph-add" type="button" data-i="${i}"${full || reply.includes(id) ? ' disabled' : ''}><span class="t">“${esc(phrase(g, id))}”</span><span class="plus">${reply.includes(id) ? 'In reply' : 'Say it'}</span></button>
-    <select data-i="${i}" aria-label="What “${esc(phrase(g, id))}” means"${g.tags[id] ? ' class="tagged"' : ''}>${opts}</select>
-    <span class="ph-n">heard ${count(id)}×</span></li>`).join('');
-  $('book').querySelectorAll('select').forEach(s => { s.value = g.tags[heard[+s.dataset.i]] || ''; });
-  $('book').dataset.ids = heard.join(' ');
-  bookSize = heard.length;
+  const full = reply.length >= MAX_REPLY || !!g.over || busy;
+  const book = $('book');
+  const rows = new Map([...book.children].map(li => [li.dataset.id, li]));
+  const some = rows.size > 0;
+  for (const id of heard) {
+    let li = rows.get(id);
+    if (li) li.classList.remove('new');
+    else {
+      li = document.createElement('li');
+      li.dataset.id = id;
+      if (some) li.className = 'new';
+      li.innerHTML = `<button class="ph-add" type="button"><span class="t">“${esc(phrase(g, id))}”</span><span class="plus"></span></button>
+        <select aria-label="What “${esc(phrase(g, id))}” means">${OPTIONS}</select><span class="ph-n"></span>`;
+      book.append(li);
+    }
+    // A phrase that can't be said just now is marked so and stays where the keyboard can rest on it: a button
+    // switched off outright drops the keyboard's place, and Say it would have done that to itself.
+    const off = full || reply.includes(id);
+    const add = li.querySelector('.ph-add'), plus = li.querySelector('.plus'), menu = li.querySelector('select'), n = li.querySelector('.ph-n');
+    if (off) add.setAttribute('aria-disabled', 'true'); else add.removeAttribute('aria-disabled');
+    setText(plus, reply.includes(id) ? 'In reply' : 'Say it');
+    setText(n, `heard ${count(id)}×`);
+    if (menu.value !== (g.tags[id] || '')) menu.value = g.tags[id] || '';
+    menu.classList.toggle('tagged', !!g.tags[id]);
+  }
   const tagged = heard.filter(id => g.tags[id]).length;
-  $('book-n').textContent = heard.length ? `${tagged} of ${heard.length} guessed` : '';
+  setText($('book-n'), heard.length ? `${tagged} of ${heard.length} guessed` : '');
 }
-const bookIds = () => ($('book').dataset.ids || '').split(' ').filter(Boolean);
+const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
 
+// The channel, added to and never rewritten: a screen reader reads a new line once, and not the whole conversation
+// from the top each time something is said or guessed.
 let logged = 0;
 function renderLog() {
   const box = $('comms');
-  const fresh = i => (i >= logged ? ' fresh' : '');
-  const tag = id => (g.tags[id] ? `<small>${esc(MEANING[g.tags[id]])}?</small>` : '');
-  box.innerHTML = g.log.slice(0, shown).map((l, i) => {
+  for (const l of g.log.slice(logged, shown)) {
+    const p = document.createElement('p');
     if (l.ids) {
-      const who = l.who === 'them' ? 'Their captain' : 'You';
-      const words = l.ids.map(id => `<span class="ph">“${esc(phrase(g, id))}”${id === 'story' ? '' : tag(id)}</span>`).join(' ');
-      return `<p class="line ${l.who}${fresh(i)}"><span class="who">${who}</span>${words}${l.act ? `<span class="act">${esc(l.act)}</span>` : ''}</p>`;
+      const words = l.ids.map(id => `<span class="ph"${id === 'story' ? '' : ` data-id="${id}"`}>“${esc(phrase(g, id))}”</span>`).join(' ');
+      p.className = `line ${l.who} fresh`;
+      p.innerHTML = `<span class="who">${l.who === 'them' ? 'Their captain' : 'You'}</span>${words}${l.act ? `<span class="act">${esc(l.act)}</span>` : ''}`;
+    } else {
+      p.className = `line${l.tone ? ` ${l.tone}` : ''} fresh`;
+      p.innerHTML = `<span class="who">${esc(l.who)}</span>${esc(l.text)}`;
     }
-    return `<p class="line${l.tone ? ` ${l.tone}` : ''}${fresh(i)}"><span class="who">${esc(l.who)}</span>${esc(l.text)}</p>`;
-  }).join('');
-  logged = shown;
+    box.append(p);
+  }
+  logged = Math.max(logged, shown);
+  showGuesses();
   box.scrollTop = box.scrollHeight;
+  renderBook();
+  describeScreen();
+}
+
+// Your guess at a phrase, in small letters after it wherever it is on screen: in the channel and in your reply. Only
+// the guess that changed is touched.
+function showGuesses() {
+  for (const el of document.querySelectorAll('#comms .ph[data-id], #reply .t[data-id]')) {
+    const text = guessOf(el.dataset.id);
+    let small = el.querySelector('small');
+    if (!text) { small?.remove(); continue; }
+    if (!small) { small = document.createElement('small'); el.append(small); }
+    setText(small, text);
+  }
+}
+
+// A guess written in the notebook (or rubbed out).
+function guess(id, meaning) {
+  if (meaning) g.tags[id] = meaning; else delete g.tags[id];
+  showGuesses();
   renderBook();
 }
 
@@ -246,6 +318,15 @@ function sizeScreen() {
 }
 addEventListener('resize', () => { if (!$('sim').hidden) sizeScreen(); });
 
+// The viewscreen is a picture, so it says what it shows: their captain's mood, and the picture they send.
+const MOODS = { calm: 'calm', wary: 'wary, drawn back', glad: 'glad' };
+function describeScreen() {
+  const s = screenState(0);
+  const text = s.closed ? 'Viewscreen: the channel is closed. Stars.'
+    : `Viewscreen: their captain, ${MOODS[s.mood]}${s.pic ? `. Beside ${g.lang.him}, a picture they are sending: ${DANGERS[s.pic].pic}` : ''}.`;
+  if (canvas.getAttribute('aria-label') !== text) canvas.setAttribute('aria-label', text);
+}
+
 function screenState(now) {
   const said = g.log.slice(0, shown).filter(l => l.who === 'them');
   const last = said[said.length - 1];
@@ -274,7 +355,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 $('start').addEventListener('click', () => start());
 $('again').addEventListener('click', showBrief);
 $('send').addEventListener('click', () => (g && g.over ? showEval() : send()));
-$('clear').addEventListener('click', () => { reply = []; update(); });
+// Clear goes away with the reply it cleared, and a phrase taken out takes its button with it: the keyboard's place
+// goes to what is left of the reply, or back to the notebook.
+const firstPhrase = () => $('book').querySelector('.ph-add');
+$('clear').addEventListener('click', () => { reply = []; update(); firstPhrase()?.focus({ preventScroll: true }); });
 $('listen').addEventListener('click', () => doAct('listen'));
 $('standard').addEventListener('click', () => doAct('standard'));
 $('shields').addEventListener('click', () => doAct('shields'));
@@ -282,24 +366,20 @@ $('leave').addEventListener('click', () => doAct('leave'));
 $('reply').addEventListener('click', e => {
   const b = e.target.closest('button[data-i]');
   if (!b || busy) return;
-  reply.splice(+b.dataset.i, 1);
+  const [id] = reply.splice(+b.dataset.i, 1);
   update();
+  ($('reply').querySelector(`button[data-i="${Math.min(+b.dataset.i, reply.length - 1)}"]`) || $('book').querySelector(`li[data-id="${id}"] .ph-add`))?.focus({ preventScroll: true });
 });
 $('book').addEventListener('click', e => {
   const b = e.target.closest('.ph-add');
-  if (!b || b.disabled || busy) return;
-  const id = bookIds()[+b.dataset.i];
+  if (!b || b.getAttribute('aria-disabled') === 'true' || busy) return;
+  const id = b.closest('li').dataset.id;
   if (id && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id);
   update();
 });
 $('book').addEventListener('change', e => {
   const s = e.target.closest('select');
-  if (!s) return;
-  const id = bookIds()[+s.dataset.i];
-  if (!id) return;
-  if (s.value) g.tags[id] = s.value; else delete g.tags[id];
-  renderLog();
-  renderReply();
+  if (s) guess(s.closest('li').dataset.id, s.value);
 });
 
 // Another tab has finished an encounter: the record here is what that tab saved, so an encounter finished here is
@@ -317,6 +397,6 @@ window.contact = {
   // Puts phrases in the reply by meaning, as if tapped in the notebook.
   pick(...ids) { for (const id of ids) if (g.heard.includes(id) && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id); update(); },
   hint: () => hint(g),
-  tag(id, guess) { if (guess) g.tags[id] = guess; else delete g.tags[id]; renderLog(); renderReply(); },
+  tag: guess,
   debrief: () => debrief(g),
 };

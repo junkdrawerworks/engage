@@ -32,7 +32,6 @@ body.maru.red { background: radial-gradient(ellipse at 50% -10%, #4a1016 0%, var
 .record .endings { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .record .endings li { display: block; padding: 6px 11px; border: 1px dashed var(--line-strong); border-radius: 999px; font: 600 13px/1.2 var(--display); letter-spacing: 0.03em; color: var(--dim); min-width: 44px; text-align: center; }
 .record .endings li.seen { border-style: solid; border-color: rgba(134, 216, 255, 0.45); color: var(--cyan); background: rgba(134, 216, 255, 0.06); }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .record .best { margin: 8px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .best span { display: grid; justify-items: center; gap: 3px; padding: 8px 2px; border: 1px solid var(--line); border-radius: 12px; font: 600 10px/1.2 var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-width: 0; }
 .best b { font: 600 24px/1 var(--display); color: var(--dim); }
