@@ -327,6 +327,17 @@ const wrong = await page.evaluate(() => survey.world.choices.find(c => c.id !== 
 await page.click(`#choices [data-id="${wrong}"]`);
 assert.match(await text('#verdict-head'), /wouldn’t fool anyone/);
 assert.match(await text('#score'), /streak 0 · best 1/i);
+// A long sitting: 60 more worlds. Each quiz world is painted for itself and let go with it, so the painted maps
+// kept for good stay at the 17 survey files' own (two sizes each) however long the quiz runs.
+for (let n = 0; n < 60; n++) {
+  await page.click('#drill-next');
+  await page.evaluate(() => survey.answer(survey.world.cls.id));
+  if (n % 20 === 0) await page.waitForTimeout(400); // let a sharp map finish painting now and then, as it would at a person's pace
+}
+const kept = await page.evaluate(() => survey.cached);
+assert.ok(kept <= 34, `the quiz left ${kept} painted maps behind after 62 questions`);
+assert.match(await text('#score'), /streak 60 · best 60/i);
+world = await page.evaluate(() => survey.world.cls.id);
 await page.click('#verdict-file');
 assert.equal(await shown('#files'), true, 'reading the file did not open it');
 assert.equal(await page.evaluate(() => location.hash.slice(1)), world);

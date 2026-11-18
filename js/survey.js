@@ -82,8 +82,19 @@ function mapFor(art, seed, w) {
 }
 
 // Shows a world quickly in a rough map, then swaps in a sharp one once it's painted.
-async function show(target, art, seed) {
+// The survey files have fixed seeds, so their maps are kept in `maps` for good: 17 worlds, two sizes each.
+// A quiz world is a one-off with a seed of its own, so its maps ride on the world itself (`holder`) and go when the
+// next one is made. Kept in `maps`, every question left about a megabyte behind.
+async function show(target, art, seed, holder = null) {
   const id = ++paintId;
+  if (holder) {
+    holder.rough ||= paint(art, seed, 128);
+    target.setMap(holder.sharp || holder.rough);
+    if (holder.sharp) return;
+    const map = await paintSoon(art, seed, 512, () => id !== paintId);
+    if (map) { holder.sharp = map; target.setMap(map); }
+    return;
+  }
   target.setMap(mapFor(art, seed, 128));
   const sharp = `${art}:${seed}:512`;
   if (maps.has(sharp)) { target.setMap(maps.get(sharp)); return; }
@@ -197,6 +208,7 @@ function newWorld() {
     mass: between(t.mass, wide(t.mass)),
     temp: between(t.temp, wide(t.temp)),
     year: t.year ? between(t.year, wide(t.year)) : null,
+    maps: {}, // its two painted maps, dropped with it
     survey: `${pick(['Unlogged world', 'Unnamed planet', 'Uncharted world'])} · Sector ${100 + Math.floor(Math.random() * 900)}`,
   };
   // Three other files to choose from: at least one that's easy to confuse with it.
@@ -210,7 +222,7 @@ function renderDrill() {
   const w = drill;
   const c = w.cls, t = c.typical;
   const gas = GAS.has(c.art) && c.art !== 'venus';
-  show(drillGlobe, c.art, w.seed);
+  show(drillGlobe, c.art, w.seed, w.maps);
   $('drill-tag').textContent = w.survey;
   const rows = [
     ['Width', widthText(w.width)],
@@ -363,4 +375,4 @@ bind();
 fromHash();
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, get world() { return drill; }, answer };
+window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, get world() { return drill; }, answer, get cached() { return maps.size; } };
