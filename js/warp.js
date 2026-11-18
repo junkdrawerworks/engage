@@ -5,6 +5,7 @@ import {
   LANES, GROUPS, PLACES, byId, distanceLy, laneSpeed, tripYears, raceClock,
   formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt,
 } from './warp-scale.js';
+import { hold, release } from './wake.js';
 
 const KEY = 'engage.warp.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -129,6 +130,8 @@ function freeze(s) {
 function setButton() {
   const b = $('go');
   b.textContent = race && !race.done ? 'Skip ahead' : race?.done ? 'Race again' : 'Engage';
+  // A race is watched, not touched: the screen stays awake until it ends, is skipped, or another place is picked.
+  if (race && !race.done && !race.frozen) hold(); else release();
 }
 
 function note(text) {

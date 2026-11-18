@@ -150,7 +150,7 @@ console.log(`dist/missions.html: ${(missionsOut.length / 1024).toFixed(0)} KB`);
 
 // Tonight's sky, as its own single file, with the stars inline. Links back to the bridge go to the live site.
 const tonightHtml = await read('tonight.html');
-const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'log', 'catalog', 'tonight'], (name, src) =>
+const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'log', 'catalog', 'wake', 'tonight'], (name, src) =>
   src.replace("const BRIDGE = './';", `const BRIDGE = '${LIVE}';`));
 const tonightOut = `<title>Tonight’s sky</title>
 <meta name="theme-color" content="#05070d">
@@ -211,7 +211,7 @@ console.log(`dist/contact.html: ${(contactOut.length / 1024).toFixed(0)} KB`);
 
 // The warp scale, as its own single file. Links back to the bridge go to the live site.
 const warpHtml = await read('warp.html');
-const warpJs = await bundle(['physics', 'ephemeris', 'warp-scale', 'warp'], (name, src) =>
+const warpJs = await bundle(['physics', 'ephemeris', 'warp-scale', 'wake', 'warp'], (name, src) =>
   src.replace("const BRIDGE = './';", `const BRIDGE = '${LIVE}';`));
 const warpOut = `<title>Warp scale</title>
 <meta name="theme-color" content="#05070d">

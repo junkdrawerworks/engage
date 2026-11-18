@@ -970,6 +970,58 @@ await bridgeReady();
   await old.close();
 }
 
+// The screen stays awake while the phone is pointed at the sky, and while a warp-scale race runs, and not otherwise.
+// (Headless Chromium has no screen to keep awake, so the browser's wake lock is stood in for: it counts what is
+// asked of it.)
+{
+  const awake = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await awake.addInitScript(() => {
+    window.wake = { asked: 0, held: 0, last: null };
+    if (window.DeviceOrientationEvent) DeviceOrientationEvent.requestPermission = async () => 'granted'; // as on a phone that has said yes
+    Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { request: async type => {
+      if (type !== 'screen') throw new Error('not a screen lock');
+      const lock = new EventTarget();
+      lock.release = async () => { if (lock.gone) return; lock.gone = true; window.wake.held--; lock.dispatchEvent(new Event('release')); };
+      window.wake.asked++; window.wake.held++; window.wake.last = lock;
+      return lock;
+    } } });
+  });
+  const p = await awake.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const wake = async () => { await p.waitForTimeout(50); return p.evaluate(() => [window.wake.asked, window.wake.held]); };
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  assert.deepEqual(await wake(), [0, 0], 'the screen is kept awake before anything asked for it');
+  await p.click('#sensors');
+  await p.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: 270, beta: 60, gamma: 0, absolute: true })));
+  assert.equal(await p.locator('#sensors').innerText(), 'STOP');
+  assert.deepEqual(await wake(), [1, 1], 'Point your phone did not keep the screen awake');
+  // The browser lets go of the lock when the page is hidden; back on screen, it is asked for again.
+  await p.evaluate(() => { window.wake.last.release(); document.dispatchEvent(new Event('visibilitychange')); });
+  assert.deepEqual(await wake(), [2, 1], 'the screen was not kept awake again after coming back to the page');
+  await p.click('#sensors');
+  assert.deepEqual(await wake(), [2, 0], 'Stop left the screen held awake');
+  await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  assert.deepEqual(await wake(), [2, 0], 'coming back to the page kept the screen awake with the sensors off');
+  // With no compass to read, pointing gives up after a moment, and lets the screen go with it.
+  await p.click('#sensors');
+  assert.deepEqual(await wake(), [3, 1]);
+  await p.waitForFunction(() => document.getElementById('sensors').hidden, null, { timeout: 6000 });
+  assert.deepEqual(await wake(), [3, 0], 'the screen stayed awake after pointing gave up');
+
+  await p.goto(base + 'warp.html');
+  await p.waitForFunction(() => window.warpScale);
+  assert.deepEqual(await wake(), [0, 0]);
+  await p.click('#go');
+  assert.deepEqual(await wake(), [1, 1], 'a race did not keep the screen awake');
+  await p.click('#go'); // skip ahead
+  assert.deepEqual(await wake(), [1, 0], 'the screen stayed awake after the race');
+  await p.click('#go'); // race again
+  await p.locator('.rung[data-id="vulcan"]').click();
+  assert.deepEqual(await wake(), [2, 0], 'picking another place left the screen held awake');
+  await awake.close();
+}
+
 // The xenobiology lab: reached from the bridge, a creature grown for a class, kept in a jar, and reached from a survey file.
 await Promise.all([page.waitForNavigation(), page.click('#open-xeno')]);
 await page.waitForFunction(() => window.xeno?.current);

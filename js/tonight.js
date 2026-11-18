@@ -10,6 +10,7 @@ import {
   jdOf, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark,
   phonePose, SKIES, NAKED_EYE_PLANETS,
 } from './astro.js';
+import { hold, release } from './wake.js';
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -813,6 +814,7 @@ async function toggleSensors() {
     } catch { noSensors(); return; }
   }
   sensing = true; gotReading = false; compassOffset = null; pose = null;
+  hold(); // a phone held up to the sky isn't being touched, and would dim and lock in half a minute
   window.addEventListener('deviceorientationabsolute', onAbsolute);
   window.addEventListener('deviceorientation', onOrient);
   $('sensors').textContent = 'Stop';
@@ -823,6 +825,7 @@ async function toggleSensors() {
 
 function stopSensors() {
   sensing = false;
+  release();
   window.removeEventListener('deviceorientationabsolute', onAbsolute);
   window.removeEventListener('deviceorientation', onOrient);
   if (pose) { const { alt, az } = altAz(basis().f); view.alt = alt; view.az = az; }
