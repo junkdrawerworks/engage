@@ -196,6 +196,42 @@ test('the reprogrammed Klingons answer a surrender in character, and Nerve does 
   assert.ok(act(play(['enter']), 'surrender').lines.some(l => /cowards/.test(l.text)));
 });
 
+test('abandoning ship with nobody beamed over doesn\'t count "0 from the Maru"', () => {
+  const g = newGame({ seed: 7 });
+  act(g, 'enter');
+  while (!g.over && !orders(g).some(o => o.id === 'abandon')) act(g, 'evade');
+  act(g, 'abandon');
+  const e = evaluate(g);
+  assert.equal(e.title, 'Last off the ship');
+  assert.equal(e.numbers.maruSaved, 0);
+  assert.match(e.summary, /^\d+ of your crew are alive, as prisoners of the Klingon Empire\. Nobody from the Maru is with them\.$/);
+});
+
+// 2,000 cadets giving orders at random. After every order, everyone who was aboard the Maru is somewhere: still
+// aboard her, aboard your ship, or lost when her life support failed. And no debrief counts nothing ("and 0 from the
+// Maru"), counts one in the plural, or has a hole in it.
+test('nobody goes missing, and no debrief reads wrong, however the orders fall', () => {
+  let a = 2026;
+  const rand = () => { a = (a * 1103515245 + 12345) & 0x7fffffff; return a / 0x7fffffff; };
+  let ended = 0;
+  for (let seed = 1; seed <= 2000; seed++) {
+    const g = newGame({ seed, rewritten: seed % 7 === 0 });
+    while (!g.over && g.turn < 80) {
+      const open = orders(g).filter(o => !o.done);
+      const order = open[Math.floor(rand() * open.length)].id;
+      act(g, order);
+      assert.equal(g.maru.aboard + g.aboard + g.lifeSupportLost, MARU, `seed ${seed}, after ${order} on turn ${g.turn}: ${g.maru.aboard} on the Maru, ${g.aboard} aboard, ${g.lifeSupportLost} lost to life support`);
+    }
+    if (!g.over) continue;
+    ended++;
+    const e = evaluate(g);
+    for (const text of [e.summary, ...e.grades.map(x => x.why), ...e.note]) {
+      assert.doesNotMatch(text, /(^| )0 |undefined|NaN|\b1 (people|turns|cruisers|survivors)\b/, `seed ${seed}, ${e.title}: ${text}`);
+    }
+  }
+  assert.ok(ended > 1900, `only ${ended} of 2,000 simulations ended`);
+});
+
 test('every ending gets four grades and a note', () => {
   for (const plan of [['leave'], ['enter', 'warp'], ['enter', 'beam', 'beam', 'warp'], ['enter', 'beam', 'beam', 'abandon']]) {
     const e = evaluate(play(plan));

@@ -366,7 +366,7 @@ export function evaluate(g) {
     summary = maruLost ? `You brought ${people(g.aboard)} home from the Maru. ${maruLost} were lost${crew < CREW ? `, and ${CREW - crew} of your crew` : ''}.` : `You brought all ${MARU} of the Maru’s people home.`;
   }
   else if (g.over === 'warp') { title = 'Turned back'; summary = `You went in and came out with nobody. The Maru’s ${MARU} were lost${crew < CREW ? `, and ${CREW - crew} of your crew` : ''}.`; }
-  else if (g.over === 'abandoned') { title = 'Last off the ship'; summary = `${crew} of your crew and ${maruSaved} from the Maru are alive, as prisoners of the Klingon Empire.`; }
+  else if (g.over === 'abandoned') { title = 'Last off the ship'; summary = maruSaved ? `${crew} of your crew and ${maruSaved} from the Maru are alive, as prisoners of the Klingon Empire.` : `${crew} of your crew are alive, as prisoners of the Klingon Empire. Nobody from the Maru is with them.`; }
   else if (f.firedFirst && !f.hailedKlingons) { title = 'The war you started'; summary = `Your ship and all ${CREW} aboard were lost${g.aboard ? `, with ${g.aboard} you’d saved from the Maru` : ''}. The Maru’s ${MARU} were lost.`; }
   else if (g.beamedEver) { title = 'Died trying'; summary = `Your ship was destroyed with all ${CREW} aboard and the ${g.aboard} you’d brought over. The Maru’s ${MARU} were lost.`; }
   else if (g.kills >= 3) { title = 'Went down fighting'; summary = `You destroyed ${g.kills} cruisers before they destroyed you. All ${CREW} of your crew and the Maru’s ${MARU} were lost.`; }
