@@ -6,6 +6,8 @@
 // `worlds` are real planets; `star` is the host's name in data/stars.json, so Engage can set course for it, and then `ly`
 // is the catalogue's distance, as the helm gives it (test/physics.test.mjs checks they agree).
 
+import { massFor } from './physics.js';
+
 export const CLASSES = [
   {
     id: 'M', letter: 'M', name: 'Minshara class', short: 'Earth-like', art: 'earth',
@@ -220,6 +222,27 @@ export const byId = new Map(CLASSES.map(c => [c.id, c]));
 
 // "Class M", or the plain name for the kinds Starfleet never named.
 export const label = c => (c.letter ? `Class ${c.letter}` : c.name);
+
+// The readings of one made-up world of a class, for "cover your tracks": width, mass, temperature and year, each
+// drawn from the file's range. Width and mass go together, as they do for real planets: the mass is what a world that
+// wide would weigh (massFor in physics.js), give or take a fifth, kept inside the file's range. Without that a
+// planetoid could come out seven times as dense as Earth, denser than anything is. A gas giant barely changes width
+// as it gains mass, so those two are drawn apart for Class J, Class T and hot Jupiters. `rand` is Math.random.
+const GIANTS = new Set(['J', 'T', 'hot-jupiter']), GAS_LAYER = new Set(['sub-neptune', 'ice-giant']);
+export function quizReadings(c, rand = Math.random) {
+  const t = c.typical;
+  // A range that spans more than four times is drawn evenly by ratio, not by amount.
+  const between = ([a, b]) => (b / a > 4 ? Math.exp(Math.log(a) + rand() * (Math.log(b) - Math.log(a))) : a + rand() * (b - a));
+  const width = between(t.width);
+  let mass;
+  if (GIANTS.has(c.id)) mass = between(t.mass);
+  else {
+    // A rogue planet can be any size: past 1.6 Earth widths it would have kept a deep layer of gas.
+    const kind = GAS_LAYER.has(c.id) || (c.id === 'R' && width > 1.6) ? 'gas' : 'rock';
+    mass = Math.min(Math.max(massFor(width, kind) * (0.85 + rand() * 0.35), t.mass[0]), t.mass[1]);
+  }
+  return { width, mass, temp: between(t.temp), year: t.year ? between(t.year) : null };
+}
 
 // The survey files that mention a star, for Engage's log: [{ world, cls }].
 export function filesForStar(name) {

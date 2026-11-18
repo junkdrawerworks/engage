@@ -1,5 +1,5 @@
 // The planetary survey: flip through the planet classes, or match an unlogged world to the file it would pass for.
-import { CLASSES, byId, label } from './classes.js';
+import { CLASSES, byId, label, quizReadings } from './classes.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
 
 const KEY = 'engage.survey.v1';
@@ -54,7 +54,7 @@ function tempText(t, gas) {
   const where = gas ? 'at the cloud tops' : '';
   if (Array.isArray(t)) return `${range(t, x => Math.round(x).toLocaleString('en-US'))} K${where ? ` ${where}` : ''}`;
   const c = celsius(t);
-  return `${Math.round(t).toLocaleString('en-US')} K (${c.toLocaleString('en-US')} °C)${where ? ` ${where}` : ''}`;
+  return `${Math.round(t).toLocaleString('en-US')} K (${c < 0 ? '−' : ''}${Math.abs(c).toLocaleString('en-US')} °C)${where ? ` ${where}` : ''}`;
 }
 function days(d) {
   if (d < 1) return `${Math.round(d * 24)} hours`;
@@ -194,20 +194,14 @@ const GROUPS = [
 const groupOf = id => GROUPS.find(g => g.includes(id));
 const pick = list => list[Math.floor(Math.random() * list.length)];
 const shuffle = list => { for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; } return list; };
-const between = ([a, b], log) => (log ? Math.exp(Math.log(a) + Math.random() * (Math.log(b) - Math.log(a))) : a + Math.random() * (b - a));
 
 function newWorld() {
   let c;
   do c = pick(CLASSES); while (drill && c.id === drill.cls.id);
-  const t = c.typical;
-  const wide = r => r[1] / r[0] > 4;
   const world = {
     cls: c,
     seed: 1 + Math.floor(Math.random() * 9999),
-    width: between(t.width, wide(t.width)),
-    mass: between(t.mass, wide(t.mass)),
-    temp: between(t.temp, wide(t.temp)),
-    year: t.year ? between(t.year, wide(t.year)) : null,
+    ...quizReadings(c), // width, mass, temp and year
     maps: {}, // its two painted maps, dropped with it
     survey: `${pick(['Unlogged world', 'Unnamed planet', 'Uncharted world'])} · Sector ${100 + Math.floor(Math.random() * 900)}`,
   };

@@ -66,7 +66,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 
 - `js/app.js`: the bridge: helm, flight, looking around, the log and settings.
 - `js/sky.js`: the viewscreen in WebGL: stars, constellation lines, the Milky Way, star discs and warp streaks.
-- `js/physics.js`: warp speeds, brightness, colour and size of stars, trip times. Pure functions.
+- `js/physics.js`: warp speeds, brightness, colour and size of stars, trip times, and how heavy a planet of a given width is. Pure functions.
 - `js/log.js`: writes each captain’s log entry.
 - `js/wake.js`: keeps the screen awake while the phone is pointed at the sky, or a warp-scale race runs.
 - `js/share.js`: shares a link to a creature or a course: the phone’s share sheet, or else the link copied.

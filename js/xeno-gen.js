@@ -2,6 +2,7 @@
 // those conditions would push it toward, and the field notes that explain why. Pure, so test/xeno.test.mjs can run it.
 // The art is in js/xeno-art.js; this only decides what to draw.
 import { byId, label } from './classes.js';
+import { massFor } from './physics.js';
 
 // Where life could live on each kind of world, and what the air is like there.
 // `habitats` is drawn from at random (repeat one to make it likelier). `pressure` is in Earth atmospheres where it lives.
@@ -99,7 +100,9 @@ export function grow(classId, seed) {
   // The world: width and mass rise together, so the gravity stays near what that kind of planet really has.
   const k = r();
   const width = lerp(t.width[0], t.width[1], clamp(k + (r() - 0.5) * 0.3, 0, 1));
-  const mass = lerp(t.mass[0], t.mass[1], k);
+  // (A planetoid's range of masses is fifty-fold and its widths only four-fold, so for Class D the mass is what a
+  // body that wide would weigh: its gravity then runs from a twentieth to a quarter of Earth's, as the Moon's does.)
+  const mass = classId === 'D' ? clamp(massFor(width), t.mass[0], t.mass[1]) : lerp(t.mass[0], t.mass[1], k);
   const g = mass / (width * width);
   const habitat = pick(r, W.habitats);
   const temp = lerp(...(W.temp || (habitat === 'under-ice' ? [273, 283] : t.temp)), r());

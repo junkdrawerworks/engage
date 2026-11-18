@@ -145,3 +145,18 @@ export function stardate(date = new Date()) {
   const start = Date.UTC(y, 0, 1), end = Date.UTC(y + 1, 0, 1);
   return (y + (date.getTime() - start) / (end - start)).toFixed(3);
 }
+
+// ---------- Planets ----------
+
+// How heavy a world of a given width is likely to be, both against Earth's. From Chen & Kipping 2017, "Probabilistic
+// forecasting of the masses and radii of other worlds" (ApJ 834, 17): a rocky world's radius goes as its mass to the
+// power 0.279, and past about two Earth masses, where planets keep a deep layer of gas or ice, as mass to the 0.589.
+// `kind` is 'rock' or 'gas': a rocky world stays on the first line however big (super-Earths, lava worlds), and a
+// sub-Neptune or ice giant is on the second. The fit runs light for the smallest bodies (it gives the Moon three
+// quarters of its real mass), so rock is never taken to be less than half as dense as Earth: about what rock weighs
+// with nothing pressing on it. Real planets scatter by tens of percent either side.
+const ROCK_SLOPE = 0.279, GAS_SLOPE = 0.589, TURN_MASS = 2.04;
+export function massFor(width, kind = 'rock') {
+  if (kind === 'gas') return TURN_MASS * Math.pow(width / Math.pow(TURN_MASS, ROCK_SLOPE), 1 / GAS_SLOPE);
+  return Math.max(Math.pow(width, 1 / ROCK_SLOPE), 0.5 * width ** 3);
+}

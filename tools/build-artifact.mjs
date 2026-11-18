@@ -85,7 +85,7 @@ console.log(`dist/engage.html: ${(out.length / 1024 / 1024).toFixed(2)} MB`);
 
 // The planetary survey, as its own single file. Links back to the bridge go to the live site.
 const surveyHtml = await read('survey.html');
-const surveyJs = await bundle(['classes', 'planet-art', 'survey'], (name, src) =>
+const surveyJs = await bundle(['physics', 'classes', 'planet-art', 'survey'], (name, src) =>
   src.replace("const BRIDGE = './';", `const BRIDGE = '${LIVE}';`));
 const surveyCss = css + '\n' + await read('css/survey.css');
 const surveyOut = `<title>Planetary survey</title>
@@ -171,7 +171,7 @@ console.log(`dist/tonight.html: ${(tonightOut.length / 1024 / 1024).toFixed(2)} 
 
 // The xenobiology lab, as its own single file. Links to the bridge and the survey go to the live site.
 const xenoHtml = await read('xeno.html');
-const xenoJs = await bundle(['classes', 'planet-art', 'xeno-gen', 'xeno-art', 'species', 'share', 'xeno'], (name, src) =>
+const xenoJs = await bundle(['physics', 'classes', 'planet-art', 'xeno-gen', 'xeno-art', 'species', 'share', 'xeno'], (name, src) =>
   src.replace("const BRIDGE = './';", `const BRIDGE = '${LIVE}';`));
 const xenoOut = `<title>Xenobiology lab</title>
 <meta name="theme-color" content="#05070d">

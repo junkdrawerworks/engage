@@ -4,10 +4,11 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral } from '../js/physics.js';
+import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor } from '../js/physics.js';
 import { describeKind, homeLines, composeEntry, inTextFor, logRecords, titleFor, tripLine } from '../js/log.js';
 import { DESTINATIONS } from '../js/destinations.js';
-import { CLASSES } from '../js/classes.js';
+import { CLASSES, quizReadings } from '../js/classes.js';
+import { rng, grow } from '../js/xeno-gen.js';
 import { CHARTS } from '../js/charts.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -263,6 +264,51 @@ test('survey files are complete', () => {
     ids.add(c.id);
     for (const k of ['name', 'short', 'art', 'real', 'about', 'tell', 'home']) assert.ok(c[k], `${c.id} has no ${k}`);
     for (const k of ['width', 'mass', 'temp']) assert.ok(c.typical[k][0] < c.typical[k][1], `${c.id}: ${k} range is backwards`);
+  }
+});
+
+test('a world’s mass goes with its width', () => {
+  // Chen & Kipping 2017 (ApJ 834, 17), set so that Earth is exactly Earth.
+  assert.equal(massFor(1), 1);
+  const within = (got, real, tol, what) => assert.ok(Math.abs(got / real - 1) < tol, `${what}: ${got} against ${real}`);
+  within(massFor(0.949), 0.815, 0.05, 'Venus');
+  within(massFor(0.532), 0.107, 0.05, 'Mars');
+  within(massFor(0.2727), 0.0123, 0.2, 'the Moon'); // the fit runs light down here, so rock's own density takes over
+  within(massFor(3.88, 'gas'), 17.1, 0.2, 'Neptune');
+  within(massFor(4.01, 'gas'), 14.5, 0.2, 'Uranus');
+  for (let w = 0.1; w < 4.5; w += 0.05) {
+    assert.ok(massFor(w + 0.05) > massFor(w) && massFor(w + 0.05, 'gas') > massFor(w, 'gas'), `a wider world came out lighter at ${w}`);
+    assert.ok(massFor(w) / w ** 3 >= 0.5, `rock ${w} wide came out less dense than loose rock`);
+  }
+});
+
+test('Cover your tracks never invents an impossible planet', () => {
+  // Density against Earth's is mass over width cubed. Rock and iron run from about 0.5 (the Moon is 0.6) to 2 (a
+  // squeezed super-Earth); worlds with a deep layer of gas or ice from 0.1 to 0.6 (Neptune is 0.3). The quiz used to
+  // draw width and mass apart, and Class D could come out 50 times as dense as Earth.
+  const rand = rng(20261118);
+  const GIANTS = ['J', 'T', 'hot-jupiter'], GAS = ['sub-neptune', 'ice-giant'];
+  for (const c of CLASSES) {
+    let lo = Infinity, hi = 0;
+    for (let k = 0; k < 2000; k++) {
+      const w = quizReadings(c, rand), t = c.typical;
+      for (const key of ['width', 'mass', 'temp']) assert.ok(w[key] >= t[key][0] && w[key] <= t[key][1], `${c.id}: ${key} ${w[key]} is off the file`);
+      assert.equal(w.year === null, !t.year, c.id);
+      const density = w.mass / w.width ** 3;
+      lo = Math.min(lo, density); hi = Math.max(hi, density);
+    }
+    if (GIANTS.includes(c.id)) continue; // a gas giant's width barely changes with its mass
+    const [min, max] = GAS.includes(c.id) ? [0.15, 0.7] : c.id === 'R' ? [0.15, 2.5] : [0.3, 2.5];
+    assert.ok(lo >= min && hi <= max, `${c.id}: densities from ${lo.toFixed(2)} to ${hi.toFixed(2)} times Earth’s`);
+  }
+});
+
+test('a planetoid’s creature feels a planetoid’s gravity', () => {
+  // Class D is the Moon and Mercury: 0.17 and 0.38 g. The lab had 2,500 km planetoids at 0.75 g.
+  for (let seed = 1; seed <= 300; seed++) {
+    const { env } = grow('D', seed);
+    assert.ok(env.g > 0.04 && env.g < 0.3, `D-${seed}: ${env.g} g on a world ${env.width} Earths wide`);
+    assert.ok(env.mass >= 0.001 && env.mass <= 0.05);
   }
 });
 
