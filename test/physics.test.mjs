@@ -68,6 +68,25 @@ test('from Alpha Centauri the Sun is a bright star in Cassiopeia', () => {
   assert.match(first, /magnitude 0\.\d star.* in Cassiopeia\./);
 });
 
+test('Earth’s old light is dated from today, not from New Year', () => {
+  const home = (name, date) => { const i = cat.byName.get(name); return composeEntry(cat, i, { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 1, date: new Date(date) }).sections.find(s => s[0] === 'Looking home')[1]; };
+  // Sirius is 8.60 ly away. On 18 November 2026 (2026.88) its view of Earth is from early 2018; it used to say 2017.
+  assert.match(home('Sirius', '2026-11-18T12:00:00Z'), /Earth as it was in 2018\./);
+  assert.match(home('Sirius', '2026-02-01T12:00:00Z'), /Earth as it was in 2017[.,]/);
+  // The TV line turns over during the year too: 1936 + 8.60 is mid-1944 either way.
+  assert.match(home('Sirius', '2026-11-18T12:00:00Z'), /first passed here around 1945\./);
+  // Antares sees 1472 or so: not "around when" Columbus sailed, twenty years later.
+  const antares = home('Antares', '2026-11-18T12:00:00Z');
+  assert.match(antares, /Earth as it was in 14\d\d\./);
+  assert.doesNotMatch(antares, /Columbus/);
+  // An anchor is offered only within two years of it after 1500, or ten before.
+  const lines = (ly, year) => homeLines(cat, [ly / 3.26156, 0, 0], year).join(' ');
+  assert.match(lines(60, 2026.5), /in 1967, around when Star Trek premiered on television/);
+  assert.doesNotMatch(lines(111.5, 2026.5), /around when/); // 1915
+  assert.match(lines(540, 2026.5), /in 1487, around when Columbus crossed the Atlantic/);
+  assert.doesNotMatch(lines(556, 2026.5), /around when/); // 1471
+});
+
 test('from far away the Sun is too faint to see', () => {
   const [first] = homeLines(cat, at('Betelgeuse'), 2026, cat.byName.get('Betelgeuse'));
   assert.match(first, /too faint to see without a telescope/);

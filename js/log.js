@@ -56,9 +56,11 @@ function ratio(x, what, rough = false) {
 }
 
 // How home looks from `cam` (parsecs from the Sun): the Sun's brightness and place, and Earth's old light.
+// `year` is the date as a year and the fraction of it gone (the stardate's number), so that in November light that
+// left 8.6 years ago left in 2018, not 2017.
 // With `nominal`, `cam` is at a star whose distance isn't known: only the direction home is true, so that is all
 // it says. (Such a star is too far for its distance to have been measured, and the Sun is lost to the eye by 60 ly.)
-export function homeLines(cat, cam, year = new Date().getUTCFullYear(), skip = -1, nominal = false) {
+export function homeLines(cat, cam, year = Number(stardate()), skip = -1, nominal = false) {
   const pc = Math.hypot(...cam);
   const ly = pc * LY_PER_PC;
   const m = apparentMag(SUN_ABSMAG, pc);
@@ -84,7 +86,8 @@ export function homeLines(cat, cam, year = new Date().getUTCFullYear(), skip = -
     lines.push(`The Sun is too faint to see without a telescope from here (magnitude ${m.toFixed(1)}), ${where}.`);
   }
   const seen = year - ly;
-  const anchor = ANCHORS.find(([y]) => Math.abs(y - seen) <= (seen < 1500 ? 30 : 2));
+  // "Around when" means within a couple of years, or a decade for the sparser moments before 1500.
+  const anchor = ANCHORS.find(([y]) => Math.abs(y - Math.round(seen)) <= (seen < 1500 ? 10 : 2));
   lines.push(`With a big enough telescope, someone here would see Earth as it was in ${formatYear(seen)}${anchor ? `, around when ${anchor[1]}` : ''}.`);
   const tv = 1936 + ly;
   lines.push(tv <= year
@@ -127,7 +130,7 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
   // What Star Trek put here, in the words tonight's sky uses for the same star.
   const chart = chartFor(cat.names[i]);
   if (chart) sections.push(['Starfleet charts', chart.log || chart.line]);
-  if (i !== 0) sections.push(['Looking home', homeLines(cat, cam, date.getUTCFullYear(), i, unmeasured).join(' ')]);
+  if (i !== 0) sections.push(['Looking home', homeLines(cat, cam, Number(stardate(date)), i, unmeasured).join(' ')]);
   if (tripLy > 0) sections.push(['The trip', tripLine(tripLy, warp, fromTitle, unmeasured || nominal)]);
   return { star: i, title, stardate: stardate(date), intro, sections, ly: tripLy || 0 };
 }
