@@ -10,6 +10,7 @@ import { DESTINATIONS } from '../js/destinations.js';
 import { CLASSES, quizReadings } from '../js/classes.js';
 import { rng, grow } from '../js/xeno-gen.js';
 import { CHARTS } from '../js/charts.js';
+import { sweep } from './sweep.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // loadCatalog fetches relative URLs; answer them from the repo.
@@ -48,6 +49,18 @@ test('trip times round before they pick a unit', () => {
   assert.equal(formatDuration(hours(0.995)), '1 hour');
   assert.equal(formatDuration(59.7 / 365.25), '2 months');
   assert.equal(formatDuration(1.99), '2 years');
+  // Deneb near warp 8.9 is a year away: "1 year", where it used to read "12 months".
+  assert.equal(formatDuration(1), '1 year');
+  assert.equal(formatDuration(0.96), '1 year');
+  assert.equal(formatDuration(0.95), '11 months');
+  assert.equal(formatDuration(1.05), '13 months');
+});
+
+// Every trip time from a few seconds to a hundred billion years, 2,000 values to a decade. (Past a million years the
+// helm writes the figure out, "1,800,000 years": it has no word for a million, so that isn't looked for here.)
+test('trip times read right at every unit\'s edge', () => {
+  assert.deepEqual(sweep(formatDuration, -9, 11, { million: false }), []);
+  assert.deepEqual(sweep(formatLy, -6, 7), []);
 });
 
 test('the Sun comes out like the Sun', () => {

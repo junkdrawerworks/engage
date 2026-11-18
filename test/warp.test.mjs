@@ -1,6 +1,7 @@
 // The warp scale's numbers: the speeds match the bridge, the trips come out right, the places are in order, and the
 // race clock gets every ship there.
 import { test } from 'node:test';
+import { sweep } from './sweep.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { LANES, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt } from '../js/warp-scale.js';
@@ -117,6 +118,16 @@ test('spans and distances read naturally', () => {
   assert.equal(formatLight(1.28 * s), '1.3 light-seconds');
   assert.equal(formatLight(26670), '26,700 light years');
   assert.equal(formatLight(2537000), '2.5 million light years');
+  // At a unit's edge the number is rounded first and the unit chosen from that.
+  assert.equal(formatSpan(1 * s), '1 second');
+  assert.equal(formatSpan(0.001 * s), '1 millisecond');
+  assert.equal(formatSpan(0.9996 * s), '1 second');
+  assert.equal(formatSpan(59.6 * s), '1 minute');
+  assert.equal(formatSpan(1), '1 year');
+  assert.equal(formatSpan(999600), '1 million years');
+  assert.equal(formatSpan(999.7e6), '1 billion years');
+  assert.deepEqual([59.96 * s, 59.96 * 60 * s, 23.97 * 3600 * s, 0.999, 999600].map(formatShort), ['1 min', '1 hr', '1 day', '1 yr', '1M yr']);
+  assert.deepEqual([1 * s, 60 * s, 3600 * s, 59.8 * s, 999700].map(formatLight), ['1 light-second', '1 light-minute', '1 light-hour', '1 light-minute', '1 million light years']);
   assert.equal(arrivalYear(3.95, DATE), '2031');
   assert.equal(arrivalYear(0.5, DATE), null);
   assert.equal(lightLeft(4.23, DATE), 'in 2022'); // late October 2026 less 4.23 years is July 2022: the year it left in, not the nearest
@@ -126,4 +137,13 @@ test('spans and distances read naturally', () => {
     const x = ladderAt(distanceLy(p, DATE));
     assert.ok(x > 0 && x < 1, p.name);
   }
+});
+
+// Every span from a tenth of a microsecond to a hundred billion years, and every distance from a third of a
+// light-second to ten million light years, 2,000 values to a decade: nothing reads "1 seconds", "60 min", "24 hr",
+// "12 months" or "1,000,000 years", and within one unit the number never goes down as the span grows.
+test('spans and distances read right at every unit\'s edge', () => {
+  assert.deepEqual(sweep(formatSpan, -13, 11), []);
+  assert.deepEqual(sweep(formatShort, -13, 11), []);
+  assert.deepEqual(sweep(formatLight, -8, 7), []);
 });

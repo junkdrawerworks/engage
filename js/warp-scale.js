@@ -185,12 +185,17 @@ export function raceClock(times) {
   };
 }
 
-// Any span of time, from microseconds to billions of years, in words.
+// Any span of time, from microseconds to billions of years, in words. The number is rounded first and the unit
+// chosen from what it rounds to, so nothing reads "60 seconds", "12 months" or "1,000,000 years", and one of
+// anything is singular.
 export function formatSpan(years) {
   const s = years * SECONDS_PER_YEAR;
-  if (s < 1e-3) return `${sig(s * 1e6)} microseconds`;
-  if (s < 1) return `${sig(s * 1e3)} milliseconds`;
-  if (s < 59.5) return s < 10 ? `${sig(s)} seconds` : plural(Math.round(s), 'second');
+  const us = sigN(s * 1e6);
+  if (us < 1000) return count(us, 'microsecond');
+  const ms = sigN(s * 1e3);
+  if (ms < 1000) return count(ms, 'millisecond');
+  if (sigN(s) < 10) return count(sigN(s), 'second');
+  if (Math.round(s) < 60) return plural(Math.round(s), 'second');
   const min = Math.round(s / 60);
   if (min < 60) return plural(min, 'minute');
   const h = s / 3600;
@@ -199,26 +204,29 @@ export function formatSpan(years) {
   if (days < 1.5) return h - 24 >= 0.5 ? `1 day ${plural(Math.round(h - 24), 'hour')}` : '1 day';
   if (days < 59.5) return plural(Math.round(days), 'day');
   const months = Math.round(days / 30.44);
+  if (months === 12) return '1 year';
   if (months < 24) return plural(months, 'month');
   if (years < 20) {
     const y = Math.floor(years), m = Math.round((years - y) * 12);
     if (m === 12) return plural(y + 1, 'year');
     return m ? `${plural(y, 'year')} ${plural(m, 'month')}` : plural(y, 'year');
   }
-  if (years < 1e6) return `${round2(years).toLocaleString('en-US')} years`;
-  if (years < 1e9) return `${sig(years / 1e6)} million years`;
+  if (round2(years) < 1e6) return `${round2(years).toLocaleString('en-US')} years`;
+  const millions = sigN(years / 1e6);
+  if (millions < 1000) return `${millions.toLocaleString('en-US')} million years`;
   return `${sig(years / 1e9)} billion years`;
 }
 
 // A distance the way light measures it: light-seconds up close, light years out among the stars.
 export function formatLight(ly) {
   const s = ly * SECONDS_PER_YEAR;
-  if (s < 60) return `${sig(s)} light-seconds`;
-  if (s < 3600) return `${sig(s / 60)} light-minutes`;
-  if (s < 86400 * 1.5) return `${sig(s / 3600)} light-hours`;
-  if (ly < 0.1) return `${sig(s / 86400)} light-days`;
+  if (sigN(s) < 60) return count(sigN(s), 'light-second');
+  if (sigN(s / 60) < 60) return count(sigN(s / 60), 'light-minute');
+  if (s < 86400 * 1.5) return count(sigN(s / 3600), 'light-hour');
+  if (ly < 0.1) return count(sigN(s / 86400), 'light-day');
   if (ly < 10) return `${ly.toFixed(2)} light years`;
-  if (ly < 1e6) return `${Number(ly.toPrecision(3)).toLocaleString('en-US')} light years`;
+  const round3 = Number(ly.toPrecision(3));
+  if (round3 < 1e6) return `${round3.toLocaleString('en-US')} light years`;
   return `${sig(ly / 1e6)} million light years`;
 }
 
@@ -244,7 +252,11 @@ export const LADDER = [
 const LOW = Math.log10(LIGHT_SECOND_LY / 2), HIGH = Math.log10(5e6);
 export const ladderAt = ly => (Math.log10(ly) - LOW) / (HIGH - LOW);
 
-const sig = x => Number(x.toPrecision(x < 1 ? 2 : x < 100 ? 2 : 3)).toLocaleString('en-US');
+// Two significant figures, three from 100 up: as a number, and written out.
+const sigN = x => Number(x.toPrecision(x < 100 ? 2 : 3));
+const sig = x => sigN(x).toLocaleString('en-US');
+// "1 light-second", "1.3 light-seconds": a number that may not be whole, with its unit.
+const count = (n, word) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
 // Two significant figures past 100, so 28,341 reads as 28,000.
 function round2(x) {
   const a = Math.abs(x);
@@ -253,18 +265,19 @@ function round2(x) {
   return Math.round(x / p) * p;
 }
 
-// The same, squeezed into a ladder cell: "189 µs", "3.9 yr", "2.5M yr".
+// The same, squeezed into a ladder cell: "189 µs", "3.9 yr", "2.5M yr". Rounded first here too: "1 min", not "60 s".
 export function formatShort(years) {
   const s = years * SECONDS_PER_YEAR;
-  if (s < 1e-3) return `${short(s * 1e6)} µs`;
-  if (s < 1) return `${short(s * 1e3)} ms`;
-  if (s < 60) return `${short(s)} s`;
-  if (s < 3600) return `${short(s / 60)} min`;
-  if (s < 86400) return `${short(s / 3600)} hr`;
+  if (shortN(s * 1e6) < 1000) return `${short(s * 1e6)} µs`;
+  if (shortN(s * 1e3) < 1000) return `${short(s * 1e3)} ms`;
+  if (shortN(s) < 60) return `${short(s)} s`;
+  if (shortN(s / 60) < 60) return `${short(s / 60)} min`;
+  if (shortN(s / 3600) < 24) return `${short(s / 3600)} hr`;
   if (years < 1 / 12 * 2) { const d = short(s / 86400); return `${d} ${d === '1' ? 'day' : 'days'}`; }
-  if (years < 1) return `${short(years * 12)} mo`;
-  if (years < 1e6) return `${short(years)} yr`;
-  if (years < 1e9) return `${short(years / 1e6)}M yr`;
+  if (shortN(years * 12) < 12) return `${short(years * 12)} mo`;
+  if (shortN(years) < 1e6) return `${short(years)} yr`;
+  if (shortN(years / 1e6) < 1000) return `${short(years / 1e6)}M yr`;
   return `${short(years / 1e9)}B yr`;
 }
-const short = x => (x < 10 ? Number(x.toFixed(1)) : Number(x.toPrecision(2))).toLocaleString('en-US');
+const shortN = x => (x < 10 ? Number(x.toFixed(1)) : Number(x.toPrecision(2)));
+const short = x => shortN(x).toLocaleString('en-US');

@@ -108,6 +108,7 @@ export function formatDuration(years) {
   const days = Math.round(hours / 24);
   if (days < 60) return plural(days, 'day');
   const months = Math.round(hours / 24 / 30.44);
+  if (months === 12) return '1 year'; // not "12 months"
   if (months < 24) return plural(months, 'month');
   if (years < 100) return plural(Math.round(years), 'year');
   return `${round(years).toLocaleString('en-US')} years`;
