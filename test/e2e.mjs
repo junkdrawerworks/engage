@@ -393,8 +393,9 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   assert.ok(when.wrapped && when.bLeft === 0 && when.clip.startsWith('inset('), `the header's dot is left dangling: ${JSON.stringify(when)}`);
 }
 // The new entry offers the star in tonight's sky, and no course for the star the ship has just reached.
+// (It does offer one for the nearest star, which from Proxima is the Sun: Alpha Centauri's two are its companions.)
 assert.deepEqual(await page.locator('#arrival-entry .entry-actions > *').evaluateAll(els => els.map(el => [el.textContent, el.getAttribute('href')])),
-  [['In your sky tonight', 'tonight.html#star=Proxima%20Centauri'], ['Share this course', null]]);
+  [['Set course for Sol', null], ['In your sky tonight', 'tonight.html#star=Proxima%20Centauri'], ['Share this course', null]]);
 // Share this course hands the phone's share sheet a link to the live site that sets the same course. (The sheet itself
 // can't be opened here, so it is stood in for.)
 await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
@@ -2840,6 +2841,61 @@ await page.emulateMedia({ reducedMotion: null });
   await settled();
   assert.equal((await kept()).game, undefined, 'Answer the hail kept the encounter that was left');
   await phone.close();
+}
+
+// The sky from here. Only the 32 stars with notes had anything to say beyond the star, home and the trip, and Set
+// course offered the same 32 wherever the ship was. Every arrival now names the brightest star in its sky and the
+// nearest one, offers a course for the nearest, and Set course opens with the five stars nearest the ship.
+{
+  const near = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await near.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await near.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  const groups = () => p.locator('#list .group').allInnerTexts();
+  // At home Set course is as it was: there is nothing nearer the ship than what Next door lists.
+  await p.tap('#choose');
+  assert.deepEqual(await groups(), ['HOME', 'NEXT DOOR', 'WORTH THE TRIP', 'LONG HAULS']);
+  await p.evaluate(() => engage.closeSheets());
+  // Denebola has no notes. Its entry says what is around it, between the star and the look home.
+  await p.evaluate(() => engage.jump('Denebola'));
+  assert.deepEqual(await p.locator('#arrival-entry dt').allInnerTexts(), ['THE STAR', 'THE SKY FROM HERE', 'LOOKING HOME', 'THE TRIP']);
+  assert.equal(await p.locator('#arrival-entry dt:text-is("The sky from here") + dd').innerText(), 'The brightest star in this sky is Arcturus, magnitude −1.2. The nearest is Gliese 452.1, 3.6 light years away.');
+  assert.deepEqual(await p.locator('#arrival-entry .entry-actions > *').allInnerTexts(), ['SET COURSE FOR GLIESE 452.1', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE']);
+  // Next destination opens on the stars nearest the ship, nearest first, each as far as the helm will say.
+  await p.tap('#arrival-next');
+  assert.equal((await groups())[0], 'NEAREST TO THE SHIP');
+  const rows = await p.locator('#list .group').first().locator('xpath=following-sibling::*').evaluateAll(els => {
+    const out = [];
+    for (const el of els) { if (!el.matches('.row')) break; out.push([el.querySelector('.name').firstChild.textContent, el.querySelector('.dist').textContent]); }
+    return out;
+  });
+  assert.deepEqual(rows.map(r => r[0]), ['Gliese 452.1', 'Noquisi', 'Zavijava', 'Gliese 3667', 'Gliese 410']);
+  assert.equal(rows[0][1], '3.57 ly');
+  await p.evaluate(() => engage.closeSheets());
+  // The entry's own button sets that course, and the helm agrees about the distance.
+  await p.evaluate(() => engage.jump('Denebola')); // (the sheet again: a second arrival at the same star)
+  await p.tap('#arrival-entry [data-course]');
+  assert.equal(await p.locator('#target-name').innerText(), 'Gliese 452.1');
+  assert.match(await p.locator('#trip').innerText(), /^3\.57 ly away/);
+  assert.equal(await p.locator('#arrival').evaluate(el => el.hidden), true, 'the entry stayed up over the helm');
+  // Kept in the log, the entry still offers it; once the ship is there, it doesn't.
+  await p.tap('#open-log');
+  await p.locator('.past summary').first().tap();
+  assert.deepEqual(await p.locator('.past').first().locator('.entry-actions > *').allInnerTexts(), ['SET COURSE FOR GLIESE 452.1', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE']);
+  await p.evaluate(() => { engage.closeSheets(); engage.jump('Gliese 452.1'); engage.closeSheets(); });
+  await p.tap('#open-log');
+  await p.locator('.past summary').nth(1).tap();
+  assert.deepEqual(await p.locator('.past').nth(1).locator('.entry-actions > *').allInnerTexts(), ['SET COURSE AGAIN', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE']);
+  await p.evaluate(() => engage.closeSheets());
+  // A star listed at the same place is a companion, in the entry and in the list: Sirius B, 21 AU from Sirius.
+  await p.evaluate(() => engage.jump('Sirius'));
+  assert.match(await p.locator('#arrival-entry dt:text-is("The sky from here") + dd').innerText(), /^Apart from its companion Gliese 244B, the brightest star in this sky is Procyon, magnitude −1\.3\. The nearest is Gliese 280B, 5\.2 light years away\.$/);
+  await p.tap('#arrival-next');
+  assert.match((await p.locator('#list .row').first().innerText()).replace(/\s+/g, ' '), /^Gliese 244B ?companion \d+ AU White dwarf$/);
+  assert.equal(await p.locator('#list .row .badge', { hasText: 'companion' }).count(), 1);
+  await near.close();
 }
 
 // A tab that was asleep while another saved (a phone does that to tabs, and doesn't always tell them afterwards)

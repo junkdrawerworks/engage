@@ -5,7 +5,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor, widthFor } from '../js/physics.js';
-import { describeKind, homeLines, composeEntry, inTextFor, logRecords, titleFor, tripLine } from '../js/log.js';
+import { companions, describeKind, homeLines, composeEntry, inTextFor, logRecords, nearestStars, skyFrom, skyLine, titleFor, tripLine } from '../js/log.js';
 import { DESTINATIONS } from '../js/destinations.js';
 import { CLASSES, quizReadings } from '../js/classes.js';
 import { rng, grow } from '../js/xeno-gen.js';
@@ -221,6 +221,86 @@ test('a log entry covers the star, home and the trip', () => {
   for (const l of ['The star', 'Planets', 'Looking home', 'The trip']) assert.ok(labels.includes(l), l);
   assert.match(e.intro, /Proxima b’s orbit/);
   assert.match(e.sections.find(s => s[0] === 'Looking home')[1], /Cassiopeia/);
+});
+
+test('the log says what is in the sky from here: the brightest star and the nearest', () => {
+  const star = name => cat.byName.get(name);
+  const entry = name => composeEntry(cat, star(name), { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 10, date: new Date('2026-10-08T00:00:00Z') });
+  const sky = name => entry(name).sections.find(s => s[0] === 'The sky from here')?.[1];
+  // Checked against the catalogue by hand: from Denebola, Arcturus is 22 ly off and shines at magnitude −1.2, and
+  // the red dwarf Gliese 452.1 is 3.6 ly away.
+  assert.equal(sky('Denebola'), 'The brightest star in this sky is Arcturus, magnitude −1.2. The nearest is Gliese 452.1, 3.6 light years away.');
+  // From Arcturus the nearest star is also the brightest: Muphrid, 3.3 ly away. The entry keeps it, to offer a course.
+  assert.equal(sky('Arcturus'), 'The brightest star in this sky is Muphrid, magnitude −2.6, which is also the nearest, 3.3 light years away.');
+  assert.equal(entry('Arcturus').near, star('Muphrid'));
+  assert.ok(Math.abs(skyFrom(cat, star('Arcturus')).nearest.ly - 3.27) < 0.02);
+  // The section comes after the star's own and before the look home; there is none at home.
+  const labels = entry('Arcturus').sections.map(s => s[0]);
+  assert.ok(labels.indexOf('The sky from here') > labels.indexOf('Starfleet charts') && labels.indexOf('The sky from here') === labels.indexOf('Looking home') - 1, String(labels));
+  const home = composeEntry(cat, 0, { cam: [1e-6, 0, 0], holdAU: 1, warp: 9, fromTitle: 'Vega', tripLy: 25, date: new Date('2026-10-08T00:00:00Z') });
+  assert.ok(!home.sections.some(s => s[0] === 'The sky from here') && !('near' in home));
+  assert.equal(skyFrom(cat, 0), null);
+
+  // A star listed at the same place is its companion, never "the nearest star, 0.0 light years away". Sirius B is
+  // Gliese 244B on the charts, at Sirius's own position; the nearest star beyond is Procyon's white dwarf.
+  assert.equal(sky('Sirius'), 'Apart from its companion Gliese 244B, the brightest star in this sky is Procyon, magnitude −1.3. The nearest is Gliese 280B, 5.2 light years away.');
+  assert.ok(companions(cat, star('Sirius'), star('Gliese 244B')) && !companions(cat, star('Sirius'), star('Procyon')) && !companions(cat, star('Sirius'), star('Sirius')));
+  // The two of 61 Cygni share a name: "its companion" is enough. Alpha Centauri has two, and from there the nearest
+  // star is the Sun.
+  assert.match(sky('61 Cygni'), /^Apart from its companion, the brightest star in this sky is Vega, /);
+  assert.equal(sky('Rigil Kentaurus'), 'Apart from its companions Proxima Centauri and Toliman, the brightest star in this sky is Sirius, magnitude −1.2. The nearest is the Sun, 4.3 light years away.');
+  assert.equal(entry('Rigil Kentaurus').near, 0);
+  // A pair the catalogue measured separately, and so lists light years apart, is still a pair: Gliese 60A and 60B.
+  assert.ok(companions(cat, star('Gliese 60B'), star('Gliese 60A')));
+  assert.match(sky('Gliese 60B'), /^Apart from its companions Gliese 60A and Gliese 60C, /);
+  // Under a light year the neighbour is nearly always the star's own companion, misplaced: Fomalhaut's is TW Piscis
+  // Austrini (Gliese 879), which really is its companion, 0.9 ly out.
+  assert.match(sky('Fomalhaut'), /Gliese 879, magnitude −0\.7, which is also the nearest, 0\.9 light years away\. At that distance the two are probably one system\.$/);
+
+  // "The nearest" is only said where the catalogue has every star: the sphere out to the neighbour has to lie inside
+  // 80 light years of the Sun. Deneb is 1,400 ly out, and its nearest neighbour on the charts is 96 ly from it.
+  assert.equal(sky('Deneb'), 'On the charts, the brightest star in this sky is 59 Cygni, magnitude −1.1, which is also the nearest, 96 light years away.');
+  assert.match(sky('Betelgeuse'), /^On the charts, the brightest star in this sky is Rigel, magnitude −1\.4, and the nearest is 52 Orionis, 44 light years away\.$/);
+  assert.deepEqual([skyFrom(cat, star('Deneb')).brightest.sure, skyFrom(cat, star('Deneb')).nearest.sure], [false, false]);
+  // 70 ly out with a neighbour 15 ly off, the brightest is sure and the nearest is not.
+  let mixed = 0;
+  for (let i = 1; i < cat.count && mixed < 3; i += 7) {
+    const s = skyFrom(cat, i);
+    if (!s || !s.brightest.sure || s.nearest.sure) continue;
+    mixed++;
+    const ly = Math.hypot(...cat.pos.subarray(i * 3, i * 3 + 3)) * 3.26156;
+    assert.ok(ly < 80 && ly + s.nearest.ly >= 80, cat.names[i]);
+    assert.match(skyLine(cat, i, s), /brightest star in this sky is .*\. The nearest star on the charts is /, cat.names[i]);
+  }
+  assert.equal(mixed, 3);
+  // Every measured star gets a sentence with real numbers in it, and none names the star itself, a star with no
+  // measured distance, or a neighbour at no distance.
+  for (let i = 1; i < cat.count; i += 37) {
+    const s = skyFrom(cat, i);
+    if (cat.unmeasured[i]) { assert.equal(s, null); continue; }
+    const line = skyLine(cat, i, s);
+    assert.match(line, /magnitude −?\d+\.\d[.,] .* \d[\d,.]* light years away\./, cat.names[i]);
+    assert.doesNotMatch(line, /NaN|undefined| 0\.0 light years|-/, cat.names[i]);
+    for (const j of [s.brightest.star, s.nearest.star]) assert.ok(j !== i && !cat.unmeasured[j] && !s.companions.includes(j), cat.names[i]);
+    assert.ok(s.nearest.ly >= 0.5, `${cat.names[i]}: ${line}`);
+  }
+  // A star whose own distance was never measured has no place to look out from.
+  const lost = cat.unmeasured.findIndex(u => u);
+  assert.ok(!composeEntry(cat, lost, { cam: [...cat.pos.subarray(lost * 3, lost * 3 + 3)], holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 3262, date: new Date('2026-10-08T00:00:00Z') }).sections.some(s => s[0] === 'The sky from here'));
+});
+
+test('the stars nearest the ship are listed nearest first, without the ones nobody has measured', () => {
+  const star = name => cat.byName.get(name);
+  const near = nearestStars(cat, at('Arcturus'), 5, star('Arcturus'));
+  assert.deepEqual(near.map(n => cat.names[n.star]), ['Muphrid', 'Gliese 1179A', 'Gliese 1179B', 'Gliese 567', 'Gliese 568B']);
+  assert.ok(near.every((n, k) => !k || n.ly >= near[k - 1].ly));
+  assert.ok(Math.abs(near[0].ly - 3.27) < 0.02);
+  // From Sirius the first is its companion, at no distance; from the Sun, Proxima and the two of Alpha Centauri.
+  assert.equal(cat.names[nearestStars(cat, at('Sirius'), 1, star('Sirius'))[0].star], 'Gliese 244B');
+  assert.deepEqual(nearestStars(cat, [0, 0, 0], 3, 0).map(n => cat.names[n.star]), ['Proxima Centauri', 'Toliman', 'Rigil Kentaurus']);
+  // The 431 stars parked at a nominal 1,000 parsecs are never anyone's neighbour, even from one of their own.
+  const lost = cat.unmeasured.findIndex(u => u);
+  assert.ok(nearestStars(cat, [...cat.pos.subarray(lost * 3, lost * 3 + 3)], 8, lost).every(n => !cat.unmeasured[n.star]));
 });
 
 test('the log says what Starfleet’s charts put at a star', () => {

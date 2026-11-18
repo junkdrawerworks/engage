@@ -3,7 +3,7 @@ import { loadCatalog } from './catalog.js';
 import { Sky } from './sky.js';
 import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
-import { composeEntry, describeKind, inTextFor, logRecords, notesFor, titleFor } from './log.js';
+import { companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, named, pairLetters, search } from './search.js';
 import { LIVE, share } from './share.js';
@@ -775,15 +775,18 @@ function entryHtml(e, heading) {
   return parts.join('');
 }
 
-// What an entry can do: set course for its star again (from the log; on arrival the ship is there), show where
-// the star is in the real sky tonight, and send someone a link that sets the same course on their bridge.
+// What an entry can do: set course for its star again (from the log; on arrival the ship is there), or for the
+// star nearest to it, the one its "sky from here" names; show where the star is in the real sky tonight; and send
+// someone a link that sets the same course on their bridge.
 function entryActions(e, arrival) {
   const again = !arrival && e.star !== state.at ? `<button type="button" data-again="${e.star}">Set course again</button>` : '';
+  const near = Number.isInteger(e.near) && e.near >= 0 && e.near < cat.count && e.near !== state.at
+    ? `<button type="button" data-course="${e.near}">Set course for ${esc(titleFor(cat, e.near))}</button>` : '';
   const tonight = `<a href="${TONIGHT}#star=${encodeURIComponent(cat.names[e.star])}"${AWAY}>In your sky tonight</a>`;
   // A course for home isn't one to send: nearly everyone who opens the link is already there.
   // (On the arrival sheet the button stands for that entry itself: the log can gain entries from another tab under it.)
   const send = e.star === 0 ? '' : `<button type="button" data-share="${arrival ? 'arrival' : state.log.indexOf(e)}">Share this course</button>`;
-  return `<p class="entry-actions">${again}${tonight}${send}</p>`;
+  return `<p class="entry-actions">${again}${near}${tonight}${send}</p>`;
 }
 
 function shareCourse(button) {
@@ -860,8 +863,9 @@ function renderList() {
   letters ||= pairLetters(cat.names, cat.absmag);
   const row = (i, meta) => {
     const n = notesFor(cat, i);
-    const badges = [n?.worlds ? 'planets' : '', visited.has(i) ? 'visited' : ''].filter(Boolean).join(' · ');
     const here = i === state.at;
+    // A star of the system the ship is in says so: its distance on the charts is often none at all.
+    const badges = [n?.worlds ? 'planets' : '', visited.has(i) ? 'visited' : '', !here && companions(cat, state.at, i) ? 'companion' : ''].filter(Boolean).join(' · ');
     // Two stars with one name (the pair of 61 Cygni) are told apart by a letter, here in the list only.
     const title = titleFor(cat, i) + (letters.has(i) ? ` ${letters.get(i)}` : '');
     const tag = chartTag(cat.names[i]);
@@ -872,6 +876,11 @@ function renderList() {
   };
   let html = '';
   if (!q) {
+    // Away from home, what is near the ship comes first: the stars with notes are nearly all the Sun's neighbours.
+    if (state.at !== 0) {
+      html += '<p class="group">Nearest to the ship</p>'
+        + nearestStars(cat, starPos(state.at), 5, state.at).map(({ star }) => row(star, star === 0 ? 'The Sun · Earth orbit' : metaFor(star, false))).join('');
+    }
     html += `<p class="group">Home</p>${row(0, 'The Sun · Earth orbit')}`;
     for (const [group, title] of GROUPS) {
       const stars = DESTINATIONS.filter(d => d.group === group).map(d => cat.byName.get(d.star)).filter(i => i !== undefined);
@@ -910,17 +919,19 @@ function bind() {
   });
   watchKeyboard();
   $('open-log').addEventListener('click', e => { renderLog(); openSheet('log', e.currentTarget); });
-  // Set course again, on an entry in the log: the sheet closes on the helm with that star chosen.
+  // Set course again, on an entry in the log, or for the star nearest to it, there and on the arrival's entry: the
+  // sheet closes on the helm with that star chosen.
   for (const id of ['entries', 'arrival-entry']) {
-    $(id).addEventListener('click', e => { const b = e.target.closest('[data-share]'); if (b) shareCourse(b); });
+    $(id).addEventListener('click', e => {
+      const b = e.target.closest('[data-share]');
+      if (b) shareCourse(b);
+      const again = e.target.closest('[data-again], [data-course]');
+      if (!again) return;
+      sound.blip(990);
+      closeSheets();
+      setTarget(Number(again.dataset.again ?? again.dataset.course));
+    });
   }
-  $('entries').addEventListener('click', e => {
-    const b = e.target.closest('[data-again]');
-    if (!b) return;
-    sound.blip(990);
-    closeSheets();
-    setTarget(Number(b.dataset.again));
-  });
   $('open-settings').addEventListener('click', e => openSheet('settings', e.currentTarget));
   $('look-home').addEventListener('click', lookHome);
   $('arrival-home').addEventListener('click', lookHome);

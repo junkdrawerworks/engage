@@ -1,5 +1,5 @@
-// Writes the captain's log entry for an arrival: the star, its planets and notes, how home looks from here,
-// and how the trip compares with light and with Voyager 1.
+// Writes the captain's log entry for an arrival: the star, its planets and notes, the sky around it, how home looks
+// from here, and how the trip compares with light and with Voyager 1.
 import {
   LY_PER_PC, apparentMag, formatDuration, formatLy, formatYear, spectral, stardate, tripYears, voyagerYears, SUN_ABSMAG,
 } from './physics.js';
@@ -97,6 +97,111 @@ export function homeLines(cat, cam, year = Number(stardate()), skip = -1, nomina
   return lines;
 }
 
+// ---------- The sky from here ----------
+
+// The catalogue holds every catalogued star within about 80 light years of the Sun (25 parsecs: tools/build-data.py)
+// and, beyond that, only the stars of magnitude 7 or brighter from Earth. So what it can say for certain about the
+// sky somewhere else depends on where: inside that sphere it knows every neighbour, and outside it knows almost none.
+const COMPLETE_LY = 80, CHART_MAG = 7;
+// Two stars the catalogue lists this close together (light years) are one system, whatever it says of the gap: the
+// two of a pair are often measured separately, and come out some way apart (40 Eridani A and C are 0.19 ly apart on
+// the charts and 400 AU apart in fact). Unrelated stars are hardly ever this close: around the Sun there is about one
+// star to every 250 cubic light years. Proxima, 0.19 ly from Alpha Centauri, is one of that system too.
+const COMPANION_LY = 0.5;
+// Out to a light year the odds are still about nine to one that a neighbour is the star's own companion, misplaced
+// (Capella's is listed 0.6 ly from it), so the log gives the distance and says so.
+const PERHAPS_LY = 1;
+// Two with one name, or one name and a letter each (Gliese 60A and 60B), are a pair even when their two measured
+// distances put them light years apart: the catalogue has dozens like that. Past ten, it's left as the charts have it.
+const PAIR_LY = 10;
+const stem = name => name.replace(/\s?[A-D]$/, '');
+const place = (cat, i) => cat.pos.subarray(i * 3, i * 3 + 3);
+
+// Whether stars i and j are one system, by the catalogue: listed at the same place, or near enough.
+export function companions(cat, i, j) {
+  if (i === j || cat.unmeasured[i] || cat.unmeasured[j]) return false;
+  const ly = cat.distanceFrom(j, place(cat, i)) * LY_PER_PC;
+  return ly < COMPANION_LY || (ly < PAIR_LY && stem(cat.names[i]) === stem(cat.names[j]));
+}
+
+// The `n` stars nearest a place (`from`, parsecs from the Sun), nearest first, as [{ star, ly }]. `skip` is a star
+// to leave out (the one the ship is at). Stars with no measured distance are left out: nobody knows where they are.
+export function nearestStars(cat, from, n = 5, skip = -1) {
+  const best = [];
+  for (let j = 0; j < cat.count; j++) {
+    if (j === skip || cat.unmeasured[j]) continue;
+    const d = cat.distanceFrom(j, from);
+    if (best.length === n && d >= best[n - 1].d) continue;
+    let k = best.length;
+    while (k > 0 && best[k - 1].d > d) k--;
+    best.splice(k, 0, { star: j, d });
+    if (best.length > n) best.pop();
+  }
+  return best.map(({ star, d }) => ({ star, ly: d * LY_PER_PC }));
+}
+
+// What is around star i, for a ship holding there: the brightest star in its sky and the nearest one, with the
+// star's own companions set aside (from Sirius the nearest star on the charts is Sirius B, at no distance at all).
+// `sure` says whether the catalogue can know it:
+//   the nearest, when the whole sphere out to it lies inside the 80 light years where every star is catalogued;
+//   the brightest, when no star left out of the catalogue could outshine it from here. A star left out is fainter
+//   than magnitude 7 from Earth and more than 80 ly from the Sun, so from a ship D ly out it is at best
+//   7 + 5 log10(1 - D/80).
+// Returns null at the Sun, and at a star whose own distance was never measured.
+export function skyFrom(cat, i) {
+  if (i === 0 || cat.unmeasured[i]) return null;
+  const from = place(cat, i);
+  const fromSol = Math.hypot(...from) * LY_PER_PC;
+  const mates = [];
+  let brightest = null, nearest = null;
+  for (let j = 0; j < cat.count; j++) {
+    if (j === i || cat.unmeasured[j]) continue;
+    if (companions(cat, i, j)) { mates.push(j); continue; }
+    const d = cat.distanceFrom(j, from);
+    const mag = apparentMag(cat.absmag[j], d);
+    if (!brightest || mag < brightest.mag) brightest = { star: j, mag };
+    if (!nearest || d < nearest.d) nearest = { star: j, d };
+  }
+  const inside = fromSol < COMPLETE_LY;
+  return {
+    companions: mates,
+    brightest: { ...brightest, sure: inside && brightest.mag < CHART_MAG + 5 * Math.log10(1 - fromSol / COMPLETE_LY) },
+    nearest: { star: nearest.star, ly: nearest.d * LY_PER_PC, sure: fromSol + nearest.d * LY_PER_PC < COMPLETE_LY },
+  };
+}
+
+// The log's words for it. "The brightest star in this sky is Arcturus, magnitude −1.2. The nearest is Gliese 452.1,
+// 3.6 light years away." Where the catalogue can't be sure, it is "on the charts".
+export function skyLine(cat, i, sky = skyFrom(cat, i)) {
+  if (!sky) return '';
+  const name = j => (j === 0 ? 'the Sun' : titleFor(cat, j));
+  const { brightest: b, nearest: n, companions: mates } = sky;
+  const mag = `magnitude ${b.mag.toFixed(1).replace(/^-0\.0$/, '0.0').replace('-', '−')}`;
+  const away = `${n.ly < 9.95 ? n.ly.toFixed(1) : Math.round(n.ly).toLocaleString('en-US')} light years away`;
+  // A companion with the star's own name (the two of 61 Cygni) is just "its companion".
+  const named = mates.map(name).filter(t => t !== titleFor(cat, i));
+  const apart = !mates.length ? ''
+    : mates.length === 1 ? `Apart from its companion${named.length ? ` ${named[0]}` : ''}, `
+    : mates.length === 2 && named.length === 2 ? `Apart from its companions ${named[0]} and ${named[1]}, `
+    : `Apart from its ${mates.length} companions, `;
+  const cap = t => (apart ? apart + t : t[0].toUpperCase() + t.slice(1));
+  let text;
+  if (b.sure && n.sure) {
+    text = b.star === n.star
+      ? cap(`the brightest star in this sky is ${name(b.star)}, ${mag}, which is also the nearest, ${away}.`)
+      : cap(`the brightest star in this sky is ${name(b.star)}, ${mag}.`) + ` The nearest is ${name(n.star)}, ${away}.`;
+  } else if (!b.sure && !n.sure) {
+    text = (apart ? `${apart}and going by the charts, ` : 'On the charts, ') + (b.star === n.star
+      ? `the brightest star in this sky is ${name(b.star)}, ${mag}, which is also the nearest, ${away}.`
+      : `the brightest star in this sky is ${name(b.star)}, ${mag}, and the nearest is ${name(n.star)}, ${away}.`);
+  } else {
+    text = cap(`the brightest star ${b.sure ? 'in this sky' : 'on the charts here'} is ${name(b.star)}, ${mag}.`)
+      + ` The nearest${n.sure ? '' : ' star on the charts'} is ${name(n.star)}, ${away}.`;
+  }
+  if (n.ly < PERHAPS_LY) text += ' At that distance the two are probably one system.';
+  return text;
+}
+
 // With `nominal`, one end of the trip is a star whose distance isn't known, so the trip is as long as the charts say.
 export function tripLine(ly, warp, fromTitle, nominal = false) {
   const t = tripYears(ly, warp);
@@ -131,9 +236,12 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
   // What Star Trek put here, in the words tonight's sky uses for the same star.
   const chart = chartFor(cat.names[i]);
   if (chart) sections.push(['Starfleet charts', chart.log || chart.line]);
+  // What is around the ship. `near` is the nearest star, kept with the entry so it can offer a course there.
+  const sky = skyFrom(cat, i);
+  if (sky) sections.push(['The sky from here', skyLine(cat, i, sky)]);
   if (i !== 0) sections.push(['Looking home', homeLines(cat, cam, Number(stardate(date)), i, unmeasured).join(' ')]);
   if (tripLy > 0) sections.push(['The trip', tripLine(tripLy, warp, fromTitle, unmeasured || nominal)]);
-  return { star: i, title, stardate: stardate(date), intro, sections, ly: tripLy || 0 };
+  return { star: i, title, stardate: stardate(date), intro, sections, ly: tripLy || 0, ...(sky ? { near: sky.nearest.star } : {}) };
 }
 
 // The records the captain's log can show, worked out from the entries themselves (newest first, as the log keeps

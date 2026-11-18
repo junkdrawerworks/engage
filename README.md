@@ -31,9 +31,9 @@
 ## How it works
 
 - **Every star is real.** About 18,000 of them, from the HYG database: everything you can see from Earth with your eyes, plus every catalogued star within 80 light years. Each is drawn at its true position and as bright as it would look from wherever the ship is.
-- **Set course.** Tap a star on the viewscreen, or choose from 32 destinations with notes (Proxima Centauri, TRAPPIST-1, Vulcan’s sun 40 Eridani, Betelgeuse…) or search the whole catalogue. The search knows where Starfleet’s charts put things too: Vulcan, Farpoint, Tellar, Rigel VII.
+- **Set course.** Tap a star on the viewscreen, or choose from 32 destinations with notes (Proxima Centauri, TRAPPIST-1, Vulcan’s sun 40 Eridani, Betelgeuse…) or search the whole catalogue. Away from home the list opens with the five stars nearest the ship. The search knows where Starfleet’s charts put things too: Vulcan, Farpoint, Tellar, Rigel VII.
 - **Warp factor.** Warp 1 is light speed and warp 9 is about 1,516 times it. The helm shows how long the trip would take, next to how long light needs. The flight itself is shortened to a few seconds.
-- **Drop out of warp.** The ship holds where the star’s disc looks about two and a half degrees wide, or in the orbit of a known planet. The log covers the star, its planets, a few notes, what Starfleet’s charts put there, how the Sun looks from there, which year of Earth’s history its light is showing, and when Earth’s first TV broadcasts arrive.
+- **Drop out of warp.** The ship holds where the star’s disc looks about two and a half degrees wide, or in the orbit of a known planet. The log covers the star, its planets, a few notes, what Starfleet’s charts put there, the brightest star in that sky and the nearest one (with a button to set course for it), how the Sun looks from there, which year of Earth’s history its light is showing, and when Earth’s first TV broadcasts arrive.
 - **The captain’s log** keeps every arrival, under a few records worked out from it: the farthest you’ve been from Sol, your longest trip, the star you’ve visited most, and how many of the 32 destinations you’ve reached. Open an entry to **Set course again** for its star, to find it **In your sky tonight**, or to **Share this course**: a link that sets the same course on someone else’s bridge.
 - **Look for the Sun.** The ☉ button turns the view toward home, marked even when it’s too faint to see.
 - **Drag to look around, pinch or scroll to zoom.** With a keyboard, the arrow keys look around, + and − zoom, and / opens Set course, where the up and down arrows move through the list and Enter takes a star.
@@ -67,7 +67,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/app.js`: the bridge: helm, flight, looking around, the log and settings.
 - `js/sky.js`: the viewscreen in WebGL: stars, constellation lines, the Milky Way, star discs and warp streaks.
 - `js/physics.js`: warp speeds, brightness, colour and size of stars, trip times, and how heavy a planet of a given width is (and how wide one of a given mass). Pure functions.
-- `js/log.js`: writes each captain’s log entry.
+- `js/log.js`: writes each captain’s log entry, and works out what is around the ship: the brightest star in its sky, the nearest, and which stars are its own companions. Pure functions.
 - `js/wake.js`: keeps the screen awake while the phone is pointed at the sky, or a warp-scale race runs.
 - `js/share.js`: shares a link to a creature or a course: the phone’s share sheet, or else the link copied.
 - `js/store.js`: saves a room’s record, says when the browser wouldn’t keep it, and notices when another tab has saved, so the same room open twice keeps one record.
