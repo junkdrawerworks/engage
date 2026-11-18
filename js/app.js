@@ -77,7 +77,8 @@ function save() {
     localStorage.setItem(KEY, JSON.stringify({ at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro }));
     unsaved = null;
   } catch (e) {
-    unsaved = e?.name === 'QuotaExceededError' || e?.code === 22 ? 'full' : 'blocked';
+    // Firefox has its own name and number for a full store.
+    unsaved = ['QuotaExceededError', 'NS_ERROR_DOM_QUOTA_REACHED'].includes(e?.name) || e?.code === 22 || e?.code === 1014 ? 'full' : 'blocked';
   }
   return !unsaved;
 }
