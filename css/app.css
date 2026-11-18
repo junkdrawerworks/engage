@@ -44,7 +44,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
   background: linear-gradient(to bottom, rgba(5, 7, 13, 0.75), rgba(5, 7, 13, 0)); }
 .where { min-width: 0; }
 .where h1 { margin: 2px 0 0; font: 600 22px/1.15 var(--display); letter-spacing: 0.02em; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8); }
-.where .sub span { white-space: nowrap; }
+/* The stardate, a dot, and how far from home. The dot belongs to the second and hangs in the gap before it; when the
+   second wraps to a line of its own, the dot is left of the edge, and clipped away rather than left dangling. (Only
+   the left edge clips: on the narrowest phones these lines run on past the name's column, under the buttons.) */
+.where .sub { display: flex; flex-wrap: wrap; column-gap: 1.1em; clip-path: inset(-12px -100vw -12px 0); }
+.where .sub span { position: relative; white-space: nowrap; }
+.where .sub span + span::before { content: '·'; position: absolute; left: -0.7em; }
 .where .sub { margin: 3px 0 0; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
 .hud-buttons { display: flex; gap: 8px; pointer-events: auto; flex: none; }
 .round { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel); display: grid; place-items: center; padding: 0;
@@ -61,8 +66,8 @@ a.round { color: var(--text); text-decoration: none; }
 #look-home svg .ring { stroke: var(--sun); stroke-width: 1.2; stroke-dasharray: 2 3; }
 
 /* Warp readout */
-.readout { position: absolute; left: 50%; bottom: calc(28px + var(--safe-b)); transform: translateX(-50%); display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
-  padding: 8px 16px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+.readout { position: absolute; left: 50%; bottom: calc(28px + var(--safe-b)); transform: translateX(-50%); display: flex; gap: 0 14px; flex-wrap: wrap; justify-content: center;
+  padding: 8px 16px; border: 1px solid var(--line-strong); border-radius: 20px; background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   font: 500 13px/1.3 var(--display); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; white-space: nowrap; max-width: calc(100vw - 32px); }
 #readout-warp { color: var(--amber); }
 #readout-time { color: var(--cyan); }
@@ -184,6 +189,9 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .jd-foot a:hover, .jd-foot a:focus-visible { text-decoration: underline; color: var(--muted); }
 
 @media (max-width: 480px) {
+  /* Look for the Sun and Next destination each fit on one line of a phone. */
+  .arrival-actions { gap: 8px; }
+  .arrival-actions button { font-size: 13px; letter-spacing: 0.04em; padding: 0 6px; }
   .hud-buttons { gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: calc(5 * 38px + 4 * 6px); }
   .round { width: 38px; height: 38px; }
   .round svg { width: 18px; height: 18px; }

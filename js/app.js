@@ -71,6 +71,10 @@ function save() {
 const starPos = i => [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]];
 const camAbs = () => (trip ? trip.cam : starPos(state.at).map((v, k) => v + state.offset[k]));
 const holdAU = i => notesFor(cat, i)?.hold?.au ?? holdDistanceAU(cat.radius[i]);
+// How far from star i the ship stops (parsecs), coming from `dStar` away: its usual holding distance, or where the
+// ship already is if that is closer. Some catalogue stars are pairs listed at one position; hopping between the two
+// used to halve the distance each time, until the ship sat on the star.
+const holdFor = (i, dStar) => Math.min(holdAU(i) / AU_PER_PC, dStar);
 const lyFromShip = i => cat.distanceFrom(i, camAbs()) * LY_PER_PC;
 // Whether the distance from the ship to star i is only the charts' guess: the catalogue has no measured distance for
 // it, or none for the star the ship is at. (Such stars are drawn at a nominal 1,000 parsecs.)
@@ -342,7 +346,7 @@ function updateHud() {
     $('where').textContent = state.at === 0 ? 'Earth orbit' : titleFor(cat, state.at);
   }
   const far = !trip && cat.unmeasured[state.at] ? 'Distance not measured' : `${formatLy(fromSol)} from Sol`;
-  $('when').innerHTML = `<span>${sd}</span> · <span>${fromSol < 0.001 ? 'Home' : far}</span>`;
+  $('when').innerHTML = `<span>${sd}</span> <span>${fromSol < 0.001 ? 'Home' : far}</span>`; // the dot between them is drawn by the stylesheet
 }
 
 // ---------- Flight ----------
@@ -355,7 +359,7 @@ function engage() {
   const to = S.map((v, k) => v - from[k]);
   const dStar = Math.hypot(...to);
   const dir = to.map(v => v / dStar);
-  const hold = Math.min(holdAU(i) / AU_PER_PC, dStar * 0.5);
+  const hold = holdFor(i, dStar);
   const D = dStar - hold;
   const ly = dStar * LY_PER_PC;
   const a0 = Math.max(cat.distanceFrom(state.at, from), 1e-7);
@@ -369,11 +373,18 @@ function engage() {
     t0: performance.now(), align: 1.5 / speedUp, spool: 1.5 / speedUp, cruise, drop: 1.6 / speedUp,
     years: tripYears(ly, state.warp), warpFactor: state.warp, warp: 0, streak: 0, phase: 'align', rebased: false,
   };
-  $('console').classList.add('away');
+  helmAway(true);
   $('engage').disabled = true;
   closeSheets();
   sound.blip(660);
   updateHud();
+}
+
+// During a flight the helm slides off the bottom of the screen. It's out of reach of a keyboard and a screen reader
+// too while it's there, not only out of sight.
+function helmAway(away) {
+  $('console').classList.toggle('away', away);
+  $('console').inert = away;
 }
 
 function along(t, T) {
@@ -457,7 +468,7 @@ function arrive() {
   state.ly += T.ly;
   save();
   $('readout').hidden = true;
-  $('console').classList.remove('away');
+  helmAway(false);
   setTarget(null, false);
   updateHud();
   showArrival(entry);
@@ -697,7 +708,7 @@ function bind() {
     if (trip) { // a flight under way ends here too, back at Earth
       trip = null;
       $('readout').hidden = true;
-      $('console').classList.remove('away');
+      helmAway(false);
       sound.stop();
     }
     turn = null;
@@ -805,7 +816,7 @@ function hooks() {
       const i = cat.byName.get(name);
       const from = camAbs(), S = starPos(i);
       const to = S.map((v, k) => v - from[k]), d = Math.hypot(...to), dir = to.map(v => v / d);
-      trip = { i, S, dir, hold: Math.min(holdAU(i) / AU_PER_PC, d / 2), ly: d * LY_PER_PC, warpFactor: warp, fromTitle: state.at === 0 ? 'Sol' : inTextFor(cat, state.at), nominal: nominal(i), cam: from };
+      trip = { i, S, dir, hold: holdFor(i, d), ly: d * LY_PER_PC, warpFactor: warp, fromTitle: state.at === 0 ? 'Sol' : inTextFor(cat, state.at), nominal: nominal(i), cam: from };
       arrive();
     },
     look(yawDeg, pitchDeg, fovDeg) { turn = null; state.yaw = yawDeg * DEG; state.pitch = pitchDeg * DEG; if (fovDeg) state.fov = fovDeg * DEG; dirty = true; },

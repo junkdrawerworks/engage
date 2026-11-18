@@ -268,6 +268,23 @@ assert.match(entry, /Cassiopeia/, 'the log does not say where the Sun is');
 assert.match(entry, /in 1 day at warp 9/);
 assert.match(entry, /Proxima b: Class M candidate/, 'the log does not link to the planetary survey');
 assert.equal(await text('#where'), 'Proxima Centauri');
+assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'the helm stayed out of reach after arriving');
+// In the header, the stardate and the distance from home don't fit on one line of a phone here. The dot between them
+// goes with the second, and is clipped away when that starts a line: it isn't left dangling at the end of the first.
+{
+  const when = await page.locator('#when').evaluate(el => {
+    const [a, b] = el.children, left = el.getBoundingClientRect().left;
+    return { text: el.innerText, wrapped: b.offsetTop > a.offsetTop, dot: getComputedStyle(b, '::before').content, clip: getComputedStyle(el).clipPath, bLeft: b.getBoundingClientRect().left - left };
+  });
+  assert.match(when.text, /^Stardate \d{4}\.\d{3}\s4\.2\d ly from Sol$/);
+  assert.equal(when.dot, '"·"');
+  assert.ok(when.wrapped && when.bLeft === 0 && when.clip.startsWith('inset('), `the header's dot is left dangling: ${JSON.stringify(when)}`);
+}
+// The two buttons under the log each fit on one line.
+for (const id of ['arrival-home', 'arrival-next']) {
+  const lines = await page.locator('#' + id).evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].map(b => Math.round(b.top))).size; });
+  assert.equal(lines, 1, `${id} wraps on a phone`);
+}
 
 // Looking for the Sun turns the view toward it.
 await page.click('#arrival-home');
@@ -351,6 +368,9 @@ assert.equal(await shown('#lost'), false);
     await p.evaluate(t => engage.freeze('Vega', t), t);
     assert.match(await p.locator('#readout-left').innerText(), left);
     assert.match(await p.locator('#readout-time').innerText(), time, `at ${t} of the cruise the time does not match the distance`);
+    // The helm has slid away for the flight: nothing in it can be reached with a keyboard either.
+    const reached = await p.evaluate(() => [...document.querySelectorAll('#console button, #console input, #console a')].filter(el => { el.focus(); return document.activeElement === el; }).map(el => el.id));
+    assert.deepEqual(reached, [], 'the hidden helm takes keyboard focus during a flight');
     await p.close();
   }
   await flight.close();
@@ -360,6 +380,7 @@ assert.equal(await shown('#lost'), false);
 await page.evaluate(() => { engage.speed(1); engage.target('Deneb'); });
 await page.click('#engage');
 await page.waitForFunction(() => engage.trip?.phase === 'cruise', null, { timeout: 20000 });
+assert.equal(await page.locator('#console').evaluate(el => el.inert), true, 'the helm can still be reached during a flight');
 await page.click('#open-settings');
 await page.click('#clear-log');
 await page.click('#clear-log');
@@ -367,6 +388,20 @@ assert.equal(await page.evaluate(() => !!engage.trip), false, 'the ship flew on 
 assert.equal(await text('#where'), 'Earth orbit');
 assert.equal(await shown('#readout'), false);
 assert.equal(await page.evaluate(() => engage.state.log.length), 0);
+assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'the helm stayed out of reach after the log was cleared mid-flight');
+
+// Some catalogue stars are pairs listed at one position (Gliese 3093A and 3094B). Hopping between the two keeps the
+// ship at its holding distance: it used to halve it each time, until the ship sat on the star.
+{
+  const holds = [];
+  for (const name of ['Gliese 3093A', 'Gliese 3094B', 'Gliese 3093A', 'Gliese 3094B', 'Gliese 3093A']) {
+    holds.push(await page.evaluate(n => { engage.jump(n); engage.closeSheets(); return Math.hypot(...engage.state.offset) * 206264.8; }, name));
+  }
+  assert.ok(holds.every(h => Math.abs(h - holds[1]) < 1e-6 || h === holds[0]) && Math.min(...holds) >= 0.0099, `hopping between a pair crept toward the star: ${holds.map(h => h.toFixed(4))} AU`);
+  await page.click('#open-settings');
+  await page.click('#clear-log');
+  await page.click('#clear-log');
+}
 
 // The planetary survey: flip through the files, set course from one, and play the drill.
 await page.goto(base + 'survey.html#K');
