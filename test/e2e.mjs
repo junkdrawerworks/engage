@@ -677,6 +677,48 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await day.close();
 }
 
+// A link cut off mid-way by a chat app can end in a stray "%", which isn't an address at all. The warp scale, the lab
+// and the survey each stopped dead on one; they open as they would with no link. The lab also reads a class in
+// either case, keeping the specimen number, and takes specimen 0, which it never grows, as no number.
+{
+  const cut = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await cut.newPage();
+  const broke = [];
+  p.on('pageerror', e => broke.push(e.message));
+  await p.goto(base + 'warp.html#%');
+  await p.waitForFunction(() => window.warpScale?.place === 'core');
+  assert.ok(await p.locator('#ladder .rung').count() > 15, 'the ladder is missing after a cut-off link');
+  await p.goto(base + 'warp.html?warp=7.5#%E0%A4%A');
+  await p.waitForFunction(() => window.warpScale?.place === 'core' && document.getElementById('custom-warp').value === '7.5');
+  await p.goto(base + 'xeno.html#%');
+  await p.waitForFunction(() => window.xeno?.current);
+  assert.match(await p.locator('#tank-tag').innerText(), /^Class M · Specimen \d{4}$/i);
+  await p.goto(base + 'survey.html#%');
+  await p.waitForFunction(() => window.survey);
+  assert.match(await p.locator('#file h2').innerText(), /^Class M/);
+  // And when a bad link arrives on a page that is already open.
+  await p.evaluate(() => { location.hash = '#P'; });
+  await p.waitForFunction(() => /^Class P/.test(document.querySelector('#file h2').innerText));
+  await p.evaluate(() => { location.hash = '#%zz'; });
+  await p.evaluate(() => new Promise(r => setTimeout(r, 100)));
+  assert.match(await p.locator('#file h2').innerText(), /^Class P/, 'a bad link changed the file that was open');
+  await p.goto(base + 'xeno.html#m-5');
+  await p.waitForFunction(() => window.xeno?.current);
+  assert.deepEqual(await p.evaluate(() => [xeno.current.classId, xeno.current.seed, location.hash]), ['M', 5, '#M-5'], 'a lower-case link grew some other creature');
+  await p.goto(base + 'xeno.html#LAVA-WORLD-7');
+  await p.reload();
+  await p.waitForFunction(() => window.xeno?.current);
+  assert.deepEqual(await p.evaluate(() => [xeno.current.classId, xeno.current.seed]), ['lava-world', 7]);
+  await p.goto(base + 'xeno.html#K-0');
+  await p.reload();
+  await p.waitForFunction(() => window.xeno?.current);
+  const zero = await p.evaluate(() => [xeno.current.classId, xeno.current.seed]);
+  assert.ok(zero[0] === 'K' && zero[1] >= 1 && zero[1] <= 9999, `#K-0 grew specimen ${zero[1]} of Class ${zero[0]}`);
+  assert.doesNotMatch(await p.locator('#tank-tag').innerText(), /0000/);
+  assert.deepEqual(broke, [], 'a cut-off link stopped a page');
+  await cut.close();
+}
+
 // A damaged save keeps what's still good and starts the rest afresh, instead of stopping the page.
 {
   const junk = await browser.newContext({ viewport: { width: 390, height: 844 } });

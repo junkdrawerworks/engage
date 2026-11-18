@@ -212,9 +212,16 @@ function buildStrip() {
 
 // ---------- Start ----------
 
+// What the address asks for: a class, and a specimen number if it gives one. A link cut off or mangled on its way
+// (a stray "%" isn't an address at all) asks for nothing, and the lab opens as usual. The class is read in either
+// case (#m-5 is Class M's specimen 5), and specimen 0 is one the lab never grows, so it counts as no number.
+function hashText() {
+  try { return decodeURIComponent(location.hash.slice(1)); } catch { return ''; }
+}
 function fromHash() {
-  const m = decodeURIComponent(location.hash.slice(1)).match(/^(.+?)(?:-(\d{1,4}))?$/);
-  if (m && byId.has(m[1])) return { id: m[1], seed: m[2] ? Number(m[2]) : newSeed() };
+  const m = hashText().match(/^(.+?)(?:-(\d{1,4}))?$/);
+  const cls = m && CLASSES.find(c => c.id.toLowerCase() === m[1].toLowerCase());
+  if (cls) return { id: cls.id, seed: Number(m[2]) || newSeed() };
   return null;
 }
 

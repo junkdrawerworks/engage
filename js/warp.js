@@ -349,9 +349,12 @@ function renderLadder() {
 
 // ---------- Start ----------
 
+// A link cut off or mangled on its way (a stray "%" isn't an address at all) names no place: the last one stays.
 const fromLink = () => {
   const warp = Number(new URLSearchParams(location.search).get('warp'));
-  return { id: decodeURIComponent(location.hash.slice(1)), warp: warp >= 1 && warp <= 9.99 ? warp : null };
+  let id = '';
+  try { id = decodeURIComponent(location.hash.slice(1)); } catch { /* not a place */ }
+  return { id, warp: warp >= 1 && warp <= 9.99 ? warp : null };
 };
 
 $('go').addEventListener('click', engage);

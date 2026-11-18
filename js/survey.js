@@ -308,8 +308,12 @@ function setMode(m, push = true) {
   }
 }
 
+// A link cut off or mangled on its way (a stray "%" isn't an address at all) opens the files where they were.
+function hashText() {
+  try { return decodeURIComponent(location.hash.slice(1)); } catch { return ''; }
+}
 function fromHash() {
-  const h = decodeURIComponent(location.hash.slice(1));
+  const h = hashText();
   if (h === 'drill') return setMode('drill', false);
   const i = order.findIndex(c => c.id.toLowerCase() === h.toLowerCase());
   if (i >= 0) at = i;
