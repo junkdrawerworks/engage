@@ -809,6 +809,55 @@ assert.equal(await page.evaluate(() => window.flashes), 0, 'warp flashed the scr
 assert.equal(await page.locator('#arrival-entry [style*="animation"]').count(), 0, 'the log animated in with reduced motion on');
 await page.emulateMedia({ reducedMotion: null });
 
+// On a small phone the orders and the notebook are below the viewscreen. Giving an order or sending a reply from down
+// there brings the display back on screen, so the turn isn't played where nobody can see it.
+{
+  const small = await browser.newContext({ viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await small.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const box = sel => p.locator(sel).evaluate(el => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; });
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  await p.click('#start');
+  await p.locator('.order[data-id="enter"]').click();
+  await p.waitForFunction(() => !maru.busy, null, { timeout: 20000 });
+  await p.locator('.order[data-id="surrender"]').scrollIntoViewIfNeeded();
+  await p.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  assert.ok((await box('#plot')).bottom < 100, 'the test needs the tactical display scrolled off a small phone to mean anything');
+  await p.locator('.order[data-id="evade"]').tap();
+  await p.waitForFunction(() => { const r = document.getElementById('plot').getBoundingClientRect(); return r.top >= -4 && r.top < 60; }, null, { timeout: 5000 })
+    .catch(() => assert.fail('an order given from below the tactical display left the turn playing off screen'));
+  assert.ok((await box('#plot')).bottom > 100);
+  await p.waitForFunction(() => !maru.busy, null, { timeout: 20000 });
+  // With the display already in view, an order leaves the page where it is.
+  const before = await p.evaluate(() => scrollY);
+  await p.evaluate(() => scrollBy(0, 30));
+  const gap = await p.evaluate(() => scrollY) - before; // a short page may not scroll that far
+  if ((await box('#plot')).bottom <= 667 && gap >= 0) {
+    const y = await p.evaluate(() => scrollY);
+    await p.evaluate(() => document.querySelector('.order[data-id="evade"]').click());
+    await p.waitForTimeout(500);
+    assert.ok(Math.abs(await p.evaluate(() => scrollY) - y) <= 30 + 4, 'an order moved the page though the display was in view');
+  }
+
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  await p.click('#start');
+  await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await p.locator('#book .ph-add').nth(1).tap();
+  await p.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  assert.ok((await box('.screen-wrap')).bottom < 100, 'the test needs the viewscreen scrolled off a small phone to mean anything');
+  await p.evaluate(() => contact.send());
+  await p.waitForFunction(() => { const r = document.querySelector('.screen-wrap').getBoundingClientRect(); return r.top >= -4 && r.top < 60; }, null, { timeout: 5000 })
+    .catch(() => assert.fail('a reply sent from the notebook left their answer playing off screen'));
+  await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await p.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  await p.evaluate(() => contact.act('listen'));
+  await p.waitForFunction(() => document.querySelector('.screen-wrap').getBoundingClientRect().top >= -4, null, { timeout: 5000 })
+    .catch(() => assert.fail('Listen again from down the page left their answer playing off screen'));
+  await small.close();
+}
+
 // Works offline once it has been opened.
 await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 }).catch(() => {});
 await ctx.setOffline(true);

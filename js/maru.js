@@ -86,6 +86,7 @@ function give(id) {
   if (!lines.length && !events.length) return;
   busy = true;
   $('orders').classList.add('busy');
+  bringIntoView(document.querySelector('.plot-wrap'));
   log([{ mark: `Turn ${turn}` }]);
   const took = scene.play(events);
   // Spread the messages over the turn so they land with what they describe.
@@ -96,6 +97,13 @@ function give(id) {
     update();
     if (g.over) record();
   }, still.matches ? 150 : took + 250);
+}
+
+// Brings the tactical display back on screen when an order is given from further down the page, so the turn isn't played out of sight.
+function bringIntoView(el) {
+  const r = el.getBoundingClientRect();
+  const inView = r.top >= -4 && (r.bottom <= innerHeight + 4 || (r.height > innerHeight && r.top <= 4));
+  if (!inView) el.scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
 }
 
 function log(lines) {

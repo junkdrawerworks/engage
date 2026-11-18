@@ -94,12 +94,21 @@ function send() {
   if (busy || !g || g.over || !reply.length) return;
   const said = reply;
   reply = [];
+  bringIntoView(document.querySelector('.screen-wrap'));
   play(act(g, { say: said }));
 }
 
 function doAct(what) {
   if (busy || !g || g.over) return;
+  bringIntoView(document.querySelector('.screen-wrap'));
   play(act(g, what));
+}
+
+// Brings the viewscreen back on screen when an answer is given from further down the page, so the turn isn't played out of sight.
+function bringIntoView(el) {
+  const r = el.getBoundingClientRect();
+  const inView = r.top >= -4 && (r.bottom <= innerHeight + 4 || (r.height > innerHeight && r.top <= 4));
+  if (!inView) el.scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
 }
 
 function update() {
