@@ -402,10 +402,36 @@ export function debrief(g) {
   const [title, summary] = ends[g.over] || ['Still talking', ''];
   const rows = g.heard.filter(id => id !== 'story').map(id => ({ id, text: L.phrases[id], meaning: MEANING[id], guess: g.tags[id] || null, right: g.tags[id] === id }));
   const decoded = rows.filter(r => r.right).length;
-  const share = rows.length ? decoded / rows.length : 0;
-  const fluency = share === 1 ? 'Fluent' : share >= 0.75 ? 'Conversational' : share >= 0.4 ? 'Halting' : 'Lost in translation';
+  const fluency = fluencyOf(decoded, rows.length);
   const transcript = g.log.filter(l => l.ids).map(l => ({ who: l.who, said: l.ids.map(id => L.phrases[id]), meant: l.ids.map(id => (id === 'story' ? 'A new story: the day you met' : MEANING[id])) }));
   return { title, summary, outcome: g.over, people: L.people, captain: L.captain, story: g.over === 'contact' ? L.phrases.story : null, rows, decoded, of: rows.length, fluency, transcript, misses: g.misses, turns: g.turn };
+}
+
+// How well a notebook did, from how many of the phrases heard were guessed right.
+export function fluencyOf(decoded, of) {
+  const share = of ? decoded / of : 0;
+  return share === 1 ? 'Fluent' : share >= 0.75 ? 'Conversational' : share >= 0.4 ? 'Halting' : 'Lost in translation';
+}
+
+// A communications officer's standing record, from what the page has saved: how many species have hailed (every
+// encounter is a new one), how many of those ended in first contact, and the best notebook (the largest share of
+// phrases decoded, and of two as good, the one with more phrases). The page lists only its last 30 encounters, so
+// `met`, `contacts` and `best` are kept beside them; a save from before they were kept is filled in from its runs.
+// Anything in the save that doesn't make sense is ignored.
+export function standing(saved = {}) {
+  const runs = Array.isArray(saved.runs) ? saved.runs.filter(r => r && typeof r === 'object') : [];
+  const count = x => (Number.isInteger(x) && x > 0 ? x : 0);
+  const notebook = x => (x && Number.isInteger(x.decoded) && Number.isInteger(x.of) && x.of > 0 && x.decoded >= 0 && x.decoded <= x.of ? { decoded: x.decoded, of: x.of } : null);
+  let best = notebook(saved.best);
+  for (const r of runs) {
+    const n = notebook(r);
+    if (n && (!best || n.decoded * best.of > best.decoded * n.of || (n.decoded * best.of === best.decoded * n.of && n.of > best.of))) best = n;
+  }
+  return {
+    met: Math.max(count(saved.met), runs.length),
+    contacts: Math.max(count(saved.contacts), runs.filter(r => r.outcome === 'contact').length),
+    best,
+  };
 }
 
 // A right answer for where things stand, from what you've heard so far. For the tests and the page's hook.

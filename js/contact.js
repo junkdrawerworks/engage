@@ -1,6 +1,6 @@
 // First contact: the page. The rules and the language are in contact-sim.js and the viewscreen in contact-art.js;
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
-import { newGame, act, debrief, hint, phrase, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, phrase, standing, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 
@@ -16,7 +16,8 @@ function load() {
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* start a new record */ }
   if (!s || typeof s !== 'object' || Array.isArray(s)) s = {};
   const runs = Array.isArray(s.runs) ? s.runs.filter(r => r && typeof r === 'object' && typeof r.title === 'string') : [];
-  return { ...s, runs };
+  // The species met, contacts made and best notebook outlive the 30 encounters listed; an older save's are filled in from its runs.
+  return { ...s, runs, ...standing({ ...s, runs }) };
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* fine */ } }
 try { sound.on = JSON.parse(localStorage.getItem('engage.v1') || '{}')?.opts?.sound !== false; } catch { /* keep it on */ }
@@ -40,8 +41,19 @@ function showScreen(name) {
 function showBrief() {
   const runs = saved.runs.slice(-8).reverse();
   $('record').hidden = !runs.length;
-  $('runs').innerHTML = runs.map(r => `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>
-    <span class="what">The ${esc(r.people || 'unknown ship')} · ${Number(r.decoded) || 0} of ${Number(r.of) || 0} phrases decoded</span></li>`).join('');
+  // The standing record, then each encounter with how its notebook did, so a contact made with nothing decoded
+  // doesn't read as a full success.
+  const b = saved.best;
+  $('tally').innerHTML = [
+    [saved.met, 'Species met'],
+    [saved.contacts, saved.contacts === 1 ? 'Contact made' : 'Contacts made'],
+    [b ? `${b.decoded}/${b.of}` : '–', 'Best notebook', b ? fluencyOf(b.decoded, b.of) : ''],
+  ].map(([n, label, word]) => `<span><b>${n}</b>${esc(label)}${word ? `<i>${esc(word)}</i>` : ''}</span>`).join('');
+  $('runs').innerHTML = runs.map(r => {
+    const decoded = Number(r.decoded) || 0, of = Number(r.of) || 0;
+    return `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>
+    <span class="what">The ${esc(r.people || 'unknown ship')} · ${decoded} of ${of} phrases decoded${of ? ` · ${fluencyOf(decoded, of)}` : ''}</span></li>`;
+  }).join('');
   showScreen('brief');
 }
 
@@ -181,6 +193,7 @@ function renderLog() {
 function record() {
   lastEval = debrief(g);
   saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString() });
+  Object.assign(saved, standing({ ...saved, met: saved.met + 1, contacts: saved.contacts + (lastEval.outcome === 'contact' ? 1 : 0) })); // before the list is cut to its last 30
   saved.runs = saved.runs.slice(-30);
   save();
 }

@@ -899,8 +899,9 @@ await bridgeReady();
   await been.close();
 }
 
-// Records kept before the rooms kept standing ones: the Kobayashi Maru's runs with nothing beside them. Nothing in
-// them is lost, and the endings seen, best grades and runs taken are filled in from them.
+// Records kept before the rooms kept standing ones: the Kobayashi Maru's runs and first contact's encounters with
+// nothing beside them, and a bridge log from before its entries could be acted on. Nothing in them is lost, and the
+// endings seen, best grades and runs taken, the species met, contacts made and best notebook, are filled in from them.
 {
   const old = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const grades = letters => ['Compassion', 'Judgment', 'Restraint', 'Nerve'].map((name, k) => ({ name, letter: letters[k] }));
@@ -908,11 +909,24 @@ await bridgeReady();
     { title: 'The lifeboat', outcome: 'warp', grades: grades('CBBB'), at: '2026-11-16T10:00:00.000Z' },
     { title: 'By the book', outcome: 'stayed', grades: grades('FCAF'), at: '2026-11-17T10:00:00.000Z' },
   ];
-  await old.addInitScript(runs => {
+  const contactRuns = [
+    { title: 'First contact', outcome: 'contact', people: 'Thaejy', decoded: 1, of: 11, at: '2026-11-15T10:00:00.000Z' },
+    { title: 'The channel closes', outcome: 'silence', people: 'Orruvan', decoded: 7, of: 8, at: '2026-11-16T10:00:00.000Z' },
+  ];
+  const bridge = {
+    at: 0, offset: [1e-6, 0, 0], yaw: 1, pitch: 0, fov: 1, target: null, warp: 7, ly: 8.5, opts: { lines: true, labels: false, sound: false }, seenIntro: true,
+    log: [
+      { star: 0, title: 'Sol', stardate: '2026.870', intro: 'Back home, holding in Earth’s orbit.', sections: [['The star', 'Yellow dwarf.']], ly: 4.25 },
+      { star: 1, title: 'A star', stardate: '2026.860', intro: 'We’ve dropped out of warp.', sections: [['The star', 'Red dwarf.'], ['', 'A note.']], ly: 4.25 },
+    ],
+  };
+  await old.addInitScript(([maru, contact, engage]) => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
-    localStorage.setItem('engage.maru.v1', JSON.stringify({ runs }));
-  }, maruRuns);
+    localStorage.setItem('engage.maru.v1', JSON.stringify({ runs: maru }));
+    localStorage.setItem('engage.contact.v1', JSON.stringify({ runs: contact }));
+    localStorage.setItem('engage.v1', JSON.stringify(engage));
+  }, [maruRuns, contactRuns, bridge]);
   const p = await old.newPage();
   p.on('pageerror', e => problems.push(e.message));
   await p.goto(base + 'maru.html');
@@ -929,6 +943,30 @@ await bridgeReady();
   const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.maru.v1')));
   assert.deepEqual(kept.runs.slice(0, 2), maruRuns, 'the old runs were changed');
   assert.deepEqual([kept.runs.length, kept.seen, kept.taken, kept.best.Restraint], [3, ['By the book', 'The lifeboat'], 3, 'A']);
+
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  assert.equal((await p.locator('#tally').innerText()).replace(/\s+/g, ' '), '2 SPECIES MET 1 CONTACT MADE 7/8 BEST NOTEBOOK CONVERSATIONAL');
+  assert.equal(await p.locator('#runs li').count(), 2);
+  await p.click('#start');
+  await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await p.click('#leave');
+  await p.waitForFunction(() => !contact.busy && contact.game.over, null, { timeout: 20000 });
+  const heard = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')));
+  assert.deepEqual(heard.runs.slice(0, 2), contactRuns, 'the old encounters were changed');
+  assert.deepEqual([heard.runs.length, heard.met, heard.contacts, heard.best], [3, 3, 1, { decoded: 7, of: 8 }]);
+
+  // The bridge's log, opened and saved again, is the log it was; its records and each entry's actions come from it.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.click('#open-log');
+  assert.match(await p.locator('#stats').innerText(), /^2 stars visited · 8\.50 ly traveled$/);
+  assert.equal(await p.locator('.past').count(), 2);
+  assert.equal(await p.locator('.past [data-again]').count(), 1, 'an old entry has no Set course again');
+  assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 32$/);
+  const after = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')));
+  assert.deepEqual(after.log, bridge.log, 'the old log was changed');
+  assert.deepEqual([after.warp, after.ly, after.opts], [bridge.warp, bridge.ly, bridge.opts]);
   await old.close();
 }
 
@@ -1060,10 +1098,22 @@ assert.equal(await text('#eval-title'), 'First contact');
 assert.match(await text('#eval-score'), /^1\/1[0-9]/, 'the one right guess is not counted');
 assert.ok(await shown('#eval-story'), 'their new phrase is missing');
 await page.click('#again');
-assert.match(await text('#runs'), /1 of 1[0-9] phrases decoded/);
+// The record on the briefing: one species met, one contact made, and the notebook as it really did, so a contact made
+// with one phrase decoded doesn't read as a full success.
+assert.match(await text('#runs'), /1 of 1[0-9] phrases decoded · Lost in translation/);
+assert.match((await text('#tally')).replace(/\s+/g, ' '), /^1 SPECIES MET 1 CONTACT MADE 1\/1[0-9] BEST NOTEBOOK LOST IN TRANSLATION$/);
+// Breaking off from the next ship is a second species met, and no second contact.
+await page.click('#start');
+await settled();
+await page.click('#leave');
+await settled();
+await page.click('#send');
+await page.click('#again');
+assert.match((await text('#tally')).replace(/\s+/g, ' '), /^2 SPECIES MET 1 CONTACT MADE 1\/1[0-9] BEST NOTEBOOK LOST IN TRANSLATION$/);
+assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.contact.v1')); return [s.runs.length, s.met, s.contacts, s.best.decoded]; }), [2, 2, 1, 1]);
 await page.reload();
 await page.waitForFunction(() => window.contact);
-assert.equal(await page.locator('#runs li').count(), 1, 'the record was not kept');
+assert.equal(await page.locator('#runs li').count(), 2, 'the record was not kept');
 await page.goto(base);
 await bridgeReady();
 

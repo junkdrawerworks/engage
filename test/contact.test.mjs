@@ -1,7 +1,7 @@
 // First contact's language and rules, checked without a browser:  node --test test/contact.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, debrief, hint, makeLanguage, rng, MEANINGS, PATIENCE, BEAT_IDS } from '../js/contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, MEANINGS, PATIENCE, BEAT_IDS } from '../js/contact-sim.js';
 
 // Plays the right answer each turn, from what has been heard so far.
 function win(g) {
@@ -195,4 +195,32 @@ test('the debrief marks your guesses against what they meant', () => {
   assert.equal(debrief(g).fluency, 'Fluent');
   assert.ok(d.transcript.length >= 12);
   assert.ok(d.transcript.every(t => t.said.length === t.meant.length));
+});
+
+test('the record counts species met, contacts made and the best notebook, and outlives the list of encounters', () => {
+  assert.deepEqual(standing(), { met: 0, contacts: 0, best: null });
+  // A save from before the record was kept: only its runs. It is filled in from them.
+  const run = (outcome, decoded, of) => ({ title: 'x', outcome, people: 'Thaejy', decoded, of, at: '2026-11-18T00:00:00Z' });
+  const old = { runs: [run('contact', 1, 11), run('silence', 7, 8), run('contact', 9, 12), run('fled', 0, 2)] };
+  const s = standing(old);
+  assert.deepEqual(s, { met: 4, contacts: 2, best: { decoded: 7, of: 8 } }, 'the best notebook is the largest share decoded, win or lose');
+  assert.equal(old.runs.length, 4, 'the runs were changed');
+  // Forty encounters later the page lists only the last thirty, and the record still has the rest.
+  const saved = { ...old, ...s };
+  for (let n = 0; n < 40; n++) {
+    saved.runs.push(n === 0 ? run('contact', 11, 11) : run('parted', 3, 9));
+    Object.assign(saved, standing({ ...saved, met: saved.met + 1, contacts: saved.contacts + (n === 0 ? 1 : 0) }));
+    saved.runs = saved.runs.slice(-30);
+  }
+  assert.deepEqual(standing(JSON.parse(JSON.stringify(saved))), { met: 44, contacts: 3, best: { decoded: 11, of: 11 } });
+  // Of two notebooks as good, the one with more phrases; and junk in a save is ignored rather than counted.
+  assert.deepEqual(standing({ runs: [run('contact', 3, 3), run('contact', 12, 12), run('contact', 2, 2)] }).best, { decoded: 12, of: 12 });
+  assert.deepEqual(standing({ runs: [null, { title: 'x', decoded: 5, of: 3 }, { title: 'y', decoded: '2', of: 0 }], met: -1, contacts: 'many', best: { decoded: 9 } }), { met: 2, contacts: 0, best: null });
+  // The word beside a notebook is the debrief's own.
+  const g = win(newGame({ seed: 6 }));
+  for (const id of g.heard) g.tags[id] = id;
+  const d = debrief(g);
+  assert.equal(d.fluency, 'Fluent');
+  assert.equal(fluencyOf(d.decoded, d.of), d.fluency);
+  assert.deepEqual([fluencyOf(0, 11), fluencyOf(5, 11), fluencyOf(9, 11), fluencyOf(0, 0)], ['Lost in translation', 'Halting', 'Conversational', 'Lost in translation']);
 });
