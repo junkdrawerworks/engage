@@ -820,11 +820,13 @@ async function toggleSensors() {
   $('sensors').textContent = 'Stop';
   $('sensors').classList.replace('primary', 'secondary');
   hint('Hold your phone up to the sky. If the stars sit a little off, drag sideways to line them up.');
-  setTimeout(() => { if (sensing && !gotReading) { stopSensors(); noSensors(); } }, 2500);
+  giveUp = setTimeout(() => { if (sensing && !gotReading) { stopSensors(); noSensors(); } }, 2500);
 }
+let giveUp = 0; // the wait for a first reading; stopping ends it, so it can't cut short the next try
 
 function stopSensors() {
   sensing = false;
+  clearTimeout(giveUp);
   release();
   window.removeEventListener('deviceorientationabsolute', onAbsolute);
   window.removeEventListener('deviceorientation', onOrient);

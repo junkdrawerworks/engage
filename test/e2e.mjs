@@ -1003,11 +1003,23 @@ await bridgeReady();
   assert.deepEqual(await wake(), [2, 0], 'Stop left the screen held awake');
   await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   assert.deepEqual(await wake(), [2, 0], 'coming back to the page kept the screen awake with the sensors off');
+  // Stopping and pointing again starts the wait for a first reading afresh: the first try's wait, still running, used
+  // to end the second try two and a half seconds after the first began, and take the button away for good.
+  await p.click('#sensors');
+  await p.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: 270, beta: 60, gamma: 0, absolute: true })));
+  await p.click('#sensors'); // stop
+  await p.waitForTimeout(2000);
+  await p.click('#sensors'); // point again: a slow compass takes a second to answer
+  await p.waitForTimeout(1000);
+  assert.deepEqual(await p.evaluate(() => [tonight.state.sensing, document.getElementById('sensors').hidden]), [true, false], 'pointing again was cut short by the first try’s wait');
+  await p.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: 270, beta: 60, gamma: 0, absolute: true })));
+  await p.click('#sensors'); // stop
+  assert.deepEqual(await wake(), [4, 0]);
   // With no compass to read, pointing gives up after a moment, and lets the screen go with it.
   await p.click('#sensors');
-  assert.deepEqual(await wake(), [3, 1]);
+  assert.deepEqual(await wake(), [5, 1]);
   await p.waitForFunction(() => document.getElementById('sensors').hidden, null, { timeout: 6000 });
-  assert.deepEqual(await wake(), [3, 0], 'the screen stayed awake after pointing gave up');
+  assert.deepEqual(await wake(), [5, 0], 'the screen stayed awake after pointing gave up');
 
   await p.goto(base + 'warp.html');
   await p.waitForFunction(() => window.warpScale);
