@@ -9,7 +9,7 @@
   &nbsp;
   <img src="docs/phone-warp.png" alt="At warp 9 toward Proxima Centauri: blue streaks rush past the Milky Way, and the readout says 3.91 light years to go and 2 hours elapsed" width="250">
   &nbsp;
-  <img src="docs/phone-log.png" alt="Arrived at Proxima Centauri: a red sun above the captain's log, which describes the star and its planets" width="250">
+  <img src="docs/phone-log.png" alt="Arrived at Proxima Centauri: a red sun above the captain's log, which says this is a first visit, the farthest yet from Sol and the longest trip yet, and describes the star and its planets" width="250">
   &nbsp;
   <img src="docs/phone-home.png" alt="Looking back from Proxima Centauri: the Sun is a magnitude 0.4 star in Cassiopeia, between Polaris and Mirfak" width="250">
   &nbsp;
