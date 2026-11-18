@@ -707,7 +707,8 @@ function keepTab(e) {
   if (to) { e.preventDefault(); to.focus(); }
 }
 
-function dismissIntro() {
+// `byPointer` when the card was closed with a finger or a mouse, and not from the keyboard.
+function dismissIntro(byPointer = false) {
   $('intro').hidden = true;
   state.seenIntro = true;
   save();
@@ -716,7 +717,20 @@ function dismissIntro() {
   // The card's button has gone, so the keyboard's place goes to the first thing to do: choosing a destination (or
   // the search field, when a link that named no star has opened Set course under the card).
   const next = MODAL.map($).find(el => !el.hidden);
-  (next ? (next.id === 'picker' && !touchy ? $('search') : next.querySelector('.close')) : $('choose')).focus({ preventScroll: true });
+  const to = next ? (next.id === 'picker' && !touchy ? $('search') : next.querySelector('.close')) : $('choose');
+  to.focus({ preventScroll: true });
+  if (byPointer) quiet(to);
+}
+
+// The focus ring is there for a keyboard. The card's button takes focus as the page opens, which a browser counts as
+// the keyboard's doing, and it goes on counting whatever focus is handed to next: after a tap on Take the helm the
+// bridge's first sight had a bright ring round Choose a star. The keyboard's place is kept and the ring is not
+// drawn, until a key is pressed or focus moves on.
+function quiet(el) {
+  const loud = () => { el.classList.remove('quiet'); el.removeEventListener('blur', loud); removeEventListener('keydown', loud, true); };
+  el.classList.add('quiet');
+  el.addEventListener('blur', loud);
+  addEventListener('keydown', loud, true);
 }
 
 let arrived = null; // the entry on the arrival sheet
@@ -905,7 +919,8 @@ function bind() {
   $('arrival-next').addEventListener('click', () => { $('search').value = ''; renderList(); openSheet('picker', $('choose')); });
   $('scrim').addEventListener('click', closeSheets);
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeSheets));
-  $('intro-go').addEventListener('click', dismissIntro);
+  // A click made with Enter or Space has no count of presses; one made with a finger or a mouse does.
+  $('intro-go').addEventListener('click', e => dismissIntro(e.detail > 0));
   for (const [id, key] of [['opt-lines', 'lines'], ['opt-labels', 'labels'], ['opt-sound', 'sound']]) {
     $(id).addEventListener('change', e => {
       state.opts[key] = e.target.checked;

@@ -126,6 +126,12 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await q.goto(base);
   await bridgeReady(q);
   await q.tap('#intro-go');
+  // The card hands the keyboard's place to Choose a star. After a tap that is not drawn: the bridge's first sight
+  // has no bright ring round the helm. The first key pressed brings the ring back.
+  const ring = () => q.evaluate(() => [document.activeElement?.id, getComputedStyle(document.activeElement).outlineStyle]);
+  assert.deepEqual(await ring(), ['choose', 'none'], 'a tap on Take the helm left a focus ring on the helm');
+  await q.keyboard.press('Shift');
+  assert.deepEqual(await ring(), ['choose', 'solid'], 'the keyboard’s place on the helm stayed hidden once a key was pressed');
   await q.tap('#choose');
   assert.equal(await q.evaluate(() => document.activeElement?.closest('.sheet')?.id + ' ' + document.activeElement?.className), 'picker close', 'Set course did not focus its close button on a phone');
   await phone.close();
@@ -2180,6 +2186,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.focus('#intro-go');
   await p.keyboard.press('Enter');
   assert.equal(await inside(), 'choose', 'Take the helm left the keyboard nowhere');
+  assert.equal(await p.evaluate(() => getComputedStyle(document.activeElement).outlineStyle), 'solid', 'Take the helm, pressed from the keyboard, left no ring to show where the keyboard is');
   assert.equal(await shut(), false);
   for (const [button, sheet] of [['open-settings', 'settings'], ['open-log', 'log'], ['choose', 'picker']]) {
     await p.focus(`#${button}`);
