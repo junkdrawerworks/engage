@@ -27,16 +27,20 @@ const NAMES = ['IKS Gr’oth', 'IKS Amar', 'IKS Kor’tal', 'IKS Hegh’ta', 'IK
 export function newGame({ seed = Date.now(), rewritten = false } = {}) {
   return {
     seed, rand: rng(seed), rewritten,
-    turn: 0, zoneTurn: 0, where: 'outside', over: null,
+    turn: 0, zoneTurn: 0, quiet: 0, where: 'outside', over: null,
     hull: 100, shields: 100, torpedoes: 6,
     maru: { aboard: MARU, hull: 100, gone: false, lostTurn: 0 },
     aboard: 0, beamedEver: 0, lifeSupportLost: 0,
     klingons: [], sent: 0, kills: 0, named: 0,
-    flags: { hailedMaru: false, calledStarfleet: false, scanned: false, hailedKlingons: 0, firedFirst: false, playerFired: false, klingonsFired: false, held: false, surrendered: false, beamedUnderFire: 0, warpDown: false },
+    flags: { hailedMaru: false, calledStarfleet: false, scanned: false, hailedKlingons: 0, talkedFirst: false, firedFirst: false, playerFired: false, klingonsFired: false, held: false, surrendered: false, beamedUnderFire: 0, warpDown: false },
   };
 }
 
 const alive = g => g.klingons.filter(k => k.hull > 0);
+// The Klingons' clock: turns alongside the Maru, less the quiet one a first hail buys. Their rising fire, their attack
+// on the Maru and their reinforcements all run on it, so the turn they hold fire really is free. (It used to count,
+// and talking first turned the best run there is, two beam-overs and out, into losing everyone.)
+const clock = g => g.zoneTurn - g.quiet;
 const crewLost = g => (g.over === 'destroyed' ? CREW : Math.round(CREW * (100 - g.hull) / 100 * 0.3));
 
 // The orders the captain can give right now.
@@ -169,11 +173,12 @@ export function act(g, id) {
     if (second) hit(g, second, Math.round(46 + g.rand() * 10), 'torpedo', events, say);
   } else if (id === 'hail') {
     g.flags.hailedKlingons++;
+    if (!g.flags.playerFired) g.flags.talkedFirst = true;
     events.push({ type: 'hail' });
     if (g.rewritten) say('Klingon commander', 'We have said we will not fire. Take your people and go.', 'klingon');
     else if (g.flags.playerFired) say('Klingon commander', 'You fired on us. Now you want to talk? Die well, human.', 'klingon');
     else if (g.flags.hailedKlingons === 1) {
-      hold = true; g.flags.held = true;
+      hold = true; g.flags.held = true; g.quiet++;
       say('Klingon commander', 'You have one minute to leave Klingon space. We are counting.', 'klingon');
     } else say('Communications', 'No reply from the Klingons.');
   } else if (id === 'evade') {
@@ -219,7 +224,7 @@ export function act(g, id) {
   if (g.hull < WARP_HULL && !g.flags.warpDown) { g.flags.warpDown = true; say('Engineering', 'We’ve lost the warp drive!', 'bad'); }
 
   // The Klingons go for the Maru from the second turn alongside. She can take three volleys.
-  if (!g.maru.gone && g.zoneTurn >= 2 && !g.rewritten) {
+  if (!g.maru.gone && clock(g) >= 2 && !hold && !g.rewritten) {
     g.maru.hull = Math.max(0, g.maru.hull - MARU_HIT);
     events.push({ type: 'fire-maru' });
     if (g.maru.hull === 0) {
@@ -229,7 +234,7 @@ export function act(g, id) {
     } else say('Tactical', 'They’re firing on the Maru!', 'bad');
   }
   // And more keep coming.
-  if (g.zoneTurn % 2 === 0 && !g.rewritten) {
+  if (clock(g) % 2 === 0 && !hold && !g.rewritten) {
     const n = g.sent >= 9 ? 1 : 2;
     decloak(g, n, events);
     say('Tactical', n === 1 ? 'Another cruiser decloaking.' : 'Two more cruisers decloaking.', 'bad');
@@ -281,7 +286,7 @@ function volley(g, { evading, shieldsDown, parting }, events, say) {
   const ks = alive(g);
   if (!ks.length) return;
   g.flags.klingonsFired = true;
-  const ramp = 1 + 0.12 * (g.zoneTurn - 1);
+  const ramp = 1 + 0.12 * (clock(g) - 1);
   let dmg = 0;
   for (const k of ks) { dmg += FIRE * ramp * (0.85 + g.rand() * 0.3); events.push({ type: 'kfire', from: k.id }); }
   if (evading) dmg *= 0.5;

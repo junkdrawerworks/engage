@@ -96,10 +96,12 @@ test('firing first is graded as starting a war', () => {
 });
 
 test('a parting volley that destroys the ship ends the simulation', () => {
-  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+  let finished = 0;
+  for (let seed = 1; seed <= 40; seed++) {
     const g = newGame({ seed });
-    for (const id of ['enter', 'hail', 'evade', 'evade', 'evade', 'evade', 'evade']) act(g, id);
-    assert.ok(g.hull >= WARP_HULL, `seed ${seed}: the warp drive was already gone`);
+    for (const id of ['enter', 'hail', ...Array(6).fill('evade')]) act(g, id);
+    if (g.hull < WARP_HULL) continue; // the warp drive is already gone in this one
+    finished++;
     const { events, lines } = act(g, 'warp');
     assert.equal(g.hull, 0, `seed ${seed}: the parting volley left the hull at ${g.hull}%`);
     assert.equal(g.over, 'destroyed', `seed ${seed}: the simulation went on at 0% hull`);
@@ -107,6 +109,28 @@ test('a parting volley that destroys the ship ends the simulation', () => {
     assert.ok(events.some(e => e.type === 'destroyed'));
     assert.match(lines.at(-1).text, /Warp core breach/);
     assert.equal(evaluate(g).numbers.crew, 0);
+  }
+  assert.ok(finished >= 20, `only ${finished} of 40 simulations reached the warp order with the drive working`);
+});
+
+// The quiet turn a first hail buys is free: the Klingons' rising fire, their attack on the Maru and their
+// reinforcements don't count it. It used to count, so hailing before the best run there is (two beam-overs and out)
+// turned "The lifeboat" into "Died trying" every time, while the examiners praised talking first.
+test('hailing the Klingons first costs nothing: the turn they hold fire is not on their clock', () => {
+  for (let seed = 1; seed <= 300; seed++) {
+    const plain = play(['enter', 'beam', 'beam', 'warp'], { seed });
+    const talked = play(['enter', 'hail', 'beam', 'beam', 'warp'], { seed });
+    assert.equal(evaluate(talked).title, 'The lifeboat', `seed ${seed}: talking first lost the lifeboat`);
+    assert.equal(talked.aboard, 150);
+    assert.deepEqual([talked.sent, talked.maru.hull], [plain.sent, plain.maru.hull], `seed ${seed}: the quiet turn brought cruisers or fire on the Maru`);
+    assert.match(evaluate(talked).note.join(' '), /Talking first bought you one quiet turn\./);
+  }
+  // A hail on any turn alongside holds them for that turn and no more, wherever their clock stands.
+  for (let wait = 0; wait <= 3; wait++) {
+    const before = play(['enter', ...Array(wait).fill('evade')]);
+    const [hull, shields, sent, maru] = [before.hull, before.shields, before.sent, before.maru.hull];
+    act(before, 'hail');
+    assert.deepEqual([before.hull, before.shields, before.sent, before.maru.hull], [hull, shields, sent, maru], `hail after ${wait} turns: they did something`);
   }
 });
 
