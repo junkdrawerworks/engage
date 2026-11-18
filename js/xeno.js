@@ -5,7 +5,7 @@ import { grow, growFor, oddsFor } from './xeno-gen.js';
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
-import { watch } from './store.js';
+import { keep, unkept, watch } from './store.js';
 
 const KEY = 'engage.xeno.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -32,7 +32,17 @@ function load() {
   const jars = Array.isArray(s.jars) ? s.jars.filter(j => j && Number.isInteger(j.seed) && known(j)) : [];
   return { ...s, jars };
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* fine */ } }
+// Keeps the shelf, and says so beside Keep and over the jars when the browser wouldn't take it: a jar that is on
+// screen and gone on the next visit is worse than being told. Returns whether it worked.
+let unsaved = '';
+function save() {
+  unsaved = keep(KEY, saved);
+  for (const id of ['keep-unsaved', 'jars-unsaved']) {
+    $(id).hidden = !unsaved;
+    $(id).textContent = unkept(unsaved, 'the lab', 'changes to your jars');
+  }
+  return !unsaved;
+}
 
 const newSeed = () => 1 + Math.floor(Math.random() * 9999);
 

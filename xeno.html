@@ -54,6 +54,7 @@
           <button class="text-button" id="send" type="button">Send this creature</button>
           <p class="kept-note" id="kept-note" hidden></p>
         </div>
+        <p class="unsaved" id="keep-unsaved" role="status" hidden></p>
         <p class="link-note" id="link-note" role="status" hidden>That link didn’t name a creature the lab knows, so here’s a new one.</p>
       </div>
 
@@ -73,6 +74,7 @@
     <section class="jars" id="jars-wrap" aria-labelledby="jars-head" hidden>
       <h2 class="section-head" id="jars-head">Your jars <span class="jars-n" id="jars-n"></span></h2>
       <p class="jar-undo" id="jar-undo" role="status" hidden><span id="jar-undo-text"></span> <button class="text-button" id="jar-undo-go" type="button">Undo</button></p>
+      <p class="unsaved" id="jars-unsaved" hidden></p>
       <ul class="jar-list" id="jars"></ul>
     </section>
   </main>

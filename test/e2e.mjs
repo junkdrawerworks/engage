@@ -1733,6 +1733,98 @@ await page.emulateMedia({ reducedMotion: null });
   await two.close();
 }
 
+// When the browser won't keep a room's record (its storage is full, or switched off), the room says so where the
+// record is listed. Each used to carry on as if it had: the jar, the run, the encounter, the hail or the streak was
+// on screen and gone on the next visit. Once the browser takes saves again, the line goes and the record is kept.
+{
+  const full = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  // The page's own storage, refusing every save the way a full one does, until window.room is set.
+  await full.addInitScript(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (...a) {
+      if (window.room) return set.apply(this, a);
+      throw new DOMException(window.blocked ? 'The operation is insecure.' : 'The quota has been exceeded.', window.blocked ? 'SecurityError' : 'QuotaExceededError');
+    };
+  });
+  const p = await full.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const line = id => p.locator(`#${id}`).evaluate(el => (el.hidden ? '' : el.textContent));
+  const stored = key => p.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), key);
+
+  await p.goto(base + 'xeno.html#M-21');
+  await p.waitForFunction(() => window.xeno?.current);
+  assert.equal(await line('keep-unsaved'), '', 'the lab says a save failed before anything was saved');
+  await p.tap('#keep');
+  assert.equal(await line('keep-unsaved'), 'This browser’s storage is full: changes to your jars won’t be kept.');
+  assert.equal(await line('jars-unsaved'), 'This browser’s storage is full: changes to your jars won’t be kept.');
+  assert.equal(await stored('engage.xeno.v1'), null);
+  await p.evaluate(() => { window.room = true; });
+  await p.tap('#again');
+  await p.tap('#keep');
+  assert.equal(await line('keep-unsaved'), '', 'the lab went on saying its jars won’t be kept after a save that worked');
+  assert.equal((await stored('engage.xeno.v1')).jars.length, 2, 'the jar the browser refused was not kept once there was room');
+
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  await p.evaluate(() => { window.blocked = true; });
+  await p.tap('#start');
+  await p.tap('.order[data-id="leave"]');
+  await p.waitForSelector('#read-eval');
+  await p.tap('#read-eval');
+  assert.equal(await line('eval-unsaved'), 'This browser isn’t letting the simulator save: this run won’t be kept.');
+  await p.tap('#again');
+  assert.equal(await line('record-unsaved'), 'This browser isn’t letting the simulator save: your latest run won’t be kept.');
+  assert.equal(await p.locator('#runs li').count(), 1);
+  // Back on the briefing with room made, it is kept after all.
+  await p.evaluate(() => { window.room = true; });
+  await p.tap('#start');
+  await p.tap('.order[data-id="leave"]');
+  await p.waitForSelector('#read-eval');
+  await p.tap('#read-eval');
+  assert.equal(await line('eval-unsaved'), '');
+  assert.equal((await stored('engage.maru.v1')).runs.length, 2);
+
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  await p.tap('#start');
+  await p.waitForFunction(() => !window.contact.busy);
+  await p.tap('#leave');
+  await p.waitForFunction(() => window.contact.game.over && !window.contact.busy);
+  await p.tap('#send');
+  assert.equal(await line('eval-unsaved'), 'This browser’s storage is full: this encounter won’t be kept.');
+  await p.tap('#again');
+  assert.equal(await line('record-unsaved'), 'This browser’s storage is full: your latest encounter won’t be kept.');
+  await p.evaluate(() => { window.room = true; });
+  await p.tap('#start');
+  await p.waitForFunction(() => !window.contact.busy);
+  await p.tap('#leave');
+  await p.waitForFunction(() => window.contact.game.over && !window.contact.busy);
+  await p.tap('#send');
+  assert.equal(await line('eval-unsaved'), '');
+  assert.equal((await stored('engage.contact.v1')).runs.length, 2);
+
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions);
+  await p.tap('#hail');
+  assert.equal(await line('hail-unsaved'), 'This browser’s storage is full: your hails won’t be kept.');
+  await p.evaluate(() => { window.room = true; window.missions.choose('v2'); });
+  await p.tap('#hail');
+  assert.equal(await line('hail-unsaved'), '');
+  assert.deepEqual(Object.keys((await stored('engage.missions.v1')).hails).sort(), ['v1', 'v2']);
+
+  await p.goto(base + 'survey.html');
+  await p.waitForFunction(() => window.survey);
+  await p.tap('[data-mode="drill"]');
+  await p.tap('#choices .choice >> nth=0');
+  assert.equal(await line('score-unsaved'), 'This browser’s storage is full: your streak won’t be kept.');
+  await p.evaluate(() => { window.room = true; });
+  await p.tap('#drill-next');
+  await p.tap('#choices .choice >> nth=0');
+  assert.equal(await line('score-unsaved'), '');
+  assert.equal((await stored('engage.survey.v1')).seen, 2);
+  await full.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

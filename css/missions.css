@@ -40,6 +40,7 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 .file .where { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
 .file h3 { margin: 20px 0 6px; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .file p { margin: 0 0 8px; color: #cdd5e3; }
+.file .unsaved { margin: 8px 0 0; color: var(--amber); }
 
 .live { margin: 0; display: grid; }
 .live div { display: grid; grid-template-columns: 6.8em 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }

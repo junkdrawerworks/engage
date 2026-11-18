@@ -1,7 +1,7 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
 import { newGame, orders, act, evaluate, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
 import { sound } from './audio.js';
-import { watch } from './store.js';
+import { keep, unkept, watch } from './store.js';
 
 const KEY = 'engage.maru.v1';
 const $ = id => document.getElementById(id);
@@ -18,7 +18,16 @@ function load() {
   // The endings seen, the best grades and the count of runs outlive the 30 runs listed; an older save's are filled in from its runs.
   return { ...s, runs, ...transcript({ ...s, runs }) };
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* fine */ } }
+// Keeps the record. When the browser won't take it, the evaluation and the briefing say so: a run that is on the
+// record now and gone on the next visit is worse than being told. Returns whether it worked.
+let unsaved = '';
+function save() {
+  unsaved = keep(KEY, saved);
+  $('eval-unsaved').hidden = $('record-unsaved').hidden = !unsaved;
+  $('eval-unsaved').textContent = unkept(unsaved, 'the simulator', 'this run');
+  $('record-unsaved').textContent = unkept(unsaved, 'the simulator', 'your latest run');
+  return !unsaved;
+}
 try { sound.on = JSON.parse(localStorage.getItem('engage.v1') || '{}')?.opts?.sound !== false; } catch { /* keep it on */ }
 
 let g = null; // the game
@@ -34,6 +43,7 @@ function showScreen(name) {
 }
 
 function showBrief() {
+  if (unsaved) save(); // try again: room may have been made since
   renderRecord();
   showScreen('brief');
 }

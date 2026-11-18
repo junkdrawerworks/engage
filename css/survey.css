@@ -92,6 +92,7 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .verdict-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .verdict-actions > * { flex: 1 1 140px; display: inline-grid; place-items: center; text-decoration: none; }
 .score { margin: 12px 0 0; text-align: center; font: 500 13px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); min-height: 1em; }
+.score + .unsaved { width: fit-content; margin: 8px auto 0; }
 
 .survey .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }
 

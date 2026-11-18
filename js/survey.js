@@ -1,7 +1,7 @@
 // The planetary survey: flip through the planet classes, or match an unlogged world to the file it would pass for.
 import { CLASSES, byId, label, quizReadings, grows } from './classes.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
-import { watch } from './store.js';
+import { keep, unkept, watch } from './store.js';
 
 const KEY = 'engage.survey.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -24,7 +24,15 @@ let paintId = 0;
 function load() {
   try { return { best: 0, streak: 0, seen: 0, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { best: 0, streak: 0, seen: 0 }; }
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* fine */ } }
+// Keeps the streak and the best. When the browser won't take them, a line under the score says so. Returns whether
+// it worked.
+let unsaved = '';
+function save() {
+  unsaved = keep(KEY, saved);
+  $('score-unsaved').hidden = !unsaved;
+  $('score-unsaved').textContent = unkept(unsaved, 'the survey', 'your streak');
+  return !unsaved;
+}
 
 // ---------- Numbers ----------
 

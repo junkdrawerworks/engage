@@ -3,7 +3,7 @@
 import { newGame, act, debrief, fluencyOf, hint, phrase, standing, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
-import { watch } from './store.js';
+import { keep, unkept, watch } from './store.js';
 
 const KEY = 'engage.contact.v1';
 const $ = id => document.getElementById(id);
@@ -20,7 +20,16 @@ function load() {
   // The species met, contacts made and best notebook outlive the 30 encounters listed; an older save's are filled in from its runs.
   return { ...s, runs, ...standing({ ...s, runs }) };
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* fine */ } }
+// Keeps the record. When the browser won't take it, the debrief and the briefing say so: an encounter that is on
+// the record now and gone on the next visit is worse than being told. Returns whether it worked.
+let unsaved = '';
+function save() {
+  unsaved = keep(KEY, saved);
+  $('eval-unsaved').hidden = $('record-unsaved').hidden = !unsaved;
+  $('eval-unsaved').textContent = unkept(unsaved, 'first contact', 'this encounter');
+  $('record-unsaved').textContent = unkept(unsaved, 'first contact', 'your latest encounter');
+  return !unsaved;
+}
 try { sound.on = JSON.parse(localStorage.getItem('engage.v1') || '{}')?.opts?.sound !== false; } catch { /* keep it on */ }
 
 let g = null; // the encounter
@@ -40,6 +49,7 @@ function showScreen(name) {
 }
 
 function showBrief() {
+  if (unsaved) save(); // try again: room may have been made since
   renderRecord();
   showScreen('brief');
 }

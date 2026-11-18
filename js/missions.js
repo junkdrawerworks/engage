@@ -6,7 +6,7 @@ import {
   jwstFromEarth, jwstSpan, jwstAroundL2, jwstTracked, moonAt, milestones,
 } from './ephemeris.js';
 import { warpSpeed, stardate, plural } from './physics.js';
-import { watch } from './store.js';
+import { keep, unkept, watch } from './store.js';
 
 const KEY = 'engage.missions.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -29,7 +29,15 @@ function load() {
   const hails = s.hails && typeof s.hails === 'object' ? Object.fromEntries(Object.entries(s.hails).filter(([, t]) => Number.isFinite(t))) : {};
   return { ...s, hails };
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* fine */ } }
+// Keeps the hails. When the browser won't take them, a line under Hail her says so: the page promises a hail will
+// still be on its way tomorrow. Returns whether it worked.
+let unsaved = '';
+function save() {
+  unsaved = keep(KEY, saved);
+  $('hail-unsaved').hidden = !unsaved;
+  $('hail-unsaved').textContent = unkept(unsaved, 'long missions', 'your hails');
+  return !unsaved;
+}
 
 // ---------- Words for numbers ----------
 

@@ -17,6 +17,7 @@ body.maru.red { background: radial-gradient(ellipse at 50% -10%, #4a1016 0%, var
 .card { padding: 20px 18px 16px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
 .card h2 { margin: 4px 0 10px; font: 600 28px/1.1 var(--display); letter-spacing: 0.03em; }
 .card p { margin: 0 0 10px; color: #cdd5e3; }
+.card .unsaved { margin: 0 0 12px; color: var(--amber); }
 .card .eyebrow { color: var(--red); }
 
 /* Briefing */
