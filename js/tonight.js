@@ -5,7 +5,7 @@ import { loadCatalog } from './catalog.js';
 import { DESTINATIONS } from './destinations.js';
 import { describeKind, inTextFor, titleFor } from './log.js';
 import { CHARTS } from './charts.js';
-import { LY_PER_PC, apparentMag, formatLy, formatYear } from './physics.js';
+import { LY_PER_PC, apparentMag, formatLy, formatYear, stardate } from './physics.js';
 import {
   jdOf, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark,
   phonePose, SKIES, NAKED_EYE_PLANETS,
@@ -529,7 +529,9 @@ function drawTag(t) {
     ctx.stroke();
   }
   // The name, with a dark pill behind it so it reads over anything.
-  const sub = below ? 'below the horizon' : faint ? 'too faint to see' : t.chart ? `${titleFor(cat, t.i)} · ${formatLy(t.ly)}` : formatLy(t.ly);
+  // A star the catalogue has no distance for (only ever one from the log) isn't given the charts' nominal one here either.
+  const far = cat.unmeasured[t.i] ? 'distance not measured' : formatLy(t.ly);
+  const sub = below ? 'below the horizon' : faint ? 'too faint to see' : t.chart ? `${titleFor(cat, t.i)} · ${far}` : far;
   ctx.font = `600 ${trek ? 14 : 12}px ${FONT}`;
   const name = trek ? t.name.toUpperCase() : t.name;
   const tick = t.been ? 15 : 0; // room for the mark that says the ship has been there
@@ -649,14 +651,18 @@ function fillCard(s) {
       been = v.n > 1 ? `You’ve dropped out of warp here ${v.n === 2 ? 'twice' : `${v.n} times`}${on && `, the last${on}`}.` : `You dropped out of warp here${on}.`;
     }
     title = t ? t.name : titleFor(cat, s.i);
-    sub = [t?.chart && titleFor(cat, s.i) !== title ? titleFor(cat, s.i) : '', `${formatLy(ly)} away`].filter(Boolean).join(' · ');
+    // The catalogue has no distance for some stars: the bridge says so, and so does this card, with no year for its light.
+    const unmeasured = !!cat.unmeasured[s.i];
+    sub = [t?.chart && titleFor(cat, s.i) !== title ? titleFor(cat, s.i) : '', unmeasured ? 'Distance not measured' : `${formatLy(ly)} away`].filter(Boolean).join(' · ');
     line = t?.chart?.line || d?.fiction || d?.notes?.[0] || '';
     // When it would show in this sky with the Moon down, the Moon is what hides it, not the sky.
     seeIt = m <= sky.nightLim ? `You can see it ${skyIn}${night}.`
       : m <= limitingMag(saved.sky, -90) ? 'The Moon is washing it out tonight.'
       : m < 6.5 ? `Too faint to pick out ${skyIn}; it needs a dark sky.` : `Far too faint to see without a telescope (magnitude ${m.toFixed(1)}).`;
-    const left = new Date().getFullYear() - ly;
-    facts = `${d?.kind || describeKind(cat.spect[s.i], cat.temp[s.i])}. The light reaching you tonight left it ${ly < 5000 ? `in ${formatYear(left)}` : `about ${formatLy(ly).replace(' ly', '')} years ago`}.`;
+    const left = Math.floor(Number(stardate()) - ly); // the calendar year it left in, as the captain's log dates Earth's old light
+    const what = d?.kind || describeKind(cat.spect[s.i], cat.temp[s.i], unmeasured ? null : cat.absmag[s.i]);
+    facts = unmeasured ? `${what}. Nobody has measured how far away it is, so there’s no saying how old its light is.`
+      : `${what}. The light reaching you tonight left it ${ly < 5000 ? `in ${formatYear(left)}` : `about ${formatLy(ly).replace(' ly', '')} years ago`}.`;
     course.href = `${BRIDGE}?course=${encodeURIComponent(cat.names[s.i])}`;
     setText('card-course', `Set course for ${inTextFor(cat, s.i)}${v ? ' again' : ''}`);
     if (BRIDGE.startsWith('http')) { course.target = '_blank'; course.rel = 'noopener'; }

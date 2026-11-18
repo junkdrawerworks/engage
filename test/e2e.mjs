@@ -896,6 +896,21 @@ await bridgeReady();
   assert.match(await p.locator('#list-note').innerText(), /You’ve flown to 2 of the stars listed here\.$/);
   assert.equal(await p.locator('#systems .s-been').count(), 2);
   assert.ok(await p.evaluate(() => localStorage.getItem('engage.v1')) === bridgeSave, 'tonight’s sky wrote to the bridge’s save');
+
+  // A logged star is described here as the bridge describes it. ρ Cassiopeiae has no measured distance: its tag and
+  // card say so, with no "3,262 ly away" and no year for its light. Mira's type names no size, and she is a giant.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => { for (const name of ['ρ Cassiopeiae', 'Mira']) { engage.jump(name); engage.closeSheets(); } });
+  await p.goto(base + 'tonight.html#star=' + encodeURIComponent('ρ Cassiopeiae'));
+  await p.waitForFunction(() => window.tonight && document.getElementById('card-title').textContent === 'ρ Cassiopeiae');
+  assert.equal(await p.locator('#card-sub').innerText(), 'Distance not measured');
+  const rho = await p.locator('#card-facts').innerText();
+  assert.match(rho, /^Yellow-white supergiant, spectral type F8Iavar\. Nobody has measured how far away it is/);
+  assert.doesNotMatch(await p.locator('#card').innerText(), /3,262|BCE|left it in/, 'tonight’s sky gave an unmeasured star a distance or a year');
+  await p.evaluate(() => { location.hash = '#star=Mira'; });
+  await p.waitForFunction(() => document.getElementById('card-title').textContent === 'Mira');
+  assert.match(await p.locator('#card-facts').innerText(), /^Red giant, spectral type M5e-M9e\. The light reaching you tonight left it in 17\d\d\.$/);
   await been.close();
 }
 
