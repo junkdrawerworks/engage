@@ -58,6 +58,13 @@
         <button class="text-button" id="rewrite" type="button" hidden>Reprogram the simulator</button>
         <label class="toggle one-switch"><input type="checkbox" id="one-switch"> <span><b>One-switch play</b>A highlight steps through the choices, one every second and a half. Press any key or switch, or tap anywhere, to pick it.</span></label>
       </div>
+      <div class="card officer-card">
+        <p class="eyebrow">Also at the Academy</p>
+        <h2>The Bridge Officer’s Test</h2>
+        <p>One more simulation, on the holodeck: the ship is badly damaged and her warp core will breach in six minutes. In <i>The Next Generation</i>’s “Thine Own Self”, Deanna Troi had to pass it to be made a commander, and failed it again and again.</p>
+        <p class="officer-record" id="officer-record" hidden></p>
+        <button class="secondary" id="officer-start" type="button">Take the test</button>
+      </div>
       <div class="card record" id="record" hidden>
         <p class="eyebrow">Your record</p>
         <p class="unsaved" id="record-unsaved" hidden></p>
@@ -91,6 +98,37 @@
         <div class="orders" id="orders" aria-label="Orders"></div>
       </div>
       <div class="comms" id="comms" role="log" aria-live="polite" aria-label="Communications"></div>
+    </section>
+
+    <section id="officer" hidden aria-label="The Bridge Officer’s Test">
+      <div class="plot-wrap">
+        <canvas id="officer-plot" role="img" aria-label="A schematic of the ship: the warp core, and the sealed compartment flooded with radiation"></canvas>
+        <p class="turn">Bridge Officer’s Test · Holodeck</p>
+        <p class="caption" id="officer-caption" aria-hidden="true"></p>
+      </div>
+      <div class="side">
+        <div class="status" role="group" aria-label="Ship status">
+          <div class="gauge"><span class="g-k">Breach in</span><span class="g-v" id="officer-minutes"></span><span class="bar"><i id="officer-bar"></i></span></div>
+          <div class="gauge"><span class="g-k">Ways tried</span><span class="g-v" id="officer-tried"></span></div>
+        </div>
+        <div class="orders" id="officer-orders" aria-label="Orders"></div>
+      </div>
+      <div class="comms" id="officer-comms" role="log" aria-live="polite" aria-label="Communications"></div>
+    </section>
+
+    <section id="officer-eval" hidden aria-label="The board’s verdict">
+      <div class="card evaluation">
+        <p class="eyebrow">Starfleet Academy · Bridge Officer’s Test</p>
+        <h2 id="officer-title" tabindex="-1"></h2>
+        <p class="summary" id="officer-summary"></p>
+        <h3>The board’s notes</h3>
+        <div id="officer-note"></div>
+        <p class="moral" id="officer-moral"></p>
+        <div class="eval-actions">
+          <button class="secondary" id="officer-back" type="button">Back to the briefing</button>
+          <button class="primary" id="officer-again" type="button">Take it again</button>
+        </div>
+      </div>
     </section>
 
     <section id="eval" hidden aria-label="Evaluation">

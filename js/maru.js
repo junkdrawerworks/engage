@@ -2,6 +2,7 @@
 import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, archiveLine, dailySeed, today, shareLine, encodeRun, decodeRun, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
 import { LIVE, share } from './share.js';
 import { oneSwitch } from './switch.js';
+import { officerTest } from './officer.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -61,7 +62,7 @@ function keptGame() {
 // ---------- Screens ----------
 
 function showScreen(name) {
-  for (const s of ['brief', 'sim', 'eval']) $(s).hidden = s !== name;
+  for (const s of ['brief', 'sim', 'eval', 'officer', 'officer-eval']) $(s).hidden = s !== name;
   document.body.classList.toggle('red-alert', name === 'sim' && g && g.klingons.length > 0 && !g.over); // not "red": that is night vision's, in css/app.css
   scrollTo(0, 0);
   if (name === 'sim') { sizePlot(); loop(); }
@@ -734,6 +735,11 @@ function loop() {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('sim').hidden) loop(); });
 
+// ---------- The Bridge Officer's Test ----------
+
+// The other test on this page (officer.js): its record is kept beside the Maru's.
+const officer = officerTest({ saved, save, show: showScreen, back: () => { showBrief(); $('officer-start').focus({ preventScroll: true }); } });
+
 // ---------- One-switch play ----------
 
 // The choices a single press can pick, screen by screen (see switch.js): the whole test and the evaluation need one button.
@@ -741,7 +747,8 @@ const visible = (...ids) => ids.map(id => $(id));
 const sw = oneSwitch({
   key: 'engage.oneswitch',
   items() {
-    if (!$('brief').hidden) return visible('resume', 'start', 'daily-start', 'daily-share', 'rewrite', 'one-switch');
+    if (!$('brief').hidden) return visible('resume', 'start', 'daily-start', 'daily-share', 'rewrite', 'one-switch', 'officer-start');
+    if (!$('officer').hidden || !$('officer-eval').hidden) return officer.items();
     if (!$('eval').hidden) return visible('again', 'to-bridge', 'share-run');
     if (busy || !g) return [];
     if (g.over) return visible('read-eval');
@@ -801,4 +808,4 @@ const shared = openedRun();
 if (shared) watchRun(shared); else showBrief();
 sw.set(sw.on);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.maru = { get game() { return g; }, start, resume, give, watch: watchRun, skip: skipWatched, get watching() { return watching; }, get given() { return given.slice(); }, daily: () => $('daily-start').click(), oneSwitch: sw, get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU, get draws() { return draws; } };
+window.maru = { get game() { return g; }, start, resume, give, watch: watchRun, skip: skipWatched, get watching() { return watching; }, get given() { return given.slice(); }, daily: () => $('daily-start').click(), oneSwitch: sw, officer, get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU, get draws() { return draws; } };

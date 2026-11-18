@@ -61,6 +61,16 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 .record li .when { font-size: 12px; color: var(--dim); text-align: right; }
 .record li .letters { grid-column: 1 / -1; font: 500 13px/1.3 var(--display); letter-spacing: 0.08em; color: var(--muted); }
 
+/* The Bridge Officer's Test: its card on the briefing, and its verdict. Its screen is the Maru's, with its own canvas. */
+.officer-card h2 { font-size: 22px; }
+.officer-card .officer-record { font-size: 14px; color: var(--cyan); }
+.officer-card .secondary { width: 100%; margin-top: 4px; }
+#officer:not([hidden]) { display: block; }
+#officer-plot { display: block; width: 100%; aspect-ratio: 10 / 7; }
+#officer-bar { background: var(--amber); }
+#officer-eval:not([hidden]) { display: block; max-width: 680px; margin: 6px auto 0; }
+#officer-title.passed { color: var(--green); }
+
 /* The tactical display */
 .plot-wrap { position: relative; margin: 4px -16px 0; border-block: 1px solid rgba(255, 107, 94, 0.18); background: #04060b; }
 #plot { display: block; width: 100%; aspect-ratio: 10 / 8; touch-action: manipulation; }
@@ -153,6 +163,7 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
   .top { padding: calc(20px + var(--safe-t)) max(24px, var(--safe-r)) 14px max(24px, var(--safe-l)); }
   .title h1 { font-size: 26px; }
   .maru main { padding: 0 max(24px, var(--safe-r)) 0 max(24px, var(--safe-l)); }
+  #officer:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); grid-template-areas: 'plot side' 'comms side'; gap: 12px 20px; align-items: start; }
   #sim:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); grid-template-areas: 'plot side' 'comms side'; gap: 12px 20px; align-items: start; }
   .plot-wrap { grid-area: plot; margin: 4px 0 0; border: 1px solid rgba(255, 107, 94, 0.18); border-radius: 18px; overflow: hidden; }
   #plot { aspect-ratio: 10 / 7; }

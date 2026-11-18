@@ -1042,6 +1042,32 @@ assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.g
   assert.equal(await q.locator('#brief').isVisible(), true);
   await friend.close();
 }
+// The Bridge Officer's Test, the Academy's second test on the Maru's page: tried ways cost a minute each and are
+// marked so, the one order that works ends it, the board gives its verdict, and the briefing keeps the pass.
+{
+  const bot = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await bot.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  assert.equal(await p.locator('#officer-record').isHidden(), true);
+  await p.click('#officer-start');
+  assert.equal(await p.locator('#officer').isVisible(), true);
+  assert.equal(await p.locator('#officer-minutes').innerText(), '6 min');
+  await p.click('[data-officer="eject"]');
+  assert.equal(await p.locator('#officer-minutes').innerText(), '5 min');
+  assert.equal(await p.locator('[data-officer="eject"]').getAttribute('aria-disabled'), 'true');
+  assert.match(await p.locator('#officer-comms').innerText(), /ejection system took the same hit/);
+  await p.click('[data-officer="order"]');
+  await p.click('#officer-read');
+  assert.equal(await p.locator('#officer-title').innerText(), 'Passed');
+  assert.match(await p.locator('#officer-note').innerText(), /You tried one other way first\./);
+  await p.click('#officer-back');
+  assert.match(await p.locator('#officer-record').innerText(), /^Passed on \d{1,2} [A-Z][a-z]{2}\. First time\.$/);
+  assert.deepEqual(await p.evaluate(() => { const o = JSON.parse(localStorage.getItem('engage.maru.v1')).officer; return [o.taken, !!o.passed]; }), [1, true]);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await bot.close();
+}
 // One-switch play: with the toggle on the briefing, a highlight steps through the choices and one key or one tap
 // anywhere picks the highlighted one, for the whole test and the evaluation. The setting is remembered, and first
 // contact can be played the same way, a meaning in the notebook stepped on by each press.
