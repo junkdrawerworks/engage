@@ -1,7 +1,7 @@
 // The xenobiology lab: pick a planet class, grow a creature for it, read how the world shaped it, and keep the ones you like.
 import { CLASSES, byId, label } from './classes.js';
 import { Globe, paint } from './planet-art.js';
-import { grow, ODDS } from './xeno-gen.js';
+import { grow, oddsFor } from './xeno-gen.js';
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
@@ -58,7 +58,7 @@ function cardHtml(c) {
     <p class="eyebrow">Specimen grown for ${esc(label(c.cls))}${c.cls.letter ? ` · ${esc(c.cls.name)}` : ''}</p>
     <h2>${esc(c.name.common)}</h2>
     <p class="latin">${esc(c.name.genus)} ${esc(c.name.species)}</p>
-    <p class="odds"><b>${ODDS_HEAD[c.odds]}.</b> ${esc(ODDS[c.odds].replace(/^[^.]+\. /, ''))}</p>
+    <p class="odds"><b>${ODDS_HEAD[c.odds]}.</b> ${esc(oddsFor(c).replace(/^[^.]+\. /, ''))}</p>
     ${plantOnly ? '<p class="aside">Class L worlds have plant life and no animals, so the lab grew a plant.</p>' : ''}
     <ul class="notes">${c.notes.map(n => `<li><h3>${esc(n.label)}</h3><p>${esc(n.text)}</p></li>`).join('')}</ul>
     <a class="to-file" href="${BRIDGE}survey.html#${esc(c.classId)}"${AWAY}>Read the ${esc(label(c.cls))} survey file <span aria-hidden="true">→</span></a>

@@ -28,12 +28,16 @@ export const WORLDS = {
   'ice-giant': { habitats: ['sea'], pressure: [200, 2000], temp: [280, 360], stars: ['yellow', 'orange', 'red'], gas: true, odds: 'wild', place: ['water mantle'] },
 };
 
+// (Class L has plants and no animals, so its creatures get the line with "plants" in it: see oddsFor.)
 export const ODDS = {
   likely: 'Plausible. Earth is proof that this kind of place can grow animals like it.',
   possible: 'Possible. Earth has animals that live in places like this, though none started out there.',
   long: 'A long shot. Some scientists have argued for life here, but nobody expects much.',
   wild: 'Pure speculation. Nothing on Earth could survive here, so the lab is guessing at a different chemistry.',
 };
+
+// How seriously to take one creature: the line for its world, worded for what was grown.
+export const oddsFor = c => (c.body.plan === 'plant' ? ODDS[c.odds].replace('animals like it', 'plants like it') : ODDS[c.odds]);
 
 export const STARS = {
   yellow: { name: 'a yellow star like the Sun', color: [255, 244, 214] },
@@ -61,10 +65,16 @@ export function sizeText(m) {
   if (m >= 0.01) return `${Math.round(m * 100)} cm`;
   return `${Math.max(0.1, m * 1000).toFixed(m >= 0.001 ? 0 : 1)} mm`;
 }
+// How many times as much, to go before "what it would on Earth": "2.5 times", "1.4 times", "55% of".
 function times(x) {
   if (x >= 10) return `${Math.round(x)} times`;
-  if (x >= 1.95) return `${x.toFixed(1).replace(/\.0$/, '')} times`;
+  if (x >= 1.05) return `${x.toFixed(1).replace(/\.0$/, '')} times`;
   return `${Math.round(x * 100)}% of`;
+}
+// How thick the air is against Earth's, as the end of "The air is ...".
+function denseText(d) {
+  if (d >= 1.05) return `${d >= 10 ? Math.round(d) : d.toFixed(1).replace(/\.0$/, '')} times as dense as Earth’s`;
+  return d > 0.95 ? 'about as dense as Earth’s' : `${Math.round(d * 100)}% as dense as Earth’s`;
 }
 const celsius = k => Math.round(k - 273.15);
 const signed = n => (n < 0 ? `−${-n}` : String(n));
@@ -214,13 +224,17 @@ function notes(env, b, cls) {
   const { g, temp, pressure, density, star, dark, chem, habitat } = env;
   const out = [];
   const gs = gText(g);
+  const rock = b.crystals; // a body of silicon: no lungs, no bones, no blood, no eyelids
 
   // Gravity
   let gt;
   if (b.plan === 'flyer') {
-    gt = `At ${gs} its weight would pin a walker down, but the air is so thick it holds a light body up. Hollow bones keep it light, and its wings span about ${sizeText(b.size)}.`;
+    gt = g < 1 ? `At ${gs} the pull is gentle and the air is thick, so a light body stays up easily.`
+      : g < 1.3 ? `At ${gs}, close to Earth’s pull, the air is thick enough to hold a light body up.`
+      : `At ${gs} its weight would pin a walker down, but the air is thicker still and holds a light body up.`;
+    gt += rock ? ` Its frame is a lattice of thin glassy struts, and its wings span about ${sizeText(b.size)}.` : ` Hollow bones keep it light, and its wings span about ${sizeText(b.size)}.`;
   } else if (b.plan === 'walker') {
-    if (g >= 1.4) gt = `At ${gs} it weighs ${times(g)} what it would on Earth. It keeps low on ${NUM[b.legs]} thick legs set wide apart, like an elephant’s pillars, because a heavier body needs fatter bones. A fall here would hurt, so it never runs.`;
+    if (g >= 1.4) gt = `At ${gs} it weighs ${times(g)} what it would on Earth. It keeps low on ${NUM[b.legs]} thick legs set wide apart, like an elephant’s pillars, because a heavier body needs ${rock ? 'thicker props' : 'fatter bones'}. A fall here would hurt, so it never runs.`;
     else if (g < 0.7) gt = `At ${gs} it weighs only ${times(g)} what it would on Earth, so ${NUM[b.legs]} thin legs hold it up and it can grow tall. Long strides and big bounds cost it little.`;
     else gt = `At ${gs}, close to Earth’s pull, it stands on ${NUM[b.legs]} legs much like an Earth animal its size.`;
     gt += ` It stands about ${sizeText(b.size)} tall.`;
@@ -235,7 +249,7 @@ function notes(env, b, cls) {
   } else if (b.plan === 'plant') {
     gt = `Plants here hold themselves up against ${gs}. ${g > 1.2 ? 'Stronger gravity keeps them low and stout' : g < 0.8 ? 'Weak gravity lets them grow tall and slender' : 'That is close to Earth’s, so they grow to about Earth’s heights'}: this one reaches ${sizeText(b.size)}.`;
   } else {
-    gt = b.crystals
+    gt = rock
       ? `At ${gs} it hugs the rock in a low dome about ${sizeText(b.size)} across, with no legs at all: it moves by dissolving the stone in front of it.`
       : `At ${gs} it barely weighs anything, but at ${sizeText(b.size)} long it has no need for strength. It clings to grains of dust with ${NUM[b.legs]} stubby, clawed legs.`;
   }
@@ -251,18 +265,22 @@ function notes(env, b, cls) {
     at = env.gas
       ? `Above its ocean is a thick hydrogen sky at ${pressureText(pressure)} pressure. The water below is warm and dark, and it breathes through gills.`
       : 'It breathes through gills, pulling oxygen from the water as Earth’s fish do.';
+  } else if (b.plan === 'plant') {
+    at = `The air is ${pressureText(pressure)} pressure${pressure > 0.6 && pressure < 1.6 ? ', close to Earth’s' : ''}. It takes in carbon dioxide through pores in its leaves and gives off oxygen, as Earth’s plants do.`;
   } else if (pressure < 0.1 && b.plan === 'crawler') {
     at = `The air is barely there, ${pressureText(pressure)}. It doesn’t breathe at all: its rock body takes what it needs from the stone it eats.`;
   } else if (pressure < 0.1) {
     at = `The air is ${pressureText(pressure)}. A barrel chest and breathing sacs along its back pull in what little there is, and it seals its nostrils when the dust blows.`;
   } else if (b.plan === 'flyer') {
-    at = `The air is ${times(density)} as dense as Earth’s and the pull is gentle, so flying is cheap. It has broad wings and spends most of its life aloft.`;
+    at = `The air is ${denseText(density)}${g < 1 ? ' and the pull is gentle, so flying is cheap' : `, thick enough to make flying cheap even at ${gs}`}. It has broad wings and spends most of its life aloft.`;
   } else if (b.plan === 'floater') {
-    at = env.gas
-      ? `The air is hydrogen and helium at ${pressureText(pressure)} pressure. It eats the organic specks that drift down from above, like plankton.`
-      : `It lives in the layer of cloud where the pressure is ${pressureText(pressure)} and the temperature is mild, far above the crushing surface. The droplets around it are sulfuric acid, so its skin has to resist acid.`;
+    at = !env.gas ? `It lives in the layer of cloud where the pressure is ${pressureText(pressure)} and the temperature is mild, far above the crushing surface. The droplets around it are sulfuric acid, so its skin has to resist acid.`
+      : rock ? `The air is hydrogen and helium at ${pressureText(pressure)} pressure. At this heat the clouds are grains of rock, and it sieves that mineral dust for its food.`
+      : `The air is hydrogen and helium at ${pressureText(pressure)} pressure. It eats the organic specks that drift down from above, like plankton.`;
+  } else if (rock) {
+    at = `The air is ${denseText(density)}, and nothing in it is any use to a body of rock. It doesn’t breathe: it takes what it needs from the stone it eats.`;
   } else if (density > 2) {
-    at = `The air is ${times(density)} as dense as Earth’s. It needs only small lungs, and sounds carry far, so it calls more than it looks.`;
+    at = `The air is ${denseText(density)}. It needs only small lungs, and sounds carry far, so it calls more than it looks.`;
   } else {
     at = `The air is ${pressureText(pressure)} pressure${pressure > 0.6 && pressure < 1.6 ? ', close to Earth’s,' : ''} and it breathes it much as we do.`;
   }
@@ -270,12 +288,17 @@ function notes(env, b, cls) {
 
   // Light
   let lt;
+  const eyes = b.eyes > 2 ? `${NUM[b.eyes]} eyes` : 'eyes';
   if (star === 'none') lt = 'With no star, the only light is what living things make. It has no eyes; long feelers taste the water, and it flashes patterns of its own light to find others.';
   else if (dark) lt = `Its world circles ${STARS[star].name}, but no sunlight reaches where it lives. It has no eyes and finds its way with feelers${b.glow ? ', and it carries its own glowing lure' : ''}.`;
   else if (b.plan === 'crawler' && !b.eyes) lt = `Its world circles ${STARS[star].name}, but at its size eyes are no use: it feels its way grain by grain.${star === 'red' ? ' Its dark skin soaks up what warmth the dim red light brings.' : ''}`;
   else if (b.plan === 'plant') lt = star === 'red'
     ? 'A red dwarf gives off most of its light as infrared. To catch as much of it as possible the leaves here are nearly black, not green.'
     : star === 'orange' ? 'An orange star’s light is redder than the Sun’s, so the leaves here may be orange-red, soaking up the colours there are most of.' : 'Under a Sun-like star the leaves are green, like Earth’s.';
+  else if (rock && /night/.test(env.place)) lt = `Its world circles ${STARS[star].name}, but it keeps to the night side, where that star never rises. Its ${eyes} are lenses of clear crystal that see by the dull glow of the hot ${b.plan === 'floater' ? 'clouds' : 'rock'}.`;
+  else if (rock) lt = star === 'red' ? `Its world circles a red dwarf, whose light is dim and mostly infrared. Its ${eyes} are lenses of clear crystal, wide open to that heat.${b.armor ? ' Red dwarfs flare, so it grew a shell against the bursts of radiation.' : ''}`
+    : star === 'orange' ? `An orange dwarf’s light is softer and redder than the Sun’s. Its ${eyes} are lenses of clear crystal, tuned toward red.`
+    : `Under a Sun-like star it sees through ${b.eyes > 2 ? `${NUM[b.eyes]} ` : ''}lenses of clear crystal, which no glare can burn.`;
   else if (star === 'red') lt = `Its world circles a red dwarf, whose light is dim and mostly infrared. ${b.eyes > 2 ? `It has ${NUM[b.eyes]} huge eyes that` : 'Its huge eyes'} see heat, and its skin is almost black to soak up warmth.${b.armor ? ' Red dwarfs flare, so it grew a shell against the bursts of radiation.' : ''}`;
   else if (star === 'orange') lt = `An orange dwarf’s light is softer and redder than the Sun’s, so its ${b.eyes > 2 ? `${NUM[b.eyes]} ` : ''}eyes are large and tuned toward red.`;
   else lt = b.eyeSize < 1 ? 'Under a fierce Sun-like star its eyes are small, set deep under a heavy brow, with a clear inner eyelid against the glare.' : `Under a Sun-like star it sees much as we do, with ${NUM[b.eyes]} forward-facing eyes.`;
@@ -283,12 +306,30 @@ function notes(env, b, cls) {
 
   // Heat and chemistry
   let ht;
+  const swims = b.plan === 'swimmer';
   if (chem === 'silicon') ht = `At ${tempText(temp)} water can’t stay liquid, so it can’t be built like us. The lab guesses at a body of silicon, like rock, and like Star Trek’s Horta.`;
   else if (b.plan === 'crawler') ht = `With no air to hold heat, the ground swings from baking to freezing between day and night, around ${tempText(temp)} on average. It rides out the extremes dried up and dormant.`;
   else if (chem === 'ammonia') ht = 'Deep in an ice giant, water mixes with ammonia under huge pressure. Its blood would be part ammonia, which keeps it liquid.';
-  else if (temp < 262 && habitat !== 'under-ice') ht = `At ${tempText(temp)} it lives with frost. ${b.covering === 'fur' ? 'Thick fur and a layer of fat keep it warm, and' : ''} its blood is salty enough not to freeze${chem === 'brine' ? ', like the brines that may seep under Mars' : ''}.`;
-  else if (habitat === 'under-ice') ht = `The water is about ${tempText(temp)}, kept liquid by heat from the planet’s core. It gathers around hot vents on the sea floor, as tube worms do on Earth.`;
+  else if (b.plan === 'plant') {
+    ht = temp < 262 ? `At ${tempText(temp)} it lives with frost. Its sap is thick with sugars that work as antifreeze, as in Earth’s conifers, and it grows only in the short thaw.`
+      : temp < 283 ? `At ${tempText(temp)} it lives in the cold, near freezing. It grows slowly and keeps its leaves small and waxy, like the plants of Earth’s tundra.`
+      : `At ${tempText(temp)}, mild by Earth’s standards, it needs no special tricks against heat or cold.`;
+  } else if (swims && habitat !== 'under-ice') {
+    ht = temp > 305 ? `The water is about ${tempText(temp)}, ${temp < 318 ? 'as warm as a bath' : temp < 373 ? 'as hot as a hot spring' : 'kept from boiling only by the pressure'}, and warm water holds little oxygen. It has broad gills and never hurries.`
+      : temp < 262 ? `The water is about ${tempText(temp)}, so salty that it stays liquid well below freezing. Its blood is as salty as the sea, and a thick layer of fat keeps it warm.`
+      : temp < 283 ? `The water is about ${tempText(temp)}, near freezing. A thick layer of fat under its skin keeps it warm, like a seal’s blubber.`
+      : `The water is about ${tempText(temp)}, mild by Earth’s standards, so it needs no special tricks against heat or cold.`;
+  } else if (temp < 262 && habitat !== 'under-ice') {
+    // Salt keeps water liquid to about 200 K (the perchlorate brines suspected on Mars), and ammonia to 176 K. Colder
+    // than that the lab has nothing to offer but a guess.
+    const warm = b.covering === 'fur' ? 'Thick fur and a layer of fat keep it warm' : '';
+    const blood = temp >= 200 ? `its blood is salty enough not to freeze${chem === 'brine' ? ', like the brines that may seep under Mars' : ''}`
+      : temp >= 176 ? 'the lab guesses its blood is water mixed with ammonia, which stays liquid far colder than any brine'
+      : 'what runs in its veins is the lab’s guess: even water mixed with ammonia freezes solid at this temperature';
+    ht = `At ${tempText(temp)} it lives with frost. ${warm ? `${warm}, and ${blood}` : blood.charAt(0).toUpperCase() + blood.slice(1)}.`;
+  } else if (habitat === 'under-ice') ht = `The water is about ${tempText(temp)}, kept liquid by heat from the planet’s core. It gathers around hot vents on the sea floor, as tube worms do on Earth.`;
   else if (b.plan === 'floater') ht = `It rides at the height where it is about ${tempText(temp)}, warm enough for water droplets to stay liquid. Too high it freezes, too low it cooks, so it spends its life adjusting how much gas it holds.`;
+  else if (temp > 305 && b.plan === 'burrower') ht = `At ${tempText(temp)} it keeps cool by staying underground through the heat of the day, as desert animals do on Earth, and comes up at night.`;
   else if (temp > 305 && b.sail) ht = `At ${tempText(temp)} its problem is shedding heat. The sail on its back is full of blood vessels and works as a radiator, and it rests in the shade by day.`;
   else if (temp > 305) ht = `At ${tempText(temp)} it keeps cool with a pale skin that reflects light, and it does its moving at night.`;
   else if (temp < 283) ht = `At ${tempText(temp)} it lives in the cold, near freezing. A thick layer of fat under its skin keeps it warm, like a seal’s blubber.`;

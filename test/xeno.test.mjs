@@ -2,7 +2,7 @@
 // and the body follows the world (gravity, light, air) the way the field notes say.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { grow, WORLDS } from '../js/xeno-gen.js';
+import { grow, WORLDS, ODDS, oddsFor } from '../js/xeno-gen.js';
 import { CLASSES, byId } from '../js/classes.js';
 import { SPECIMENS, specimensFor } from '../js/species.js';
 
@@ -26,6 +26,54 @@ test('every creature has a name, a size and four readable field notes', () => {
     assert.equal(c.notes.length, 4);
     for (const n of c.notes) assert.doesNotMatch(n.text + n.label, /undefined|NaN|null|Infinity/, `${c.classId} ${c.seed}: ${n.text}`);
   }
+});
+
+test('the field notes read as sentences', () => {
+  // No doubled spaces, no sentence that starts in lower case, no "143% of as dense".
+  for (const c of all) for (const n of c.notes) assert.doesNotMatch(n.text, /  |\. [a-z]|% of as|^[a-z]|[^.]$/, `${c.classId}-${c.seed}: ${n.text}`);
+});
+
+test('the field notes describe the creature that was grown', () => {
+  const text = c => c.notes.map(n => n.text).join(' ');
+  const id = c => `${c.classId}-${c.seed} (${c.body.plan})`;
+  let plants = 0, rocks = 0, lowFlyers = 0, highFlyers = 0, swimmers = 0, coldest = 0;
+  for (const c of all) {
+    const t = text(c), { env, body } = c;
+    if (body.plan === 'plant') {
+      plants++;
+      assert.doesNotMatch(t, /blood|\bfat\b|blubber|breath|lungs|gills|nostril/, `${id(c)}: a plant with an animal’s insides: ${t}`);
+    }
+    if (body.crystals) {
+      rocks++;
+      assert.doesNotMatch(t, /lungs|bones|eyelid|blood|skin|organic|breathes it/, `${id(c)}: a body of rock with soft parts: ${t}`);
+    }
+    if (body.plan === 'flyer') {
+      if (env.g < 1) { lowFlyers++; assert.doesNotMatch(t, /\bpin\b/, `${id(c)} at ${env.g} g: ${t}`); }
+      if (env.g >= 1.3) { highFlyers++; assert.doesNotMatch(t, /gentle/, `${id(c)} at ${env.g} g: ${t}`); }
+    }
+    if (body.plan === 'swimmer') {
+      swimmers++;
+      assert.doesNotMatch(t, /at night|reflects light|rests in the shade|lives with frost/, `${id(c)}: a swimmer with a land animal’s habits: ${t}`);
+    }
+    // Nothing that lives in the dark is said to do anything with sunlight.
+    if (env.dark) assert.doesNotMatch(t, /reflects light|in the shade|against the glare/, `${id(c)}: ${t}`);
+    // Salt keeps water liquid to about 200 K, the coldest brines suspected on Mars; colder than that the lab says it is guessing.
+    // (A planetoid's mite sits the cold out dried up, so nothing is said about its blood.)
+    if (env.temp < 200 && env.chem === 'brine' && body.plan !== 'crawler') { coldest++; assert.doesNotMatch(t, /Mars|salty/, `${id(c)} at ${env.temp} K: ${t}`); assert.match(t, /guess/); }
+    if (body.plan === 'walker' && env.g >= 1.4) assert.match(t, /it weighs \d[\d.]* times what it would on Earth/, `${id(c)}: ${t}`);
+  }
+  // Every one of those kinds turned up, so the checks above checked something.
+  for (const [n, what] of [[plants, 'plants'], [rocks, 'rock bodies'], [lowFlyers, 'flyers under 1 g'], [highFlyers, 'flyers over 1.3 g'], [swimmers, 'swimmers'], [coldest, 'creatures below 200 K']]) {
+    assert.ok(n > 20, `only ${n} ${what} to check`);
+  }
+});
+
+test('the odds line doesn’t promise animals where there are only plants', () => {
+  for (const c of all) {
+    assert.equal(/animals/.test(oddsFor(c)), c.body.plan !== 'plant' && (c.odds === 'likely' || c.odds === 'possible'), `${c.classId}-${c.seed}: ${oddsFor(c)}`);
+    if (c.body.plan !== 'plant') assert.equal(oddsFor(c), ODDS[c.odds]);
+  }
+  assert.equal(oddsFor(grow('L', 1)), 'Plausible. Earth is proof that this kind of place can grow plants like it.');
 });
 
 test('Class L grows plants, since it has no animals', () => {
