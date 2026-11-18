@@ -1,7 +1,7 @@
 // First contact's language and rules, checked without a browser:  node --test test/contact.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, MEANINGS, PATIENCE, BEAT_IDS } from '../js/contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, MEANINGS, PATIENCE, BEAT_IDS, replay } from '../js/contact-sim.js';
 
 // Plays the right answer each turn, from what has been heard so far.
 function win(g) {
@@ -223,4 +223,49 @@ test('the record counts species met, contacts made and the best notebook, and ou
   assert.equal(d.fluency, 'Fluent');
   assert.equal(fluencyOf(d.decoded, d.of), d.fluency);
   assert.deepEqual([fluencyOf(0, 11), fluencyOf(5, 11), fluencyOf(9, 11), fluencyOf(0, 0)], ['Lost in translation', 'Halting', 'Conversational', 'Lost in translation']);
+});
+
+test('an encounter picked up from its seed and what you did is the one that was left, word for word', () => {
+  const same = (a, b) => assert.equal(JSON.stringify(a), JSON.stringify(b));
+  const WAYS = ['listen', 'standard', 'shields', 'hint', 'wrong', 'hint', 'hint'];
+  for (let seed = 1; seed <= 40; seed++) {
+    const live = newGame({ seed }), acts = [];
+    for (let n = 0; n < 40 && !live.over; n++) {
+      // A guess in the notebook and a reply half put together come back too.
+      const tags = Object.fromEntries(live.heard.filter(id => id !== 'story').slice(0, 1 + n % 3).map((id, k) => [id, MEANINGS[(seed + k) % MEANINGS.length][0]]));
+      const half = live.heard.filter(id => id !== 'story').slice(0, n % 3);
+      Object.assign(live.tags, tags);
+      const back = replay(JSON.parse(JSON.stringify({ seed, acts, tags: live.tags, reply: half })));
+      same(back.game, live);
+      assert.deepEqual(back.reply, half);
+      // And the next thing you do goes the same way in both.
+      const way = WAYS[(seed + n) % WAYS.length];
+      const what = way === 'hint' ? { say: [hint(live)] } : way === 'wrong' ? { say: [live.heard[0], live.heard[live.heard.length - 1]].filter((id, k, all) => id !== 'story' && all.indexOf(id) === k) } : way;
+      const then = act(live, what), again = act(back.game, what);
+      same(again, then);
+      same(back.game, live);
+      acts.push(what);
+    }
+    const end = replay({ seed, acts, tags: live.tags });
+    assert.equal(end.game.over, live.over);
+    assert.deepEqual(end.reply, []);
+    same(debrief(end.game), debrief(live));
+  }
+});
+
+test('what was kept is only resumed if it could have been done', () => {
+  assert.equal(replay(null), null);
+  assert.equal(replay({ seed: 3 }), null);
+  assert.equal(replay({ seed: NaN, acts: [] }), null);
+  assert.equal(replay({ seed: 3, acts: ['dance'] }), null);
+  assert.equal(replay({ seed: 3, acts: [{ say: [] }] }), null);
+  assert.equal(replay({ seed: 3, acts: [{ say: ['story'] }] }), null);
+  assert.equal(replay({ seed: 3, acts: [{ say: ['go'] }] }), null, 'a phrase said before it was ever heard');
+  assert.equal(replay({ seed: 3, acts: ['leave', 'listen'] }), null, 'something done after the end');
+  const g = newGame({ seed: 3 });
+  assert.equal(replay({ seed: 3, acts: [{ say: [g.heard[0], g.heard[0]] }] }), null, 'the same phrase twice in a reply');
+  // Guesses that aren't meanings, or are for phrases not heard yet, are left out; so is a reply that couldn't be one.
+  const back = replay({ seed: 3, acts: [], tags: { [g.heard[0]]: 'meet', [g.heard[1]]: 'nonsense', go: 'go', story: 'meet' }, reply: ['go'] });
+  assert.deepEqual(back.game.tags, { [g.heard[0]]: 'meet' });
+  assert.deepEqual(back.reply, []);
 });

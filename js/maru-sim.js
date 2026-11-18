@@ -61,6 +61,22 @@ export function orders(g) {
   return list;
 }
 
+// A simulation picked up where it was left. What is kept is small: the seed, whether the simulator was reprogrammed,
+// and the orders given so far. Giving them again to a new simulation with the same seed throws the same dice, so the
+// ship, the cruisers and the Maru come back exactly as they were, and a reload can't be used to re-roll a turn.
+// Returns the game and what each turn said (for the page's log), or null if what was kept isn't a simulation: not
+// the right shape, or an order that couldn't have been given when it says it was.
+export function replay(kept) {
+  if (!kept || typeof kept !== 'object' || !Number.isFinite(kept.seed) || !Array.isArray(kept.orders) || kept.orders.length > 500) return null;
+  const g = newGame({ seed: kept.seed, rewritten: kept.rewritten === true });
+  const turns = [];
+  for (const id of kept.orders) {
+    if (g.over || !orders(g).some(o => o.id === id && !o.done)) return null;
+    turns.push({ id, ...act(g, id) });
+  }
+  return { game: g, turns };
+}
+
 // The tactical display in words, for someone who can't see it: where your ship is, how many are still aboard the
 // Maru, and how strong each cruiser still is (Fire phasers goes for the weakest, and only the picture showed which).
 const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];

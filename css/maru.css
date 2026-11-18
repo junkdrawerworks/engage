@@ -23,7 +23,8 @@ body.maru.red { background: radial-gradient(ellipse at 50% -10%, #4a1016 0%, var
 /* Briefing */
 #brief:not([hidden]) { display: grid; gap: 12px; max-width: 640px; margin: 6px auto 0; }
 .brief .how { color: var(--muted); }
-.brief .primary { width: 100%; margin-top: 6px; }
+.brief .primary, .brief .secondary { width: 100%; margin-top: 6px; }
+.brief .resume-note { margin: 8px 0 4px; font-size: 14px; color: var(--muted); }
 .brief .text-button { display: block; margin: 8px auto 0; color: var(--muted); font-size: 13px; }
 .record .endings-head, .record .best-head, .record .runs-head { margin: 10px 0 0; font: 600 11px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; }
 .endings-head b { font-weight: 600; }

@@ -387,6 +387,26 @@ function reply(g, ids, out) {
   if (!g.over) again(g, out, true);
 }
 
+// An encounter picked up where it was left. What is kept is the seed, everything you did in order (`acts`, each as
+// act() takes it), your notebook's guesses and the reply you were putting together. Doing the same things again to a
+// new encounter with the same seed gives the same language, the same captain and the same conversation, word for
+// word, so a reload changes nothing and can't take back a misunderstanding.
+// Returns the game and the reply, or null if what was kept isn't an encounter: not the right shape, or something
+// that couldn't have been done when it says it was.
+const ACTS = new Set(['listen', 'standard', 'shields', 'leave']);
+export function replay(kept) {
+  if (!kept || typeof kept !== 'object' || !Number.isFinite(kept.seed) || !Array.isArray(kept.acts) || kept.acts.length > 500) return null;
+  const g = newGame({ seed: kept.seed });
+  const phrases = ids => Array.isArray(ids) && ids.length > 0 && ids.length <= MAX_REPLY && new Set(ids).size === ids.length && ids.every(id => typeof id === 'string' && id !== 'story' && g.heard.includes(id));
+  for (const what of kept.acts) {
+    if (g.over || !(ACTS.has(what) || (what && typeof what === 'object' && phrases(what.say)))) return null;
+    act(g, typeof what === 'string' ? what : { say: [...what.say] });
+  }
+  const tags = kept.tags && typeof kept.tags === 'object' ? kept.tags : {};
+  for (const id of g.heard) if (id !== 'story' && typeof tags[id] === 'string' && MEANING[tags[id]]) g.tags[id] = tags[id];
+  return { game: g, reply: !g.over && phrases(kept.reply) ? [...kept.reply] : [] };
+}
+
 // The debrief: what happened, what each phrase meant, and how much of it you worked out.
 export function debrief(g) {
   const d = DANGERS[g.lang.danger];

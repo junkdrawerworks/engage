@@ -22,7 +22,8 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 /* Briefing */
 #brief:not([hidden]) { display: grid; gap: 12px; max-width: 640px; margin: 6px auto 0; }
 .brief .how { color: var(--muted); }
-.brief .primary { width: 100%; margin-top: 6px; }
+.brief .primary, .brief .secondary { width: 100%; margin-top: 6px; }
+.brief .resume-note { margin: 8px 0 4px; font-size: 14px; color: var(--muted); }
 .record .tally { margin: 10px 0 12px; display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 6px; }
 .tally span { display: grid; justify-items: center; align-content: start; gap: 4px; padding: 9px 4px; border: 1px solid var(--line); border-radius: 12px; font: 600 10px/1.25 var(--display); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: center; min-width: 0; }
 .tally i { font-style: normal; color: var(--text); }

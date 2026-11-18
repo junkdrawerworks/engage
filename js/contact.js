@@ -1,6 +1,6 @@
 // First contact: the page. The rules and the language are in contact-sim.js and the viewscreen in contact-art.js;
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
-import { newGame, act, debrief, fluencyOf, hint, phrase, standing, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -35,6 +35,27 @@ try { sound.on = JSON.parse(localStorage.getItem('engage.v1') || '{}')?.opts?.so
 let g = null; // the encounter
 let look = null; // how this species looks
 let reply = []; // phrase ids in the reply being put together
+let acts = []; // everything done in this encounter so far, in order, as act() takes it
+let gameId = ''; // its own name, so that however it is picked up and finished it goes on the record once
+const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+// An encounter under way is kept after everything you do: its seed, what you did, your notebook's guesses and the
+// reply being put together. A reload, or a phone putting the tab away while you went to think, used to end it, with
+// the notebook gone. The briefing offers to resume it (see contact-sim.js's replay(): doing the same things again
+// gives the same conversation, so nothing can be taken back). Answering a new hail, or reaching the debrief, lets
+// it go.
+// (The last thing you do is kept too, though it ends the encounter: a reload while their answer plays out then finds
+// it finished, and can't be used to take the last move back.)
+function keepGame() {
+  if (!g || lastEval) return; // nothing under way, or it is on the record already
+  saved.game = { id: gameId, seed: g.seed, acts: acts.slice(), tags: { ...g.tags }, reply: reply.slice() };
+  save();
+}
+// The one kept, if it can be picked up: { game, reply }.
+function keptGame() {
+  const back = replay(saved.game);
+  return back && !back.game.over ? back : null;
+}
 let shown = 0; // log lines on screen so far
 let busy = false;
 let speakingUntil = 0;
@@ -55,6 +76,14 @@ function showBrief() {
 }
 
 function renderRecord() {
+  const left = keptGame()?.game;
+  $('resume').hidden = $('resume-note').hidden = !left;
+  if (left) {
+    const heard = left.heard.filter(id => id !== 'story').length;
+    $('resume-note').textContent = `You left an encounter with the channel open: ${heard} ${heard === 1 ? 'phrase' : 'phrases'} heard, their patience at ${left.patience} of ${PATIENCE}. Answering the hail meets a new ship.`;
+  }
+  // With one to resume, that is the main thing to do, and Answer the hail stands back.
+  $('start').className = left ? 'secondary' : 'primary';
   const runs = saved.runs.slice(-8).reverse();
   $('record').hidden = !runs.length;
   // The standing record, then each encounter with how its notebook did, so a contact made with nothing decoded
@@ -74,17 +103,43 @@ function renderRecord() {
 
 function start(seed = Date.now()) {
   g = newGame({ seed });
-  look = species(g.lang.look);
   reply = [];
+  acts = [];
+  gameId = newId();
+  if (saved.game) { delete saved.game; save(); } // a new ship: the encounter that was left is let go
+  open();
+  play(g.log.slice());
+}
+
+// Picks up the encounter that was left: the same captain, everything said so far on the channel, the notebook with
+// its guesses, and the reply as far as it had got.
+function resume() {
+  const back = keptGame();
+  if (!back) { renderRecord(); return; }
+  g = back.game;
+  reply = back.reply;
+  acts = saved.game.acts.slice();
+  gameId = typeof saved.game.id === 'string' ? saved.game.id : newId();
+  open();
+  shown = g.log.length;
+  renderLog();
+  update();
+  const last = g.log.filter(l => l.who === 'them').pop();
+  if (last) $('subtitle').innerHTML = `${last.ids.length ? `<p class="said">${last.ids.map(id => `“${esc(phrase(g, id))}”`).join(' ')}</p>` : ''}<p class="act">${esc(last.act)}</p>`;
+}
+
+// The encounter's screen, cleared for a game just begun or one picked up.
+function open() {
+  look = species(g.lang.look);
   shown = 0;
   logged = 0;
+  busy = false;
   lastEval = null;
   patienceSaid = g.patience;
   $('comms').innerHTML = '';
   $('book').innerHTML = '';
   $('subtitle').innerHTML = '';
   showScreen('sim');
-  play(g.log.slice());
   // With a keyboard, the encounter starts where the first thing to do is: listening again.
   $('listen').focus({ preventScroll: true });
 }
@@ -146,13 +201,17 @@ function send() {
   bringIntoView(document.querySelector('.screen-wrap'));
   // Send switches itself off until there is a reply again, so the keyboard's place moves on to Listen again.
   if (document.activeElement === $('send')) $('listen').focus({ preventScroll: true });
+  acts.push({ say: said });
   play(act(g, { say: said }));
+  keepGame();
 }
 
 function doAct(what) {
   if (busy || !g || g.over) return;
   bringIntoView(document.querySelector('.screen-wrap'));
+  acts.push(what);
   play(act(g, what));
+  keepGame();
 }
 
 // Brings the viewscreen back on screen when an answer is given from further down the page, so the turn isn't played out of sight.
@@ -273,15 +332,20 @@ function guess(id, meaning) {
   if (meaning) g.tags[id] = meaning; else delete g.tags[id];
   showGuesses();
   renderBook();
+  keepGame();
 }
 
 // ---------- Debrief and the record ----------
 
 function record() {
   lastEval = debrief(g);
-  saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString() });
-  Object.assign(saved, standing({ ...saved, met: saved.met + 1, contacts: saved.contacts + (lastEval.outcome === 'contact' ? 1 : 0) })); // before the list is cut to its last 30
-  saved.runs = saved.runs.slice(-30);
+  delete saved.game; // finished: there is nothing left to resume
+  // One encounter is one line on the record: picked up in two tabs and finished in both, it is still one.
+  if (!saved.runs.some(r => r.id === gameId)) {
+    saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString(), id: gameId });
+    Object.assign(saved, standing({ ...saved, met: saved.met + 1, contacts: saved.contacts + (lastEval.outcome === 'contact' ? 1 : 0) })); // before the list is cut to its last 30
+    saved.runs = saved.runs.slice(-30);
+  }
   save();
 }
 
@@ -354,12 +418,13 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 // ---------- Wiring ----------
 
 $('start').addEventListener('click', () => start());
+$('resume').addEventListener('click', resume);
 $('again').addEventListener('click', () => { showBrief(); $('start').focus({ preventScroll: true }); });
 $('send').addEventListener('click', () => (g && g.over ? showEval() : send()));
 // Clear goes away with the reply it cleared, and a phrase taken out takes its button with it: the keyboard's place
 // goes to what is left of the reply, or back to the notebook.
 const firstPhrase = () => $('book').querySelector('.ph-add');
-$('clear').addEventListener('click', () => { reply = []; update(); firstPhrase()?.focus({ preventScroll: true }); });
+$('clear').addEventListener('click', () => { reply = []; update(); keepGame(); firstPhrase()?.focus({ preventScroll: true }); });
 $('listen').addEventListener('click', () => doAct('listen'));
 $('standard').addEventListener('click', () => doAct('standard'));
 $('shields').addEventListener('click', () => doAct('shields'));
@@ -369,6 +434,7 @@ $('reply').addEventListener('click', e => {
   if (!b || busy) return;
   const [id] = reply.splice(+b.dataset.i, 1);
   update();
+  keepGame();
   ($('reply').querySelector(`button[data-i="${Math.min(+b.dataset.i, reply.length - 1)}"]`) || $('book').querySelector(`li[data-id="${id}"] .ph-add`))?.focus({ preventScroll: true });
 });
 $('book').addEventListener('click', e => {
@@ -377,6 +443,7 @@ $('book').addEventListener('click', e => {
   const id = b.closest('li').dataset.id;
   if (id && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id);
   update();
+  keepGame();
 });
 $('book').addEventListener('change', e => {
   const s = e.target.closest('select');
@@ -386,17 +453,27 @@ $('book').addEventListener('change', e => {
 // Another tab has finished an encounter: the record here is what that tab saved, so an encounter finished here is
 // added to its list and not written over it. An encounter under way in this tab carries on untouched.
 watch(KEY, () => {
+  const mine = g && !g.over ? saved.game : null;
+  delete saved.game;
   Object.assign(saved, load());
+  if (mine) saved.game = mine;
   renderRecord();
 });
 
+// An encounter that ended just as the page was closed (the last thing you did kept, the debrief never reached) goes
+// on the record now, as it would have.
+{
+  const back = replay(saved.game);
+  if (back?.game.over) { g = back.game; gameId = typeof saved.game.id === 'string' ? saved.game.id : newId(); record(); g = null; lastEval = null; }
+  else if (!back && saved.game) delete saved.game;
+}
 showBrief();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.contact = {
   get game() { return g; }, get busy() { return busy; },
-  start, send, act: doAct, showEval,
+  start, resume, send, act: doAct, showEval,
   // Puts phrases in the reply by meaning, as if tapped in the notebook.
-  pick(...ids) { for (const id of ids) if (g.heard.includes(id) && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id); update(); },
+  pick(...ids) { for (const id of ids) if (g.heard.includes(id) && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id); update(); keepGame(); },
   hint: () => hint(g),
   tag: guess,
   debrief: () => debrief(g),

@@ -1,7 +1,7 @@
 // The Kobayashi Maru's rules, checked without a browser:  node --test test/maru.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, orders, evaluate, tactical, transcript, CREW, MARU, WARP_HULL, ENDINGS, GRADED } from '../js/maru-sim.js';
+import { newGame, act, orders, evaluate, replay, tactical, transcript, CREW, MARU, WARP_HULL, ENDINGS, GRADED } from '../js/maru-sim.js';
 
 function play(plan, opts = {}) {
   const g = newGame({ seed: 7, ...opts });
@@ -313,4 +313,46 @@ test('the tactical display is described in words, turn by turn', () => {
   const fought = keepGoing(play(['enter']));
   assert.equal(fought.over, 'destroyed');
   assert.match(tactical(fought), /^Tactical display\. Your ship is gone\. The Kobayashi Maru is lost\. /);
+});
+
+test('a simulation picked up from its seed and its orders is the one that was left, dice and all', () => {
+  const same = (a, b) => assert.equal(JSON.stringify(a), JSON.stringify(b));
+  const pick = (g, n) => { const open = orders(g).filter(o => !o.done); return open[(n * 7 + g.turn * 3) % open.length].id; };
+  for (let seed = 1; seed <= 40; seed++) {
+    const rewritten = seed % 5 === 0;
+    const live = newGame({ seed, rewritten }), given = [];
+    for (let n = 0; n < 60 && !live.over; n++) {
+      // Reload here: the game that comes back is this one, and so is everything it said on the way.
+      const back = replay(JSON.parse(JSON.stringify({ seed, rewritten, orders: given })));
+      same(back.game, live);
+      assert.equal(back.turns.length, given.length);
+      // And the next order goes the same way in both: the dice were not thrown again.
+      const id = pick(live, seed + n);
+      const then = act(live, id), again = act(back.game, id);
+      same(again, then);
+      same(back.game, live);
+      same(evaluate(back.game), evaluate(live));
+      given.push(id);
+    }
+    // The finished game comes back finished, so the page can tell it from one to resume.
+    assert.equal(replay({ seed, rewritten, orders: given }).game.over, live.over);
+  }
+});
+
+test('what was kept is only resumed if it could have been played', () => {
+  assert.equal(replay(null), null);
+  assert.equal(replay({}), null);
+  assert.equal(replay({ seed: 'x', orders: [] }), null);
+  assert.equal(replay({ seed: 7 }), null);
+  assert.equal(replay({ seed: 7, orders: ['beam'] }), null, 'beamed from outside the zone');
+  assert.equal(replay({ seed: 7, orders: ['hail-maru', 'hail-maru'] }), null, 'an order already answered, given again');
+  assert.equal(replay({ seed: 7, orders: ['leave', 'enter'] }), null, 'an order after the end');
+  assert.equal(replay({ seed: 7, orders: ['enter', 'no such order'] }), null);
+  assert.equal(replay({ seed: 7, orders: new Array(501).fill('scan') }), null);
+  const fresh = replay({ seed: 7, orders: [] });
+  assert.equal(fresh.game.turn, 0);
+  assert.deepEqual(fresh.turns, []);
+  // Reprogrammed only when it says so outright.
+  assert.equal(replay({ seed: 7, rewritten: 'yes', orders: [] }).game.rewritten, false);
+  assert.equal(replay({ seed: 7, rewritten: true, orders: [] }).game.rewritten, true);
 });

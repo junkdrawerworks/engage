@@ -2366,6 +2366,173 @@ await page.emulateMedia({ reducedMotion: null });
   await keys.close();
 }
 
+// A Kobayashi Maru left part-way is there to resume. A reload, or a phone putting the tab away, used to end it with
+// nothing kept. What comes back is the same game, dice and all: the next order goes exactly as it would have. It is
+// let go when a new one is started or the evaluation is reached, and goes on the record once.
+{
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  const p = await phone.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  const settled = () => p.waitForFunction(() => !window.maru.busy);
+  const order = async id => { await p.tap(`.order[data-id="${id}"]`); await settled(); };
+  const game = () => p.evaluate(() => JSON.stringify(window.maru.game));
+  const kept = () => p.evaluate(() => JSON.parse(localStorage.getItem('engage.maru.v1') || '{}'));
+  const offered = () => p.locator('#resume').evaluate(el => !el.hidden);
+  assert.equal(await offered(), false, 'Resume is offered with nothing to resume');
+  await p.tap('#start');
+  assert.equal((await kept()).game, undefined, 'a simulation with no orders given was kept');
+  for (const id of ['hail-maru', 'enter', 'beam']) await order(id);
+  const left = { game: await game(), log: await p.locator('#comms').innerText(), display: await p.locator('#plot').getAttribute('aria-label'), turn: await p.locator('#turn').textContent() };
+  assert.deepEqual((await kept()).game.orders, ['hail-maru', 'enter', 'beam']);
+  await p.reload();
+  await p.waitForFunction(() => window.maru);
+  assert.equal(await offered(), true, 'a simulation left part-way is not offered again after a reload');
+  assert.equal(await p.locator('#resume-note').textContent(), 'You left a simulation on turn 4, inside the Neutral Zone. Taking command starts a new one.');
+  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('.brief button:not([hidden])')].map(b => `${b.id} ${b.className}`)), ['resume primary', 'start secondary'], 'Resume is not above Take command');
+  await p.tap('#resume');
+  assert.deepEqual({ game: await game(), log: await p.locator('#comms').innerText(), display: await p.locator('#plot').getAttribute('aria-label'), turn: await p.locator('#turn').textContent() }, left, 'the simulation that came back is not the one that was left');
+  // The next order, given here and to a copy played from the start with the same orders, comes out the same.
+  const twin = await p.evaluate(async () => {
+    const sim = await import('./js/maru-sim.js');
+    const g = sim.newGame({ seed: window.maru.game.seed });
+    for (const id of ['hail-maru', 'enter', 'beam', 'phasers']) sim.act(g, id);
+    return JSON.stringify(g);
+  });
+  await order('phasers');
+  assert.equal(await game(), twin, 'the dice were thrown again after resuming');
+  // On to the end. The evaluation lets the kept game go, and the record has the one run.
+  for (let n = 0; n < 40 && !(await p.evaluate(() => window.maru.game.over)); n++) await order(await p.evaluate(() => ['beam', 'evade'].find(x => document.querySelector(`.order[data-id="${x}"]:not([aria-disabled])`))));
+  await p.tap('#read-eval');
+  await p.tap('#again');
+  assert.deepEqual([await offered(), (await kept()).game, (await kept()).runs.length, (await kept()).taken], [false, undefined, 1, 1], 'a finished simulation can still be resumed, or was recorded twice');
+  await p.reload();
+  await p.waitForFunction(() => window.maru);
+  assert.deepEqual([await offered(), await p.locator('#runs li').count()], [false, 1]);
+  // Reloading while the last turn plays out can't take it back: it is finished, and on the record.
+  await p.tap('#start');
+  await p.evaluate(() => window.maru.give('leave'));
+  await p.reload();
+  await p.waitForFunction(() => window.maru);
+  assert.deepEqual([await offered(), (await kept()).game, (await kept()).taken, await p.locator('#runs li').count()], [false, undefined, 2, 2], 'a reload during the last turn lost the run, or let it be taken back');
+  // Taking command anew lets the one that was left go.
+  await p.tap('#start');
+  await order('scan');
+  await p.reload();
+  await p.waitForFunction(() => window.maru);
+  assert.equal(await p.locator('#resume-note').textContent(), 'You left a simulation on turn 2, at the edge of the Neutral Zone. Taking command starts a new one.');
+  await p.tap('#start');
+  assert.equal((await kept()).game, undefined, 'Take command kept the simulation that was left');
+  // A resumed game, finished, and then fifty more from the same page: each starts clean, with nothing carried over
+  // from the one before (hull, shields, torpedoes, cruisers, the people aboard, the log, the orders), and each is one run.
+  await order('enter');
+  await p.reload();
+  await p.waitForFunction(() => window.maru);
+  await p.tap('#resume');
+  await order('warp');
+  await p.tap('#read-eval');
+  await p.tap('#again');
+  let taken = (await kept()).taken;
+  assert.equal(taken, 3);
+  const PLANS = [['leave'], ['enter', 'warp'], ['hail-maru', 'scan', 'enter', 'beam', 'beam', 'warp'], ['enter', 'phasers', 'torpedoes', 'phasers', 'evade'], ['starfleet', 'enter', 'hail', 'surrender', 'beam']];
+  for (let run = 0; run < 50; run++) {
+    await p.evaluate(() => window.maru.start());
+    const clean = await p.evaluate(() => {
+      const g = window.maru.game;
+      return { turn: g.turn, hull: g.hull, shields: g.shields, torpedoes: g.torpedoes, cruisers: g.klingons.length, aboard: g.maru.aboard, rescued: g.aboard, where: g.where, over: g.over,
+        log: document.querySelectorAll('#comms .line').length, orders: [...document.querySelectorAll('#orders .order')].map(b => b.dataset.id + (b.getAttribute('aria-disabled') ? ' off' : '')).join(),
+        turnLine: document.getElementById('turn').textContent, alert: !document.getElementById('alert').hidden, gauges: ['hull', 'shields', 'maru-left', 'rescued'].map(id => document.getElementById(id).textContent).join() };
+    });
+    assert.deepEqual(clean, { turn: 0, hull: 100, shields: 100, torpedoes: 6, cruisers: 0, aboard: 381, rescued: 0, where: 'outside', over: null,
+      log: 1, orders: 'enter,hail-maru,starfleet,scan,leave', turnLine: 'Turn 1 · Federation space', alert: false, gauges: '100%,100%,381,0' }, `run ${run + 1} of 50 did not start clean`);
+    for (const id of PLANS[run % PLANS.length]) {
+      if (await p.evaluate(() => !!window.maru.game.over)) break;
+      await p.evaluate(x => window.maru.give(x), id);
+      await settled();
+    }
+    while (!(await p.evaluate(() => !!window.maru.game.over))) { await p.evaluate(() => window.maru.give(window.maru.game.flags.warpDown ? 'evade' : 'warp')); await settled(); }
+    const after = await kept();
+    assert.deepEqual([after.taken, after.game, after.runs.length], [++taken, undefined, Math.min(30, taken)], `run ${run + 1} of 50 was not recorded once`);
+  }
+  await p.tap('#read-eval');
+  await p.tap('#again');
+  assert.equal(await p.locator('#taken').textContent(), '53 runs taken');
+  assert.equal(await offered(), false);
+  await phone.close();
+}
+
+// First contact the same: the captain, the conversation word for word, the notebook's guesses and the reply half put
+// together all come back, their patience as it was, and a misunderstanding can't be taken back with a reload.
+{
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  const p = await phone.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  const settled = () => p.waitForFunction(() => !window.contact.busy);
+  const kept = () => p.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1') || '{}'));
+  const offered = () => p.locator('#resume').evaluate(el => !el.hidden);
+  const state = () => p.evaluate(() => ({
+    game: JSON.stringify(window.contact.game), channel: [...document.querySelectorAll('#comms .line')].map(l => l.textContent).join('|'),
+    book: [...document.querySelectorAll('#book li')].map(li => `${li.dataset.id}=${li.querySelector('select').value} ${li.querySelector('.ph-n').textContent}`).join(),
+    reply: [...document.querySelectorAll('#reply .t')].map(t => t.textContent).join(), patience: document.getElementById('patience').getAttribute('aria-label'),
+    screen: document.getElementById('screen').getAttribute('aria-label'), said: document.querySelector('#subtitle .said')?.textContent || '',
+  }));
+  assert.equal(await offered(), false);
+  await p.tap('#start');
+  await settled();
+  await p.locator('#book select').first().selectOption('meet');
+  await p.locator('#book .ph-add').nth(1).tap(); // "we" is no answer to hello: a misunderstanding
+  await p.tap('#send');
+  await settled();
+  await p.locator('#book .ph-add').first().tap(); // and the start of a better reply, not yet sent
+  const left = await state();
+  assert.equal(left.patience, 'Their patience: 4 of 5');
+  assert.equal(left.reply.length > 0, true);
+  await p.reload();
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await offered(), true, 'an encounter left part-way is not offered again after a reload');
+  assert.match(await p.locator('#resume-note').textContent(), /^You left an encounter with the channel open: \d+ phrases heard, their patience at 4 of 5\. Answering the hail meets a new ship\.$/);
+  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('.brief button:not([hidden])')].map(b => `${b.id} ${b.className}`)), ['resume primary', 'start secondary']);
+  await p.tap('#resume');
+  await settled();
+  assert.deepEqual(await state(), left, 'the encounter that came back is not the one that was left');
+  // Sent, the reply does what it would have: hello is answered and they move on. Then on to first contact.
+  await p.tap('#send');
+  await settled();
+  assert.equal(await p.evaluate(() => window.contact.game.beat), 1);
+  for (let n = 0; n < 25 && !(await p.evaluate(() => window.contact.game.over)); n++) {
+    await p.locator(`#book li[data-id="${await p.evaluate(() => window.contact.hint())}"] .ph-add`).tap();
+    await p.tap('#send');
+    await settled();
+  }
+  assert.equal(await p.evaluate(() => window.contact.game.over), 'contact');
+  await p.tap('#send');
+  assert.match(await p.locator('#eval-score').innerText(), /^1\/1[0-9]/, 'the guess made before the reload was not counted');
+  await p.tap('#again');
+  assert.deepEqual([await offered(), (await kept()).game, (await kept()).runs.length, (await kept()).met], [false, undefined, 1, 1], 'a finished encounter can still be resumed, or was recorded twice');
+  // Reloading while their last answer plays out can't take the last move back.
+  await p.tap('#start');
+  await settled();
+  await p.evaluate(() => window.contact.act('leave'));
+  await p.reload();
+  await p.waitForFunction(() => window.contact);
+  assert.deepEqual([await offered(), (await kept()).game, (await kept()).met, await p.locator('#runs li').count()], [false, undefined, 2, 2], 'a reload during the last exchange lost the encounter, or let it be taken back');
+  // Answering a new hail lets the one that was left go.
+  await p.tap('#start');
+  await settled();
+  await p.tap('#listen');
+  await settled();
+  await p.reload();
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await offered(), true);
+  await p.tap('#start');
+  await settled();
+  assert.equal((await kept()).game, undefined, 'Answer the hail kept the encounter that was left');
+  await phone.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

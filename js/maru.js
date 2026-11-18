@@ -1,5 +1,5 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
-import { newGame, orders, act, evaluate, tactical, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
+import { newGame, orders, act, evaluate, replay, tactical, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 
@@ -32,6 +32,23 @@ try { sound.on = JSON.parse(localStorage.getItem('engage.v1') || '{}')?.opts?.so
 
 let g = null; // the game
 let busy = false;
+let given = []; // the orders given in it so far, in order
+let gameId = ''; // its own name, so that however it is picked up and finished it goes on the record once
+const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+// A simulation under way is kept after every order, as its seed and those orders: a reload, or a phone putting the
+// tab away, used to end it with nothing on the record. The briefing offers to resume it (see maru-sim.js's
+// replay(): the same orders throw the same dice, so nothing can be re-rolled). Taking command anew, or reaching
+// the evaluation, lets it go.
+function keepGame() {
+  saved.game = { id: gameId, seed: g.seed, rewritten: g.rewritten, orders: given.slice() };
+  save();
+}
+// The one kept, if it can be picked up: { game, turns }.
+function keptGame() {
+  const back = replay(saved.game);
+  return back && !back.game.over ? back : null;
+}
 
 // ---------- Screens ----------
 
@@ -49,6 +66,11 @@ function showBrief() {
 }
 
 function renderRecord() {
+  const left = keptGame()?.game;
+  $('resume').hidden = $('resume-note').hidden = !left;
+  if (left) $('resume-note').textContent = `You left a simulation on turn ${left.turn + 1}, ${left.where === 'zone' ? 'inside the Neutral Zone' : 'at the edge of the Neutral Zone'}. Taking command starts a new one.`;
+  // With one to resume, that is the main thing to do, and Take command stands back.
+  $('start').className = left ? 'secondary' : 'primary';
   const runs = saved.runs.slice(-8).reverse();
   $('record').hidden = !runs.length;
   $('rewrite').hidden = !runs.length;
@@ -64,16 +86,38 @@ function renderRecord() {
 
 function start(rewritten = false) {
   g = newGame({ rewritten });
+  given = [];
+  gameId = newId();
+  if (saved.game) { delete saved.game; save(); } // a new simulation: the one that was left is let go
+  open();
+}
+
+// Picks up the simulation that was left: the same ship, cruisers and Maru, with everything said so far on the log.
+function resume() {
+  const back = keptGame();
+  if (!back) { renderRecord(); return; }
+  g = back.game;
+  given = saved.game.orders.slice();
+  gameId = typeof saved.game.id === 'string' ? saved.game.id : newId();
+  open(back.turns);
+}
+
+// The simulation's screen, for a game just begun or one picked up (`turns` is what its turns said).
+function open(turns = []) {
   scene.reset();
+  scene.restore();
   $('comms').innerHTML = '';
   $('caption').innerHTML = '';
-  log([{ who: 'Communications', text: rewritten
+  $('orders').dataset.ids = '';
+  $('orders').innerHTML = '';
+  log([{ who: 'Communications', text: g.rewritten
     ? 'Simulator code amended. Distress call from the Kobayashi Maru, inside the Neutral Zone.'
     : 'Distress call on the emergency channel: the Kobayashi Maru, inside the Neutral Zone.', tone: 'bad' }]);
+  turns.forEach((t, i) => log([{ mark: `Turn ${i + 1}` }, ...t.lines]));
   showScreen('sim');
   update();
   // With a keyboard, the simulation starts at the orders.
-  $('orders').querySelector('.order')?.focus({ preventScroll: true });
+  $('orders').querySelector('.order:not([aria-disabled])')?.focus({ preventScroll: true });
 }
 
 // ---------- Turns ----------
@@ -131,6 +175,8 @@ function give(id) {
   const turn = g.turn + 1;
   const { events, lines } = act(g, id);
   if (!lines.length && !events.length) return;
+  given.push(id);
+  keepGame();
   busy = true;
   $('orders').classList.add('busy');
   bringIntoView(document.querySelector('.plot-wrap'));
@@ -174,9 +220,13 @@ function log(lines) {
 let lastEval = null;
 function record() {
   lastEval = evaluate(g);
-  saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, grades: lastEval.grades.map(x => ({ name: x.name, letter: x.letter })), at: new Date().toISOString() });
-  Object.assign(saved, transcript({ ...saved, taken: saved.taken + 1 })); // before the list is cut to its last 30
-  saved.runs = saved.runs.slice(-30);
+  delete saved.game; // finished: there is nothing left to resume
+  // One simulation is one run: picked up in two tabs and finished in both, it is still counted once.
+  if (!saved.runs.some(r => r.id === gameId)) {
+    saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, grades: lastEval.grades.map(x => ({ name: x.name, letter: x.letter })), at: new Date().toISOString(), id: gameId });
+    Object.assign(saved, transcript({ ...saved, taken: saved.taken + 1 })); // before the list is cut to its last 30
+    saved.runs = saved.runs.slice(-30);
+  }
   save();
 }
 
@@ -229,6 +279,12 @@ const scene = {
     this.ks = new Map();
     this.maru = { gone: 0, fade: 0 };
     this.shieldHit = 0;
+  },
+  // The display as the game stands, with nothing in motion: for a simulation picked up part-way. The cruisers that
+  // have decloaked are there (the ones destroyed as wreckage), and so is what is left of the Maru.
+  restore() {
+    for (const k of g.klingons) this.ks.set(k.id, { slot: k.slot, appear: 0, gone: k.hull > 0 ? 0 : 1 });
+    if (g.maru.gone) this.maru.gone = 1;
   },
 
   shipPos(now) {
@@ -575,6 +631,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 // ---------- Wiring ----------
 
 $('start').addEventListener('click', () => start(false));
+$('resume').addEventListener('click', resume);
 $('rewrite').addEventListener('click', () => start(true));
 $('again').addEventListener('click', () => { showBrief(); $('start').focus({ preventScroll: true }); });
 $('orders').addEventListener('click', e => {
@@ -585,10 +642,20 @@ $('orders').addEventListener('click', e => {
 // The simulator open in another tab has finished a run: the record here is what that tab saved, so a run finished
 // here is added to its runs and not written over them. A simulation under way in this tab carries on untouched.
 watch(KEY, () => {
+  const mine = g && !g.over ? saved.game : null;
+  delete saved.game;
   Object.assign(saved, load());
+  if (mine) saved.game = mine;
   renderRecord();
 });
 
+// A simulation that ended just as the page was closed (its last order kept, its evaluation never reached) goes on the
+// record now, as it would have.
+{
+  const back = replay(saved.game);
+  if (back?.game.over) { g = back.game; gameId = typeof saved.game.id === 'string' ? saved.game.id : newId(); record(); g = null; lastEval = null; }
+  else if (!back && saved.game) delete saved.game;
+}
 showBrief();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.maru = { get game() { return g; }, start, give, get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU };
+window.maru = { get game() { return g; }, start, resume, give, get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU };
