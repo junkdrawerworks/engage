@@ -140,6 +140,32 @@ test('stars the log has no notes on are still called what they are', () => {
   }
 });
 
+test('a star with no measured distance is not given one as fact', () => {
+  const n = [...cat.unmeasured].filter(Boolean).length;
+  assert.equal(n, 431);
+  for (const d of DESTINATIONS) assert.equal(cat.unmeasured[cat.byName.get(d.star)], 0, d.star);
+  assert.equal(cat.unmeasured[cat.byName.get('Deneb')], 0); // far, but measured
+  const i = cat.byName.get('ρ Cassiopeiae');
+  assert.equal(cat.unmeasured[i], 1);
+  const e = composeEntry(cat, i, { cam: at('ρ Cassiopeiae'), holdAU: 5, warp: 9, fromTitle: 'Sol', tripLy: 3262, date: new Date('2026-10-08T00:00:00Z') });
+  const all = [e.intro, ...e.sections.map(s => s[1])].join(' ');
+  assert.match(e.intro, /no measured distance for this star, so the charts place it at a nominal 3,262 ly\.$/);
+  assert.doesNotMatch(all, /(?<!nominal (distance, )?)3,262 ly/, 'the placeholder distance is stated as fact');
+  assert.doesNotMatch(all, /BCE|as it was in|until \d{4}|first passed here/, 'a year is worked out from the placeholder distance');
+  assert.doesNotMatch(all, /times the Sun’s|% of the Sun’s/, 'a width or brightness is worked out from the placeholder distance');
+  const section = l => e.sections.find(s => s[0] === l)[1];
+  assert.match(section('The star'), /^Yellow-white supergiant, spectral type F8Iavar\. [\d,]+ K at the surface\. Its width and brightness can’t be worked out/);
+  assert.match(section('Looking home'), /^The Sun is too faint to see without a telescope from here, in the part of the sky where Earth sees /);
+  assert.match(section('The trip'), /^By the charts’ nominal distance, 3,262 ly from Sol in /);
+  // Leaving one for a measured star, the trip is still only as long as the charts say.
+  const back = composeEntry(cat, cat.byName.get('Deneb'), { cam: at('Deneb'), holdAU: 5, warp: 9, fromTitle: 'ρ Cassiopeiae', tripLy: 2000, nominal: true, date: new Date('2026-10-08T00:00:00Z') });
+  assert.match(back.sections.find(s => s[0] === 'The trip')[1], /^By the charts’ nominal distance, /);
+  assert.match(back.intro, /ly from Sol, and are holding/);
+  // Its type doesn't say giant or dwarf, and its brightness is unknown: neither does the log.
+  assert.equal(describeKind('K0', 4800, null), 'Orange star, spectral type K0');
+  assert.equal(describeKind('K0III', 4800, null), 'Orange giant, spectral type K0III');
+});
+
 test('a worked-out width or brightness keeps two figures once it is in the hundreds', () => {
   const star = name => { const i = cat.byName.get(name); return composeEntry(cat, i, { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 10, date: new Date('2026-10-08T00:00:00Z') }).sections[0][1]; };
   for (const name of ['Alnilam', 'Saiph', 'La Superba']) {

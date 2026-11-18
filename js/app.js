@@ -72,6 +72,9 @@ const starPos = i => [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]];
 const camAbs = () => (trip ? trip.cam : starPos(state.at).map((v, k) => v + state.offset[k]));
 const holdAU = i => notesFor(cat, i)?.hold?.au ?? holdDistanceAU(cat.radius[i]);
 const lyFromShip = i => cat.distanceFrom(i, camAbs()) * LY_PER_PC;
+// Whether the distance from the ship to star i is only the charts' guess: the catalogue has no measured distance for
+// it, or none for the star the ship is at. (Such stars are drawn at a nominal 1,000 parsecs.)
+const nominal = i => !!(cat.unmeasured[i] || cat.unmeasured[trip ? trip.i : state.at]);
 
 // ---------- Startup ----------
 
@@ -212,7 +215,7 @@ function drawLabels(now) {
         g.lineTo(p.x + sx * (r - 6), p.y + sy * r);
       }
       g.stroke();
-      const name = titleFor(cat, target), dist = formatLy(cat.distanceFrom(target, cam) * LY_PER_PC);
+      const name = titleFor(cat, target), dist = nominal(target) && !trip ? 'not measured' : formatLy(cat.distanceFrom(target, cam) * LY_PER_PC);
       const lw = labelWidth(g, name, dist), x = side(p.x, r + 6, lw);
       label(g, name, dist, x, p.y + 4, '#86d8ff');
       taken.push(box(x, p.y + 4, lw));
@@ -323,7 +326,9 @@ function updateTrip() {
   const el = $('trip');
   if (state.target == null) { el.textContent = ''; return; }
   const ly = lyFromShip(state.target);
-  el.innerHTML = `<b>${formatLy(ly)}</b> away · <b>${formatDuration(tripYears(ly, state.warp))}</b> at this warp · light takes ${formatDuration(ly)}`;
+  el.innerHTML = nominal(state.target)
+    ? `Distance not measured · charted at a nominal <b>${formatLy(ly)}</b> · <b>${formatDuration(tripYears(ly, state.warp))}</b> at this warp`
+    : `<b>${formatLy(ly)}</b> away · <b>${formatDuration(tripYears(ly, state.warp))}</b> at this warp · light takes ${formatDuration(ly)}`;
 }
 
 function updateHud() {
@@ -336,7 +341,8 @@ function updateHud() {
     $('status').textContent = 'Holding';
     $('where').textContent = state.at === 0 ? 'Earth orbit' : titleFor(cat, state.at);
   }
-  $('when').innerHTML = `<span>${sd}</span> · <span>${fromSol < 0.001 ? 'Home' : `${formatLy(fromSol)} from Sol`}</span>`;
+  const far = !trip && cat.unmeasured[state.at] ? 'Distance not measured' : `${formatLy(fromSol)} from Sol`;
+  $('when').innerHTML = `<span>${sd}</span> · <span>${fromSol < 0.001 ? 'Home' : far}</span>`;
 }
 
 // ---------- Flight ----------
@@ -358,7 +364,7 @@ function engage() {
   turn = null;
   trip = {
     i, from, S, dir, hold, D, ly, a0, cam: from.slice(),
-    fromTitle: state.at === 0 ? 'Sol' : inTextFor(cat, state.at),
+    fromTitle: state.at === 0 ? 'Sol' : inTextFor(cat, state.at), nominal: nominal(i),
     yaw0: state.yaw, pitch0: state.pitch, yaw1: nearestYaw(state.yaw, heading.yaw), pitch1: heading.pitch, fov0: state.fov,
     t0: performance.now(), align: 1.5 / speedUp, spool: 1.5 / speedUp, cruise, drop: 1.6 / speedUp,
     years: tripYears(ly, state.warp), warpFactor: state.warp, warp: 0, streak: 0, phase: 'align', rebased: false,
@@ -444,7 +450,7 @@ function arrive() {
   state.yaw = h.yaw;
   state.pitch = clampPitch(h.pitch - lift());
   sky.setOrigin(T.S);
-  const entry = composeEntry(cat, T.i, { cam: camAbs(), holdAU: T.hold * AU_PER_PC, warp: T.warpFactor, fromTitle: T.fromTitle, tripLy: T.ly });
+  const entry = composeEntry(cat, T.i, { cam: camAbs(), holdAU: T.hold * AU_PER_PC, warp: T.warpFactor, fromTitle: T.fromTitle, tripLy: T.ly, nominal: T.nominal });
   state.log.unshift(entry);
   state.ly += T.ly;
   save();
@@ -596,7 +602,7 @@ let searchIndex = null, letters = null;
 // shows the charts' name as a badge beside the star's instead.
 function metaFor(i, charts = true) {
   const n = notesFor(cat, i);
-  const kind = shortKind(n ? n.kind : describeKind(cat.spect[i], cat.temp[i], cat.absmag[i]));
+  const kind = shortKind(n ? n.kind : describeKind(cat.spect[i], cat.temp[i], cat.unmeasured[i] ? null : cat.absmag[i]));
   return [n?.aka, charts && chartTag(cat.names[i]), kind].filter(Boolean).join(' · ');
 }
 
@@ -614,7 +620,7 @@ function renderList() {
     const tag = chartTag(cat.names[i]);
     return `<button class="row${here ? ' here' : ''}" type="button" data-star="${i}" ${here ? 'disabled' : ''}>
       <span class="name">${esc(title)}${tag ? `<span class="badge chart">${esc(tag)}</span>` : ''}${badges ? `<span class="badge">${badges}</span>` : ''}</span>
-      <span class="dist">${here ? 'You’re here' : formatLy(cat.distanceFrom(i, cam) * LY_PER_PC)}</span>
+      <span class="dist${nominal(i) && !here ? ' unmeasured' : ''}">${here ? 'You’re here' : nominal(i) ? 'distance not measured' : formatLy(cat.distanceFrom(i, cam) * LY_PER_PC)}</span>
       <span class="meta">${esc(meta)}</span></button>`;
   };
   let html = '';
@@ -797,7 +803,7 @@ function hooks() {
       const i = cat.byName.get(name);
       const from = camAbs(), S = starPos(i);
       const to = S.map((v, k) => v - from[k]), d = Math.hypot(...to), dir = to.map(v => v / d);
-      trip = { i, S, dir, hold: Math.min(holdAU(i) / AU_PER_PC, d / 2), ly: d * LY_PER_PC, warpFactor: warp, fromTitle: state.at === 0 ? 'Sol' : inTextFor(cat, state.at), cam: from };
+      trip = { i, S, dir, hold: Math.min(holdAU(i) / AU_PER_PC, d / 2), ly: d * LY_PER_PC, warpFactor: warp, fromTitle: state.at === 0 ? 'Sol' : inTextFor(cat, state.at), nominal: nominal(i), cam: from };
       arrive();
     },
     look(yawDeg, pitchDeg, fovDeg) { turn = null; state.yaw = yawDeg * DEG; state.pitch = pitchDeg * DEG; if (fovDeg) state.fov = fovDeg * DEG; dirty = true; },

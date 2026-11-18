@@ -63,7 +63,9 @@ for r in csv.DictReader(open(hyg_csv)):
         continue
     x, y, z = float(r['x']), float(r['y']), float(r['z'])
     absmag = float(r['absmag'])
-    if unknown:  # no parallax: put it far away, as bright as it looks from here
+    # No parallax: put it far away, as bright as it looks from here. js/catalog.js knows these stars by this exact
+    # distance (nothing measured is farther) and says "distance not measured" instead of anything worked out from it.
+    if unknown:
         dist = 1000.0
         ra, dec = float(r['rarad']), float(r['decrad'])
         x, y, z = dist * math.cos(dec) * math.cos(ra), dist * math.cos(dec) * math.sin(ra), dist * math.sin(dec)

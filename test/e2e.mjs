@@ -202,6 +202,12 @@ await page.click('#choose');
   assert.deepEqual((await rows('61 cygni')).map(r => r[0]), ['61 Cygni A', '61 Cygni B']);
   assert.deepEqual(await rows('andoria'), []);
   assert.equal(await text('#list .empty'), 'No star by that name in the catalogue.');
+  // A star the catalogue has no distance for says so, in the list and at the helm, instead of the placeholder's 3,262 ly.
+  assert.equal((await rows('rho cassiopeiae'))[0][0], 'ρ Cassiopeiae');
+  assert.equal(await text('#list .row .dist'), 'distance not measured');
+  await page.locator('#list .row').first().click();
+  assert.match(await text('#trip'), /^Distance not measured · charted at a nominal 3,262 ly · /);
+  await page.click('#choose');
   await rows('vulcan');
 }
 await page.locator('#list .row').first().click();

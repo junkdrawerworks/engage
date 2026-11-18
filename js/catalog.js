@@ -3,6 +3,8 @@
 import { physical, starColor } from './physics.js';
 import { DESTINATIONS } from './destinations.js';
 
+const NOMINAL_PC = 1000;
+
 export async function loadCatalog() {
   const [bin, meta] = await Promise.all([
     fetch('data/stars.bin').then(r => r.arrayBuffer()),
@@ -16,9 +18,13 @@ export async function loadCatalog() {
   const radius = new Float32Array(n); // in solar radii
   const temp = new Float32Array(n);
   const lum = new Float32Array(n);
+  // Stars the catalogue has no distance for. tools/build-data.py parks them at exactly 1,000 parsecs, as bright as
+  // they look from Earth, so they can be drawn; nothing worked out from that distance is true of them.
+  const unmeasured = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
     pos[i * 3] = raw[i * 5]; pos[i * 3 + 1] = raw[i * 5 + 1]; pos[i * 3 + 2] = raw[i * 5 + 2];
     absmag[i] = raw[i * 5 + 3];
+    if (Math.abs(Math.hypot(raw[i * 5], raw[i * 5 + 1], raw[i * 5 + 2]) - NOMINAL_PC) < 0.01) unmeasured[i] = 1;
     const p = physical(absmag[i], raw[i * 5 + 4]);
     temp[i] = p.temp; lum[i] = p.lum; radius[i] = p.radius;
   }
@@ -34,7 +40,7 @@ export async function loadCatalog() {
   for (let i = 0; i < n; i++) color.set(starColor(temp[i]), i * 3);
 
   return {
-    count: n, pos, absmag, color, radius, temp, lum,
+    count: n, pos, absmag, color, radius, temp, lum, unmeasured,
     names: meta.names, spect: meta.spect,
     constellations: meta.constellations, lines: meta.lines,
     byName,

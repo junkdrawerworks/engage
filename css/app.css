@@ -125,6 +125,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .row .dist { font: 500 14px/1 var(--display); color: var(--cyan); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .row .meta { grid-column: 1 / -1; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row.here .dist { color: var(--amber); }
+.row .dist.unmeasured { font: 400 12px/1 var(--body); color: var(--muted); }
 .empty { color: var(--muted); padding: 16px 4px; }
 
 .stats { margin: 0 0 4px; color: var(--muted); font-size: 14px; flex: none; }
