@@ -201,6 +201,98 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await phone.close();
 }
 
+// The phone's back gesture (the browser's Back) closes the sheet that is up instead of leaving the page, and a sheet
+// closed any other way takes its step back with it: the address and the tab's history end up where they started, so
+// the next Back leaves for the page before, as it always did. A room followed out of a sheet takes the sheet's step
+// with it, so its Back comes straight back to the bridge. On a phone a sheet's head can be dragged down to close it.
+// Tonight's sky does the same.
+{
+  const ctxB = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await ctxB.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+  await p.goto(base + 'survey.html'); // the page before
+  await p.goto(base);
+  await bridgeReady(p);
+  const back = async () => { await p.evaluate(() => new Promise(r => { addEventListener('popstate', () => setTimeout(r, 50), { once: true }); history.back(); })); };
+  const up = () => p.evaluate(() => ['picker', 'log', 'settings', 'arrival'].filter(id => !document.getElementById(id).hidden));
+  const where = () => p.evaluate(() => [location.href, history.length]);
+  const start = await where();
+  for (const open of ['#choose', '#open-log', '#open-settings']) {
+    await p.tap(open);
+    assert.equal((await up()).length, 1);
+    await back();
+    assert.deepEqual(await up(), [], `Back did not close the sheet ${open} opened`);
+    assert.equal((await where())[0], start[0], `Back from the sheet ${open} opened changed the address`);
+    // Closed with its own button instead, the step goes with it.
+    await p.tap(open);
+    await p.locator('.sheet:not([hidden]) .close').tap();
+    await p.waitForTimeout(150);
+    assert.deepEqual(await up(), []);
+    assert.equal((await where())[0], start[0]);
+  }
+  // After a flight, Back closes the log entry and stays on the bridge.
+  await p.evaluate(() => engage.jump('Vega'));
+  assert.deepEqual(await up(), ['arrival']);
+  await back();
+  assert.deepEqual(await up(), [], 'Back after a flight did not close the log entry');
+  assert.match(await p.locator('#where').innerText(), /Vega/);
+  // Next destination on the arrival's entry swaps one sheet for the other on the same step.
+  await p.evaluate(() => engage.jump('Altair'));
+  await p.tap('#arrival-next');
+  assert.deepEqual(await up(), ['picker']);
+  await back();
+  assert.deepEqual(await up(), []);
+  assert.equal((await where())[0], start[0]);
+  // A room followed out of Bridge settings: its Back comes to the bridge, and the bridge's Back to the page before.
+  await p.tap('#open-settings');
+  await p.tap('#settings a[href="maru.html"]');
+  await p.waitForURL(/maru\.html/);
+  await p.goBack();
+  await bridgeReady(p);
+  assert.equal(p.url(), start[0], 'the Kobayashi Maru’s Back did not come back to the bridge');
+  assert.deepEqual(await up(), []);
+  await p.goBack();
+  assert.match(p.url(), /survey\.html$/, 'the bridge kept a step for a sheet that was no longer up');
+  await p.goForward();
+  await bridgeReady(p);
+  // Dragged down by its head, a sheet closes past 80 px, and springs back short of it.
+  const touch = await ctxB.newCDPSession(p);
+  const drag = async (dy, steps) => {
+    const box = await p.locator('#settings .sheet-head h2').boundingBox();
+    const x = box.x + box.width / 2, y = box.y + box.height / 2;
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (let i = 1; i <= steps; i++) { await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + dy * i / steps }] }); await p.waitForTimeout(30); }
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await p.waitForTimeout(300);
+  };
+  await p.tap('#open-settings');
+  await drag(40, 10);
+  assert.deepEqual(await up(), ['settings'], 'a short slow drag closed the sheet');
+  assert.equal(await p.locator('#settings').evaluate(el => el.style.transform), '', 'the sheet did not spring back');
+  await drag(140, 10);
+  assert.deepEqual(await up(), [], 'dragging the sheet’s head down did not close it');
+  assert.equal((await where())[0], start[0]);
+  await p.goBack();
+  assert.match(p.url(), /survey\.html$/, 'a sheet closed by dragging left its step behind');
+  // Tonight's sky: Back closes its list, and its card opened from a link, without touching the address.
+  await p.goto(base + 'tonight.html#star=Vega');
+  await p.waitForFunction(() => window.tonight && !document.getElementById('card').hidden);
+  const sky = await p.evaluate(() => location.href);
+  await back();
+  assert.equal(await p.locator('#card').isHidden(), true, 'Back did not close tonight’s card');
+  assert.equal(await p.evaluate(() => location.href), sky);
+  await p.tap('#open-list');
+  await back();
+  assert.equal(await p.locator('#list').isHidden(), true, 'Back did not close tonight’s list');
+  await p.tap('#open-list');
+  await p.locator('#list .close').tap();
+  await p.waitForTimeout(150);
+  await p.goBack();
+  assert.ok(p.url().startsWith(base) && !p.url().includes('tonight'), 'tonight’s list closed with its button left a step behind');
+  await ctxB.close();
+}
+
 // On a phone on its side the chosen star sits above the helm, the star you arrive at clear of the log, and the settings
 // scroll as a whole; on the narrowest phones the warp slider gets a row of its own.
 for (const viewport of [{ width: 844, height: 390 }, { width: 320, height: 568 }]) {

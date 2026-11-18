@@ -299,6 +299,12 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
   .engage { flex: 1 1 100%; height: 50px; }
 }
 
+/* On a phone the sheets stand on the bottom edge, and a finger dragging a sheet's head down takes the sheet with it
+   (see swipeDown in js/sheets.js): the browser doesn't scroll the page for it. */
+@media (max-width: 759px) {
+  .sheet-head { touch-action: none; }
+}
+
 @media (min-width: 760px) {
   .console { left: max(20px, var(--safe-l)); right: auto; bottom: calc(20px + var(--safe-b)); width: 430px; }
   .hud { padding: calc(20px + var(--safe-t)) max(24px, var(--safe-r)) 30px max(24px, var(--safe-l)); }

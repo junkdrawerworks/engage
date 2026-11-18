@@ -1,10 +1,12 @@
-// The bridge's tables and rules that need no page: the room list.  node --test test/bridge.test.mjs
+// The bridge's tables and rules that need no page: the room list, and when a dragged sheet closes.
+//   node --test test/bridge.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOMS, roomList, inWords } from '../js/rooms.js';
+import { dismissed, SWIPE_CLOSE } from '../js/sheets.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -32,4 +34,14 @@ test('counts are said in words', () => {
   assert.equal(inWords(8), 'eight');
   assert.equal(inWords(ROOMS.length + 1), 'eight');
   assert.equal(inWords(40), '40');
+});
+
+test('a sheet dragged down closes past 80 pixels or on a quick flick, and springs back otherwise', () => {
+  assert.equal(SWIPE_CLOSE, 80);
+  assert.equal(dismissed(80, 2000), true, 'a slow drag all the way');
+  assert.equal(dismissed(79, 2000), false, 'a slow drag not quite far enough');
+  assert.equal(dismissed(40, 50), true, 'a flick');
+  assert.equal(dismissed(8, 5), false, 'a twitch is not a flick');
+  assert.equal(dismissed(-120, 50), false, 'pushed up, not down');
+  assert.equal(dismissed(NaN, 50), false);
 });

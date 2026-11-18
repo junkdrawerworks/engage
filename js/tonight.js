@@ -12,6 +12,7 @@ import {
 } from './astro.js';
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
+import { backCloses, swipeDown } from './sheets.js';
 import { LIVE, share } from './share.js';
 import { PLACES } from './warp-scale.js';
 import { fileForHome, label as fileLabel } from './classes.js';
@@ -100,6 +101,8 @@ async function start() {
   if (!saved.place || saved.place.how === 'guess') saved.place = guessPlace();
   prepareStars();
   buildSheets();
+  steps = backCloses({ close: closeSheets, isOpen: () => SHEETS.some(id => !$(id).hidden) });
+  for (const id of SHEETS) swipeDown($(id), closeSheets);
   showNight();
   compute();
   faceSomethingGood();
@@ -963,11 +966,13 @@ function renderPlaces() {
 
 const SHEETS = ['card', 'list', 'places'];
 let opener = null; // the button that opened the list or the places, to hand focus back to when the sheets close
+let steps = null; // the sheets' steps in the tab's history: Back closes the sheet that is up (see js/sheets.js)
 
 // `from` is the button that opened it. Then the sheet takes focus (its close button), so a keyboard carries on inside it.
 function openSheet(id, from = null) {
   for (const s of SHEETS) if (s !== id) $(s).hidden = true;
   $(id).hidden = false;
+  steps?.opened();
   $('scrim').hidden = id === 'card'; // the card leaves the sky usable behind it
   document.body.classList.toggle('carded', id === 'card');
   if (from) { opener = from; $(id).querySelector('.close').focus({ preventScroll: true }); }
@@ -977,6 +982,7 @@ function closeSheets() {
   const open = SHEETS.some(s => !$(s).hidden);
   for (const s of SHEETS) $(s).hidden = true;
   $('scrim').hidden = true;
+  if (open) steps?.closed();
   document.body.classList.remove('carded');
   document.title = 'Tonight’s sky · Engage';
   sel = null;

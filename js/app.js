@@ -9,6 +9,7 @@ import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } fr
 import { LIVE, share } from './share.js';
 import { current, keep, watch } from './store.js';
 import { roomList } from './rooms.js';
+import { backCloses, swipeDown } from './sheets.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -208,6 +209,9 @@ async function start() {
     throw e;
   }
   sky.setOrigin(starPos(state.at));
+  // Before anything can open a sheet (a link that names no star opens Set course; coming back from a room, the log).
+  steps = backCloses({ close: closeSheets, isOpen: () => SHEETS.some(id => !$(id).hidden) });
+  for (const id of SHEETS) swipeDown($(id), closeSheets);
   watchGraphics();
   $('loading').remove();
   for (const id of ['intro-rooms', 'settings-rooms']) $(id).innerHTML = roomList(ROOM_BASE, AWAY);
@@ -765,6 +769,7 @@ const SHEETS = ['picker', 'log', 'settings', 'arrival'];
 const MODAL = ['picker', 'log', 'settings'];
 const touchy = matchMedia('(pointer: coarse)').matches;
 let opener = null; // the button that opened the sheet that's up, to hand focus back to when it closes
+let steps = null; // the sheets' steps in the tab's history: Back closes the sheet that is up (see js/sheets.js)
 
 // `from` is the button that opened it. Then the sheet takes focus, so a keyboard carries on inside it: the search
 // field in Set course, or else the close button. On a touchscreen the search field would bring the keyboard up over the list.
@@ -772,6 +777,7 @@ function openSheet(id, from = null) {
   for (const s of SHEETS) $(s).hidden = true;
   $(id).hidden = false;
   $('scrim').hidden = false;
+  steps?.opened();
   opener = from;
   if (from) (id === 'picker' && !touchy ? $('search') : $(id).querySelector('.close')).focus({ preventScroll: true });
   behind();
@@ -781,6 +787,7 @@ function closeSheets() {
   const open = SHEETS.some(id => !$(id).hidden);
   for (const id of SHEETS) $(id).hidden = true;
   $('scrim').hidden = true;
+  if (open) steps?.closed();
   behind(); // before focus goes back: nothing behind a sheet can take it while the sheet is up
   if (open && opener?.isConnected && !opener.disabled && opener.getClientRects().length) opener.focus({ preventScroll: true });
   opener = null;
