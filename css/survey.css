@@ -51,12 +51,13 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .ly { font: 500 13px/1 var(--display); color: var(--cyan); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .worlds p { margin: 4px 0 2px; font-size: 14px; color: var(--muted); }
 .misfit { display: inline-block; margin: 6px 0 2px; padding: 4px 8px; border: 1px solid rgba(255, 181, 74, 0.45); border-radius: 999px; font: 600 10px/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); }
-.fly { display: inline-block; margin-top: 4px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 6px 0; }
+/* 44 px tall under a thumb; the margins take back what the padding adds, so the link sits where it did. */
+.fly { display: inline-block; margin: -6px 0 -10px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 16px 0; }
 .fly:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* Set course, and Grow a creature for it: side by side where there's room, one under the other on a phone. */
 .w-links { display: flex; flex-wrap: wrap; gap: 0 20px; }
 /* A long planet's name takes its link to a second line: give the two lines room. */
-.w-links .fly { line-height: 1.4; }
+.w-links .fly { line-height: 1.4; padding: 14px 0; margin: -4px 0 -8px; }
 
 /* Thumbnails to flip through */
 .strip-wrap { margin: 14px -16px 0; }

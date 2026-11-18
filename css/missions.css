@@ -18,7 +18,7 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 .map-wrap { position: relative; margin: 4px -16px 0; border-block: 1px solid var(--line); background: radial-gradient(circle at 50% 50%, #0a1426 0%, #04060b 70%); }
 #map { display: block; width: 100%; aspect-ratio: 1 / 1.08; max-height: 78vh; touch-action: manipulation; cursor: pointer; }
 .views { position: absolute; left: 10px; top: 10px; display: flex; padding: 3px; gap: 3px; border-radius: 12px; border: 1px solid var(--line); background: rgba(5, 7, 13, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-.views button { height: 32px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: 600 11px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+.views button { height: 40px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: 600 11px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
 .views button[aria-pressed="true"] { background: rgba(134, 216, 255, 0.14); color: var(--cyan); box-shadow: 0 0 0 1px rgba(134, 216, 255, 0.35) inset; }
 .scale { margin: 6px 0 0; font-size: 12px; color: var(--dim); }
 
@@ -61,7 +61,8 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 .log li { display: grid; grid-template-columns: 7.4em 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; color: #cdd5e3; }
 .log time { font: 500 12px/1.6 var(--display); letter-spacing: 0.04em; color: var(--muted); }
 .file .warp { color: var(--cyan); font-size: 14px; }
-.fly { display: inline-block; margin: 2px 0 6px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 6px 0; }
+/* 44 px tall under a thumb; the margins take back what the padding adds, so the link sits where it did. */
+.fly { display: inline-block; margin: -8px 0 -4px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 16px 0; }
 .fly:hover { text-decoration: underline; text-underline-offset: 3px; }
 .file .record { color: var(--muted); font-size: 14px; font-style: italic; }
 

@@ -1032,6 +1032,8 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 568, height: 320 }
   await p.evaluate(() => document.fonts.ready);
   assert.equal(await p.locator('#place-name').innerText(), 'Near New York?');
   assert.ok((await p.locator('#open-place').boundingBox()).height >= 44, 'the place button is too small to tap');
+  // The row of controls is not a line of the bridge's star list, whatever its class says: no rule is drawn under it.
+  assert.equal(await p.locator('.controls .row').evaluate(el => getComputedStyle(el).borderBottomWidth), '0px', 'a hairline is drawn under tonight’s controls');
   const cut = await p.evaluate(() => ['open-place', 'clock'].filter(id => { const el = document.getElementById(id); return el.scrollWidth > el.clientWidth; }));
   assert.deepEqual(cut, [], `“${await p.locator('#open-place').innerText()}” is cut off`);
   await here.close();
@@ -1398,6 +1400,18 @@ assert.deepEqual(await page.evaluate(() => [xeno.current.classId, xeno.current.s
 assert.equal(await page.locator('#jars .jar').count(), 1, 'the jar was not kept');
 // Letting one go can be taken back, and the count beside Keep links down to the jars.
 assert.match(await text('#kept-note'), /^1 kept in your jars/);
+// Under a thumb: the jar's let-go button is a 30 px disc, and a tap lands on it from 7 px outside the disc all round;
+// the lab's text links are 44 px tall.
+{
+  await page.locator('#jars .jar-drop').scrollIntoViewIfNeeded();
+  const reach = await page.evaluate(() => {
+    const drop = document.querySelector('#jars .jar-drop'), r = drop.getBoundingClientRect();
+    const at = (x, y) => document.elementFromPoint(x, y) === drop;
+    return { disc: [r.width, r.height], hits: [at(r.left - 6, r.top + 15), at(r.right + 6, r.top + 15), at(r.left + 15, r.top - 6), at(r.left + 15, r.bottom + 6)], past: at(r.left - 10, r.top + 15) };
+  });
+  assert.deepEqual(reach, { disc: [30, 30], hits: [true, true, true, true], past: false }, 'the jar’s let-go button is not a 30 px disc with a 44 px tap area');
+  for (const sel of ['#send', '#kept-note a', '#specimen .to-file']) assert.ok(await page.locator(sel).first().evaluate(el => el.getBoundingClientRect().height) >= 44, `${sel} is under 44 px tall`);
+}
 await page.click('#jars .jar-drop');
 assert.equal(await page.locator('#jars .jar').count(), 0);
 assert.match(await text('#jar-undo'), /^Let the .+ go\.\s+Undo$/i);
@@ -1572,6 +1586,12 @@ const settled = () => page.waitForFunction(() => !contact.busy, null, { timeout:
 await settled();
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'first contact scrolls sideways on a phone');
 assert.equal(await page.locator('#book li').count(), 2, 'the notebook does not hold their first two phrases');
+// The notebook under a thumb: each phrase, the button a reply is built with, is 44 px tall, and its list of meanings
+// is in 16 px type (Safari on an iPhone zooms the page in on a smaller one, and stays zoomed).
+for (const row of await page.locator('#book li').all()) {
+  assert.ok((await row.locator('.ph-add').boundingBox()).height >= 44, 'a notebook phrase is under 44 px tall');
+  assert.ok(await row.locator('select').evaluate(el => parseFloat(getComputedStyle(el).fontSize) >= 16 && el.getBoundingClientRect().height >= 40), 'a notebook list is in small type');
+}
 assert.ok(await page.locator('#send').isDisabled(), 'an empty reply can be sent');
 await page.locator('#book select').first().selectOption('meet');
 assert.match(await text('#comms'), /Hello, meeting\?/, 'the guess does not show on the channel');

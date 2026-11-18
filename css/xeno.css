@@ -15,11 +15,11 @@
 .bench-actions .secondary[aria-pressed="true"] { border-color: #6fe3a4; color: #6fe3a4; }
 .bench-actions .secondary:disabled { opacity: 1; color: var(--muted); border-style: dashed; font-size: 12px; }
 .bench-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0 12px; margin-top: 4px; }
-.bench-foot .text-button { color: #6fe3a4; font-size: 13px; }
+.bench-foot .text-button { color: #6fe3a4; font-size: 13px; min-height: 44px; padding: 12px 0; margin: -4px 0; }
 .bench-foot .share-link { flex: 1 1 100%; min-width: 0; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.04); font-size: 14px; color: var(--text); }
 .kept-note { margin: 0; margin-left: auto; text-align: right; font-size: 13px; color: var(--muted); }
 .link-note { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
-.kept-note a { color: #6fe3a4; text-underline-offset: 3px; display: inline-block; padding: 6px 0; }
+.kept-note a { color: #6fe3a4; text-underline-offset: 3px; display: inline-block; line-height: 20px; padding: 12px 0; margin: -6px 0; }
 
 .specimen { padding: 18px 18px 10px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
 .specimen h2 { margin: 4px 0 0; font: 600 26px/1.1 var(--display); letter-spacing: 0.02em; }
@@ -31,7 +31,8 @@
 .notes li { padding: 10px 0; border-top: 1px solid var(--line); }
 .notes h3 { margin: 0 0 3px; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .notes p { margin: 0; color: #cdd5e3; }
-.specimen .to-file { display: inline-block; margin: 6px 18px 4px 0; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 6px 0; }
+/* 44 px tall under a thumb; the margins take back what the padding adds, so the link sits where it did. */
+.specimen .to-file { display: inline-block; margin: -4px 18px -6px 0; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 16px 0; }
 .specimen .to-file:hover { text-decoration: underline; text-underline-offset: 3px; }
 .specimen .for-real { margin: 10px 0 2px; font-size: 14px; color: var(--muted); }
 .specimen .for-real a { color: var(--cyan); text-underline-offset: 3px; }
@@ -66,6 +67,8 @@
 .jar-cls { font-size: 12px; color: var(--muted); padding: 0 4px; }
 .jar-drop { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line-strong); background: rgba(5, 7, 13, 0.75); display: grid; place-items: center; padding: 0; }
 .jar-drop svg { width: 14px; height: 14px; }
+/* The disc stays 30 px; a tap lands on it from 7 px further out all round. */
+.jar-drop::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); border-radius: 50%; }
 
 .xeno .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }
 

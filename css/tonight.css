@@ -30,7 +30,8 @@
 .controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 16px calc(14px + var(--safe-b)); background: linear-gradient(to top, rgba(5, 7, 13, 0.85) 40%, rgba(5, 7, 13, 0)); pointer-events: none; }
 .controls > * { pointer-events: auto; }
 .hint { margin: 0 auto 10px; max-width: 520px; text-align: center; font-size: 13px; color: var(--muted); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
-.controls .row { display: flex; gap: 12px; align-items: center; max-width: 520px; margin: 0 auto; }
+/* (.row is also a line of the bridge's star list in css/app.css: its rule under each line, and its hover, are not for this row.) */
+.controls .row { display: flex; gap: 12px; align-items: center; max-width: 520px; margin: 0 auto; padding: 10px 4px 11px; border: 0; background: none; }
 .controls .primary, .controls .secondary { flex: none; height: 46px; }
 .time { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .time-label { font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); }
@@ -90,7 +91,7 @@ body.carded .controls { visibility: hidden; }
 .sky-opt span { font-size: 13px; color: var(--muted); }
 .sky-opt[aria-checked="true"] { border-color: var(--amber); background: rgba(255, 181, 74, 0.08); }
 .cities { display: flex; flex-wrap: wrap; gap: 6px; }
-.city { height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); font-size: 14px; }
+.city { height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); font-size: 14px; }
 .city[aria-pressed="true"] { border-color: var(--amber); color: var(--amber); }
 
 /* Night vision: everything in red, so your eyes stay used to the dark */

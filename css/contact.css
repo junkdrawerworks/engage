@@ -71,16 +71,19 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 
 .book-n { font-size: 12px; color: var(--dim); }
 .book-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
-.book-list li { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: center; padding: 8px 8px 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+/* The phrase is the button a reply is built with: its row is 44 px tall for a thumb, and takes the place of the card's
+   own space above and below it, so a row is hardly taller than it was. */
+.book-list li { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; align-items: center; padding: 0 8px 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
 .book-list li.new { animation: glow 1.6s ease-out; }
-.ph-add { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 2px 0; border: 0; background: none; text-align: left; }
+.ph-add { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; width: 100%; min-height: 44px; padding: 11px 0; border: 0; background: none; text-align: left; }
 .ph-add .t { flex: 1; font: 500 15px/1.3 var(--display); letter-spacing: 0.01em; }
 .ph-add .plus { flex: none; font: 600 12px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--alien); }
 .ph-add:not([aria-disabled="true"]):hover .t { color: #fff; }
 .ph-add[aria-disabled="true"] { cursor: default; }
 .ph-add[aria-disabled="true"] .plus { color: var(--dim); }
 .ph-n { font-size: 12px; color: var(--dim); white-space: nowrap; }
-.book-list select { width: 100%; min-width: 0; height: 34px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--panel-solid); color: var(--text); font: 14px var(--body); }
+/* 16 px: Safari on an iPhone zooms the whole page in on a focused control whose text is smaller, and stays zoomed. */
+.book-list select { width: 100%; min-width: 0; height: 40px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--panel-solid); color: var(--text); font: 16px var(--body); }
 .book-list select.tagged { border-color: rgba(201, 162, 255, 0.55); color: var(--alien); }
 @keyframes glow { from { border-color: var(--alien); background: rgba(201, 162, 255, 0.14); } }
 
