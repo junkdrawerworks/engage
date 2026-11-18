@@ -197,6 +197,42 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 360, height: 740 }
   await narrow.close();
 }
 
+// A phone on its side has its camera notch at one end and a rounded corner at the other. Every page asks for the whole
+// screen (viewport-fit=cover), so each keeps its own words and buttons out of both: with 47 px taken at each end
+// (an iPhone's, stood in for through the browser's own tools), nothing on the bridge, in tonight's sky or in a room
+// starts under the notch. With nothing taken, the padding is what it was.
+{
+  const notched = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await notched.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const cdp = await notched.newCDPSession(p);
+  const span = sel => p.locator(sel).first().evaluate(async el => { await Promise.all(el.getAnimations().map(a => a.finished)); const r = el.getBoundingClientRect(); return [r.left, r.right]; });
+  const clear = async (what, sel) => { const [l, r] = await span(sel); assert.ok(l >= 47 && r <= 844 - 47, `${what} is under the notch or the far corner: ${Math.round(l)} to ${Math.round(r)} of 844`); };
+  await p.goto(base);
+  await bridgeReady(p);
+  assert.equal(await p.locator('.hud').evaluate(el => getComputedStyle(el).paddingLeft), '24px', 'the bridge’s header changed its padding with no notch');
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 47, right: 47, top: 0, bottom: 21 } });
+  await p.reload();
+  await bridgeReady(p);
+  await clear('the welcome card', '.intro-card');
+  await p.tap('#intro-go');
+  for (const [what, sel] of [['where the ship is', '.where h1'], ['the last round button', '#open-settings'], ['the helm', '#console']]) await clear(what, sel);
+  await p.tap('#open-log');
+  await clear('the captain’s log', '#log');
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  for (const [what, sel] of [['tonight’s Back', '.back'], ['night vision', '#night'], ['tonight’s controls', '.controls .row']]) await clear(what, sel);
+  await p.tap('#open-list');
+  await clear('tonight’s list', '#list');
+  for (const room of ['survey', 'maru', 'missions', 'xeno', 'contact', 'warp']) {
+    await p.goto(`${base}${room}.html`);
+    await p.waitForSelector('main');
+    for (const [what, sel] of [[`${room}’s Back`, '.back'], [`${room}’s heading`, '.top h1'], [`${room}’s page`, 'main > :not([hidden])']]) await clear(what, sel);
+    assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${room} scrolls sideways with a notch`);
+  }
+  await notched.close();
+}
+
 // Tapping a star chooses it.
 await page.evaluate(() => engage.lookAtStar('Sirius'));
 await page.waitForTimeout(400);

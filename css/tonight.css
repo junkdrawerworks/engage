@@ -27,7 +27,7 @@
 .daylight .secondary { flex: none; height: 38px; padding: 0 12px; font-size: 12px; white-space: nowrap; }
 
 /* Controls at the bottom */
-.controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 16px calc(14px + var(--safe-b)); background: linear-gradient(to top, rgba(5, 7, 13, 0.85) 40%, rgba(5, 7, 13, 0)); pointer-events: none; }
+.controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px max(16px, var(--safe-r)) calc(14px + var(--safe-b)) max(16px, var(--safe-l)); background: linear-gradient(to top, rgba(5, 7, 13, 0.85) 40%, rgba(5, 7, 13, 0)); pointer-events: none; }
 .controls > * { pointer-events: auto; }
 .hint { margin: 0 auto 10px; max-width: 520px; text-align: center; font-size: 13px; color: var(--muted); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
 /* (.row is also a line of the bridge's star list in css/app.css: its rule under each line, and its hover, are not for this row.) */
