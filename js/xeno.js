@@ -50,6 +50,7 @@ const lyText = ly => (ly >= 100 ? Math.round(ly).toLocaleString('en-US') : Strin
 
 function put(c, animate) {
   current = c;
+  $('link-note').hidden = true;
   born = animate && !still.matches ? performance.now() : -1e9;
   const id = c.classId;
   $('tank-tag').textContent = `${c.world ? c.world.name : label(c.cls)} · Specimen ${String(c.seed).padStart(4, '0')}`;
@@ -283,6 +284,7 @@ $('jars').addEventListener('click', e => {
 });
 window.addEventListener('hashchange', () => {
   const h = fromHash();
+  if (!h && location.hash.length > 1) $('link-note').hidden = false; // a link that names nothing the lab knows: say so, and leave the tank as it is
   if (h && (!current || h.seed !== current.seed || (h.world ? h.world !== current.world?.name : !!current.world || h.id !== current.classId))) open(h);
 });
 window.addEventListener('resize', () => { if (still.matches) frame(performance.now()); });
@@ -290,7 +292,11 @@ still.addEventListener?.('change', () => frame(performance.now()));
 
 window.xeno = { show, showWorld, get current() { return current; }, get jars() { return saved.jars; } };
 
-open(fromHash() || { id: 'M', seed: newSeed() });
+// A link that names nothing the lab knows (a class it hasn't got, a planet it has no readings for, a link cut off on
+// its way) still opens the lab, on a new creature, with a line to say that is what happened.
+const asked = location.hash.length > 1, linked = fromHash();
+open(linked || { id: 'M', seed: newSeed() });
+$('link-note').hidden = !asked || !!linked;
 renderJars();
 requestAnimationFrame(loop);
 

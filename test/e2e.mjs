@@ -1342,6 +1342,39 @@ for (const id of ['lava-world', 'hot-jupiter', 'N']) {
   }
   assert.ok(seen.size >= 5, `ten ${id} creatures had ${seen.size} names between them: ${[...seen].join(', ')}`);
 }
+// A flyer's raised wing stays inside the tank and under its tag. It used to run off the top (Class O's specimen
+// 102, Class M's 66, Class Y's 8), so the top rows of the picture had a wing's edge in them; now they are sky, which
+// changes only smoothly from one pixel to the next. Looked at through a whole wingbeat.
+for (const [id, seed] of [['O', 102], ['M', 66], ['Y', 8]]) {
+  await page.evaluate(([c, n]) => xeno.show(c, n, false), [id, seed]);
+  assert.equal(await page.evaluate(() => xeno.current.body.plan), 'flyer');
+  let worst = 0;
+  for (let k = 0; k < 14; k++) {
+    await page.waitForTimeout(210);
+    worst = Math.max(worst, await page.evaluate(() => {
+      const c = document.getElementById('tank'), g = c.getContext('2d');
+      let jump = 0;
+      for (const y of [0, 1, Math.round(c.height * 0.05)]) {
+        const d = g.getImageData(0, y, c.width, 1).data;
+        for (let i = 4; i < d.length; i += 4) jump = Math.max(jump, Math.abs(d[i] - d[i - 4]) + Math.abs(d[i + 1] - d[i - 3]) + Math.abs(d[i + 2] - d[i - 2]));
+      }
+      return jump;
+    }));
+  }
+  assert.ok(worst < 40, `${id}-${seed}: something with an edge (a wing?) is in the top rows of the tank: a jump of ${worst}`);
+}
+// A link that names nothing the lab knows says so; one that does, and any creature grown after, doesn't.
+for (const [hash, note] of [['#Q-3', true], ['#world=GJ%201214%20b-5', true], ['#M-5x', true], ['#M-5', false], ['', false], ['#world=Proxima%20b-5', false]]) {
+  await page.goto(base + 'maru.html');
+  await page.goto(base + 'xeno.html' + hash);
+  await page.waitForFunction(() => window.xeno?.current);
+  assert.equal(await shown('#link-note'), note, `xeno.html${hash}`);
+  if (note) {
+    assert.equal(await text('#link-note'), 'That link didn’t name a creature the lab knows, so here’s a new one.');
+    await page.click('#again');
+    assert.equal(await shown('#link-note'), false, 'the note stayed after growing another');
+  }
+}
 // A creature for a real planet. The Class M file's planets each have their own link beside Set course; the lab grows
 // one from TRAPPIST-1 e's own width, mass, temperature and star, and the link, a reload and a jar all bring it back.
 await page.goto(base + 'survey.html#M');

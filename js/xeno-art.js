@@ -18,6 +18,11 @@ const CLOUDS = {
   'hot-jupiter': ['#5a1d18', '#8c2f1d', '#3a1210', '#c4532a'],
 };
 
+// A flyer's size against the tank, and how far off the ground it hovers. Its near wing tip is never more than 1.1
+// body-lengths above its feet (see walker and wing), so the tip stays below 0.8 − 0.1 − 1.1 × 0.5 = 0.15 of the
+// tank's height from the top: clear of the tag, which takes the top tenth.
+const FLYER_SCALE = 0.5, FLYER_LIFT = 0.1;
+
 // The whole picture. `time` is in seconds and drives the idle motion; `grown` runs 0 → 1 as the creature appears.
 export function drawScene(g, c, W, H, time = 0, grown = 1) {
   g.save();
@@ -26,13 +31,15 @@ export function drawScene(g, c, W, H, time = 0, grown = 1) {
   backdrop(g, c, W, H, groundY, time);
 
   const b = c.body;
-  const s = Math.min(W * 0.62, H * 0.62); // the creature's main length in pixels
+  // The creature's main length in pixels. A flyer is drawn smaller and low over the ground: its raised wing reaches
+  // further above it than the body is long, and at full size the tip ran off the top of the tank, under its tag.
+  const s = Math.min(W, H) * (b.plan === 'flyer' ? FLYER_SCALE : 0.62);
   let x = W * 0.54, y;
   if (b.plan === 'walker' || b.plan === 'flyer' || b.plan === 'plant') y = groundY;
   else if (b.plan === 'crawler') y = groundY;
   else if (b.plan === 'burrower') y = H * 0.6;
   else y = H * 0.5;
-  if (b.plan === 'flyer') y = groundY - H * 0.18;
+  if (b.plan === 'flyer') y = groundY - H * FLYER_LIFT;
 
   const k = ease(grown);
   g.save();
@@ -58,10 +65,11 @@ function backdrop(g, c, W, H, groundY, time) {
 
   if (h === 'sea' || h === 'under-ice') {
     const deep = env.dark;
-    const top = deep ? '#06121c' : env.star === 'red' ? '#3b2a3c' : env.star === 'orange' ? '#1d5160' : '#1f6f8f';
+    const top = deep ? '#06121c' : env.star === 'red' ? '#4a3348' : env.star === 'orange' ? '#1d5160' : '#1f6f8f';
     const grad = g.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, top);
-    grad.addColorStop(1, deep ? '#010307' : '#06202c');
+    if (!deep && env.star === 'red') grad.addColorStop(0.55, '#2a2f44'); // a red dwarf's sea, kept light enough to show a near-black swimmer
+    grad.addColorStop(1, deep ? '#010307' : env.star === 'red' ? '#0d2030' : '#06202c');
     g.fillStyle = grad; g.fillRect(0, 0, W, H);
     if (!deep) { // light from above
       g.save(); g.globalCompositeOperation = 'lighter';
@@ -81,12 +89,15 @@ function backdrop(g, c, W, H, groundY, time) {
       g.fill();
       g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(0, 0, W, H * 0.04);
     }
-    // sea floor
-    g.fillStyle = deep ? '#0c0f14' : '#1d2a26';
-    g.beginPath(); g.moveTo(0, H);
-    for (let x = 0; x <= W; x += W / 16) g.lineTo(x, H * (0.9 + 0.04 * Math.sin(x * 0.02 + c.seed)));
-    g.lineTo(W, H); g.fill();
-    if (h === 'under-ice' || env.dark) vent(g, W * 0.15, H * 0.92, H, time);
+    // The sea floor, with a vent where it is dark. Under a sub-Neptune's or an ice giant's hydrogen the ocean has no
+    // floor anything could reach: it only gets darker. Nor is there one in sight out in the open ocean.
+    if (!env.gas && env.place !== 'open ocean') {
+      g.fillStyle = deep ? '#0c0f14' : '#1d2a26';
+      g.beginPath(); g.moveTo(0, H);
+      for (let x = 0; x <= W; x += W / 16) g.lineTo(x, H * (0.9 + 0.04 * Math.sin(x * 0.02 + c.seed)));
+      g.lineTo(W, H); g.fill();
+      if (h === 'under-ice' || env.dark) vent(g, W * 0.15, H * 0.92, H, time);
+    }
     // drifting specks
     g.fillStyle = deep ? 'rgba(170,220,255,0.35)' : 'rgba(255,255,255,0.25)';
     for (let i = 0; i < 40; i++) {
@@ -126,7 +137,7 @@ function backdrop(g, c, W, H, groundY, time) {
     for (let i = 0; i < 70; i++) { g.globalAlpha = 0.3 + r() * 0.7; g.fillRect(r() * W, r() * groundY * 0.8, 1.2, 1.2); }
     g.globalAlpha = 1;
   }
-  if (star) { // the sun
+  if (star && !/night/.test(env.place)) { // the sun (which never rises on the night side of a world that keeps one face to it)
     const sx = W * 0.3, sy = H * 0.14, sr = env.star === 'red' ? H * 0.07 : env.star === 'orange' ? H * 0.05 : H * 0.04;
     const glow = g.createRadialGradient(sx, sy, sr * 0.5, sx, sy, sr * (thin ? 2.2 : 5));
     glow.addColorStop(0, rgba(star, 0.55)); glow.addColorStop(1, rgba(star, 0));
@@ -205,11 +216,17 @@ function scale(g, c, W, H, x, groundY, s, extent) {
   for (const u of steps) if (u * pxPerM <= Math.min(140, W * 0.3)) unit = u;
   const len = unit * pxPerM;
   const bx = 16, by = H - 18;
+  g.font = '600 12px "Chakra Petch", "Arial Narrow", sans-serif';
+  // A dark pill behind the bar and its label, as the tank's tag has, so they read over lava cracks, pale cloud and sand.
+  const text = sizeText(unit), pw = len + 6 + g.measureText(text).width + 16;
+  g.fillStyle = 'rgba(5,7,13,0.6)';
+  g.beginPath();
+  if (g.roundRect) g.roundRect(bx - 8, by - 14, pw, 22, 8); else g.rect(bx - 8, by - 14, pw, 22);
+  g.fill();
   g.strokeStyle = 'rgba(232,237,246,0.85)'; g.fillStyle = 'rgba(232,237,246,0.9)'; g.lineWidth = 1.5;
   g.beginPath(); g.moveTo(bx, by - 5); g.lineTo(bx, by); g.lineTo(bx + len, by); g.lineTo(bx + len, by - 5); g.stroke();
-  g.font = '600 12px "Chakra Petch", "Arial Narrow", sans-serif';
   g.textBaseline = 'bottom';
-  g.fillText(sizeText(unit), bx + len + 6, by + 3);
+  g.fillText(text, bx + len + 6, by + 3);
 
   const plan = c.body.plan;
   const person = 1.75 * pxPerM;
@@ -249,6 +266,12 @@ function scan(g, W, H, t) {
 // Each returns how many pixels its measured size takes (height, length or width), for the scale bar.
 
 function outline(g, b, s) { g.strokeStyle = hsl(b.color, -22, 0.9); g.lineWidth = Math.max(1, s * 0.01); g.lineJoin = 'round'; g.lineCap = 'round'; }
+// A swimmer's outline. A near-black body (a red dwarf's) in a dark sea gets a light rim, or it can't be made out.
+const DARK_BODY = 30;
+function rim(g, b, s) {
+  outline(g, b, s);
+  if (b.color.l < DARK_BODY) { g.strokeStyle = hsl(b.color, 38, 0.85, 10); g.lineWidth = Math.max(1.2, s * 0.012); }
+}
 
 function bodyFill(g, b, x, y, w, h) {
   const grad = g.createLinearGradient(0, y - h, 0, y + h);
@@ -374,7 +397,9 @@ function walker(g, b, s, t) {
   g.save(); g.clip(); texture(g, b, -L * 0.5, cy - Hb, L, Hb * 2, s); g.restore();
   outline(g, b, s); g.stroke();
 
-  if (b.armor) plates(g, b, -L * 0.38, L * 0.4, cy - Hb * 0.62, Hb, s);
+  // A body of rock wears crystals where another animal would have plates.
+  if (b.crystals) shards(g, b, -L * 0.36, L * 0.38, cy - Hb * 0.66, Hb, s);
+  else if (b.armor) plates(g, b, -L * 0.38, L * 0.4, cy - Hb * 0.62, Hb, s);
   if (b.covering === 'fur') fur(g, b, L, Hb, cy, s);
   if (b.sacs) sacs(g, b, -L * 0.2, cy - Hb * 0.8, s, t);
 
@@ -393,7 +418,9 @@ function walker(g, b, s, t) {
 
   if (flyer) wing(g, b, -L * 0.02, cy - Hb * 0.35, s * 0.85, t, false);
   hips.forEach((hx2, i) => leg(hx2, i * 1.9, false));
-  return -hy + hr * 0.8; // the top of its head, above the ground
+  // What its size measures: a flyer's is its wingspan, two wings of the length drawn; a walker's is the top of its
+  // head above the ground.
+  return flyer ? s * 0.85 * 2 : -hy + hr * 0.8;
 }
 
 function head(g, b, x, y, r, s, t) {
@@ -415,7 +442,18 @@ function head(g, b, x, y, r, s, t) {
 
 function texture(g, b, x, y, w, h, s) {
   const r = rng(Math.round(b.wobble * 1e6) + 3);
-  if (b.covering === 'scales' || b.covering === 'crystal') {
+  if (b.covering === 'crystal') { // facets: flat faces of cut stone, some catching the light
+    const d = Math.max(8, s * 0.07);
+    g.lineWidth = Math.max(0.8, s * 0.004); g.lineJoin = 'round';
+    for (let yy = y - d; yy < y + h; yy += d * 0.8) for (let xx = x - d + ((Math.round(yy / d) % 2) * d) / 2; xx < x + w; xx += d) {
+      const jx = (r() - 0.5) * d * 0.5, jy = (r() - 0.5) * d * 0.5, up = r() < 0.5;
+      g.fillStyle = hsl(b.color, (r() - 0.45) * 26, 0.6);
+      g.beginPath();
+      g.moveTo(xx + jx, yy + (up ? d * 0.8 : 0) + jy); g.lineTo(xx + d + jx, yy + (up ? d * 0.8 : 0) - jy); g.lineTo(xx + d * 0.5 - jx, yy + (up ? 0 : d * 0.8) + jy);
+      g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.22)'; g.stroke();
+    }
+  } else if (b.covering === 'scales') {
     g.strokeStyle = hsl(b.color, -12, 0.5); g.lineWidth = Math.max(0.8, s * 0.004);
     const d = Math.max(5, s * 0.035);
     for (let yy = y; yy < y + h; yy += d * 0.6) for (let xx = x + ((yy / d) % 2) * d * 0.5; xx < x + w; xx += d) {
@@ -434,6 +472,20 @@ function plates(g, b, x0, x1, y, Hb, s) {
     const lift = Math.sin((i / (n - 1)) * Math.PI) * Hb * 0.25;
     g.fillStyle = hsl(b.color, -8 + i * 2); outline(g, b, s);
     g.beginPath(); g.ellipse(x, y - lift, (x1 - x0) / (n - 1) * 0.7, Hb * 0.32, 0, Math.PI, TAU); g.closePath(); g.fill(); g.stroke();
+  }
+}
+
+// Crystals standing along the back of a body of rock, as on the rock-eater's dome.
+function shards(g, b, x0, x1, y, Hb, s) {
+  const r = rng(Math.round(b.wobble * 1e6) + 27);
+  const n = 5 + Math.floor(r() * 4);
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1), x = x0 + (x1 - x0) * u;
+    const base = y - Math.sin(u * Math.PI) * Hb * 0.22 + Hb * 0.12;
+    const hh = Hb * (0.35 + 0.45 * r()), wide = s * 0.022, tip = (r() - 0.5) * hh * 0.5;
+    g.fillStyle = `hsla(${b.accent},35%,${70 + (i % 3) * 6}%,0.9)`;
+    g.beginPath(); g.moveTo(x - wide, base); g.lineTo(x - wide * 0.25 + tip, base - hh); g.lineTo(x + wide + tip * 0.6, base - hh * 0.6); g.lineTo(x + wide * 1.25, base); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1; g.stroke();
   }
 }
 
@@ -463,14 +515,15 @@ function wing(g, b, x, y, span, t, far) {
   const flap = Math.sin(t * 2.2) * 0.55;
   g.save(); g.translate(x, y); g.rotate(-0.15 + flap + (far ? -0.25 : 0));
   const tips = [[-span * 0.05, -span * 0.95], [-span * 0.42, -span * 0.75], [-span * 0.62, -span * 0.38]];
-  g.fillStyle = far ? `hsla(${b.accent},35%,28%,0.8)` : `hsla(${b.accent},50%,52%,0.72)`;
+  // (A body of rock has a wing of thin glass between its struts: pale, and you can see through it.)
+  g.fillStyle = b.crystals ? `hsla(${b.accent},35%,${far ? 62 : 84}%,${far ? 0.28 : 0.36})` : far ? `hsla(${b.accent},35%,28%,0.8)` : `hsla(${b.accent},50%,52%,0.72)`;
   g.beginPath(); g.moveTo(0, 0);
   g.quadraticCurveTo(span * 0.12, -span * 0.55, tips[0][0], tips[0][1]);
   g.quadraticCurveTo(-span * 0.18, -span * 0.7, tips[1][0], tips[1][1]);
   g.quadraticCurveTo(-span * 0.4, -span * 0.5, tips[2][0], tips[2][1]);
   g.quadraticCurveTo(-span * 0.35, -span * 0.15, -span * 0.3, span * 0.02);
   g.closePath(); g.fill();
-  g.strokeStyle = hsl(b.color, far ? -25 : -15, 0.9); g.lineWidth = Math.max(1, span * 0.014);
+  g.strokeStyle = b.crystals ? `rgba(255,255,255,${far ? 0.45 : 0.8})` : hsl(b.color, far ? -25 : -15, 0.9); g.lineWidth = Math.max(1, span * 0.014);
   for (const [tx, ty] of tips) { g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(tx * 0.3, ty * 0.6, tx, ty); g.stroke(); }
   g.restore();
 }
@@ -480,6 +533,13 @@ function swimmer(g, b, s, t) {
   const L = s * 0.95;
   if (kind === 'eel') {
     const n = 40;
+    if (b.color.l < DARK_BODY) { // the light rim: the same body a little fatter, behind it
+      g.fillStyle = hsl(b.color, 38, 0.8, 10);
+      for (let i = n; i >= 0; i--) {
+        const u = i / n;
+        g.beginPath(); g.arc(L * (0.5 - u), Math.sin(u * 7 - t * 3) * s * 0.06 * u, s * 0.085 * (1 - u * 0.8) * (u < 0.08 ? 0.75 + u * 3 : 1) + Math.max(1.2, s * 0.009), 0, TAU); g.fill();
+      }
+    }
     for (let i = n; i >= 0; i--) {
       const u = i / n;
       const x = L * (0.5 - u), y = Math.sin(u * 7 - t * 3) * s * 0.06 * u;
@@ -497,8 +557,8 @@ function swimmer(g, b, s, t) {
   // Tail fluke
   g.fillStyle = hsl(b.color, -6);
   g.beginPath(); g.moveTo(-L * 0.38, 0);
-  if (kind === 'ray') { g.quadraticCurveTo(-L * 0.6, sw * 0.5, -L * 0.75, sw); g.lineWidth = Math.max(1.5, s * 0.012); g.strokeStyle = hsl(b.color, -10); g.stroke(); }
-  else { g.lineTo(-L * 0.58, -H * 0.55 + sw); g.quadraticCurveTo(-L * 0.5, sw, -L * 0.58, H * 0.55 + sw); g.closePath(); g.fill(); outline(g, b, s); g.stroke(); }
+  if (kind === 'ray') { g.quadraticCurveTo(-L * 0.6, sw * 0.5, -L * 0.75, sw); g.lineWidth = Math.max(1.5, s * 0.012); g.strokeStyle = b.color.l < DARK_BODY ? hsl(b.color, 38, 0.85, 10) : hsl(b.color, -10); g.stroke(); }
+  else { g.lineTo(-L * 0.58, -H * 0.55 + sw); g.quadraticCurveTo(-L * 0.5, sw, -L * 0.58, H * 0.55 + sw); g.closePath(); g.fill(); rim(g, b, s); g.stroke(); }
   // Fins
   g.fillStyle = `hsla(${b.accent},40%,${Math.min(70, b.color.l + 10)}%,0.75)`;
   if (kind === 'ray') {
@@ -516,7 +576,7 @@ function swimmer(g, b, s, t) {
   g.bezierCurveTo(-L * 0.1, H * 0.5, L * 0.4, H * 0.55, L * 0.5, 0);
   g.closePath(); g.fill();
   g.save(); g.clip(); texture(g, b, -L * 0.4, -H * 0.5, L * 0.9, H, s); g.restore();
-  outline(g, b, s); g.stroke();
+  rim(g, b, s); g.stroke();
   // Gill slits and a side fin
   g.strokeStyle = hsl(b.color, -18, 0.8); g.lineWidth = Math.max(1, s * 0.006);
   for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(L * (0.28 - i * 0.035), -H * 0.18); g.quadraticCurveTo(L * (0.25 - i * 0.035), 0, L * (0.28 - i * 0.035), H * 0.18); g.stroke(); }
@@ -579,9 +639,20 @@ function floater(g, b, s, t) {
   g.beginPath(); g.ellipse(0, 0, R, Rh, 0, Math.PI, TAU);
   g.bezierCurveTo(R * 0.9, Rh * 0.35, -R * 0.9, Rh * 0.35, -R, 0);
   g.fill();
+  if (b.crystals) { // a bell of glass: straight edges where its faces meet
+    g.save(); g.clip();
+    g.strokeStyle = 'rgba(255,255,255,0.38)'; g.lineWidth = Math.max(1, s * 0.006);
+    for (let i = 0; i < 7; i++) {
+      const xa = -R + 2 * R * v(), xb = xa + (v() - 0.5) * R * 1.2;
+      g.beginPath(); g.moveTo(xa, Rh * 0.3); g.lineTo(xb, -Rh * (0.3 + 0.7 * v())); g.lineTo(xb + (v() - 0.5) * R, -Rh * 1.05); g.stroke();
+    }
+    g.restore();
+    g.beginPath(); g.ellipse(0, 0, R, Rh, 0, Math.PI, TAU);
+    g.bezierCurveTo(R * 0.9, Rh * 0.35, -R * 0.9, Rh * 0.35, -R, 0);
+  }
   outline(g, b, s); g.lineWidth = Math.max(1, s * 0.006); g.stroke();
   // Veins, and on some a few bands across the bell
-  g.strokeStyle = `hsla(${b.accent},50%,45%,0.35)`;
+  g.strokeStyle = `hsla(${b.accent},50%,45%,${b.crystals ? 0 : 0.35})`;
   for (let i = -veins; i <= veins; i++) { g.beginPath(); g.moveTo(i * R * 0.36 / veins, Rh * 0.2); g.quadraticCurveTo(i * R * 0.9 / veins, -Rh * 0.5, i * R * 0.6 / veins, -Rh * 0.95); g.stroke(); }
   g.strokeStyle = `hsla(${b.accent},55%,${b.color.l > 55 ? 38 : 70}%,0.4)`; g.lineWidth = Math.max(1.5, s * 0.012);
   for (let k = 1; k <= bands; k++) {
