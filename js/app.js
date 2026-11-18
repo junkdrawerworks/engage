@@ -1033,7 +1033,9 @@ function renderList() {
   let html = '';
   if (!q) {
     // Away from home, what is near the ship comes first: the stars with notes are nearly all the Sun's neighbours.
-    if (state.at !== 0) {
+    // Not at a star nobody has measured the distance to: the ship is at a nominal place there, nothing can be said
+    // to be near it, and the five rows under this heading each read "distance not measured".
+    if (state.at !== 0 && !cat.unmeasured[state.at]) {
       html += '<p class="group">Nearest to the ship</p>'
         + nearestStars(cat, starPos(state.at), 5, state.at).map(({ star }) => row(star, star === 0 ? 'The Sun · Earth orbit' : metaFor(star, false))).join('');
     }

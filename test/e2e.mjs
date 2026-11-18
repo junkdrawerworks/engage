@@ -2922,6 +2922,14 @@ await page.emulateMedia({ reducedMotion: null });
   assert.deepEqual((await groups()).slice(0, 3), ['NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS']);
   assert.match((await p.locator('#list .row').first().innerText()).replace(/\s+/g, ' '), /^HIP 116626 182 ly /);
   await p.evaluate(() => engage.closeSheets());
+  // At a star nobody has measured the distance to, nothing is said to be nearest: the ship's place there is only
+  // nominal, and the heading used to stand over five rows that each read "distance not measured".
+  await p.evaluate(() => engage.jump('ρ Cassiopeiae'));
+  assert.equal(await p.locator('#arrival-entry dt:text-is("The sky from here")').count(), 0);
+  await p.tap('#arrival-next');
+  assert.deepEqual((await groups()).slice(0, 2), ['HOME', 'THE SUN’S NEIGHBOURS'], 'Set course named the stars nearest a ship whose own place is not known');
+  assert.equal(await p.locator('#list .row .dist').first().innerText(), 'distance not measured');
+  await p.evaluate(() => engage.closeSheets());
   await p.tap('#open-settings');
   assert.match(await p.locator('#settings .about').innerText(), /beyond 80 light years the charts hold only the stars bright enough to see from Earth/);
   await near.close();
