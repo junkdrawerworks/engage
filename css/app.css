@@ -105,6 +105,10 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   background: var(--panel-solid); border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0; padding: 6px 16px calc(12px + var(--safe-b));
   box-shadow: 0 -10px 50px rgba(0, 0, 0, 0.6); animation: rise .32s cubic-bezier(.2, .8, .2, 1); }
 @keyframes rise { from { transform: translateY(40px); opacity: 0; } }
+/* Set course keeps one height whatever the list holds, so the search field stays near the top of the screen and the
+   hits fill downward from it. --kb is how much of the bottom of the screen a phone's keyboard covers (app.js keeps it
+   up to date): the sheet stands on top of the keyboard, not behind it. */
+#picker { bottom: var(--kb, 0px); height: calc(88vh - var(--kb, 0px)); height: calc(88dvh - var(--kb, 0px)); }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0 8px; flex: none; }
 .sheet h2 { margin: 0; font: 600 21px/1.2 var(--display); letter-spacing: 0.03em; }
 .close { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: transparent; display: grid; place-items: center; padding: 0; flex: none; }
@@ -197,6 +201,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   .where h1 { font-size: 26px; }
   .sheet { left: auto; right: 20px; top: calc(84px + var(--safe-t)); bottom: 20px; width: 440px; max-height: none; border-radius: 22px; border-bottom: 1px solid var(--line); padding-bottom: 14px; animation-name: slide; }
   .sheet.arrival { top: auto; max-height: calc(100vh - 104px); }
+  #picker { bottom: calc(20px + var(--kb, 0px)); height: auto; }
   @keyframes slide { from { transform: translateX(30px); opacity: 0; } }
 }
 

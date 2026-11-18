@@ -640,13 +640,23 @@ function bind() {
   $('engage').addEventListener('click', engage);
   $('choose').addEventListener('click', e => { $('search').value = ''; renderList(); openSheet('picker', e.currentTarget); $('list').scrollTop = 0; });
   $('search').addEventListener('input', renderList);
-  $('list').addEventListener('click', e => {
-    const b = e.target.closest('[data-star]');
-    if (!b) return;
+  const pick = b => {
     sound.blip(990);
+    $('search').blur(); // a phone's keyboard goes away with it
     closeSheets();
     setTarget(Number(b.dataset.star));
+  };
+  $('list').addEventListener('click', e => {
+    const b = e.target.closest('[data-star]');
+    if (b) pick(b);
   });
+  // Enter, or Go on a phone's keyboard, takes the first star in the list.
+  $('search').addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    const b = $('list').querySelector('[data-star]:not(:disabled)');
+    if (b && $('search').value.trim()) { e.preventDefault(); pick(b); }
+  });
+  watchKeyboard();
   $('open-log').addEventListener('click', e => { renderLog(); openSheet('log', e.currentTarget); });
   $('open-settings').addEventListener('click', e => openSheet('settings', e.currentTarget));
   $('look-home').addEventListener('click', lookHome);
@@ -750,6 +760,21 @@ function bind() {
   view.addEventListener('pointerup', up);
   view.addEventListener('pointercancel', up);
   view.addEventListener('wheel', e => { e.preventDefault(); if (!trip) setFov(state.fov * Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+}
+
+// A phone's keyboard covers the bottom of the screen without the page being resized (always on an iPhone, usually on
+// Android), so a sheet standing on the bottom edge would be behind it. --kb is how much is covered; the Set course
+// sheet stands that far up. Zoomed in, the visible part is smaller for another reason, so it's left alone.
+function watchKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const set = () => {
+    const covered = vv.scale > 1.05 ? 0 : document.documentElement.clientHeight - vv.height - vv.offsetTop;
+    document.documentElement.style.setProperty('--kb', `${covered > 60 ? Math.round(covered) : 0}px`);
+  };
+  vv.addEventListener('resize', set);
+  vv.addEventListener('scroll', set);
+  set();
 }
 
 const clampPitch = p => Math.max(-89 * DEG, Math.min(89 * DEG, p));

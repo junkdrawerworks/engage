@@ -208,10 +208,38 @@ await page.locator('#list .row').first().click();
 assert.equal(await text('#target-name'), '40 Eridani');
 assert.equal(await text('#target-sub'), 'Keid · Vulcan · Orange dwarf', 'the helm does not say why Vulcan found 40 Eridani');
 
-// Picking from the list, and searching.
+// Picking from the list, and searching. The sheet keeps its height while the list shrinks to one hit, so the search
+// field stays near the top of the screen, clear of a phone's keyboard; and when a keyboard covers the bottom of the
+// screen (faked here: the visible part of the page ends 340 px short), the sheet stands on top of it.
 await page.click('#choose');
+const pickerTop = () => page.locator('#picker').evaluate(el => el.getBoundingClientRect().top);
+await page.waitForTimeout(500); // the sheet has risen into place
+const openTop = await pickerTop();
 await page.fill('#search', 'proxima');
-await page.locator('#list .row').first().click();
+assert.equal(await page.locator('#list .row').count(), 1);
+assert.equal(await pickerTop(), openTop, 'the Set course sheet changed height as the list shrank');
+assert.ok(openTop < 844 * 0.2, `the search field is ${Math.round(openTop)} px down the screen, where a keyboard would cover its hits`);
+await page.evaluate(() => {
+  Object.defineProperty(visualViewport, 'height', { get: () => 504, configurable: true });
+  visualViewport.dispatchEvent(new Event('resize'));
+});
+{
+  const b = await page.locator('#picker').boundingBox(), row = await page.locator('#list .row').first().boundingBox();
+  assert.ok(Math.abs(b.y + b.height - 504) <= 1, `with a keyboard up the Set course sheet ends at ${b.y + b.height}, not on top of it at 504`);
+  assert.ok(Math.abs(b.y - openTop) <= 1, 'the sheet moved up the screen when the keyboard came up');
+  assert.ok(row.y + row.height <= 504, 'the first hit is behind the keyboard');
+}
+await page.evaluate(() => { delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize')); });
+assert.ok(Math.abs((await page.locator('#picker').evaluate(el => el.getBoundingClientRect().bottom)) - 844) <= 1, 'the sheet stayed up after the keyboard went');
+// Go on the keyboard (Enter) takes the first hit, and the field lets go of the keyboard.
+assert.equal(await page.getAttribute('#search', 'enterkeyhint'), 'go');
+await page.fill('#search', 'andoria');
+await page.press('#search', 'Enter');
+assert.ok(await shown('#picker'), 'Enter with no hits closed the sheet');
+await page.fill('#search', 'proxima');
+await page.press('#search', 'Enter');
+assert.equal(await shown('#picker'), false, 'Enter in the search field did not choose the first hit');
+assert.notEqual(await page.evaluate(() => document.activeElement.id), 'search', 'the search field kept the keyboard up');
 assert.equal(await text('#target-name'), 'Proxima Centauri');
 assert.match(await text('#trip'), /4\.2\d ly away/);
 // Star names stay off the helm too: looking toward Proxima from Earth, Miaplacidus is at the helm's top edge.
