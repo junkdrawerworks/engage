@@ -36,6 +36,7 @@ const CITIES = [
 ].map(([name, lat, lon, tz]) => ({ name, lat, lon, tz }));
 
 const saved = load();
+const visits = loadVisits(); // star index -> { stardate, n }: where the bridge's log says the ship has been
 let cat, ctx, canvas;
 let sky = null;          // everything worked out for the current place and moment
 let view = { az: 180, alt: 35, fov: 80 * DEG };
@@ -62,6 +63,22 @@ function load() {
     night: !!s.night,
   };
 }
+// The bridge's log, read once and never written: each star the ship has dropped out of warp at, with the stardate of
+// the latest visit (the log keeps the newest entry first) and how many there have been. A missing or damaged save
+// is no visits.
+function loadVisits() {
+  const seen = new Map();
+  let log = null;
+  try { log = JSON.parse(localStorage.getItem('engage.v1') || 'null')?.log; } catch { /* no log */ }
+  if (!Array.isArray(log)) return seen;
+  for (const e of log) {
+    if (!e || !Number.isInteger(e.star) || e.star < 1) continue;
+    const v = seen.get(e.star);
+    if (v) v.n++;
+    else seen.set(e.star, { stardate: /^\d{4}\.\d{1,3}$/.test(e.stardate) ? e.stardate : '', n: 1 });
+  }
+  return seen;
+}
 function save() {
   const { place, sky: s, trim, night } = saved;
   try { localStorage.setItem(KEY, JSON.stringify({ place, sky: s, trim, night })); } catch { /* fine */ }
@@ -83,6 +100,8 @@ async function start() {
   faceSomethingGood();
   bind();
   $('loading').remove();
+  starFromLink();
+  window.addEventListener('hashchange', starFromLink);
   if (saved.place.how === 'guess' && navigator.permissions?.query) {
     navigator.permissions.query({ name: 'geolocation' }).then(p => { if (p.state === 'granted') locate(); }).catch(() => {});
   }
@@ -115,7 +134,13 @@ function prepareStars() {
     const i = cat.byName.get(d.star);
     if (i !== undefined) tags.push({ i, dest: d, name: d.title });
   }
-  for (const t of tags) { t.mag = earthMag(t.i); t.ly = cat.distanceFrom(t.i, [0, 0, 0]) * LY_PER_PC; t.dest ??= DESTINATIONS.find(d => d.star === cat.names[t.i]); }
+  // Anywhere else the log has been gets a quiet tag of its own, so the whole log shows in the sky.
+  const tagged = new Set(tags.map(t => t.i));
+  for (const i of visits.keys()) {
+    if (i >= cat.count) { visits.delete(i); continue; }
+    if (!tagged.has(i)) tags.push({ i, name: titleFor(cat, i) });
+  }
+  for (const t of tags) { t.been = visits.has(t.i); t.mag = earthMag(t.i); t.ly = cat.distanceFrom(t.i, [0, 0, 0]) * LY_PER_PC; t.dest ??= DESTINATIONS.find(d => d.star === cat.names[t.i]); }
 }
 const earthMag = i => apparentMag(cat.absmag[i], cat.distanceFrom(i, [0, 0, 0]));
 const starDir = i => [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]];
@@ -235,6 +260,22 @@ function faceSomethingGood() {
     const { alt, az } = altAz(t.local);
     view.az = az; view.alt = Math.min(Math.max(alt, 20), 55);
   } else { view.az = saved.place.lat >= 0 ? 180 : 0; view.alt = 35; }
+}
+
+// A link like tonight.html#star=Vega, from the captain's log on the bridge, turns to that star and opens its card.
+function starFromLink() {
+  const m = location.hash.match(/^#star=(.+)$/);
+  if (!m) return;
+  let name = '';
+  try { name = decodeURIComponent(m[1]); } catch { return; }
+  const i = cat.byName.get(name) ?? tags.find(t => t.name === name)?.i;
+  if (i === undefined) return;
+  const s = i === 0 ? { kind: 'sun' } : { kind: 'star', i };
+  const { alt, az } = altAz(selLocal(s));
+  aimAnim = null;
+  view.az = az; view.alt = Math.min(Math.max(alt, -10), 80);
+  draw(); // so the card knows where the star sits on screen
+  showCard(s);
 }
 
 // ---------- Looking ----------
@@ -490,7 +531,8 @@ function drawTag(t) {
   const sub = below ? 'below the horizon' : faint ? 'too faint to see' : t.chart ? `${titleFor(cat, t.i)} · ${formatLy(t.ly)}` : formatLy(t.ly);
   ctx.font = `600 ${trek ? 14 : 12}px ${FONT}`;
   const name = trek ? t.name.toUpperCase() : t.name;
-  const wName = ctx.measureText(name).width + (trek ? name.length * 1.2 : 0);
+  const tick = t.been ? 15 : 0; // room for the mark that says the ship has been there
+  const wName = ctx.measureText(name).width + (trek ? name.length * 1.2 : 0) + tick;
   ctx.font = `500 11px ${FONT}`;
   const wSub = ctx.measureText(sub).width;
   const w = Math.max(wName, wSub) + 14, h = 34;
@@ -508,11 +550,18 @@ function drawTag(t) {
   if (trek && 'letterSpacing' in ctx) ctx.letterSpacing = '1.2px';
   ctx.fillText(name, x + 8, y + 15);
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  if (t.been) {
+    // A small filled Starfleet delta after the name: you've dropped out of warp here.
+    const mx = x + 8 + wName - 6, my = y + 10.5;
+    ctx.beginPath();
+    ctx.moveTo(mx, my - 5.5); ctx.lineTo(mx + 4.4, my + 5); ctx.lineTo(mx, my + 2.4); ctx.lineTo(mx - 4.4, my + 5);
+    ctx.closePath(); ctx.fill();
+  }
   ctx.font = `500 11px ${FONT}`;
   ctx.fillStyle = `rgba(200, 210, 230, ${0.85 * a})`;
   ctx.fillText(sub, x + 8, y + 28);
   ctx.restore();
-  placed.push({ x: p.x, y: p.y, r: 26, box, hit: { kind: 'star', i: t.i }, rank: trek ? -40 : -20 });
+  placed.push({ x: p.x, y: p.y, r: 26, box, been: t.been, hit: { kind: 'star', i: t.i }, rank: trek ? -40 : -20 });
 }
 
 function roundRect(x, y, w, h, r) {
@@ -584,7 +633,7 @@ function fillCard(s) {
   const look = whereToLook(pos);
   const course = $('card-course');
   course.hidden = s.kind !== 'star';
-  let kind, title, sub = '', line = '', facts = '', seeIt = '';
+  let kind, title, sub = '', line = '', facts = '', seeIt = '', been = '';
   const skyIn = SKIES[saved.sky].inText;
   const night = sky.sunAlt > -12 ? ' once it’s dark' : '';
   if (s.kind === 'star') {
@@ -592,7 +641,12 @@ function fillCard(s) {
     const ly = cat.distanceFrom(s.i, [0, 0, 0]) * LY_PER_PC;
     const m = earthMag(s.i);
     const d = t?.dest;
-    kind = t?.chart ? 'Starfleet charts' : d ? 'Engage destination' : 'Star';
+    const v = visits.get(s.i);
+    kind = t?.chart ? 'Starfleet charts' : d ? 'Engage destination' : v ? 'From your log' : 'Star';
+    if (v) {
+      const on = v.stardate ? ` on stardate ${v.stardate}` : '';
+      been = v.n > 1 ? `You’ve dropped out of warp here ${v.n === 2 ? 'twice' : `${v.n} times`}${on && `, the last${on}`}.` : `You dropped out of warp here${on}.`;
+    }
     title = t ? t.name : titleFor(cat, s.i);
     sub = [t?.chart && titleFor(cat, s.i) !== title ? titleFor(cat, s.i) : '', `${formatLy(ly)} away`].filter(Boolean).join(' · ');
     line = t?.chart?.line || d?.fiction || d?.notes?.[0] || '';
@@ -603,7 +657,7 @@ function fillCard(s) {
     const left = new Date().getFullYear() - ly;
     facts = `${d?.kind || describeKind(cat.spect[s.i], cat.temp[s.i])}. The light reaching you tonight left it ${ly < 5000 ? `in ${formatYear(left)}` : `about ${formatLy(ly).replace(' ly', '')} years ago`}.`;
     course.href = `${BRIDGE}?course=${encodeURIComponent(cat.names[s.i])}`;
-    setText('card-course', `Set course for ${inTextFor(cat, s.i)}`);
+    setText('card-course', `Set course for ${inTextFor(cat, s.i)}${v ? ' again' : ''}`);
     if (BRIDGE.startsWith('http')) { course.target = '_blank'; course.rel = 'noopener'; }
   } else if (s.kind === 'planet') {
     const p = sky.planets.find(x => x.name === s.name);
@@ -629,6 +683,8 @@ function fillCard(s) {
   $('card-line').hidden = !line;
   setText('card-facts', facts);
   $('card-facts').hidden = !facts;
+  setText('card-been', been);
+  $('card-been').hidden = !been;
 }
 const setText = (id, text) => { if ($(id).textContent !== text) $(id).textContent = text; };
 
@@ -649,15 +705,16 @@ function renderList() {
     .sort((a, b) => a.state - b.state || (b.t.chart ? 1 : 0) - (a.t.chart ? 1 : 0) || b.t.alt - a.t.alt);
   const up = rows.filter(r => r.state === 0 && r.t.chart).length;
   const charted = tags.filter(t => t.chart).length;
-  $('list-note').textContent = `${up} of Starfleet’s ${charted} charted stars ${up === 1 ? 'is' : 'are'} up and bright enough to see ${SKIES[saved.sky].inText}${sky.sunAlt > -12 ? ' once it’s dark' : ''}.`;
+  $('list-note').textContent = `${up} of Starfleet’s ${charted} charted stars ${up === 1 ? 'is' : 'are'} up and bright enough to see ${SKIES[saved.sky].inText}${sky.sunAlt > -12 ? ' once it’s dark' : ''}.${visits.size ? ` You’ve flown to ${visits.size} of the stars listed here.` : ''}`;
   const box = $('systems');
   box.replaceChildren(...rows.map(({ t, state }) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = `system s${state}${t.chart ? ' trek' : ''}`;
+    b.className = `system s${state}${t.chart ? ' trek' : ''}${t.been ? ' been' : ''}`;
     const where = state === 2 ? 'Below the horizon' : `${cap(whereToLook(altAz(t.local)))}${state === 1 ? ', too faint to see' : ''}`;
     b.innerHTML = '<i aria-hidden="true"></i><span class="s-name"></span><span class="s-sub"></span>';
     b.querySelector('.s-name').textContent = t.name;
+    if (t.been) b.querySelector('.s-name').insertAdjacentHTML('beforeend', '<span class="s-been">Been there</span>');
     b.querySelector('.s-sub').textContent = `${t.chart && titleFor(cat, t.i) !== t.name ? titleFor(cat, t.i) + ' · ' : ''}${where}`;
     b.addEventListener('click', () => { const s = { kind: 'star', i: t.i }; showCard(s); if (sensing) aim(s); });
     return b;
@@ -914,7 +971,7 @@ function hooks() {
     // Where a named star lands on screen, in CSS pixels.
     where(name) { const t = tags.find(x => x.name === name); const i = t ? t.i : cat.byName.get(name); B = basis(); return project(toLocal(sky.f, starDir(i))); },
     // The tags drawn last frame, with their boxes on screen.
-    tags: () => placed.filter(q => q.box).map(q => ({ name: nameOf(q.hit), ...q.box })),
+    tags: () => placed.filter(q => q.box).map(q => ({ name: nameOf(q.hit), been: !!q.been, ...q.box })),
     tag(name) { const t = tags.find(x => x.name === name); return t && { alt: t.alt, seen: t.seen, mag: t.mag }; },
     // Pretend to be a phone held up: compass heading and tilt.
     sense(alpha, beta, gamma) { sensing = true; gotReading = true; pose = null; reading(alpha, { beta, gamma }); },

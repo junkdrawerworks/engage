@@ -794,6 +794,50 @@ assert.equal(await text('#target-name'), '40 Eridani', 'set course did not choos
 await page.goto(base);
 await bridgeReady();
 
+// Tonight's sky knows where the ship has been, from the bridge's log (which it only reads). After flying to Vega twice
+// and to Alpheratz, a star with no notes, Vega's tag carries the mark and its card says when, Alpheratz has a quiet
+// tag of its own, and a link like tonight.html#star=Vega opens straight on the card.
+{
+  const been = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await been.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.click('#intro-go');
+  await p.evaluate(() => { for (const name of ['Vega', 'Alpheratz', 'Vega']) { engage.jump(name); engage.closeSheets(); } });
+  const bridgeSave = await p.evaluate(() => localStorage.getItem('engage.v1'));
+  const stardate = JSON.parse(bridgeSave).log[0].stardate;
+  await p.goto(base + 'tonight.html#star=Vega');
+  await p.waitForFunction(() => window.tonight);
+  assert.equal(await p.locator('#card').evaluate(el => el.hidden), false, 'a link to a star did not open its card');
+  assert.equal(await p.locator('#card-title').innerText(), 'Vega colony');
+  assert.equal(await p.locator('#card-been').innerText(), `You’ve dropped out of warp here twice, the last on stardate ${stardate}.`);
+  assert.match(await p.locator('#card-course').innerText(), /^Set course for Vega again$/i);
+  assert.equal(await p.evaluate(() => tonight.state.sel.kind), 'star');
+  await p.evaluate(() => { tonight.place(40.71, -74.01, 'New York', 'America/New_York'); tonight.at('2026-10-11T00:30:00Z'); tonight.aimAt('Vega'); });
+  await p.waitForTimeout(200);
+  const marks = Object.fromEntries((await p.evaluate(() => tonight.tags())).map(t => [t.name, t.been]));
+  assert.equal(marks['Vega colony'], true, 'Vega’s tag does not say the ship has been there');
+  assert.equal(marks.Farpoint, false, 'a star the ship has not been to is marked as visited');
+  await p.evaluate(() => { location.hash = '#star=Alpheratz'; });
+  await p.waitForFunction(() => document.getElementById('card-title').textContent === 'Alpheratz');
+  assert.equal(await p.locator('#card-kind').innerText(), 'FROM YOUR LOG');
+  assert.equal(await p.locator('#card-been').innerText(), `You dropped out of warp here on stardate ${stardate}.`);
+  await p.waitForTimeout(1100); // the view turns to it
+  assert.ok((await p.evaluate(() => tonight.tags())).some(t => t.name === 'Alpheratz' && t.been), 'a logged star with no notes has no tag');
+  // A star the ship hasn't been to says nothing about it, and offers a first course.
+  await p.evaluate(() => { location.hash = '#star=Deneb'; });
+  await p.waitForFunction(() => document.getElementById('card-title').textContent === 'Farpoint');
+  assert.equal(await p.locator('#card-been').evaluate(el => el.hidden), true);
+  assert.match(await p.locator('#card-course').innerText(), /^Set course for Deneb$/i);
+  await p.click('#card .close');
+  await p.click('#open-list');
+  assert.match(await p.locator('#list-note').innerText(), /You’ve flown to 2 of the stars listed here\.$/);
+  assert.equal(await p.locator('#systems .s-been').count(), 2);
+  assert.equal(await p.evaluate(() => localStorage.getItem('engage.v1')), bridgeSave, 'tonight’s sky wrote to the bridge’s save');
+  await been.close();
+}
+
 // The xenobiology lab: reached from the bridge, a creature grown for a class, kept in a jar, and reached from a survey file.
 await Promise.all([page.waitForNavigation(), page.click('#open-xeno')]);
 await page.waitForFunction(() => window.xeno?.current);
