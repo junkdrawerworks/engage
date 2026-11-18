@@ -8,19 +8,36 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 let pw;
 try { pw = require('playwright'); } catch { pw = require(join(execSync('npm root -g').toString().trim(), 'playwright')); }
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
-const server = createServer(async (req, res) => {
-  const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  let body;
-  try { body = await readFile(join(root, path === '/' ? 'index.html' : path)); } catch { res.writeHead(404); res.end(); return; }
-  res.writeHead(200, { 'content-type': TYPES[extname(path)] || 'text/html' });
-  res.end(body);
+// The server answers the way GitHub Pages does: a browser may keep each file for ten minutes, and asks again by its
+// ETag. `net` is the connection: 'up', 'down' (the server drops every connection) or 'stalled' (a train, a captive
+// wifi: it takes each request and holds on to it). With `release` set it serves the next release (see the end).
+let net = 'up', release = false;
+const held = [];
+const server = createServer((req, res) => {
+  if (net === 'down') { req.socket.destroy(); return; }
+  if (net === 'stalled') { held.push([req, res]); return; }
+  serve(req, res);
 }).listen(0);
+async function serve(req, res) {
+  let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (path.endsWith('/')) path += 'index.html';
+  let body;
+  try { body = await readFile(join(root, path)); } catch { res.writeHead(404); res.end(); return; }
+  if (release && path === '/sw.js') body = Buffer.from(String(body).replace(/const FILES = '[0-9a-f]*'/, "const FILES = 'next'"));
+  if (release && path === '/index.html') body = Buffer.concat([body, Buffer.from('<!-- the next release -->\n')]);
+  const etag = `"${createHash('sha1').update(body).digest('hex').slice(0, 16)}"`;
+  const head = { etag, 'cache-control': 'max-age=600', 'content-type': TYPES[extname(path)] || 'text/html' };
+  if (req.headers['if-none-match'] === etag) { res.writeHead(304, head); res.end(); return; }
+  res.writeHead(200, head);
+  res.end(body);
+}
 const base = `http://localhost:${server.address().port}/`;
 
 const browser = await pw.chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -858,12 +875,58 @@ await page.emulateMedia({ reducedMotion: null });
   await small.close();
 }
 
-// Works offline once it has been opened.
-await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 }).catch(() => {});
+// Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
+// browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];
+const until = async (ok, ms, what) => {
+  for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
+};
+await page.goto(base);
+await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 10000 });
+// The copy is whole before the network goes: every file on the worker's list.
+const sw = await readFile(join(root, 'sw.js'), 'utf8');
+const shell = [...sw.match(/SHELL = \[([^\]]*)\]/)[1].replace(/\/\/.*/g, '').matchAll(/'([^']*)'/g)].map(m => m[1]);
+const cacheName = sw.match(/const CACHE = '(engage-v[0-9]+)'/)[1];
+await until(() => page.evaluate(async ([name, n]) => (await (await caches.open(name)).keys()).length >= n, [cacheName, shell.length]), 20000, 'the offline copy was never filled');
+const titles = {};
+for (const room of ROOMS) { await page.goto(base + room); titles[room] = await page.title(); }
+assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
+// Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale' };
+const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
+net = 'down';
 await ctx.setOffline(true);
-await page.reload();
-assert.ok(await page.title(), 'the page did not load offline');
+for (const room of ROOMS) {
+  await page.goto(base + room).catch(() => {});
+  assert.equal(await page.title(), titles[room], `${room || 'the bridge'} did not open offline`);
+  await drawn(room).catch(() => assert.fail(`${room || 'the bridge'} opened offline but its script never ran`));
+}
 await ctx.setOffline(false);
+
+// On a connection that's up but not answering, each room opens from the copy too, after the worker's few seconds' wait
+// for the network: the page and every file it loads (were any of them left waiting on the network, it wouldn't draw).
+net = 'stalled';
+for (const room of ROOMS) {
+  const t0 = Date.now();
+  await page.goto(base + room, { timeout: 10000 }).catch(() => {});
+  await drawn(room).catch(() => {});
+  const took = Date.now() - t0;
+  assert.equal(await page.title(), titles[room], `${room || 'the bridge'} did not open on a stalled connection`);
+  assert.ok(took < 8000, `${room || 'the bridge'} took ${took} ms to open on a stalled connection`);
+  await drawn(room).catch(() => assert.fail(`${room || 'the bridge'} opened on a stalled connection but its script never ran`));
+}
+net = 'up';
+for (const [req, res] of held.splice(0)) serve(req, res);
+
+// A new release: every file in the new copy comes from the server, though the browser still has its own copies of
+// the old ones for ten minutes. (The next release changes index.html, and so FILES in sw.js, as a real one does.)
+await page.goto(base);
+await bridgeReady();
+release = true;
+await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+await until(() => page.evaluate(async () => !!(await (await caches.match('index.html'))?.text())?.includes('<!-- the next release -->')),
+  10000, "the new release's offline copy kept the old index.html");
+release = false;
 
 // Every tool at junkdrawer.works/ shares one address, and with it one place for offline copies. When Engage's
 // service worker starts, it clears out Engage's own old copy and leaves other tools' alone, even one whose name
@@ -889,4 +952,17 @@ await ctx.setOffline(false);
 assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems while using it');
 await browser.close();
 server.close();
+
+// sw.js changes whenever a file it keeps does, so a release replaces the whole offline copy at once: FILES in sw.js is
+// a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
+// index.html; the first 8 hex of the sha1 of those).
+// Everything the eight pages and their scripts load is on the list: a file left off opens online and not offline.
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html']) {
+  const html = await readFile(join(root, f), 'utf8');
+  for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
+}
+const all = createHash('sha1');
+for (const f of shell) all.update(createHash('sha1').update(await readFile(join(root, f.endsWith('/') ? f + 'index.html' : f))).digest());
+const files = all.digest('hex').slice(0, 8);
+assert.equal(sw.match(/const FILES = '([0-9a-f]*)'/)?.[1], files, `a file sw.js keeps for offline has changed: set FILES in sw.js to '${files}'`);
 console.log('all good');
