@@ -134,7 +134,8 @@ function fileHtml(c) {
   ];
   const worlds = c.worlds.map(w => {
     const fly = w.star ? `<a class="fly" href="${BRIDGE}?course=${encodeURIComponent(w.star)}"${AWAY}>Set course <span aria-hidden="true">→</span></a>` : '';
-    return `<li><div class="w-head"><b>${esc(w.name)}</b><span class="ly">${esc(lyText(w.ly))} ly</span></div><p>${esc(w.note)}</p>${fly}</li>`;
+    const tag = w.misfit ? '<span class="misfit">Doesn’t fit the readings above</span>' : '';
+    return `<li><div class="w-head"><b>${esc(w.name)}</b><span class="ly">${esc(lyText(w.ly))} ly</span></div>${tag}<p>${esc(w.note)}</p>${fly}</li>`;
   }).join('');
   return `
     <p class="eyebrow">${c.letter ? 'Starfleet survey file' : 'Found by astronomers'}</p>

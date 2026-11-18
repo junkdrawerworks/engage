@@ -4,7 +4,10 @@
 // `typical` are the readings the survey shows, and the ranges the "cover your tracks" drill draws a world from:
 // width and mass against Earth, temperature at the surface (or the cloud tops) in kelvin, the year in Earth days.
 // `worlds` are real planets; `star` is the host's name in data/stars.json, so Engage can set course for it, and then `ly`
-// is the catalogue's distance, as the helm gives it (test/physics.test.mjs checks they agree).
+// is the catalogue's distance, as the helm gives it (test/physics.test.mjs checks they agree). Where a world's `width`
+// and `mass` (against Earth's) are given, they are the NASA Exoplanet Archive's, and the test holds them to the file's
+// ranges. A world that is on a file for another reason and doesn't fit its readings is marked `misfit`, its note says
+// why it is there, and the file says so beside it.
 
 import { massFor } from './physics.js';
 
@@ -18,9 +21,9 @@ export const CLASSES = [
     tell: 'Breathable air, open oceans and animal life together: only Class M has all three.',
     home: 'Earth, and nowhere else in the Solar System.',
     worlds: [
-      { name: 'Proxima b', star: 'Proxima Centauri', ly: 4.2, note: 'About Earth’s mass, in the zone where water could be liquid. Nobody yet knows whether it has air at all; its star’s flares may have stripped it.' },
+      { name: 'Proxima b', star: 'Proxima Centauri', ly: 4.2, mass: 1.06, note: 'About Earth’s mass, in the zone where water could be liquid. Nobody yet knows whether it has air at all; its star’s flares may have stripped it.' },
       { name: 'Teegarden’s Star b', star: 'Teegarden\'s Star', ly: 12.5, note: 'One of the most Earth-like planets known by size and by the light it gets.' },
-      { name: 'TRAPPIST-1 e', star: 'TRAPPIST-1', ly: 40.7, note: 'A little smaller than Earth, in the middle of its star’s temperate zone. Webb is looking for an atmosphere.' },
+      { name: 'TRAPPIST-1 e', star: 'TRAPPIST-1', ly: 40.7, width: 0.92, mass: 0.69, note: 'A little smaller than Earth, in the middle of its star’s temperate zone. Webb is looking for an atmosphere.' },
     ],
     candidate: true,
   },
@@ -75,7 +78,7 @@ export const CLASSES = [
     tell: 'Nearly all ocean with a few specks of land: Class O.',
     home: 'None on the surface. Jupiter’s moon Europa and Saturn’s moon Enceladus have salty oceans under their ice.',
     worlds: [
-      { name: 'K2-18 b', ly: 124, note: 'Larger than Earth, in its star’s temperate zone. Webb found methane and carbon dioxide; whether it has an ocean under that air is hotly argued.' },
+      { name: 'K2-18 b', ly: 124, width: 2.4, mass: 8.9, misfit: true, note: 'About two and a half times Earth’s width and nine times its mass: far too big for a true Class O, and by size a sub-Neptune. It is on this file because it is in its star’s temperate zone and may have an ocean under its hydrogen air. Webb found methane and carbon dioxide; whether the ocean is there is hotly argued.' },
     ],
     candidate: true,
   },
@@ -88,7 +91,7 @@ export const CLASSES = [
     tell: 'Ice from pole to pole under thin, cold air: a glaciated Class P.',
     home: 'None today, but Earth itself froze over at least twice, about 700 million years ago.',
     worlds: [
-      { name: 'LHS 1140 b', ly: 49, note: 'A heavy, temperate planet that may be an “eyeball”: ice everywhere except an open ocean facing its star.' },
+      { name: 'LHS 1140 b', ly: 49, width: 1.73, mass: 5.6, misfit: true, note: 'About 1.7 times Earth’s width and 5.6 times its mass: heavier than this file allows, a super-Earth by size. It is here because it is cold enough, and may be an “eyeball”: ice everywhere except an open ocean facing its star.' },
     ],
     candidate: true,
   },
@@ -96,12 +99,12 @@ export const CLASSES = [
     id: 'D', letter: 'D', name: 'Planetoid', short: 'Airless rock', art: 'rock',
     real: 'A dwarf planet, a large moon or a bare rocky planet',
     about: 'Small, airless and cratered, baking in sunlight and freezing in shadow. Nothing lives here, but mining outposts and research stations do.',
-    typical: { width: [0.1, 0.4], mass: [0.001, 0.05], temp: [40, 400], year: [80, 90000],
+    typical: { width: [0.1, 0.4], mass: [0.001, 0.06], temp: [40, 400], year: [80, 90000],
       air: 'None', water: 'Perhaps ice in shadowed craters', life: 'None' },
     tell: 'Tiny, airless and covered in craters: a Class D planetoid.',
-    home: 'Earth’s Moon, Ceres and hundreds of other moons and dwarf planets.',
+    home: 'By these readings, Earth’s Moon and Mercury. Ceres and the smaller moons and dwarf planets are smaller still.',
     worlds: [
-      { name: 'TRAPPIST-1 b', star: 'TRAPPIST-1', ly: 40.7, note: 'Earth-sized, but Webb found it is bare rock with no thick atmosphere, about 230 °C on its day side.' },
+      { name: 'TRAPPIST-1 b', star: 'TRAPPIST-1', ly: 40.7, width: 1.12, mass: 1.37, misfit: true, note: 'A little wider than Earth and a third heavier, so far too big for a planetoid. It is here for its surface: Webb found bare rock with no thick atmosphere, about 230 °C on its day side.' },
     ],
   },
   {
@@ -213,7 +216,7 @@ export const CLASSES = [
     tell: 'Four times Earth’s width, blue from methane, and very cold: an ice giant.',
     home: 'Uranus and Neptune.',
     worlds: [
-      { name: 'Gliese 436 b', ly: 32, note: 'A warm Neptune trailing a cloud of hydrogen behind it like a comet’s tail.' },
+      { name: 'Gliese 436 b', ly: 32, width: 4.17, mass: 22, misfit: true, note: 'Neptune’s size (about 4.2 times Earth’s width and 22 times its mass) but nothing like as cold: it circles its star every 2.6 days, at about 700 K, trailing a cloud of hydrogen behind it like a comet’s tail. Neptunes as cold and far out as ours are very hard to find round other stars, so nearly all the ones known are close in and warm.' },
     ],
   },
 ];

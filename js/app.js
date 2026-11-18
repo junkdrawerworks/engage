@@ -637,7 +637,8 @@ function surveyLinks(i, style) {
   const files = filesForStar(cat.names[i]);
   if (!files.length) return '';
   return `<dd class="files"${style}>${files.map(({ world, cls }) =>
-    `<a href="${SURVEY}#${encodeURIComponent(cls.id)}"${AWAY}>${esc(world.name)}: ${esc(classLabel(cls))}${cls.candidate ? ' candidate' : ''}</a>`).join('')}</dd>`;
+    // A planet that is on a file without fitting its readings (TRAPPIST-1 b, bare rock but Earth-sized) isn't called that class.
+    `<a href="${SURVEY}#${encodeURIComponent(cls.id)}"${AWAY}>${esc(world.name)}: ${world.misfit ? `on the ${esc(classLabel(cls))} file` : `${esc(classLabel(cls))}${cls.candidate ? ' candidate' : ''}`}</a>`).join('')}</dd>`;
 }
 
 function renderLog() {

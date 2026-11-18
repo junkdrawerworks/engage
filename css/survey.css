@@ -50,6 +50,7 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .w-head b { font: 600 16px/1.2 var(--display); letter-spacing: 0.02em; }
 .ly { font: 500 13px/1 var(--display); color: var(--cyan); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .worlds p { margin: 4px 0 2px; font-size: 14px; color: var(--muted); }
+.misfit { display: inline-block; margin: 6px 0 2px; padding: 4px 8px; border: 1px solid rgba(255, 181, 74, 0.45); border-radius: 999px; font: 600 10px/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); }
 .fly { display: inline-block; margin-top: 4px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 6px 0; }
 .fly:hover { text-decoration: underline; text-underline-offset: 3px; }
 

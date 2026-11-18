@@ -312,6 +312,33 @@ test('a planetoid’s creature feels a planetoid’s gravity', () => {
   }
 });
 
+test('a real planet either fits its survey file or is marked as one that doesn’t', () => {
+  // Widths and masses against Earth's, from the NASA Exoplanet Archive's composite table (read 18 November 2026):
+  // K2-18 b 2.37 and 8.92 (Sarkis et al. 2018), LHS 1140 b 1.73 and 5.60 (Cadieux et al. 2024), TRAPPIST-1 b 1.116
+  // and 1.374 and TRAPPIST-1 e 0.920 and 0.692 (Agol et al. 2021), GJ 436 b 4.17 and 22.1 (Maciejewski et al. 2014),
+  // Proxima b at least 1.055 (Suárez Mascareño et al. 2025).
+  let fits = 0, misfits = 0;
+  for (const c of CLASSES) {
+    for (const w of c.worlds) {
+      const off = ['width', 'mass'].filter(k => w[k] !== undefined && (w[k] < c.typical[k][0] || w[k] > c.typical[k][1]));
+      if (w.misfit) {
+        misfits++;
+        assert.ok(off.length, `${w.name} is marked as not fitting ${c.id}, but its numbers do`);
+        assert.match(w.note, /It is (on this file|here) (because|for)|but nothing like/, `${w.name}’s note doesn’t say why it is on the file`);
+      } else {
+        if (w.width !== undefined || w.mass !== undefined) fits++;
+        assert.deepEqual(off, [], `${w.name} is on the ${c.id} file with a ${off.join(' and ')} outside its readings`);
+      }
+    }
+  }
+  assert.ok(fits >= 2 && misfits === 4, `${fits} worlds checked against their files, ${misfits} marked as not fitting`);
+  // The Solar System's own examples: the Moon and Mercury sit inside the planetoid file's readings, as its line says.
+  const d = CLASSES.find(c => c.id === 'D').typical;
+  for (const [name, width, mass] of [['the Moon', 0.2727, 0.0123], ['Mercury', 0.3829, 0.0553]]) {
+    assert.ok(width >= d.width[0] && width <= d.width[1] && mass >= d.mass[0] && mass <= d.mass[1], `${name} is off the Class D file`);
+  }
+});
+
 test('the log’s records are worked out from its entries', () => {
   // Stars by number: 1 is 4 ly out, 2 is 25 ly, 3 is 1,400 ly, 4 has no measured distance (the charts put it at 3,262).
   const far = { 1: 4, 2: 25, 3: 1400, 4: null };
