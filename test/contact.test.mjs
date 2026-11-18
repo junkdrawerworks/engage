@@ -1,7 +1,7 @@
 // First contact's language and rules, checked without a browser:  node --test test/contact.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, encounterFirsts, firstsLine, briefingLine, MEANINGS, PATIENCE, BEAT_IDS, replay } from '../js/contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, encounterFirsts, firstsLine, briefingLine, MEANINGS, PATIENCE, BEAT_IDS, replay, encodeRun, decodeRun } from '../js/contact-sim.js';
 
 // Plays the right answer each turn, from what has been heard so far.
 function win(g) {
@@ -161,6 +161,33 @@ test('saying their question straight back is not an answer, and costs nothing', 
     assert.notEqual(g.over, 'contact', `seed ${seed}: echoing made contact`);
     assert.equal(BEAT_IDS[g.beat], 'ask', `seed ${seed}`);
   }
+});
+
+// A shared encounter's link: written and read back to the same encounter, word for word, notebook and all.
+test('an encounter written as a link reads back as the same one, and a link that isn’t one is turned away', () => {
+  for (let seed = 1; seed <= 100; seed++) {
+    const g = newGame({ seed: seed * 7919 + 1795035142426 });
+    const r = rng(seed), acts = [], tags = {};
+    while (!g.over && g.turn < 60) {
+      const what = ['listen', 'standard', 'shields', { say: [hint(g)] }, { say: [hint(g)] }, { say: g.heard.filter(id => id !== 'story').slice(0, 2) }][Math.floor(r() * 6)];
+      if (what.say && !what.say[0]) continue;
+      acts.push(what);
+      act(g, what);
+      const heard = g.heard.filter(id => id !== 'story');
+      tags[heard[Math.floor(r() * heard.length)]] = MEANINGS[Math.floor(r() * MEANINGS.length)][0];
+    }
+    if (!g.over) { acts.push('leave'); act(g, 'leave'); }
+    const code = encodeRun({ seed: g.seed, acts, tags });
+    const kept = decodeRun(code);
+    assert.ok(kept, `seed ${seed}: ${code}`);
+    const back = replay(kept).game;
+    assert.deepEqual(back.log, g.log, `seed ${seed}: not the same conversation`);
+    assert.deepEqual(debrief({ ...back, tags: kept.tags }).rows, debrief({ ...g, tags: Object.fromEntries(Object.entries(tags).filter(([id]) => g.heard.includes(id))) }).rows);
+  }
+  // These letters were written by the first version and must keep meaning the same things.
+  assert.deepEqual(decodeRun('1.5.~l-a-~x.aa'), { seed: 5, acts: ['listen', { say: ['meet'] }, 'leave'], tags: { meet: 'meet' } });
+  assert.equal(decodeRun('1.5.~l-a.aa'), null, 'an encounter still under way');
+  for (const bad of ['', '1.5', '1.5..', '1.5.a.', '1.5.~q.', '1.5.abcd.', '1.5.a.abc', '2.5.a.', '1.5.~l.']) assert.equal(decodeRun(bad), null, bad);
 });
 
 test('weapons cost twice, and raising shields makes them wary', () => {

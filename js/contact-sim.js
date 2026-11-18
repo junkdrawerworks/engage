@@ -422,6 +422,38 @@ export function replay(kept) {
   return { game: g, reply: !g.over && phrases(kept.reply) ? [...kept.reply] : [] };
 }
 
+// An encounter as a link, so a friend can watch it played back and then answer the same hail: "1." (this way of
+// writing it), the seed in base 36, what you did in turn (a letter for each phrase of a reply, in MEANINGS' order;
+// l, s, h and x for Listen again, Speak Standard, shields and Break off, each with a ~ before it), and your
+// notebook's guesses as pairs of letters, phrase then meaning. These links are kept working: a letter never
+// changes its meaning.
+const LETTERS = 'abcdefghijklm';
+const BUTTONS = { listen: 'l', standard: 's', shields: 'h', leave: 'x' };
+const BUTTON = Object.fromEntries(Object.entries(BUTTONS).map(([id, l]) => [l, id]));
+const letterOf = id => LETTERS[MEANINGS.findIndex(([m]) => m === id)];
+const idOf = l => MEANINGS[LETTERS.indexOf(l)]?.[0];
+export function encodeRun({ seed, acts, tags = {} }) {
+  const done = acts.map(a => (typeof a === 'string' ? `~${BUTTONS[a]}` : a.say.map(letterOf).join(''))).join('-');
+  const guesses = Object.entries(tags).filter(([id, m]) => letterOf(id) && letterOf(m)).map(([id, m]) => letterOf(id) + letterOf(m)).join('');
+  return `1.${(seed >>> 0).toString(36)}.${done}.${guesses}`;
+}
+// What encodeRun() wrote, as replay() takes it, or null if it isn't an encounter that could have been played to its end.
+export function decodeRun(text) {
+  const m = /^1\.([0-9a-z]{1,7})\.([a-z~-]{1,1500})\.([a-m]{0,26})$/.exec(String(text || ''));
+  if (!m || m[3].length % 2) return null;
+  const acts = [];
+  for (const part of m[2].split('-')) {
+    if (part.startsWith('~')) { if (!BUTTON[part.slice(1)]) return null; acts.push(BUTTON[part.slice(1)]); }
+    else if (/^[a-m]{1,3}$/.test(part)) acts.push({ say: [...part].map(idOf) });
+    else return null;
+  }
+  const tags = {};
+  for (let i = 0; i < m[3].length; i += 2) tags[idOf(m[3][i])] = idOf(m[3][i + 1]);
+  const kept = { seed: parseInt(m[1], 36), acts, tags };
+  const back = kept.seed <= 0xffffffff ? replay(kept) : null;
+  return back && back.game.over ? kept : null;
+}
+
 // The debrief: what happened, what each phrase meant, and how much of it you worked out.
 export function debrief(g) {
   const d = DANGERS[g.lang.danger];

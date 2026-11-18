@@ -67,6 +67,10 @@
       </div>
 
       <div class="side">
+        <div class="watching" id="watching" hidden>
+          <p id="watching-text" aria-live="polite"></p>
+          <button class="text-button" id="skip" type="button">Skip to the debrief</button>
+        </div>
         <div class="reply card-ish">
           <div class="dock" id="dock">
             <p class="dock-said" id="dock-said" aria-hidden="true"></p>
@@ -100,7 +104,7 @@
 
     <section id="eval" hidden aria-label="Debrief">
       <div class="card evaluation">
-        <p class="eyebrow">Communications · Debrief</p>
+        <p class="eyebrow" id="eval-eyebrow">Communications · Debrief</p>
         <h2 id="eval-title" tabindex="-1"></h2>
         <p class="firsts" id="eval-firsts" hidden></p>
         <p class="summary" id="eval-summary"></p>
@@ -118,6 +122,7 @@
           <a class="secondary" id="to-bridge" href="./">Back to the bridge</a>
           <button class="primary" id="again" type="button">Answer another hail</button>
         </div>
+        <p class="share-row"><button class="text-button" id="share-run" type="button">Share this encounter</button></p>
       </div>
     </section>
   </main>

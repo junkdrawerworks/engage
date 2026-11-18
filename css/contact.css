@@ -90,6 +90,15 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 .book-list select.tagged { border-color: rgba(201, 162, 255, 0.55); color: var(--alien); }
 @keyframes glow { from { border-color: var(--alien); background: rgba(201, 162, 255, 0.14); } }
 
+/* An encounter someone shared, played back: what they did each turn, in place of the reply and the buttons. */
+.watching { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; padding: 10px 14px; border-radius: 16px; border: 1px dashed rgba(201, 162, 255, 0.55); background: rgba(201, 162, 255, 0.06); }
+.watching[hidden] { display: none; }
+.watching p { margin: 0; font-size: 14px; color: var(--text); }
+.watching p b { display: block; font: 600 10px/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--alien); }
+.watching .text-button { color: var(--cyan); font-size: 13px; min-height: 44px; }
+body.contact.replaying .reply { display: none; }
+body.contact.replaying .book-list .ph-add, body.contact.replaying .book-list select { pointer-events: none; }
+body.contact.replaying .ph-add .plus { visibility: hidden; }
 .comms { position: relative; margin-top: 10px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 14px; border-radius: 16px; border: 1px solid var(--line); background: rgba(5, 8, 15, 0.7); }
 .line { margin: 0; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; color: #cdd5e3; }
 .line.fresh { animation: in .3s ease-out; }
@@ -139,6 +148,8 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 .transcript .meant { color: var(--text); }
 .eval-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
 .eval-actions > * { flex: 1 1 160px; display: inline-grid; place-items: center; text-decoration: none; }
+.evaluation .share-row { margin: 8px 0 0; }
+.evaluation .share-row .text-button { color: var(--cyan); min-height: 44px; }
 
 .contact .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }
 

@@ -95,6 +95,42 @@ export function replay(kept) {
   return { game: g, turns };
 }
 
+// Today's simulation: the same dice for every cadet on the same calendar day, wherever they are. `day` is the date as
+// YYYY-MM-DD; the seed is its FNV-1a hash.
+export function dailySeed(day) {
+  let h = 0x811c9dc5;
+  for (const c of `kobayashi-maru:${day}`) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0;
+  return h;
+}
+// The day as YYYY-MM-DD, by the calendar where the cadet is.
+export const today = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+// A run in a line, to send to someone: "Kobayashi Maru, 18 Nov: The lifeboat, 150 home, C B A B". The date is there
+// for today's simulation, which everyone that day took with the same dice.
+export function shareLine(e, day) {
+  const when = day ? `, ${new Date(`${day}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : '';
+  const saved = e.numbers.maruSaved;
+  const count = !saved ? '' : e.outcome === 'abandoned' ? `, ${saved} alive as prisoners` : `, ${saved} home`;
+  return `Kobayashi Maru${when}: ${e.title}${count}, ${e.grades.filter(x => GRADED.includes(x.name)).map(x => x.letter).join(' ')}`;
+}
+
+// A run as a link, so a friend can watch it played back and then take the same simulation: "1." (this way of writing
+// it), the seed in base 36, a letter for each order in turn, and ".r" for the reprogrammed simulator. These links
+// are kept working: a new order gets a new letter, and a letter never changes its meaning.
+const LETTER = { enter: 'e', 'hail-maru': 'm', starfleet: 's', scan: 'c', leave: 'l', beam: 'b', phasers: 'p', torpedoes: 't', hail: 'h', evade: 'v', warp: 'w', surrender: 'u', abandon: 'a' };
+const ORDER = Object.fromEntries(Object.entries(LETTER).map(([id, l]) => [l, id]));
+export function encodeRun({ seed, rewritten, orders: list }) {
+  return `1.${(seed >>> 0).toString(36)}.${list.map(id => LETTER[id]).join('')}${rewritten ? '.r' : ''}`;
+}
+// What encodeRun() wrote, as replay() takes it, or null if it isn't a run that could have been played to its end.
+export function decodeRun(text) {
+  const m = /^1\.([0-9a-z]{1,7})\.([a-z]{1,200})(\.r)?$/.exec(String(text || ''));
+  if (!m || [...m[2]].some(l => !ORDER[l])) return null;
+  const kept = { seed: parseInt(m[1], 36), rewritten: !!m[3], orders: [...m[2]].map(l => ORDER[l]) };
+  const back = kept.seed <= 0xffffffff ? replay(kept) : null;
+  return back && back.game.over ? kept : null;
+}
+
 // The tactical display in words, for someone who can't see it: where your ship is, how many are still aboard the
 // Maru, and how strong each cruiser still is (Fire phasers goes for the weakest, and only the picture showed which).
 const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];

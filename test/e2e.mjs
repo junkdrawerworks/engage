@@ -991,6 +991,56 @@ assert.equal(await text('#endings-n'), '2 OF 9');
 assert.equal(await text('#taken'), '2 RUNS TAKEN');
 assert.match((await text('#best')).replace(/\s+/g, ' '), /^A COMPASSION A JUDGMENT A RESTRAINT [A-F] NERVE$/, 'the best grades did not take the better run’s');
 assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.maru.v1')); return [s.runs.length, s.seen, s.taken]; }), [2, ['The lifeboat', 'Changed the rules'], 2]);
+// Today's simulation: the same dice for everyone that day, taken once, then the line to send on the briefing. Share
+// this run sends that line with a link that plays the run back for a friend, turn by turn, to their evaluation, with
+// nothing put on the friend's record; and then they can take the same simulation, dice and all.
+{
+  const mine = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  await mine.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const p = await mine.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  assert.equal(await p.locator('#daily-note').innerText(), 'The same dice for every cadet today.');
+  await p.click('#daily-start');
+  const { dailySeed, today } = await import('../js/maru-sim.js');
+  const day = await p.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+  assert.equal(await p.evaluate(() => maru.game.seed), dailySeed(day));
+  assert.equal(day, today());
+  for (const id of ['enter', 'beam', 'beam', 'warp']) { await p.click(`.order[data-id="${id}"]`); await p.waitForFunction(() => !maru.busy, null, { timeout: 20000 }); }
+  await p.click('#read-eval');
+  assert.equal(await p.locator('#eval-eyebrow').innerText(), 'TODAY’S SIMULATION · EVALUATION');
+  await p.evaluate(() => { delete Navigator.prototype.share; });
+  await p.click('#share-run');
+  const [line, url] = (await p.evaluate(() => navigator.clipboard.readText())).split('\n');
+  assert.match(line, /^Kobayashi Maru, \d{1,2} [A-Z][a-z]{2}: The lifeboat, 150 home, [A-F] B [A-F] [A-F]$/);
+  assert.match(url, /^https:\/\/engage\.junkdrawer\.works\/maru\.html#run=1\.[0-9a-z]+\.ebbw$/);
+  await p.click('#again');
+  assert.equal(await p.locator('#daily-start').isHidden(), true, 'today’s simulation can be taken twice');
+  assert.equal(await p.locator('#daily-note').innerText(), `TODAY’S SIMULATION\n${line.replace(/^[^:]+: /, '')}`);
+  await mine.close();
+  const friend = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const q = await friend.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  await q.goto(url.replace('https://engage.junkdrawer.works/', base));
+  await q.waitForFunction(() => window.maru?.watching);
+  assert.equal(await q.locator('#orders').isHidden(), true, 'the orders are offered while a shared run plays back');
+  await q.waitForFunction(() => /Turn 1: Cross into the Neutral Zone/.test(document.getElementById('watching-text').textContent), null, { timeout: 20000 });
+  await q.click('#skip');
+  await q.waitForFunction(() => !document.getElementById('eval').hidden, null, { timeout: 20000 });
+  assert.equal(await q.locator('#eval-title').innerText(), 'The lifeboat');
+  assert.equal(await q.locator('#eval-eyebrow').innerText(), 'A CADET’S RUN · EVALUATION');
+  assert.equal(await q.locator('#eval-firsts').isHidden(), true);
+  assert.equal(await q.evaluate(() => localStorage.getItem('engage.maru.v1')), null, 'a shared run went on the friend’s record');
+  assert.equal(await q.locator('#again').innerText(), 'TAKE THIS SIMULATION YOURSELF');
+  await q.click('#again');
+  assert.deepEqual(await q.evaluate(() => [maru.game.seed, maru.game.turn, location.hash, !!maru.watching]), [dailySeed(day), 0, '', false]);
+  // A link that isn't a run opens the briefing as usual.
+  await q.goto(base + 'maru.html#run=1.7.zz');
+  await q.waitForFunction(() => window.maru);
+  assert.equal(await q.locator('#brief').isVisible(), true);
+  await friend.close();
+}
 // Going to warp out of the Neutral Zone is heard as the ship goes, not a second later. The Maru used the bridge's
 // jump sound for a one-second trip, and that sound's hold point, set a second in, came before its swell in time:
 // silence for the first second, then the rush cutting in over the explosion. The Maru's own warp-out is rendered
@@ -2082,6 +2132,33 @@ assert.match(await text('#eval-score'), /^1\/1[0-9]/, 'the one right guess is no
 assert.ok(await shown('#eval-story'), 'their new phrase is missing');
 // How rare the ending is, from the archive of encounters answered at random.
 assert.match(await text('#eval-archive'), /^EXAMINERS’ ARCHIVE\s+About 1 in 2\d ends this way, of 40,000 encounters answered with phrases picked at random\.$/);
+// Share this encounter: a line and a link that plays it back for a friend, guesses and all, to their debrief, with
+// nothing put on the friend's record; then they can answer the same hail, in the same language.
+{
+  await page.evaluate(() => { delete Navigator.prototype.share; });
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.click('#share-run');
+  const [line, url] = (await page.evaluate(() => navigator.clipboard.readText())).split('\n');
+  assert.match(line, /^First contact: First contact, 1 of 1\d phrases decoded$/);
+  assert.match(url, /^https:\/\/engage\.junkdrawer\.works\/contact\.html#run=1\.[0-9a-z]+\.[a-z~-]+\.[a-m]{2}$/);
+  const friend = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const q = await friend.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  await q.goto(url.replace('https://engage.junkdrawer.works/', base));
+  await q.waitForFunction(() => window.contact?.watching);
+  assert.equal(await q.locator('.reply').isHidden(), true, 'the reply is offered while a shared encounter plays back');
+  await q.waitForFunction(() => /They answered/.test(document.getElementById('watching-text').textContent), null, { timeout: 20000 });
+  await q.click('#skip');
+  await q.waitForFunction(() => !document.getElementById('eval').hidden, null, { timeout: 20000 });
+  assert.equal(await q.locator('#eval-title').innerText(), 'First contact');
+  assert.equal(await q.locator('#eval-eyebrow').innerText(), 'A SHARED ENCOUNTER · DEBRIEF');
+  assert.match(await q.locator('#eval-score').innerText(), /^1\/1\d/);
+  assert.equal(await q.evaluate(() => localStorage.getItem('engage.contact.v1')), null, 'a shared encounter went on the friend’s record');
+  const seed = await q.evaluate(() => contact.game.seed);
+  await q.click('#again');
+  assert.deepEqual(await q.evaluate(() => [contact.game.seed, contact.game.turn, location.hash, !!contact.watching]), [seed, 0, '', false]);
+  await friend.close();
+}
 await page.click('#again');
 // The record on the briefing: one species met, one contact made, and the notebook as it really did, so a contact made
 // with one phrase decoded doesn't read as a full success.
@@ -2998,7 +3075,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.waitForFunction(() => window.maru);
   assert.equal(await offered(), true, 'a simulation left part-way is not offered again after a reload');
   assert.equal(await p.locator('#resume-note').textContent(), 'You left a simulation on turn 4, inside the Neutral Zone. Taking command starts a new one.');
-  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('.brief button:not([hidden])')].map(b => `${b.id} ${b.className}`)), ['resume primary', 'start secondary'], 'Resume is not above Take command');
+  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('.brief button:not([hidden])')].map(b => `${b.id} ${b.className}`)), ['resume primary', 'start secondary', 'daily-start secondary'], 'Resume is not above Take command');
   await p.tap('#resume');
   assert.deepEqual({ game: await game(), log: await p.locator('#comms').innerText(), display: await p.locator('#plot').getAttribute('aria-label'), turn: await p.locator('#turn').textContent() }, left, 'the simulation that came back is not the one that was left');
   // The next order, given here and to a copy played from the start with the same orders, comes out the same.

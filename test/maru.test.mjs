@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { newGame, act, orders, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, fork, CREW, MARU, WARP_HULL, ENDINGS, GRADED, CEILING, POSITION } from '../js/maru-sim.js';
+import { newGame, act, orders, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, fork, dailySeed, today, shareLine, encodeRun, decodeRun, CREW, MARU, WARP_HULL, ENDINGS, GRADED, CEILING, POSITION } from '../js/maru-sim.js';
 import { buildCatalog } from '../js/catalog.js';
 import { ARCHIVE } from '../js/archive.js';
 import { LY_PER_PC } from '../js/physics.js';
@@ -181,6 +181,43 @@ test('a search of every way a simulation can go: 150 home at most, and Judgment 
   const g = play(['enter', 'beam']), c = fork(g);
   for (const id of ['beam', 'evade', 'phasers']) { act(g, id); act(c, id); }
   assert.deepEqual({ ...c, rand: 0 }, { ...g, rand: 0 });
+});
+
+// Today's simulation: the same dice for every cadet on the same day, new dice the next, and a line to send.
+test('today’s simulation has the same dice for everyone that day, and a line to send', () => {
+  assert.equal(dailySeed('2026-11-18'), dailySeed('2026-11-18'));
+  const seeds = new Set(Array.from({ length: 366 }, (_, i) => dailySeed(today(new Date(2026, 0, 1 + i)))));
+  assert.equal(seeds.size, 366, 'two days of 2026 share their dice');
+  assert.equal(today(new Date(2026, 10, 18, 23, 59)), '2026-11-18');
+  assert.equal(today(new Date(2026, 0, 5, 0, 1)), '2026-01-05');
+  const a = play(['enter', 'beam', 'beam', 'warp'], { seed: dailySeed('2026-11-18') });
+  const b = play(['enter', 'beam', 'beam', 'warp'], { seed: dailySeed('2026-11-18') });
+  assert.deepEqual({ ...a, rand: 0 }, { ...b, rand: 0 });
+  assert.match(shareLine(evaluate(a), '2026-11-18'), /^Kobayashi Maru, 18 Nov: The lifeboat, 150 home, [A-F] [A-F] [A-F] [A-F]$/);
+  assert.match(shareLine(evaluate(play(['leave']))), /^Kobayashi Maru: By the book, [A-F] [A-F] A [A-F]$/);
+  assert.match(shareLine(evaluate(play(['enter', 'beam', 'beam', 'abandon']))), /^Kobayashi Maru: Last off the ship, 150 alive as prisoners, /);
+  // A reprogrammed run's Honesty is not one of the four letters.
+  assert.match(shareLine(evaluate(play(['enter', ...Array(6).fill('beam'), 'warp'], { rewritten: true }))), /^Kobayashi Maru: Changed the rules, 381 home, A A A$/);
+});
+
+// A shared run's link: written and read back to the same simulation, and nothing else read as one.
+test('a run written as a link reads back as the same run, and a link that isn’t one is turned away', () => {
+  for (const [plan, opts] of Object.values(WAYS)) {
+    const g = play(plan, opts);
+    const kept = { seed: g.seed, rewritten: !!opts?.rewritten, orders: plan.slice(0, g.turn) };
+    const code = encodeRun(kept);
+    assert.match(code, /^1\.[0-9a-z]+\.[a-z]+(\.r)?$/);
+    const back = decodeRun(code);
+    assert.deepEqual(back, kept, code);
+    assert.equal(evaluate(replay(back).game).title, evaluate(g).title);
+  }
+  // A seed bigger than 32 bits (Date.now()) is written as the dice it throws: the same game.
+  const big = play(['enter', 'beam', 'beam', 'warp'], { seed: 1795035142426 });
+  const code = encodeRun({ seed: big.seed, rewritten: false, orders: ['enter', 'beam', 'beam', 'warp'] });
+  assert.deepEqual(replay(decodeRun(code)).game.hull, big.hull);
+  // These letters were written by the first version and must keep meaning the same orders.
+  assert.deepEqual(decodeRun('1.7.mscebbw')?.orders, ['hail-maru', 'starfleet', 'scan', 'enter', 'beam', 'beam', 'warp']);
+  for (const bad of ['', '1', '1.7', '1.7.', '2.7.ebbw', '1.7.ebb', '1.7.ebbwb', '1.7.zz', '1.7.ebbw.x', '1.zzzzzzzz.ebbw', '1.7.l.r.r', '1.-7.l']) assert.equal(decodeRun(bad), null, bad);
 });
 
 test('surrender is always refused', () => {

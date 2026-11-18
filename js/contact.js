@@ -1,6 +1,7 @@
 // First contact: the page. The rules and the language are in contact-sim.js and the viewscreen in contact-art.js;
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
-import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { LIVE, share } from './share.js';
+import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -38,6 +39,7 @@ let look = null; // how this species looks
 let reply = []; // phrase ids in the reply being put together
 let acts = []; // everything done in this encounter so far, in order, as act() takes it
 let gameId = ''; // its own name, so that however it is picked up and finished it goes on the record once
+let watching = null; // an encounter someone shared, being played back: { seed, acts, tags }
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 // An encounter under way is kept after everything you do: its seed, what you did, your notebook's guesses and the
@@ -48,7 +50,7 @@ const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).sli
 // (The last thing you do is kept too, though it ends the encounter: a reload while their answer plays out then finds
 // it finished, and can't be used to take the last move back.)
 function keepGame() {
-  if (!g || lastEval) return; // nothing under way, or it is on the record already
+  if (!g || lastEval || watching) return; // nothing under way, on the record already, or someone else's
   saved.game = { id: gameId, seed: g.seed, acts: acts.slice(), tags: { ...g.tags }, reply: reply.slice() };
   save();
 }
@@ -112,6 +114,7 @@ function start(seed = Date.now()) {
   reply = [];
   acts = [];
   gameId = newId();
+  watching = null;
   if (saved.game) { delete saved.game; save(); } // a new ship: the encounter that was left is let go
   open();
   play(g.log.slice());
@@ -125,6 +128,7 @@ function resume() {
   g = back.game;
   reply = back.reply;
   acts = saved.game.acts.slice();
+  watching = null;
   gameId = typeof saved.game.id === 'string' ? saved.game.id : newId();
   open();
   shown = g.log.length;
@@ -158,6 +162,7 @@ function open() {
   $('book').innerHTML = '';
   $('subtitle').innerHTML = '';
   $('dock-said').textContent = '';
+  $('watching').hidden = !watching;
   showScreen('sim');
   // With a keyboard, the encounter starts where the first thing to do is: listening again.
   $('listen').focus({ preventScroll: true });
@@ -185,7 +190,8 @@ function play(lines) {
     renderLog();
     update();
     sayPatience();
-    if (g.over) record();
+    if (g.over && !watching) record();
+    if (watching) { if (g.over) $('watching').hidden = true; else setTimeout(nextWatched, watching.skip ? 0 : still.matches ? 300 : 900); }
     // The buttons a finished encounter switches off can't hold the keyboard's place: Read the debrief takes it.
     if (g.over && lostFocus()) $('send').focus({ preventScroll: true });
   }, fast ? 0 : t + 200);
@@ -246,7 +252,8 @@ function update() {
   $('patience').setAttribute('aria-label', `Their patience: ${g.patience} of ${PATIENCE}`);
   describeScreen();
   $('who-tag').textContent = over ? (g.over === 'contact' ? `The ${g.lang.people}` : 'Channel closed') : 'Unknown vessel';
-  document.body.classList.toggle('talking', !over && !$('sim').hidden);
+  document.body.classList.toggle('talking', !over && !$('sim').hidden && !watching);
+  document.body.classList.toggle('replaying', !over && !!watching);
   document.querySelector('.side').classList.toggle('busy', busy);
   $('shields').textContent = g.shields ? 'Lower shields' : 'Raise shields';
   $('shields').setAttribute('aria-pressed', String(g.shields));
@@ -352,6 +359,7 @@ function showGuesses() {
 
 // A guess written in the notebook (or rubbed out).
 function guess(id, meaning) {
+  if (watching) return;
   if (meaning) g.tags[id] = meaning; else delete g.tags[id];
   showGuesses();
   renderBook();
@@ -377,6 +385,9 @@ function record() {
 
 function showEval() {
   const e = lastEval || debrief(g);
+  // A shared encounter's debrief is theirs: nothing of it is on this officer's record, and the way on is to answer it.
+  $('eval-eyebrow').textContent = watching ? 'A shared encounter · Debrief' : 'Communications · Debrief';
+  $('again').textContent = watching ? 'Answer this hail yourself' : 'Answer another hail';
   $('eval-title').textContent = e.title;
   $('eval-summary').textContent = e.summary;
   $('eval-story').hidden = !e.story;
@@ -384,7 +395,7 @@ function showEval() {
   const note = e.decoded === e.of && e.of ? 'Every phrase right. Hoshi Sato would be proud.'
     : e.decoded ? 'From your notebook, against what they really meant.' : 'You didn’t write any right guesses in the notebook. Here’s what they were saying.';
   // Said when it is made, not left for the briefing's record card: a notebook that beat the best, a contact made.
-  const made = firsts ? firstsLine(firsts) : '';
+  const made = firsts && !watching ? firstsLine(firsts) : '';
   $('eval-firsts').hidden = !made;
   $('eval-firsts').textContent = made;
   $('eval-score').innerHTML = `<span class="n">${e.decoded}/${e.of}</span><b>${esc(e.fluency)}</b><span>${esc(note)}</span>`;
@@ -401,6 +412,58 @@ function showEval() {
     <span class="meant">${esc(t.meant.join('. '))}.</span><br><span class="said">${t.said.map(s => `“${esc(s)}”`).join(' ')}</span></li>`).join('');
   showScreen('eval');
   $('eval-title').focus({ preventScroll: true }); // read from the verdict down
+}
+
+// ---------- A shared encounter, played back ----------
+
+// A link to an encounter (contact.html#run=…, from Share this encounter) plays it back at speaking pace, with the
+// notebook's guesses as they were at the end, and what was done each turn in place of the reply. Nothing goes on
+// this officer's record; the debrief offers to answer the same hail, in the same language.
+const DID = { listen: 'Listened again', standard: 'Spoke Standard', shields: 'Raised or lowered shields', leave: 'Broke off' };
+function watchEncounter(kept) {
+  watching = { ...kept };
+  g = newGame({ seed: kept.seed });
+  Object.assign(g.tags, kept.tags);
+  reply = [];
+  acts = [];
+  gameId = '';
+  open();
+  $('watching-text').innerHTML = '<b>A shared encounter, played back</b>Their ship is hailing.';
+  play(g.log.slice());
+}
+function nextWatched() {
+  if (!watching || !g || g.over || busy) return;
+  const rest = watching.acts.slice(acts.length);
+  // Skipping does the rest at once and goes straight to the debrief.
+  if (watching.skip) {
+    for (const a of rest) { acts.push(a); act(g, a); }
+    shown = g.log.length;
+    renderLog();
+    update();
+    showEval();
+    return;
+  }
+  const what = rest[0];
+  acts.push(what);
+  $('watching-text').innerHTML = `<b>A shared encounter, played back</b>${typeof what === 'string' ? DID[what] : `They answered ${what.say.map(id => `“${esc(phrase(g, id))}”`).join(' ')}`}`;
+  play(act(g, typeof what === 'string' ? what : { say: [...what.say] }));
+}
+function skipWatched() {
+  if (!watching) return;
+  watching.skip = true;
+  if (!busy) nextWatched();
+}
+function openedRun() {
+  const m = /^#run=(.+)$/.exec(location.hash);
+  return m ? decodeRun(decodeURIComponent(m[1])) : null;
+}
+// Share this encounter: how it went in a line, and a link that plays it back for whoever opens it.
+function shareRun(button) {
+  const e = lastEval || debrief(g);
+  const code = encodeRun({ seed: g.seed, acts, tags: g.tags });
+  const line = `First contact: ${e.title}, ${e.decoded} of ${e.of} phrases decoded`;
+  const url = `${LIVE}contact.html#run=${code}`;
+  return share(button, { title: 'First contact', text: line, url, copy: `${line}\n${url}` });
 }
 
 // ---------- The viewscreen ----------
@@ -457,7 +520,18 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 
 $('start').addEventListener('click', () => start());
 $('resume').addEventListener('click', resume);
-$('again').addEventListener('click', () => { showBrief(); $('start').focus({ preventScroll: true }); });
+$('again').addEventListener('click', () => {
+  if (watching) {
+    const { seed } = watching;
+    history.replaceState(null, '', location.pathname + location.search);
+    start(seed);
+    return;
+  }
+  showBrief();
+  $('start').focus({ preventScroll: true });
+});
+$('share-run').addEventListener('click', e => shareRun(e.currentTarget));
+$('skip').addEventListener('click', skipWatched);
 $('send').addEventListener('click', () => (g && g.over ? showEval() : send()));
 // Clear goes away with the reply it cleared, and a phrase taken out takes its button with it: the keyboard's place
 // goes to what is left of the reply, or back to the notebook.
@@ -477,7 +551,7 @@ $('reply').addEventListener('click', e => {
 });
 $('book').addEventListener('click', e => {
   const b = e.target.closest('.ph-add');
-  if (!b || b.getAttribute('aria-disabled') === 'true' || busy) return;
+  if (!b || b.getAttribute('aria-disabled') === 'true' || busy || watching) return;
   const id = b.closest('li').dataset.id;
   if (id && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id);
   update();
@@ -505,11 +579,12 @@ watch(KEY, () => {
   if (back?.game.over) { g = back.game; gameId = typeof saved.game.id === 'string' ? saved.game.id : newId(); record(); g = null; lastEval = null; }
   else if (!back && saved.game) delete saved.game;
 }
-showBrief();
+const shared = openedRun();
+if (shared) watchEncounter(shared); else showBrief();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.contact = {
   get game() { return g; }, get busy() { return busy; }, get draws() { return draws; },
-  start, resume, send, act: doAct, showEval,
+  start, resume, send, act: doAct, showEval, watch: watchEncounter, skip: skipWatched, get watching() { return watching; },
   // Puts phrases in the reply by meaning, as if tapped in the notebook.
   pick(...ids) { for (const id of ids) if (g.heard.includes(id) && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id); update(); keepGame(); },
   hint: () => hint(g),

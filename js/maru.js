@@ -1,5 +1,6 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
-import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, archiveLine, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
+import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, archiveLine, dailySeed, today, shareLine, encodeRun, decodeRun, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
+import { LIVE, share } from './share.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -38,6 +39,8 @@ let g = null; // the game
 let busy = false;
 let given = []; // the orders given in it so far, in order
 let gameId = ''; // its own name, so that however it is picked up and finished it goes on the record once
+let daily = ''; // the day, YYYY-MM-DD, when this is today's simulation
+let watching = null; // a run someone shared, being played back: { seed, rewritten, orders }
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 // A simulation under way is kept after every order, as its seed and those orders: a reload, or a phone putting the
@@ -45,7 +48,7 @@ const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).sli
 // replay(): the same orders throw the same dice, so nothing can be re-rolled). Taking command anew, or reaching
 // the evaluation, lets it go.
 function keepGame() {
-  saved.game = { id: gameId, seed: g.seed, rewritten: g.rewritten, orders: given.slice() };
+  saved.game = { id: gameId, seed: g.seed, rewritten: g.rewritten, orders: given.slice(), ...(daily ? { daily } : {}) };
   save();
 }
 // The one kept, if it can be picked up: { game, turns }.
@@ -84,6 +87,12 @@ function renderRecord() {
   if (left) $('resume-note').textContent = `You left a simulation on turn ${left.turn + 1}, ${left.where === 'zone' ? 'inside the Neutral Zone' : 'at the edge of the Neutral Zone'}. Taking command starts a new one.`;
   // With one to resume, that is the main thing to do, and Take command stands back.
   $('start').className = left ? 'secondary' : 'primary';
+  // Today's simulation, once a day; afterwards, how it went and the line to send.
+  const day = today(), done = saved.daily?.date === day && typeof saved.daily.line === 'string' ? saved.daily : null;
+  $('daily-start').hidden = !!done || !!(left && saved.game.daily === day);
+  $('daily-share').hidden = !done;
+  $('daily-note').innerHTML = done ? `<b>Today’s simulation</b>${esc(done.line.replace(/^Kobayashi Maru, [^:]+: /, ''))}`
+    : left && saved.game.daily === day ? 'Today’s simulation is the one left to resume.' : 'The same dice for every cadet today.';
   const runs = saved.runs.slice(-8).reverse();
   $('record').hidden = !runs.length;
   $('rewrite').hidden = !runs.length;
@@ -97,10 +106,13 @@ function renderRecord() {
     <span class="letters">${r.grades.map(x => `${esc(x.name)} ${esc(x.letter)}`).join(' · ')}</span></li>`).join('');
 }
 
-function start(rewritten = false) {
-  g = newGame({ rewritten });
+function start(rewritten = false, { seed, day = '' } = {}) {
+  g = newGame(seed === undefined ? { rewritten } : { rewritten, seed });
   given = [];
   gameId = newId();
+  daily = day;
+  watching = null;
+  lastEval = null;
   if (saved.game) { delete saved.game; save(); } // a new simulation: the one that was left is let go
   open();
 }
@@ -112,6 +124,9 @@ function resume() {
   g = back.game;
   given = saved.game.orders.slice();
   gameId = typeof saved.game.id === 'string' ? saved.game.id : newId();
+  daily = typeof saved.game.daily === 'string' ? saved.game.daily : '';
+  watching = null;
+  lastEval = null;
   open(back.turns);
 }
 
@@ -123,6 +138,7 @@ function open(turns = []) {
   $('caption').innerHTML = '';
   $('orders').dataset.ids = '';
   $('orders').innerHTML = '';
+  $('watching').hidden = !watching;
   log([{ who: 'Communications', text: g.rewritten
     ? 'Simulator code amended. Distress call from the Kobayashi Maru, inside the Neutral Zone.'
     : 'Distress call on the emergency channel: the Kobayashi Maru, inside the Neutral Zone.', tone: 'bad' }]);
@@ -159,10 +175,13 @@ function update() {
   const box = $('orders');
   box.classList.remove('busy');
   const here = box.contains(document.activeElement) ? document.activeElement.dataset.id || '' : null;
+  // A shared run played back gives its own orders: the list stands aside until the end.
+  box.hidden = !!watching && !g.over;
+  if (watching && !g.over) return;
   if (g.over) {
     if ($('read-eval')) return;
     box.dataset.ids = '';
-    box.innerHTML = '<button class="primary" id="read-eval" type="button">Read your evaluation</button>';
+    box.innerHTML = `<button class="primary" id="read-eval" type="button">${watching ? 'Read their evaluation' : 'Read your evaluation'}</button>`;
     $('read-eval').addEventListener('click', showEval);
     if (here !== null) $('read-eval').focus({ preventScroll: true });
     return;
@@ -186,10 +205,12 @@ function update() {
 function give(id) {
   if (busy || !g || g.over) return;
   const turn = g.turn + 1;
+  const label = orders(g).find(o => o.id === id)?.label;
   const { events, lines } = act(g, id);
   if (!lines.length && !events.length) return;
   given.push(id);
-  keepGame();
+  if (watching) $('watching-text').innerHTML = `<b>A cadet’s run, played back</b>Turn ${turn}: ${esc(label)}`;
+  else keepGame();
   busy = true;
   $('orders').classList.add('busy');
   bringIntoView(document.querySelector('.plot-wrap'));
@@ -201,8 +222,58 @@ function give(id) {
   setTimeout(() => {
     busy = false;
     update();
-    if (g.over) record();
+    if (g.over) { if (!watching) record(); else $('watching').hidden = true; } else if (watching) setTimeout(nextWatched, watching.skip ? 0 : still.matches ? 300 : 700);
   }, still.matches ? 150 : took + 250);
+}
+
+// ---------- A shared run, played back ----------
+
+// A link to a run (maru.html#run=…, from Share this run) plays it back turn by turn on the tactical display, with what
+// was ordered each turn in place of the orders, then shows the evaluation. Nothing goes on this cadet's record; the
+// evaluation offers to take the same simulation, with the same dice.
+function watchRun(kept) {
+  watching = { ...kept };
+  g = newGame({ seed: kept.seed, rewritten: kept.rewritten });
+  given = [];
+  gameId = '';
+  daily = '';
+  lastEval = null;
+  firsts = null;
+  open();
+  $('watching-text').innerHTML = '<b>A cadet’s run, played back</b>Their first order is coming.';
+  setTimeout(nextWatched, still.matches ? 0 : 900);
+}
+function nextWatched() {
+  if (!watching || !g || g.over || busy) return;
+  // Skipping plays the rest at once, with nothing drawn, and goes straight to the evaluation.
+  if (watching.skip) {
+    for (const id of watching.orders.slice(given.length)) { const turn = g.turn + 1; log([{ mark: `Turn ${turn}` }, ...act(g, id).lines]); given.push(id); }
+    scene.reset(); scene.restore();
+    update();
+    showEval();
+    return;
+  }
+  give(watching.orders[given.length]);
+}
+function skipWatched() {
+  if (!watching) return;
+  watching.skip = true;
+  if (!busy) nextWatched();
+}
+// What was in the address when the page opened: a shared run, or nothing.
+function openedRun() {
+  const m = /^#run=(.+)$/.exec(location.hash);
+  return m ? decodeRun(decodeURIComponent(m[1])) : null;
+}
+
+// Share this run: a line saying how it went, and a link that plays it back for whoever opens it.
+function shareRun(button) {
+  const e = lastEval || evaluate(g);
+  const day = watching ? '' : daily;
+  const code = encodeRun({ seed: g.seed, rewritten: g.rewritten, orders: given });
+  const line = shareLine(e, day);
+  const url = `${LIVE}maru.html#run=${code}`;
+  return share(button, { title: 'Kobayashi Maru', text: line, url, copy: `${line}\n${url}` });
 }
 
 // Brings the tactical display back on screen when an order is given from further down the page, so the turn isn't played out of sight.
@@ -237,6 +308,8 @@ function record() {
   firsts = null;
   delete saved.game; // finished: there is nothing left to resume
   // One simulation is one run: picked up in two tabs and finished in both, it is still counted once.
+  // Today's simulation goes down once, the first time it is finished that day.
+  if (daily && saved.daily?.date !== daily) saved.daily = { date: daily, line: shareLine(lastEval, daily), run: encodeRun({ seed: g.seed, rewritten: g.rewritten, orders: given }) };
   if (!saved.runs.some(r => r.id === gameId)) {
     firsts = runFirsts(saved, lastEval); // against the record as it stood
     saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, grades: lastEval.grades.map(x => ({ name: x.name, letter: x.letter })), at: new Date().toISOString(), id: gameId });
@@ -248,6 +321,9 @@ function record() {
 
 function showEval() {
   const e = lastEval || evaluate(g);
+  // A shared run's evaluation is theirs: nothing of it is on this cadet's record, and the way on is to take it.
+  $('eval-eyebrow').textContent = watching ? 'A cadet’s run · Evaluation' : daily ? 'Today’s simulation · Evaluation' : 'Starfleet Academy · Evaluation';
+  $('again').textContent = watching ? 'Take this simulation yourself' : 'Run it again';
   $('eval-title').textContent = e.title;
   $('eval-summary').textContent = e.summary;
   // How rare this ending is, from the simulator's own trials with orders given at random.
@@ -256,7 +332,7 @@ function showEval() {
   $('eval-archive').innerHTML = rare ? `<b>Examiners’ archive</b> ${esc(rare)}` : '';
   // Said when it is made, not left for the briefing's record card: a first sight of this ending, and any grade that
   // beat the best on record. (The endings not seen yet stay unnamed: only the count goes up.)
-  $('eval-firsts').hidden = !firsts?.newEnding;
+  $('eval-firsts').hidden = !firsts?.newEnding || !!watching;
   $('eval-firsts').textContent = firsts?.newEnding ? `New ending · ${firsts.endingsSeen} of ${ENDINGS.length} seen` : '';
   // The four grades arrive one after another, as an arrival's log does on the bridge.
   const stagger = k => (still.matches ? '' : ` style="animation: rise .5s ${(0.15 + k * 0.14).toFixed(2)}s both"`);
@@ -662,7 +738,24 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 $('start').addEventListener('click', () => start(false));
 $('resume').addEventListener('click', resume);
 $('rewrite').addEventListener('click', () => start(true));
-$('again').addEventListener('click', () => { showBrief(); $('start').focus({ preventScroll: true }); });
+$('again').addEventListener('click', () => {
+  if (watching) {
+    // The same simulation, the same dice: today's, if that is what they shared.
+    const { seed } = watching, day = today();
+    history.replaceState(null, '', location.pathname + location.search);
+    start(false, { seed, day: seed === dailySeed(day) ? day : '' });
+    return;
+  }
+  showBrief();
+  $('start').focus({ preventScroll: true });
+});
+$('daily-start').addEventListener('click', () => { const day = today(); start(false, { seed: dailySeed(day), day }); });
+$('daily-share').addEventListener('click', e => {
+  const d = saved.daily, url = `${LIVE}maru.html#run=${d.run}`;
+  share(e.currentTarget, { title: 'Kobayashi Maru', text: d.line, url, copy: `${d.line}\n${url}` });
+});
+$('share-run').addEventListener('click', e => shareRun(e.currentTarget));
+$('skip').addEventListener('click', skipWatched);
 $('orders').addEventListener('click', e => {
   const b = e.target.closest('.order');
   if (b && b.getAttribute('aria-disabled') !== 'true') give(b.dataset.id);
@@ -682,9 +775,10 @@ watch(KEY, () => {
 // record now, as it would have.
 {
   const back = replay(saved.game);
-  if (back?.game.over) { g = back.game; gameId = typeof saved.game.id === 'string' ? saved.game.id : newId(); record(); g = null; lastEval = null; }
+  if (back?.game.over) { g = back.game; gameId = typeof saved.game.id === 'string' ? saved.game.id : newId(); daily = typeof saved.game.daily === 'string' ? saved.game.daily : ''; record(); g = null; lastEval = null; daily = ''; }
   else if (!back && saved.game) delete saved.game;
 }
-showBrief();
+const shared = openedRun();
+if (shared) watchRun(shared); else showBrief();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.maru = { get game() { return g; }, start, resume, give, get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU, get draws() { return draws; } };
+window.maru = { get game() { return g; }, start, resume, give, watch: watchRun, skip: skipWatched, get watching() { return watching; }, get given() { return given.slice(); }, daily: () => $('daily-start').click(), get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU, get draws() { return draws; } };

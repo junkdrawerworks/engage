@@ -7,14 +7,14 @@ export const LIVE = 'https://engage.junkdrawer.works/';
 
 // `button` is the button that was pressed: it carries the "Link copied" note. Resolves to how it went:
 // 'shared', 'cancelled', 'copied' or 'shown'.
-export async function share(button, { title, text, url }) {
+export async function share(button, { title, text, url, copy = url }) {
   if (navigator.share) {
     try { await navigator.share({ title, text, url }); return 'shared'; } catch (e) {
       if (e?.name === 'AbortError') return 'cancelled'; // the person closed the sheet
     }
   }
   try {
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(copy);
     note(button, 'Link copied');
     return 'copied';
   } catch { /* no clipboard here either */ }

@@ -50,6 +50,11 @@
         <button class="primary" id="resume" type="button" hidden>Resume the simulation</button>
         <p class="resume-note" id="resume-note" hidden></p>
         <button class="primary" id="start" type="button">Take command</button>
+        <div class="daily" id="daily">
+          <button class="secondary" id="daily-start" type="button">Today’s simulation</button>
+          <p class="daily-note" id="daily-note">The same dice for every cadet today.</p>
+          <button class="text-button" id="daily-share" type="button" hidden>Share</button>
+        </div>
         <button class="text-button" id="rewrite" type="button" hidden>Reprogram the simulator</button>
       </div>
       <div class="card record" id="record" hidden>
@@ -72,6 +77,10 @@
         <p class="caption" id="caption" aria-hidden="true"></p>
       </div>
       <div class="side">
+        <div class="watching" id="watching" hidden>
+          <p id="watching-text" aria-live="polite"></p>
+          <button class="text-button" id="skip" type="button">Skip to the evaluation</button>
+        </div>
         <div class="status" id="status" role="group" aria-label="Ship status">
           <div class="gauge"><span class="g-k">Hull</span><span class="g-v" id="hull"></span><span class="bar"><i id="hull-bar"></i></span></div>
           <div class="gauge"><span class="g-k">Shields</span><span class="g-v" id="shields"></span><span class="bar"><i id="shields-bar"></i></span></div>
@@ -85,7 +94,7 @@
 
     <section id="eval" hidden aria-label="Evaluation">
       <div class="card evaluation">
-        <p class="eyebrow">Starfleet Academy · Evaluation</p>
+        <p class="eyebrow" id="eval-eyebrow">Starfleet Academy · Evaluation</p>
         <h2 id="eval-title" tabindex="-1"></h2>
         <p class="firsts" id="eval-firsts" hidden></p>
         <p class="summary" id="eval-summary"></p>
@@ -99,6 +108,7 @@
           <a class="secondary" id="to-bridge" href="./">Back to the bridge</a>
           <button class="primary" id="again" type="button">Run it again</button>
         </div>
+        <p class="share-row"><button class="text-button" id="share-run" type="button">Share this run</button></p>
       </div>
     </section>
   </main>
