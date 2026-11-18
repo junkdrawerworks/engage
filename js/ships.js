@@ -101,3 +101,14 @@ export const SHIPS = [
 ];
 
 export const byId = id => SHIPS.find(s => s.id === id);
+
+// Where a hail stands. `sent` is when it left (ms, or nothing if never), `lightMs` the one-way light time now.
+//   idle: nothing sent · outbound: on its way out · inbound: it has arrived and her answer could be on its way back
+//   done: the answer could be home (or she is silent and it has arrived), so another can go
+// A hail still in flight is never replaced: the wait is the point, and sending again would start it over.
+export function hailState(sent, lightMs, now, silent = false) {
+  if (!Number.isFinite(sent) || sent > now) return 'idle'; // a time in the future is a clock that was changed
+  if (now < sent + lightMs) return 'outbound';
+  if (!silent && now < sent + 2 * lightMs) return 'inbound';
+  return 'done';
+}

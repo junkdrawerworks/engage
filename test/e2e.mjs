@@ -375,8 +375,34 @@ assert.equal(await text('#ship-name'), 'Voyager 1');
 assert.match(await text('#sun-km'), /^\d{2},\d{3},\d{3},\d{3} km$/);
 assert.match(await text('#signal'), /\d+ h \d\d m \d\d s/);
 assert.equal(await page.locator('.ship-tab').count(), 6);
+assert.equal(await text('#hail'), 'HAIL HER');
 await page.click('#hail');
 assert.match(await text('#hail-note'), /of the way there/);
+// A hail in flight is not replaced by tapping again: the button says it is on its way and the time it left stays.
+assert.equal(await text('#hail'), 'HAIL ON ITS WAY');
+const hailed = await page.evaluate(() => JSON.parse(localStorage.getItem('engage.missions.v1')).hails.v1);
+await page.waitForTimeout(60);
+await page.click('#hail');
+await page.click('#hail');
+assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.missions.v1')).hails.v1), hailed, 'a second tap wiped the hail already on its way');
+// The day after, with the hail arrived and her answer still crossing, it still can't be wiped; once the answer could be home, it can.
+await page.evaluate(() => { missions.hails.v1 = Date.now() - 30 * 3600e3; });
+await page.waitForFunction(() => document.getElementById('hail').textContent === 'Waiting for her answer');
+assert.match(await text('#hail-note'), /If she answered at once/);
+await page.click('#hail');
+assert.ok(Math.abs(await page.evaluate(() => Date.now() - missions.hails.v1) - 30 * 3600e3) < 5000, 'a tap wiped a hail whose answer was still due');
+await page.evaluate(() => { missions.hails.v1 = Date.now() - 60 * 3600e3; });
+await page.waitForFunction(() => document.getElementById('hail').textContent === 'Hail her again');
+await page.click('#hail');
+assert.ok(await page.evaluate(() => Date.now() - JSON.parse(localStorage.getItem('engage.missions.v1')).hails.v1) < 5000, 'a new hail could not be sent after the answer was due');
+assert.equal(await text('#hail'), 'HAIL ON ITS WAY');
+// A silent ship can't answer, so once the hail has reached her another can go.
+await page.locator('.ship-tab[data-id="p10"]').click();
+assert.equal(await text('#hail'), 'HAIL HER ANYWAY');
+await page.evaluate(() => { missions.hails.p10 = Date.now() - 30 * 3600e3; });
+await page.waitForFunction(() => document.getElementById('hail').textContent === 'Hail her again');
+await page.evaluate(() => { delete missions.hails.p10; });
+await page.locator('.ship-tab[data-id="v1"]').click();
 await page.locator('.ship-tab[data-id="jwst"]').click();
 assert.equal(await page.evaluate(() => missions.view), 'earth', 'Webb did not open the near-Earth view');
 assert.match(await text('#signal'), /seconds/);

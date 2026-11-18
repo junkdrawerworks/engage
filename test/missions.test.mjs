@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jdOf, dateOf, readings, stateAt, earthAt, planetAt, heading, whenAbove, jwstFromEarth, jwstAroundL2, trackUntil, LIGHT_DAY_AU, AU_KM } from '../js/ephemeris.js';
-import { SHIPS } from '../js/ships.js';
+import { SHIPS, hailState } from '../js/ships.js';
 
 const at = iso => jdOf(new Date(iso));
 
@@ -88,4 +88,31 @@ test('every ship has a file to read', () => {
     assert.ok(s.name && s.tagline && s.now && s.log.length && s.bound.text, s.id);
     assert.doesNotThrow(() => readings(s.id, at('2026-10-10')));
   }
+});
+
+test('a hail goes out, waits for its answer, and only then can another be sent', () => {
+  const sent = Date.UTC(2026, 10, 18, 12), lt = 23.5 * 3600e3; // Voyager 1 is about 23 and a half light-hours out
+  assert.equal(hailState(undefined, lt, sent), 'idle');
+  assert.equal(hailState(null, lt, sent), 'idle');
+  assert.equal(hailState(NaN, lt, sent), 'idle');
+  assert.equal(hailState(sent, lt, sent), 'outbound');
+  assert.equal(hailState(sent, lt, sent + lt - 1), 'outbound');
+  assert.equal(hailState(sent, lt, sent + lt), 'inbound');
+  assert.equal(hailState(sent, lt, sent + 2 * lt - 1), 'inbound', 'the day-two visitor could wipe a hail whose answer is still due');
+  assert.equal(hailState(sent, lt, sent + 2 * lt), 'done');
+  assert.equal(hailState(sent, lt, sent + 400 * 864e5), 'done');
+  // A silent ship never answers, so there is nothing to wait for once the hail has arrived.
+  assert.equal(hailState(sent, lt, sent + lt - 1, true), 'outbound');
+  assert.equal(hailState(sent, lt, sent + lt, true), 'done');
+  // A hail stamped in the future (the clock was changed) doesn't lock the button.
+  assert.equal(hailState(sent + 5000, lt, sent), 'idle');
+  // The states come in order and never go back as time passes.
+  const order = ['outbound', 'inbound', 'done'];
+  let last = 0;
+  for (let t = sent; t <= sent + 3 * lt; t += lt / 16) {
+    const k = order.indexOf(hailState(sent, lt, t));
+    assert.ok(k >= last, `went back to ${order[k]} at ${t - sent} ms`);
+    last = k;
+  }
+  assert.equal(last, 2);
 });

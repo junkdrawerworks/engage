@@ -1,6 +1,6 @@
 // Long missions: where the Voyagers, New Horizons, Webb and the Pioneers are right now, on a map and in numbers,
 // with a hail you can send and watch crawl out to them at the speed of light.
-import { SHIPS, byId } from './ships.js';
+import { SHIPS, byId, hailState } from './ships.js';
 import {
   AU_KM, LIGHT_DAY_AU, jdOf, dateOf, readings, trackUntil, planetAt, earthAt, semiMajor,
   jwstFromEarth, jwstSpan, jwstAroundL2, moonAt, whenAbove,
@@ -108,7 +108,6 @@ function fillFile(ship) {
   $('ship-record').textContent = ship.record || '';
   $('ship-record').hidden = !ship.record;
   $('launched').textContent = `since launch on ${fmtDate(new Date(ship.launched + 'T12:00:00Z'), { timeZone: 'UTC' })}`;
-  $('hail').textContent = ship.status === 'silent' ? 'Hail her anyway' : 'Hail her';
   next = milestone(ship);
 }
 
@@ -128,12 +127,25 @@ function milestone(ship) {
 
 // ---------- Hailing ----------
 
+// Sends a hail, unless one is still out or its answer still due: then the button only replays the sweep along the
+// line, and the hail already crossing keeps the time it left.
 function hail() {
   const now = Date.now();
-  saved.hails[sel] = now;
-  save();
+  const ship = byId(sel);
+  const state = hailState(saved.hails[sel], readings(sel, jdOf(now)).lightSeconds * 1000, now, ship.status === 'silent');
+  if (state === 'idle' || state === 'done') {
+    saved.hails[sel] = now;
+    save();
+  }
   pulses.push({ id: sel, t: performance.now() });
   tick(true);
+}
+
+function hailLabel(ship, state) {
+  if (state === 'outbound') return 'Hail on its way';
+  if (state === 'inbound') return 'Waiting for her answer';
+  if (state === 'done') return 'Hail her again';
+  return ship.status === 'silent' ? 'Hail her anyway' : 'Hail her';
 }
 
 function hailText(ship, r, nowMs) {
@@ -180,6 +192,12 @@ function tick(force = false) {
   $('signal-note').textContent = 'one way, at the speed of light';
   $('age').textContent = missionAge(new Date(ship.launched + 'T12:00:00Z'), new Date(nowMs));
   $('hail-note').textContent = hailText(ship, r, nowMs);
+  const state = hailState(saved.hails[sel], r.lightSeconds * 1000, nowMs, ship.status === 'silent');
+  if ($('hail').dataset.state !== `${sel}:${state}`) {
+    $('hail').dataset.state = `${sel}:${state}`;
+    $('hail').textContent = hailLabel(ship, state);
+    $('hail').classList.toggle('waiting', state === 'outbound' || state === 'inbound');
+  }
 
   const n = $('next');
   n.hidden = !next;
@@ -496,4 +514,4 @@ bind();
 choose(sel);
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.missions = { get sel() { return sel; }, get view() { return view; }, readings, choose, nearLabels };
+window.missions = { get sel() { return sel; }, get view() { return view; }, get hails() { return saved.hails; }, readings, choose, nearLabels };

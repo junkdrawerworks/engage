@@ -51,6 +51,7 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 
 .hail { margin: 12px 0 0; padding: 14px; border-radius: 16px; border: 1px solid rgba(134, 216, 255, 0.25); background: rgba(134, 216, 255, 0.05); }
 .hail .primary { width: 100%; }
+.hail .primary.waiting { background: none; border: 1px solid rgba(134, 216, 255, 0.45); color: var(--cyan); box-shadow: none; }
 .hail p { margin: 10px 0 0; font-size: 14px; }
 .next { margin: 12px 0 0 !important; padding: 10px 12px; border-left: 3px solid var(--ship); background: rgba(255, 255, 255, 0.03); border-radius: 0 12px 12px 0; font-size: 14px; }
 .next b { display: block; font: 600 11px/1.5 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ship); }
