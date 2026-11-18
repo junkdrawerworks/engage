@@ -1,5 +1,5 @@
 // The planetary survey: flip through the planet classes, or match an unlogged world to the file it would pass for.
-import { CLASSES, byId, label, quizReadings } from './classes.js';
+import { CLASSES, byId, label, quizReadings, grows } from './classes.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
 
 const KEY = 'engage.survey.v1';
@@ -134,8 +134,10 @@ function fileHtml(c) {
   ];
   const worlds = c.worlds.map(w => {
     const fly = w.star ? `<a class="fly" href="${BRIDGE}?course=${encodeURIComponent(w.star)}"${AWAY}>Set course <span aria-hidden="true">→</span></a>` : '';
+    // Where the planet's own mass, temperature and star are on file, the lab can grow something for it and not just its class.
+    const life = grows(w) ? `<a class="fly" href="${XENO}#world=${encodeURIComponent(w.name)}"${AWAY}>Grow a creature for ${esc(w.name)} <span aria-hidden="true">→</span></a>` : '';
     const tag = w.misfit ? '<span class="misfit">Doesn’t fit the readings above</span>' : '';
-    return `<li><div class="w-head"><b>${esc(w.name)}</b><span class="ly">${esc(lyText(w.ly))} ly</span></div>${tag}<p>${esc(w.note)}</p>${fly}</li>`;
+    return `<li><div class="w-head"><b>${esc(w.name)}</b><span class="ly">${esc(lyText(w.ly))} ly</span></div>${tag}<p>${esc(w.note)}</p>${fly || life ? `<div class="w-links">${fly}${life}</div>` : ''}</li>`;
   }).join('');
   return `
     <p class="eyebrow">${c.letter ? 'Starfleet survey file' : 'Found by astronomers'}</p>

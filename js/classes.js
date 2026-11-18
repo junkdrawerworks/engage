@@ -8,6 +8,16 @@
 // and `mass` (against Earth's) are given, they are the NASA Exoplanet Archive's, and the test holds them to the file's
 // ranges. A world that is on a file for another reason and doesn't fit its readings is marked `misfit`, its note says
 // why it is there, and the file says so beside it.
+// A world with `teq` and `sun` as well as a mass is one the xenobiology lab can grow a creature for (growFor in
+// js/xeno-gen.js): `teq` is its equilibrium temperature in kelvin, what its star's light alone would warm it to;
+// `sun` is its star's kind as the lab names them ('red', 'orange', 'yellow'); `least` says the mass is a minimum
+// (found from the star's wobble, which can't tell how the orbit is tilted) and then no width has been measured;
+// `habitats` and `places` narrow where on it the lab looks. Each is the NASA Exoplanet Archive's composite value
+// (exoplanetarchive.ipac.caltech.edu, table pscomppars, read 18 November 2026), with the paper it comes from beside it.
+// GJ 1214 b and Gliese 436 b have all four numbers and no button: at 567 K and 686 K where the star's light is taken
+// in, and hotter below, neither has the mild ocean the lab's sub-Neptune and ice-giant rules are written for.
+// TRAPPIST-1 b has none because the planetoid rules speak of day and night, and it keeps one face to its star.
+// The giants have none because no "if it is rock" width can be worked out for them.
 
 import { massFor } from './physics.js';
 
@@ -21,9 +31,12 @@ export const CLASSES = [
     tell: 'Breathable air, open oceans and animal life together: only Class M has all three.',
     home: 'Earth, and nowhere else in the Solar System.',
     worlds: [
-      { name: 'Proxima b', star: 'Proxima Centauri', ly: 4.2, mass: 1.06, note: 'About Earth’s mass, in the zone where water could be liquid. Nobody yet knows whether it has air at all; its star’s flares may have stripped it.' },
-      { name: 'Teegarden’s Star b', star: 'Teegarden\'s Star', ly: 12.5, note: 'One of the most Earth-like planets known by size and by the light it gets.' },
-      { name: 'TRAPPIST-1 e', star: 'TRAPPIST-1', ly: 40.7, width: 0.92, mass: 0.69, note: 'A little smaller than Earth, in the middle of its star’s temperate zone. Webb is looking for an atmosphere.' },
+      // Minimum mass 1.055 and 218 K: Suárez Mascareño et al. 2025 (A&A 700, A11). Proxima is an M5.5 V red dwarf.
+      { name: 'Proxima b', star: 'Proxima Centauri', ly: 4.2, mass: 1.055, least: true, teq: 218, sun: 'red', note: 'About Earth’s mass, in the zone where water could be liquid. Nobody yet knows whether it has air at all; its star’s flares may have stripped it.' },
+      // Minimum mass 1.16 and 277 K: Dreizler et al. 2024 (A&A 684, A117). An M7.0 V red dwarf.
+      { name: 'Teegarden’s Star b', star: 'Teegarden\'s Star', ly: 12.5, mass: 1.16, least: true, teq: 277, sun: 'red', note: 'One of the most Earth-like planets known by size and by the light it gets.' },
+      // 0.920 widths and 0.692 masses: Agol et al. 2021 (PSJ 2, 1). 249.7 K: Ducrot et al. 2020 (A&A 640, A112). An M8.0 V red dwarf.
+      { name: 'TRAPPIST-1 e', star: 'TRAPPIST-1', ly: 40.7, width: 0.92, mass: 0.692, teq: 249.7, sun: 'red', note: 'A little smaller than Earth, in the middle of its star’s temperate zone. Webb is looking for an atmosphere.' },
     ],
     candidate: true,
   },
@@ -78,7 +91,9 @@ export const CLASSES = [
     tell: 'Nearly all ocean with a few specks of land: Class O.',
     home: 'None on the surface. Jupiter’s moon Europa and Saturn’s moon Enceladus have salty oceans under their ice.',
     worlds: [
-      { name: 'K2-18 b', ly: 124, width: 2.4, mass: 8.9, misfit: true, note: 'About two and a half times Earth’s width and nine times its mass: far too big for a true Class O, and by size a sub-Neptune. It is on this file because it is in its star’s temperate zone and may have an ocean under its hydrogen air. Webb found methane and carbon dioxide; whether the ocean is there is hotly argued.' },
+      // 2.37 widths, 8.92 masses and 284 K: Sarkis et al. 2018 (AJ 155, 257). An M2.5 V red dwarf. If it has a sea it has
+      // neither shore nor floor, so the lab looks only in open water.
+      { name: 'K2-18 b', ly: 124, width: 2.37, mass: 8.92, teq: 284, sun: 'red', habitats: ['sea'], places: ['open ocean'], misfit: true, note: 'About two and a half times Earth’s width and nine times its mass: far too big for a true Class O, and by size a sub-Neptune. It is on this file because it is in its star’s temperate zone and may have an ocean under its hydrogen air. Webb found methane and carbon dioxide; whether the ocean is there is hotly argued.' },
     ],
     candidate: true,
   },
@@ -91,7 +106,8 @@ export const CLASSES = [
     tell: 'Ice from pole to pole under thin, cold air: a glaciated Class P.',
     home: 'None today, but Earth itself froze over at least twice, about 700 million years ago.',
     worlds: [
-      { name: 'LHS 1140 b', ly: 49, width: 1.73, mass: 5.6, misfit: true, note: 'About 1.7 times Earth’s width and 5.6 times its mass: heavier than this file allows, a super-Earth by size. It is here because it is cold enough, and may be an “eyeball”: ice everywhere except an open ocean facing its star.' },
+      // 1.73 widths, 5.60 masses and 226 K: Cadieux et al. 2024 (ApJ 960, L3). An M4.5 V red dwarf.
+      { name: 'LHS 1140 b', ly: 49, width: 1.73, mass: 5.6, teq: 226, sun: 'red', misfit: true, note: 'About 1.7 times Earth’s width and 5.6 times its mass: heavier than this file allows, a super-Earth by size. It is here because it is cold enough, and may be an “eyeball”: ice everywhere except an open ocean facing its star.' },
     ],
     candidate: true,
   },
@@ -191,7 +207,9 @@ export const CLASSES = [
     tell: 'A year shorter than a day and a day side of molten rock: a lava world.',
     home: 'None, though Jupiter’s moon Io is covered in volcanoes.',
     worlds: [
-      { name: '55 Cancri e', star: 'Copernicus', ly: 40.3, note: 'Twice Earth’s width, circling in 18 hours. Webb found signs of an atmosphere over its magma ocean in 2024.' },
+      // 1.875 widths and 7.99 masses: Bourrier et al. 2018 (A&A 619, A1). 1,958 K: Demory et al. 2011 (A&A 533, A114).
+      // 55 Cancri A is a G8 V star, a little cooler than the Sun.
+      { name: '55 Cancri e', star: 'Copernicus', ly: 40.3, width: 1.875, mass: 7.99, teq: 1958, sun: 'yellow', note: 'Twice Earth’s width, circling in 18 hours. Webb found signs of an atmosphere over its magma ocean in 2024.' },
     ],
   },
   {
@@ -246,6 +264,19 @@ export function quizReadings(c, rand = Math.random) {
   }
   return { width, mass, temp: between(t.temp), year: t.year ? between(t.year) : null };
 }
+
+// Whether the lab can grow a creature for a real world: it needs the world's own mass, temperature and star.
+export const grows = w => !!w && w.mass > 0 && w.teq > 0 && !!w.sun;
+// A real world by its name, with the file it is on: { world, cls }. Capitals and the kind of apostrophe don't matter,
+// since the name travels in links.
+const plain = s => String(s).toLowerCase().replace(/[’']/g, "'").trim();
+export function worldByName(name) {
+  const n = plain(name);
+  for (const cls of CLASSES) for (const world of cls.worlds) if (plain(world.name) === n) return { world, cls };
+  return null;
+}
+// Every world the lab grows for: [{ world, cls }].
+export const LAB_WORLDS = CLASSES.flatMap(cls => cls.worlds.filter(grows).map(world => ({ world, cls })));
 
 // The survey files that mention a star, for Engage's log: [{ world, cls }].
 export function filesForStar(name) {

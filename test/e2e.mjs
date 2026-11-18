@@ -267,6 +267,8 @@ assert.match(entry, /Proxima b’s orbit/);
 assert.match(entry, /Cassiopeia/, 'the log does not say where the Sun is');
 assert.match(entry, /in 1 day at warp 9/);
 assert.match(entry, /Proxima b: Class M candidate/, 'the log does not link to the planetary survey');
+// Beside it, a link to the lab, which has Proxima b's own readings to grow a creature from.
+assert.equal(await page.locator('#arrival-entry .files a', { hasText: 'Grow a creature for Proxima b' }).getAttribute('href'), 'xeno.html#world=Proxima%20b');
 assert.equal(await text('#where'), 'Proxima Centauri');
 assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'the helm stayed out of reach after arriving');
 // In the header, the stardate and the distance from home don't fit on one line of a phone here. The dot between them
@@ -1240,9 +1242,81 @@ assert.equal(await page.evaluate(() => xeno.jars.some(j => j.seed === 40)), fals
 await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
 await page.goto(base + 'survey.html#O');
 await page.waitForFunction(() => window.survey);
-await Promise.all([page.waitForNavigation(), page.locator('#file a', { hasText: 'Grow a creature' }).click()]);
+await Promise.all([page.waitForNavigation(), page.locator('#file a', { hasText: 'Grow a creature for Class O' }).click()]);
 await page.waitForFunction(() => window.xeno?.current);
 assert.equal(await page.evaluate(() => xeno.current.classId), 'O');
+// A creature for a real planet. The Class M file's planets each have their own link beside Set course; the lab grows
+// one from TRAPPIST-1 e's own width, mass, temperature and star, and the link, a reload and a jar all bring it back.
+await page.goto(base + 'survey.html#M');
+await page.waitForFunction(() => window.survey);
+assert.deepEqual(await page.locator('#file .worlds a', { hasText: 'Grow a creature for' }).allInnerTexts().then(l => l.map(t => t.replace(/\s*→$/, ''))),
+  ['GROW A CREATURE FOR PROXIMA B', 'GROW A CREATURE FOR TEEGARDEN’S STAR B', 'GROW A CREATURE FOR TRAPPIST-1 E']);
+assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the survey scrolls sideways with the lab’s links');
+await Promise.all([page.waitForNavigation(), page.locator('#file a', { hasText: 'Grow a creature for TRAPPIST-1 e' }).click()]);
+await page.waitForFunction(() => window.xeno?.current);
+{
+  const grown = () => page.evaluate(() => ({ world: xeno.current.world?.name, seed: xeno.current.seed, name: xeno.current.name.common, g: xeno.current.env.g, star: xeno.current.env.star, hash: location.hash }));
+  const first = await grown();
+  assert.equal(first.world, 'TRAPPIST-1 e');
+  assert.equal(first.hash, `#world=TRAPPIST-1%20e-${first.seed}`);
+  assert.ok(Math.abs(first.g - 0.692 / 0.92 ** 2) < 1e-9 && first.star === 'red', 'the creature was not grown from the planet’s own readings');
+  assert.equal(await text('#tank-tag'), `TRAPPIST-1 E · SPECIMEN ${String(first.seed).padStart(4, '0')}`);
+  assert.equal(await text('#specimen .eyebrow'), 'GROWN FOR TRAPPIST-1 E, 40.7 LIGHT YEARS AWAY');
+  assert.equal(await page.locator('#specimen .notes li').count(), 5);
+  assert.match(await text('#specimen .notes li:last-child'), /^WHAT WE REALLY KNOW\s+A little smaller than Earth/);
+  assert.match(await text('#specimen .notes li:first-child'), /TRAPPIST-1 e is 0\.92 times as wide as Earth and 0\.69 times as heavy/);
+  assert.match(await text('#specimen .odds'), /That is if TRAPPIST-1 e is the kind of place its file hopes for/);
+  assert.equal(await page.locator('#strip .chip[aria-current="true"]').getAttribute('data-id'), 'M');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the lab scrolls sideways with a real planet’s creature');
+  await page.reload();
+  await page.waitForFunction(() => window.xeno?.current);
+  assert.deepEqual(await grown(), first, 'a reload grew a different creature for TRAPPIST-1 e');
+  // Kept, it goes in a jar under the planet's name, and the jar opens the same one after other creatures and a reload.
+  await page.click('#keep');
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars), [{ world: 'TRAPPIST-1 e', seed: first.seed }]);
+  assert.equal(await text('#jars .jar-cls'), 'TRAPPIST-1 e');
+  // Send this creature shares the planet's link.
+  await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
+  await page.click('#send');
+  const shared = await page.evaluate(() => window.shared);
+  assert.equal(shared.url, `https://junkdrawer.works/engage/xeno.html#world=TRAPPIST-1%20e-${first.seed}`);
+  assert.ok(shared.text.includes('grown for TRAPPIST-1 e in'), shared.text);
+  // Grow another stays with the planet; the class's own creature with the same number is a different animal, and
+  // isn't the one in the jar.
+  await page.click('#again');
+  const second = await grown();
+  assert.equal(second.world, 'TRAPPIST-1 e');
+  assert.notEqual(second.seed, first.seed);
+  assert.equal(await text('#keep'), 'KEEP IN A JAR');
+  await page.evaluate(n => xeno.show('M', n, false), first.seed);
+  assert.equal(await text('#keep'), 'KEEP IN A JAR', 'Class M’s creature was taken for the one kept for TRAPPIST-1 e');
+  assert.equal(await page.evaluate(() => xeno.current.world), undefined);
+  await page.reload();
+  await page.waitForFunction(() => window.xeno?.current);
+  assert.equal(await page.locator('#jars .jar').count(), 1, 'the jar for a real planet did not last a reload');
+  await page.click('#jars .jar-open');
+  assert.deepEqual(await grown(), first, 'the jar opened a different creature');
+  assert.equal(await text('#keep'), 'IN A JAR');
+  // The shared link, opened cold, and the other planets on the file from the card.
+  await page.goto(base + 'xeno.html#M-1');
+  await page.goto(shared.url.replace('https://junkdrawer.works/engage/', base));
+  await page.waitForFunction(n => window.xeno?.current?.seed === n && !!xeno.current.world, first.seed);
+  assert.deepEqual(await grown(), first, 'the shared link grew a different creature');
+  await page.locator('#specimen .for-real a', { hasText: 'Proxima b' }).click();
+  await page.waitForFunction(() => xeno.current.world?.name === 'Proxima b');
+  assert.match(await text('#specimen .notes li:first-child'), /GRAVITY · 1 G, IF IT IS ROCK\s+Proxima b is at least 1\.06 times as heavy as Earth/);
+  // A planet the lab has no readings for, or no planet at all, is no link: the lab opens as usual. Class links go on working.
+  for (const [hash, want] of [['#world=GJ%201214%20b-5', null], ['#world=Vulcan-5', null], ['#world=proxima%20b-42', 'Proxima b'], ['#M-42', undefined]]) {
+    await page.goto(base + 'xeno.html');
+    await page.goto(base + 'xeno.html' + hash);
+    await page.reload();
+    await page.waitForFunction(() => window.xeno?.current);
+    const got = await grown();
+    if (want === null) assert.deepEqual([got.world, /^#M-\d+$/.test(got.hash)], [undefined, true], `${hash} grew ${JSON.stringify(got)}`);
+    else assert.deepEqual([got.world, got.seed], [want, 42], `${hash} grew ${JSON.stringify(got)}`);
+  }
+  await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
+}
 await page.goto(base);
 await bridgeReady();
 

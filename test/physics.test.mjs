@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor } from '../js/physics.js';
+import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor, widthFor } from '../js/physics.js';
 import { describeKind, homeLines, composeEntry, inTextFor, logRecords, titleFor, tripLine } from '../js/log.js';
 import { DESTINATIONS } from '../js/destinations.js';
 import { CLASSES, quizReadings } from '../js/classes.js';
@@ -279,7 +279,12 @@ test('a world’s mass goes with its width', () => {
   for (let w = 0.1; w < 4.5; w += 0.05) {
     assert.ok(massFor(w + 0.05) > massFor(w) && massFor(w + 0.05, 'gas') > massFor(w, 'gas'), `a wider world came out lighter at ${w}`);
     assert.ok(massFor(w) / w ** 3 >= 0.5, `rock ${w} wide came out less dense than loose rock`);
+    // And back again: the width of a rocky world from its mass, for a planet whose width nobody has measured.
+    within(widthFor(massFor(w)), w, 1e-9, `the width of a rocky world as heavy as one ${w} wide`);
   }
+  assert.equal(widthFor(1), 1);
+  within(widthFor(0.815), 0.949, 0.02, 'Venus, from its mass');
+  within(widthFor(0.107), 0.532, 0.02, 'Mars, from its mass');
 });
 
 test('Cover your tracks never invents an impossible planet', () => {

@@ -4,7 +4,7 @@ import { Sky } from './sky.js';
 import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { composeEntry, describeKind, inTextFor, logRecords, notesFor, titleFor } from './log.js';
-import { filesForStar, label as classLabel } from './classes.js';
+import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, pairLetters, search } from './search.js';
 import { LIVE, share } from './share.js';
 import {
@@ -15,6 +15,8 @@ const KEY = 'engage.v1';
 // The planetary survey page. The single-file copy points this at the live site.
 const SURVEY = 'survey.html';
 const AWAY = SURVEY.startsWith('http') ? ' target="_blank" rel="noopener"' : '';
+// The xenobiology lab, beside it.
+const XENO = SURVEY.replace('survey.html', 'xeno.html');
 // Tonight's sky, likewise.
 const TONIGHT = 'tonight.html';
 const $ = id => document.getElementById(id);
@@ -638,7 +640,9 @@ function surveyLinks(i, style) {
   if (!files.length) return '';
   return `<dd class="files"${style}>${files.map(({ world, cls }) =>
     // A planet that is on a file without fitting its readings (TRAPPIST-1 b, bare rock but Earth-sized) isn't called that class.
-    `<a href="${SURVEY}#${encodeURIComponent(cls.id)}"${AWAY}>${esc(world.name)}: ${world.misfit ? `on the ${esc(classLabel(cls))} file` : `${esc(classLabel(cls))}${cls.candidate ? ' candidate' : ''}`}</a>`).join('')}</dd>`;
+    `<a href="${SURVEY}#${encodeURIComponent(cls.id)}"${AWAY}>${esc(world.name)}: ${world.misfit ? `on the ${esc(classLabel(cls))} file` : `${esc(classLabel(cls))}${cls.candidate ? ' candidate' : ''}`}</a>`
+    // and, where the lab has the planet's own readings, to a creature grown for it.
+    + (grows(world) ? `<a class="to-lab" href="${XENO}#world=${encodeURIComponent(world.name)}"${AWAY}>Grow a creature for ${esc(world.name)}</a>` : '')).join('')}</dd>`;
 }
 
 function renderLog() {

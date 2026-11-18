@@ -1,8 +1,8 @@
 // The xenobiology lab's rules: from a planet class and a seed, the conditions where a creature lives there, the body
 // those conditions would push it toward, and the field notes that explain why. Pure, so test/xeno.test.mjs can run it.
 // The art is in js/xeno-art.js; this only decides what to draw.
-import { byId, label } from './classes.js';
-import { massFor } from './physics.js';
+import { byId, label, grows, worldByName } from './classes.js';
+import { massFor, widthFor } from './physics.js';
 
 // Where life could live on each kind of world, and what the air is like there.
 // `habitats` is drawn from at random (repeat one to make it likelier). `pressure` is in Earth atmospheres where it lives.
@@ -37,8 +37,13 @@ export const ODDS = {
   wild: 'Pure speculation. Nothing on Earth could survive here, so the lab is guessing at a different chemistry.',
 };
 
-// How seriously to take one creature: the line for its world, worded for what was grown.
-export const oddsFor = c => (c.body.plan === 'plant' ? ODDS[c.odds].replace('animals like it', 'plants like it') : ODDS[c.odds]);
+// How seriously to take one creature: the line for its world, worded for what was grown. One grown for a real planet
+// that is only a candidate for its file (nobody knows yet that Proxima b is Class M) says that first.
+export function oddsFor(c) {
+  const line = c.body.plan === 'plant' ? ODDS[c.odds].replace('animals like it', 'plants like it') : ODDS[c.odds];
+  if (!c.world || !c.cls.candidate) return line;
+  return line.replace('. ', `. That is if ${c.world.name} is the kind of place its file hopes for, which nobody knows yet. `);
+}
 
 export const STARS = {
   yellow: { name: 'a yellow star like the Sun', color: [255, 244, 214] },
@@ -91,32 +96,79 @@ function pressureText(p) {
 
 // Everything about one creature, decided from its class and seed alone: grow('M', 7) is always the same animal.
 export function grow(classId, seed) {
+  return make(classId, seed, null);
+}
+
+// A creature for a real planet: the same rules, with the planet's own width, mass, temperature and star in place of
+// the ones grow() draws. `world` is one of the survey's real worlds, or its name; the file it is on still decides
+// where on it life could be and how thick the air is, since nobody has measured those. growFor('Proxima b', 7) is
+// always the same animal too.
+export function growFor(world, seed) {
+  const found = worldByName(typeof world === 'string' ? world : world?.name);
+  if (!found || !grows(found.world)) throw new Error(`No readings to grow for: ${typeof world === 'string' ? world : world?.name}`);
+  return make(found.cls.id, seed, found.world);
+}
+
+function make(classId, seed, world) {
   const cls = byId.get(classId);
   const W = WORLDS[classId];
   if (!cls || !W) throw new Error(`No such class: ${classId}`);
-  const r = rng(hash(classId) ^ seed);
+  const r = rng(hash(world ? `${classId}/${world.name}` : classId) ^ seed);
   const t = cls.typical;
 
   // The world: width and mass rise together, so the gravity stays near what that kind of planet really has.
   const k = r();
-  const width = lerp(t.width[0], t.width[1], clamp(k + (r() - 0.5) * 0.3, 0, 1));
+  let width = lerp(t.width[0], t.width[1], clamp(k + (r() - 0.5) * 0.3, 0, 1));
   // (A planetoid's range of masses is fifty-fold and its widths only four-fold, so for Class D the mass is what a
   // body that wide would weigh: its gravity then runs from a twentieth to a quarter of Earth's, as the Moon's does.)
-  const mass = classId === 'D' ? clamp(massFor(width), t.mass[0], t.mass[1]) : lerp(t.mass[0], t.mass[1], k);
+  let mass = classId === 'D' ? clamp(massFor(width), t.mass[0], t.mass[1]) : lerp(t.mass[0], t.mass[1], k);
+  // A real planet brings its own. Where only its mass is known, the width is what a rocky world that heavy would have.
+  if (world) { mass = world.mass; width = world.width || widthFor(mass); }
   const g = mass / (width * width);
-  const habitat = pick(r, W.habitats);
-  const temp = lerp(...(W.temp || (habitat === 'under-ice' ? [273, 283] : t.temp)), r());
+  const habitat = pick(r, world?.habitats || W.habitats);
+  let temp = lerp(...(W.temp || (habitat === 'under-ice' ? [273, 283] : t.temp)), r());
+  // (Under the ice the water is as warm as water under ice is, whatever the star does to the surface.)
+  if (world && habitat !== 'under-ice') temp = world.teq;
   const pressure = lerp(W.pressure[0], W.pressure[1], r());
-  const star = pick(r, W.stars);
+  let star = pick(r, W.stars);
+  if (world) star = world.sun;
   const dark = star === 'none' || habitat === 'under-ice' || (habitat === 'sea' && W.gas) || (habitat === 'burrow' && r() < 0.5);
   // Air's density against Earth's at sea level: pressure over temperature, and hydrogen weighs a fourteenth of our air.
   const density = pressure * (288 / temp) * (W.gas ? 2.3 / 29 : 1);
   const chem = temp > 450 ? 'silicon' : W.gas && habitat === 'sea' && temp > 300 && classId === 'ice-giant' ? 'ammonia' : temp < 255 && habitat !== 'under-ice' ? 'brine' : 'water';
   const env = { width, mass, g, habitat, temp, pressure, density, star, dark, chem, place: placeFor(classId, habitat, W, r), gas: !!W.gas };
+  if (world?.places) env.place = world.places[Math.floor(k * world.places.length)];
 
   const body = shape(env, classId, r);
   const name = names(env, body, classId, r);
-  return { cls, classId, seed, env, body, name, notes: notes(env, body, cls), odds: W.odds };
+  const c = { cls, classId, seed, env, body, name, notes: notes(env, body, cls), odds: W.odds };
+  if (world) { c.world = world; c.notes = worldNotes(c); }
+  return c;
+}
+
+// The field notes of a creature grown for a real planet: the same four, each opening with what is measured and what
+// is the lab's guess, and a fifth with what the survey file says of the planet itself.
+const fig = x => String(Math.round(x * 100 + 1e-6) / 100);
+const fileOf = cls => (cls.letter ? label(cls) : cls.name.toLowerCase());
+function worldNotes(c) {
+  const { world: w, env, cls } = c;
+  const gs = gText(env.g);
+  return [...c.notes.map(n => {
+    if (n.k === 'gravity') {
+      return w.width
+        ? { ...n, text: `${w.name} is ${fig(w.width)} times as wide as Earth and ${fig(w.mass)} times as heavy, which makes its pull ${gs}. ${n.text}` }
+        : { ...n, label: `${n.label}, if it is rock`, text: `${w.name} is ${w.least ? 'at least ' : ''}${fig(w.mass)} times as heavy as Earth, and nobody has measured its width. If it is rock it is about ${fig(env.width)} times as wide, which makes its pull about ${gs}. ${n.text}` };
+    }
+    if (n.k === 'air' && /^(The air|There is no air)/.test(n.text)) {
+      return { ...n, text: `How much air ${w.name} has isn’t known, so the lab used the ${fileOf(cls)} file’s. ${n.text}` };
+    }
+    if (n.k === 'heat') {
+      const lead = env.habitat === 'under-ice' ? `Its star’s light alone would warm ${w.name} to ${tempText(w.teq)}, so the lab froze its sea over.`
+        : `The lab took the temperature its star’s light alone would give ${w.name}${env.pressure >= 0.1 ? '; air would add to that, as Earth’s adds more than 30 degrees' : ''}.`;
+      return { ...n, text: `${lead} ${n.text}` };
+    }
+    return n;
+  }), { k: 'known', label: 'What we really know', text: w.note }];
 }
 
 function placeFor(classId, habitat, W, r) {
@@ -343,5 +395,5 @@ function notes(env, b, cls) {
 }
 
 export function summary(c) {
-  return `${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${label(c.cls)}`;
+  return `${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.world ? c.world.name : label(c.cls)}`;
 }

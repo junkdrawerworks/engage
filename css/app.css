@@ -149,6 +149,9 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .entry .files { margin: 8px 0 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .entry .files a { padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(134, 216, 255, 0.35); color: var(--cyan); text-decoration: none; font-size: 13px; }
 .entry .files a:hover { border-color: var(--cyan); }
+/* The link to the xenobiology lab, in the green of its flask. */
+.entry .files a.to-lab { border-color: rgba(111, 227, 164, 0.4); color: #6fe3a4; }
+.entry .files a.to-lab:hover { border-color: #6fe3a4; }
 .entry-actions { margin: 12px 0 2px; display: flex; flex-wrap: wrap; gap: 8px; }
 .entry-actions a, .entry-actions button { min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.03); color: var(--text); text-decoration: none; font: 600 12px/1 var(--display); letter-spacing: 0.05em; text-transform: uppercase; }
 .entry-actions a:hover, .entry-actions button:hover { border-color: var(--cyan); }

@@ -53,6 +53,8 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .misfit { display: inline-block; margin: 6px 0 2px; padding: 4px 8px; border: 1px solid rgba(255, 181, 74, 0.45); border-radius: 999px; font: 600 10px/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); }
 .fly { display: inline-block; margin-top: 4px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 6px 0; }
 .fly:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* Set course, and Grow a creature for it: side by side where there's room, one under the other on a phone. */
+.w-links { display: flex; flex-wrap: wrap; gap: 0 20px; }
 
 /* Thumbnails to flip through */
 .strip-wrap { margin: 14px -16px 0; }

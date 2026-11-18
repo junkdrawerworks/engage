@@ -30,8 +30,10 @@
 .notes li { padding: 10px 0; border-top: 1px solid var(--line); }
 .notes h3 { margin: 0 0 3px; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .notes p { margin: 0; color: #cdd5e3; }
-.specimen .to-file { display: inline-block; margin: 6px 0 4px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 6px 0; }
+.specimen .to-file { display: inline-block; margin: 6px 18px 4px 0; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 6px 0; }
 .specimen .to-file:hover { text-decoration: underline; text-underline-offset: 3px; }
+.specimen .for-real { margin: 10px 0 2px; font-size: 14px; color: var(--muted); }
+.specimen .for-real a { color: var(--cyan); text-underline-offset: 3px; }
 
 .section-head { margin: 28px 0 4px; font: 600 13px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .refs-sub { margin: 0 0 10px; color: var(--muted); font-size: 14px; }

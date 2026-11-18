@@ -1,7 +1,7 @@
 // The xenobiology lab: pick a planet class, grow a creature for it, read how the world shaped it, and keep the ones you like.
-import { CLASSES, byId, label } from './classes.js';
+import { CLASSES, byId, label, grows, worldByName } from './classes.js';
 import { Globe, paint } from './planet-art.js';
-import { grow, oddsFor } from './xeno-gen.js';
+import { grow, growFor, oddsFor } from './xeno-gen.js';
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
@@ -26,7 +26,9 @@ const tg = tank.getContext('2d');
 function load() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { /* start again */ }
-  const jars = Array.isArray(s.jars) ? s.jars.filter(j => j && byId.has(j.id) && Number.isInteger(j.seed)) : [];
+  // A jar holds a class and a specimen number, or a real planet's name and a number: { id, seed } or { world, seed }.
+  const known = j => (typeof j.world === 'string' ? grows(worldByName(j.world)?.world) : byId.has(j.id));
+  const jars = Array.isArray(s.jars) ? s.jars.filter(j => j && Number.isInteger(j.seed) && known(j)) : [];
   return { ...s, jars };
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* fine */ } }
@@ -35,11 +37,22 @@ const newSeed = () => 1 + Math.floor(Math.random() * 9999);
 
 // ---------- Growing ----------
 
-function show(id, seed = newSeed(), animate = true) {
-  current = grow(id, seed);
+// A creature for a class, or (showWorld) for one of the survey's real planets, by its name.
+function show(id, seed = newSeed(), animate = true) { put(grow(id, seed), animate); }
+function showWorld(name, seed = newSeed(), animate = true) { put(growFor(name, seed), animate); }
+
+// What names a creature: in its link (after the #), and in its jar.
+const linkOf = c => (c.world ? `world=${encodeURIComponent(c.world.name)}-${c.seed}` : `${encodeURIComponent(c.classId)}-${c.seed}`);
+const jarOf = c => (c.world ? { world: c.world.name, seed: c.seed } : { id: c.classId, seed: c.seed });
+const inJar = (j, c) => j.seed === c.seed && (c.world ? j.world === c.world.name : !j.world && j.id === c.classId);
+const growJar = j => (j.world ? growFor(j.world, j.seed) : grow(j.id, j.seed));
+const lyText = ly => (ly >= 100 ? Math.round(ly).toLocaleString('en-US') : String(ly));
+
+function put(c, animate) {
+  current = c;
   born = animate && !still.matches ? performance.now() : -1e9;
-  const c = current;
-  $('tank-tag').textContent = `${label(c.cls)} · Specimen ${String(seed).padStart(4, '0')}`;
+  const id = c.classId;
+  $('tank-tag').textContent = `${c.world ? c.world.name : label(c.cls)} · Specimen ${String(c.seed).padStart(4, '0')}`;
   $('specimen').innerHTML = cardHtml(c);
   renderKeep();
   renderRefs(id);
@@ -48,20 +61,24 @@ function show(id, seed = newSeed(), animate = true) {
     b.setAttribute('aria-current', on ? 'true' : 'false');
     if (on) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: still.matches ? 'auto' : 'smooth' });
   });
-  try { history.replaceState(null, '', `#${id}-${seed}`); } catch { /* fine */ }
+  try { history.replaceState(null, '', `#${linkOf(c)}`); } catch { /* fine */ }
   if (still.matches) frame(performance.now());
 }
 
 function cardHtml(c) {
   const plantOnly = c.classId === 'L';
+  // The real planets on this class's file that the lab has readings for, other than the one in the tank.
+  const real = c.cls.worlds.filter(w => grows(w) && w !== c.world);
   return `
-    <p class="eyebrow">Specimen grown for ${esc(label(c.cls))}${c.cls.letter ? ` · ${esc(c.cls.name)}` : ''}</p>
+    <p class="eyebrow">${c.world ? `Grown for ${esc(c.world.name)}, ${esc(lyText(c.world.ly))} light years away` : `Specimen grown for ${esc(label(c.cls))}${c.cls.letter ? ` · ${esc(c.cls.name)}` : ''}`}</p>
     <h2>${esc(c.name.common)}</h2>
     <p class="latin">${esc(c.name.genus)} ${esc(c.name.species)}</p>
     <p class="odds"><b>${ODDS_HEAD[c.odds]}.</b> ${esc(oddsFor(c).replace(/^[^.]+\. /, ''))}</p>
     ${plantOnly ? '<p class="aside">Class L worlds have plant life and no animals, so the lab grew a plant.</p>' : ''}
     <ul class="notes">${c.notes.map(n => `<li><h3>${esc(n.label)}</h3><p>${esc(n.text)}</p></li>`).join('')}</ul>
+    ${real.length ? `<p class="for-real">Or grow one for ${c.world ? 'another' : 'a'} real planet on this file: ${real.map(w => `<a href="#world=${encodeURIComponent(w.name)}">${esc(w.name)}</a>`).join(', ')}.</p>` : ''}
     <a class="to-file" href="${BRIDGE}survey.html#${esc(c.classId)}"${AWAY}>Read the ${esc(label(c.cls))} survey file <span aria-hidden="true">→</span></a>
+    ${c.world?.star ? `<a class="to-file" href="${BRIDGE}?course=${encodeURIComponent(c.world.star)}"${AWAY}>Set course for its star <span aria-hidden="true">→</span></a>` : ''}
   `;
 }
 
@@ -111,7 +128,7 @@ function renderRefs(id) {
 
 // A kept creature is only let go when the person says so. When the shelf is full, Keep says so and waits.
 const JAR_MAX = 40;
-const isKept = () => !!current && saved.jars.some(j => j.id === current.classId && j.seed === current.seed);
+const isKept = () => !!current && saved.jars.some(j => inJar(j, current));
 
 function renderKeep() {
   const kept = isKept();
@@ -129,9 +146,9 @@ function renderKeep() {
 
 function toggleKeep() {
   if (!current) return;
-  const i = saved.jars.findIndex(j => j.id === current.classId && j.seed === current.seed);
+  const i = saved.jars.findIndex(j => inJar(j, current));
   if (i >= 0) saved.jars.splice(i, 1);
-  else if (saved.jars.length < JAR_MAX) saved.jars.unshift({ id: current.classId, seed: current.seed });
+  else if (saved.jars.length < JAR_MAX) saved.jars.unshift(jarOf(current));
   else return;
   // With the shelf full again there is nowhere to put back the one just let go, so its Undo goes too.
   if (gone && saved.jars.length >= JAR_MAX) { clearTimeout(gone.timer); gone = null; }
@@ -147,7 +164,7 @@ function letGo(j) {
   if (at < 0) return;
   saved.jars.splice(at, 1);
   clearTimeout(gone?.timer);
-  gone = { jar: j, at, name: grow(j.id, j.seed).name.common, timer: setTimeout(() => { gone = null; renderJars(); }, 8000) };
+  gone = { jar: j, at, name: growJar(j).name.common, timer: setTimeout(() => { gone = null; renderJars(); }, 8000) };
   save(); renderJars(); renderKeep();
 }
 function undoLetGo() {
@@ -155,7 +172,7 @@ function undoLetGo() {
   clearTimeout(gone.timer);
   const { jar, at } = gone;
   gone = null;
-  if (saved.jars.length < JAR_MAX && !saved.jars.some(j => j.id === jar.id && j.seed === jar.seed)) saved.jars.splice(Math.min(at, saved.jars.length), 0, jar);
+  if (saved.jars.length < JAR_MAX && !saved.jars.some(j => j.id === jar.id && j.world === jar.world && j.seed === jar.seed)) saved.jars.splice(Math.min(at, saved.jars.length), 0, jar);
   save(); renderJars(); renderKeep();
 }
 
@@ -166,15 +183,15 @@ function renderJars() {
   $('jar-undo').hidden = !gone;
   if (gone) $('jar-undo-text').textContent = `Let the ${gone.name} go.`;
   $('jars').innerHTML = list.map((j, k) => {
-    const c = grow(j.id, j.seed);
+    const c = growJar(j);
     return `<li class="jar"><button class="jar-open" type="button" data-k="${k}"><canvas width="300" height="225" aria-hidden="true"></canvas>
-      <span class="jar-name">${esc(c.name.common)}</span><span class="jar-cls">${esc(label(c.cls))}</span></button>
+      <span class="jar-name">${esc(c.name.common)}</span><span class="jar-cls">${esc(c.world ? c.world.name : label(c.cls))}</span></button>
       <button class="jar-drop" type="button" data-drop="${k}" aria-label="Let the ${esc(c.name.common)} go">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></li>`;
   }).join('');
   $('jars').querySelectorAll('.jar-open canvas').forEach((cv, k) => {
     const g = cv.getContext('2d');
-    drawScene(g, grow(list[k].id, list[k].seed), cv.width, cv.height, 0, 1);
+    drawScene(g, growJar(list[k]), cv.width, cv.height, 0, 1);
   });
 }
 
@@ -218,16 +235,23 @@ function buildStrip() {
 function hashText() {
   try { return decodeURIComponent(location.hash.slice(1)); } catch { return ''; }
 }
+// A real planet is asked for by name: #world=Proxima b-42 (the name can have hyphens of its own: TRAPPIST-1 e).
 function fromHash() {
   const m = hashText().match(/^(.+?)(?:-(\d{1,4}))?$/);
-  const cls = m && CLASSES.find(c => c.id.toLowerCase() === m[1].toLowerCase());
-  if (cls) return { id: cls.id, seed: Number(m[2]) || newSeed() };
-  return null;
+  if (!m) return null;
+  const seed = Number(m[2]) || newSeed();
+  if (/^world=/i.test(m[1])) {
+    const w = worldByName(m[1].slice(6))?.world;
+    return grows(w) ? { world: w.name, seed } : null;
+  }
+  const cls = CLASSES.find(c => c.id.toLowerCase() === m[1].toLowerCase());
+  return cls ? { id: cls.id, seed } : null;
 }
+const open = (h, animate = true) => (h.world ? showWorld(h.world, h.seed, animate) : show(h.id, h.seed, animate));
 
 buildStrip();
 $('cabinet').innerHTML = SPECIMENS.map(refHtml).join('');
-$('again').addEventListener('click', () => show(current.classId));
+$('again').addEventListener('click', () => (current.world ? showWorld(current.world.name) : show(current.classId)));
 $('keep').addEventListener('click', toggleKeep);
 // A link that grows the same creature again: its class and its number, as the address bar has them.
 $('send').addEventListener('click', e => {
@@ -235,8 +259,8 @@ $('send').addEventListener('click', e => {
   if (!c) return;
   share(e.currentTarget, {
     title: `${c.name.common}, from Engage’s xenobiology lab`,
-    text: `Meet the ${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.cls.letter ? label(c.cls) : c.cls.inText || label(c.cls)} in Engage’s xenobiology lab.`,
-    url: `${LIVE}xeno.html#${encodeURIComponent(c.classId)}-${c.seed}`,
+    text: `Meet the ${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.world ? c.world.name : c.cls.letter ? label(c.cls) : c.cls.inText || label(c.cls)} in Engage’s xenobiology lab.`,
+    url: `${LIVE}xeno.html#${linkOf(c)}`,
   });
 });
 $('jar-undo-go').addEventListener('click', undoLetGo);
@@ -250,24 +274,23 @@ $('jars').addEventListener('click', e => {
   const drop = e.target.closest('[data-drop]');
   const list = saved.jars;
   if (drop) { letGo(list[Number(drop.dataset.drop)]); return; }
-  const open = e.target.closest('[data-k]');
-  if (open) {
-    const j = list[Number(open.dataset.k)];
-    show(j.id, j.seed);
+  const tile = e.target.closest('[data-k]');
+  if (tile) {
+    const j = list[Number(tile.dataset.k)];
+    put(growJar(j), true);
     $('tank').scrollIntoView({ block: 'center', behavior: still.matches ? 'auto' : 'smooth' });
   }
 });
 window.addEventListener('hashchange', () => {
   const h = fromHash();
-  if (h && (!current || h.id !== current.classId || h.seed !== current.seed)) show(h.id, h.seed);
+  if (h && (!current || h.seed !== current.seed || (h.world ? h.world !== current.world?.name : !!current.world || h.id !== current.classId))) open(h);
 });
 window.addEventListener('resize', () => { if (still.matches) frame(performance.now()); });
 still.addEventListener?.('change', () => frame(performance.now()));
 
-window.xeno = { show, get current() { return current; }, get jars() { return saved.jars; } };
+window.xeno = { show, showWorld, get current() { return current; }, get jars() { return saved.jars; } };
 
-const start = fromHash() || { id: 'M', seed: newSeed() };
-show(start.id, start.seed);
+open(fromHash() || { id: 'M', seed: newSeed() });
 renderJars();
 requestAnimationFrame(loop);
 

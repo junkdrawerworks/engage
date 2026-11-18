@@ -160,3 +160,9 @@ export function massFor(width, kind = 'rock') {
   if (kind === 'gas') return TURN_MASS * Math.pow(width / Math.pow(TURN_MASS, ROCK_SLOPE), 1 / GAS_SLOPE);
   return Math.max(Math.pow(width, 1 / ROCK_SLOPE), 0.5 * width ** 3);
 }
+
+// The other way round, for a rocky world whose mass is known and whose width isn't: how wide it would be if it is
+// rock, against Earth. The inverse of massFor(width), floor and all.
+export function widthFor(mass) {
+  return Math.min(Math.pow(mass, ROCK_SLOPE), Math.cbrt(2 * mass));
+}
