@@ -629,13 +629,28 @@ assert.ok(!('firsts' in await page.evaluate(() => engage.state.log[0])) && !/Fir
 // (It does offer one for the nearest star, which from Proxima is the Sun: Alpha Centauri's two are its companions.)
 assert.deepEqual(await page.locator('#arrival-entry .entry-actions > *').evaluateAll(els => els.map(el => [el.textContent, el.getAttribute('href')])),
   [['Set course for Sol', null], ['In your sky tonight', 'tonight.html#star=Proxima%20Centauri'], ['Share this course', null]]);
-// Share this course hands the phone's share sheet a link to the live site that sets the same course. (The sheet itself
-// can't be opened here, so it is stood in for.)
+// Share this course hands the phone's share sheet a link to the live site that sets the same course: for a
+// destination with notes, its own page, which previews as that star in a chat and passes straight on to the bridge.
+// (The sheet itself can't be opened here, so it is stood in for.)
 await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
 await page.click('#arrival-entry [data-share]');
 {
   const shared = await page.evaluate(() => window.shared);
-  assert.equal(shared.url, 'https://engage.junkdrawer.works/?course=Proxima%20Centauri');
+  assert.equal(shared.url, 'https://engage.junkdrawer.works/course/proxima-centauri.html');
+  // A friend opens it: the bridge, with the course laid in and said on the welcome card, and the page passed on
+  // leaves no step in the history.
+  const friend = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const f = await friend.newPage();
+  f.on('pageerror', e => problems.push(e.message));
+  await f.goto(base + 'survey.html');
+  await f.goto(shared.url.replace('https://engage.junkdrawer.works/', base));
+  await bridgeReady(f);
+  assert.equal(f.url(), base, 'the course page left its own address, or the course, in the address bar');
+  assert.equal(await f.locator('#target-name').innerText(), 'Proxima Centauri');
+  assert.equal(await f.locator('#intro-course').innerText(), 'A course is laid in for Proxima Centauri, 4.2 light years out. Take the helm and engage.');
+  await f.goBack();
+  assert.match(f.url(), /survey\.html/, 'Back went to the course page, which would only pass on again');
+  await friend.close();
   assert.match(shared.text, /^Captain’s log, stardate \d{4}\.\d{3}\. We’ve dropped out of warp at Proxima Centauri, 4\.2\d ly from Sol/);
 }
 // The two buttons under the log each fit on one line.

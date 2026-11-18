@@ -1,5 +1,5 @@
 // Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact or warp; bridge for the bridge's four phone pictures)
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact or warp; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -404,6 +404,50 @@ if (!only || only === 'warp') {
   <div class="text"><div class="eyebrow">Engage · Navigation</div><h1>Warp scale</h1><p>Earth to the galactic core at warp 1, 5 and 9.975.</p><div class="meta">From the Moon to Andromeda</div></div>`);
   await card.waitForTimeout(300);
   await save(await card.screenshot(), 'og-warp.png');
+  await card.context().close();
+}
+
+// The pictures for the shared courses' own pages (course/*.html, see js/courses.js and tools/course-pages.mjs): each
+// destination as the viewscreen shows it on arrival, beside its name, how far it is and what Starfleet put there.
+// Only with `courses` named or nothing: thirty-one of them take a while.
+if (!only || only === 'courses') {
+  const { SHARED, COURSES, courseSlug, courseCaption } = await import('../js/courses.js');
+  const font = async f => (await readFile(join(root, 'fonts', f))).toString('base64');
+  const fonts = `@font-face { font-family: C; font-weight: 600; src: url(data:font/woff2;base64,${await font('chakra-petch-600.woff2')}); }
+    @font-face { font-family: P; src: url(data:font/woff2;base64,${await font('ibm-plex-sans.woff2')}); }`;
+  const page = await open({ width: 800, height: 630 }, 1); // wide enough that the star settles in the middle
+  await page.evaluate(() => { engage.state.opts.labels = false; });
+  const card = await open({ width: 1200, height: 630 }, 1);
+  await mkdir(join(root, COURSES), { recursive: true });
+  for (const d of SHARED) {
+    const ly = await page.evaluate(star => {
+      engage.jump(star);
+      engage.closeSheets();
+      engage.lookAtStar(star);
+      const c = engage.cat(), i = c.byName.get(star);
+      return Math.hypot(c.pos[i * 3], c.pos[i * 3 + 1], c.pos[i * 3 + 2]) * 3.26156;
+    }, d.star);
+    await page.waitForTimeout(1600); // the view turns to the star
+    const shot = await page.evaluate(() => engage.snapshot());
+    const named = d.title;
+    const size = named.length > 13 ? 64 : named.length > 9 ? 80 : 96;
+    await card.setContent(`<!doctype html><style>
+      ${fonts}
+      body { margin: 0; width: 1200px; height: 630px; background: #05070d; color: #e8edf6; overflow: hidden; position: relative; }
+      .view { position: absolute; right: 0; top: 0; width: 800px; height: 630px; background: url(${shot}) center / cover; }
+      .view::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #05070d 0%, rgba(5,7,13,.85) 28%, rgba(5,7,13,0) 60%); }
+      .text { position: absolute; left: 72px; top: 0; bottom: 0; width: 600px; display: flex; flex-direction: column; justify-content: center; }
+      .eyebrow { font: 600 22px C; letter-spacing: .18em; text-transform: uppercase; color: #ffb54a; }
+      h1 { margin: 12px 0 22px; font: 600 ${size}px/1 C; letter-spacing: .04em; }
+      .meta { font: 600 26px/1.35 C; letter-spacing: .06em; color: #86d8ff; }
+      .site { margin-top: 34px; font: 22px P; color: #93a0b8; }
+    </style>
+    <div class="view"></div>
+    <div class="text"><div class="eyebrow">Set course for</div><h1>${named}</h1><div class="meta">${courseCaption(d, ly).replace(/ · /g, ' <span style="color:#ffb54a">·</span> ')}</div><div class="site">Engage: warp to real stars</div></div>`);
+    await card.waitForTimeout(150);
+    await save(await card.screenshot(), `${COURSES}${courseSlug(d.title)}.png`);
+  }
+  await page.context().close();
   await card.context().close();
 }
 

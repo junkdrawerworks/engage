@@ -1,4 +1,5 @@
-// The bridge's tables and rules that need no page: the room list, and when a dragged sheet closes.
+// The bridge's tables and rules that need no page: the room list, when a dragged sheet closes, and the shared
+// courses' own pages.
 //   node --test test/bridge.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,6 +8,9 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOMS, roomList, inWords } from '../js/rooms.js';
 import { dismissed, SWIPE_CLOSE } from '../js/sheets.js';
+import { SHARED, coursePath, courseSlug, courseLine } from '../js/courses.js';
+import { DESTINATIONS } from '../js/destinations.js';
+import { coursePages } from '../tools/course-pages.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -44,4 +48,26 @@ test('a sheet dragged down closes past 80 pixels or on a quick flick, and spring
   assert.equal(dismissed(8, 5), false, 'a twitch is not a flick');
   assert.equal(dismissed(-120, 50), false, 'pushed up, not down');
   assert.equal(dismissed(NaN, 50), false);
+});
+
+test('every destination but home has a course page of its own, written as tools/course-pages.mjs writes it, with its picture', async () => {
+  assert.equal(SHARED.length, DESTINATIONS.length - 1);
+  assert.equal(coursePath('Sol'), null, 'a course home is never shared');
+  assert.equal(coursePath('Alpheratz'), null, 'a star without notes has a page');
+  assert.equal(coursePath('Vega'), 'course/vega.html');
+  assert.equal(courseSlug('Barnard’s Star'), 'barnards-star');
+  assert.equal(new Set(SHARED.map(d => courseSlug(d.title))).size, SHARED.length, 'two destinations share a page');
+  const pages = await coursePages();
+  for (const [file, html] of Object.entries(pages)) {
+    assert.equal(await readFile(join(root, file), 'utf8').catch(() => ''), html, `${file} is out of date: run node tools/course-pages.mjs`);
+    const png = await readFile(join(root, file.replace(/\.html$/, '.png'))).catch(() => null);
+    assert.ok(png, `${file}'s picture is missing: run node tools/screenshots.mjs courses`);
+    assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1200, 630]);
+  }
+  // The line under the preview reads well away from the star: Starfleet's story where there is one.
+  for (const d of SHARED) assert.doesNotMatch(courseLine(d), /\byou\b/i, `${d.title}'s preview speaks as if the reader were there`);
+  assert.match(courseLine(SHARED.find(d => d.star === 'Keid')), /^Spock’s home world/);
+  assert.match(pages['course/vega.html'], /<title>Set course for Vega · Engage<\/title>/);
+  assert.match(pages['course/vega.html'], /location\.replace\("\.\.\/\?course=Vega"\)/);
+  assert.match(pages['course/the-pleiades.html'], /<meta property="og:title" content="Set course for the Pleiades">/);
 });

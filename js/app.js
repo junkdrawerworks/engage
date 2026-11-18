@@ -10,6 +10,7 @@ import { LIVE, share } from './share.js';
 import { askToKeep, current, keep, watch } from './store.js';
 import { ROOMS, inWords, roomList } from './rooms.js';
 import { backCloses, swipeDown } from './sheets.js';
+import { coursePath } from './courses.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -898,7 +899,8 @@ function shareCourse(button) {
   share(button, {
     title: `Engage: set course for ${inTextFor(cat, e.star)}`,
     text: `Captain’s log, stardate ${e.stardate}. ${e.intro}`,
-    url: `${LIVE}?course=${encodeURIComponent(cat.names[e.star])}`,
+    // A destination with notes has a page of its own, so the link previews as that star in a chat (js/courses.js).
+    url: `${LIVE}${coursePath(cat.names[e.star]) ?? `?course=${encodeURIComponent(cat.names[e.star])}`}`,
   });
 }
 
