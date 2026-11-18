@@ -350,7 +350,9 @@ function draw() {
     if (ghost) a *= sky.sunAlt > -2 ? 0.8 : 0.5;
     const r = Math.min(4.6, 0.55 + s * 0.42) * zoom;
     const i = bright[k];
-    const c = cat.color.subarray(i * 3, i * 3 + 3);
+    // Under night vision only the red in a colour is left, which would make a blue-white star (Rigel, Vega) look
+    // fainter than a red one as bright: there every star is drawn white, so how bright it looks is its magnitude.
+    const c = saved.night ? WHITE : cat.color.subarray(i * 3, i * 3 + 3);
     ctx.fillStyle = `rgba(${c[0] * 255 | 0}, ${c[1] * 255 | 0}, ${c[2] * 255 | 0}, ${a})`;
     if (r < 1.1) ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
     else { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill(); }
@@ -495,7 +497,7 @@ function drawNames(ghost) {
   ctx.save();
   ctx.font = `600 10px ${FONT}`;
   if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
-  ctx.fillStyle = `rgba(150, 196, 255, ${ghost ? 0.34 : 0.6})`;
+  ctx.fillStyle = `rgba(${saved.night ? '235, 205, 196' : '150, 196, 255'}, ${ghost ? 0.34 : 0.6})`;
   // A tag's ring is not a label box (a tag with no room for its words is a ring alone), so keep clear of those too.
   const rings = placed.filter(q => q.rank <= -20).map(q => ({ x: q.x - 22, y: q.y - 22, w: 44, h: 44 }));
   const onRing = b => rings.some(o => b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h);
@@ -541,6 +543,16 @@ function drawRadiant() {
 }
 
 const FONT = "'Chakra Petch', 'Avenir Next Condensed', 'Arial Narrow', sans-serif";
+const WHITE = [1, 1, 1];
+// A tag's colours: Starfleet's stars in cyan, the others in amber, and the line under the name. Night vision lays red
+// light over the page, which keeps only the red in each colour: cyan has little, so Starfleet's tags came out the
+// faintest thing on the screen, fainter than the plain star names. Under it the tags are told apart by brightness
+// instead: Starfleet's in white (all of its red is kept, 5.25:1 on black, the most red light can give), the others
+// a step down (red 236 of 255, which still clears 4.5:1). Their capitals, size and cross-hairs do the rest.
+const TAG = {
+  day: { trek: '134, 216, 255', other: '255, 181, 74', sub: '200, 210, 230', subA: 0.85 },
+  night: { trek: '255, 255, 255', other: '236, 196, 180', sub: '255, 240, 236', subA: 1, otherSub: '226, 200, 190' },
+};
 let labelBoxes = [], reservedBoxes = 0; // the first few are the page's own: the header, the controls and the daylight notice
 function label(text, x, y, gap, style) {
   ctx.font = `${style === 'star' ? 500 : 600} ${style === 'star' ? 11 : 12}px ${FONT}`;
@@ -560,7 +572,8 @@ function drawTag(t) {
   const below = t.alt < 0, faint = !t.seen;
   const trek = !!t.chart;
   if (below && !trek && !(sel?.kind === 'star' && sel.i === t.i)) return; // only Starfleet's are worth looking down for
-  const color = trek ? '134, 216, 255' : '255, 181, 74';
+  const pal = saved.night ? TAG.night : TAG.day;
+  const color = trek ? pal.trek : pal.other;
   const a = below ? 0.4 : 1;
   const R = trek ? 12 : 9;
   ctx.save();
@@ -607,7 +620,7 @@ function drawTag(t) {
     ctx.closePath(); ctx.fill();
   }
   ctx.font = `500 11px ${FONT}`;
-  ctx.fillStyle = `rgba(200, 210, 230, ${0.85 * a})`;
+  ctx.fillStyle = `rgba(${trek ? pal.sub : pal.otherSub || pal.sub}, ${pal.subA * a})`;
   ctx.fillText(sub, x + 8, y + 28);
   ctx.restore();
   placed.push({ x: p.x, y: p.y, r: 26, box, been: t.been, hit: { kind: 'star', i: t.i }, rank: trek ? -40 : -20 });
@@ -989,6 +1002,7 @@ function bind() {
     saved.night = !saved.night; save();
     document.body.classList.toggle('red', saved.night);
     $('night').setAttribute('aria-pressed', String(saved.night));
+    dirty = true; // the sky is drawn in other colours under the red light
   });
   // Tonight's sky open in another tab: the place, the kind of sky and night vision chosen there are the ones kept,
   // so this tab shows them too, and a city picked there isn't written over by a guess from here.
@@ -997,6 +1011,7 @@ function bind() {
     if (!saved.place || saved.place.how === 'guess') saved.place = guessPlace();
     document.body.classList.toggle('red', saved.night);
     $('night').setAttribute('aria-pressed', String(saved.night));
+    dirty = true;
     compute();
     renderPlaces();
   });

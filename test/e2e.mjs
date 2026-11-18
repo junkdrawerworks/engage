@@ -2115,6 +2115,52 @@ await page.emulateMedia({ reducedMotion: null });
   await calm.close();
 }
 
+// Night vision lays red light over the page, which keeps only the red in each colour. Starfleet's cyan has little, so
+// its tags and its names in the list came out fainter than the plain stars beside them (1.3:1 on the sky). Under the
+// light they are white now, and the brightest: read here off the red in what is drawn, which is all that is shown.
+{
+  const dark = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  const p = await dark.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  await p.evaluate(() => { window.tonight.place(40.7, -74, 'New York', 'America/New_York'); window.tonight.at('2026-10-25T05:30:00Z'); window.tonight.look(110, 35, 80); });
+  await p.evaluate(() => document.fonts.ready);
+  // The most red in each tag's name (the top line of its box), and how that reads against black under red light.
+  const tags = () => p.evaluate(() => {
+    const c = document.getElementById('view'), g = c.getContext('2d'), k = c.width / c.clientWidth;
+    const lin = v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return window.tonight.tags().map(t => {
+      const d = g.getImageData(Math.round((t.x + 6) * k), Math.round((t.y + 3) * k), Math.round((t.w - 8) * k), Math.round(15 * k)).data;
+      let red = 0, blue = 0;
+      for (let i = 0; i < d.length; i += 4) { if (d[i] > red) { red = d[i]; blue = d[i + 2]; } }
+      return { name: t.name, red, blue, contrast: +((0.2126 * lin(red / 255) + 0.05) / 0.05).toFixed(2) };
+    });
+  });
+  await p.waitForTimeout(200);
+  // By day's colours Starfleet's tags are the cyan ones (more blue than red) and the rest amber.
+  const day = await tags();
+  const trek = new Set(day.filter(t => t.blue > t.red).map(t => t.name));
+  assert.ok(trek.size >= 2 && day.length - trek.size >= 2, `not enough tags on the sky to compare: ${day.map(t => `${t.name} ${t.red}/${t.blue}`)}`);
+  await p.tap('#night');
+  await p.waitForTimeout(200);
+  const night = (await tags()).map(t => ({ ...t, trek: trek.has(t.name) }));
+  assert.equal(night.length, day.length);
+  const least = list => Math.min(...list.map(t => t.contrast)), most = list => Math.max(...list.map(t => t.red));
+  assert.ok(least(night.filter(t => t.trek)) >= 4.5, `a Starfleet tag is too faint under night vision: ${JSON.stringify(night.filter(t => t.trek))}`);
+  assert.ok(least(night.filter(t => !t.trek)) >= 4.5, `a tag is too faint under night vision: ${JSON.stringify(night.filter(t => !t.trek))}`);
+  assert.ok(Math.min(...night.filter(t => t.trek).map(t => t.red)) > most(night.filter(t => !t.trek)), 'Starfleet’s tags are not the brightest under night vision');
+  // In the list, Starfleet's names are the brighter and the heavier ones.
+  await p.tap('#open-list');
+  const names = await p.evaluate(() => {
+    const read = el => { const s = getComputedStyle(el); return { red: Number(s.color.match(/\d+/)[0]), weight: Number(s.fontWeight) }; };
+    return { trek: read(document.querySelector('.system.trek .s-name')), plain: read(document.querySelector('.system:not(.trek) .s-name')), sub: read(document.querySelector('.s-sub')), note: read(document.querySelector('.list-note')) };
+  });
+  assert.ok(names.trek.red === 255 && names.trek.red > names.plain.red && names.trek.weight > names.plain.weight, `Starfleet’s names don’t stand out in the list under night vision: ${JSON.stringify(names)}`);
+  assert.ok(Math.min(names.plain.red, names.sub.red, names.note.red) >= 236, `text in the list is too faint to read under night vision: ${JSON.stringify(names)}`);
+  await dark.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];
