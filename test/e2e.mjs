@@ -233,6 +233,40 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 360, height: 740 }
   await notched.close();
 }
 
+// Set course with the keyboard up on a phone on its side: about 180 px of screen is left, and the sheet, with its
+// heading above the search field, used to leave the field half under the keyboard and no room for a hit. There the
+// heading gives way and the close button sits beside the field, so the field and the first hit are both above the
+// keyboard. (A keyboard can't be raised here: the visible part of the page is made to end 200 px short, which is
+// what the page itself goes by.) With the keyboard away again the heading is back.
+for (const viewport of [{ width: 844, height: 390 }, { width: 667, height: 375 }]) {
+  const typing = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await typing.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#intro-go');
+  await p.tap('#choose');
+  const keyboard = up => p.evaluate(covered => {
+    Object.defineProperty(visualViewport, 'height', { get: () => innerHeight - covered, configurable: true });
+    visualViewport.dispatchEvent(new Event('resize'));
+  }, up ? 200 : 0);
+  await keyboard(true);
+  await p.fill('#search', 'veg');
+  const line = viewport.height - 200, size = `${viewport.width}×${viewport.height}`;
+  const box = async sel => { const el = p.locator(sel).first(); await el.evaluate(e => Promise.all((e.closest('.sheet') || e).getAnimations().map(a => a.finished))); return el.boundingBox(); };
+  const [field, hit, close] = [await box('#search'), await box('#list .row'), await box('#picker .close')];
+  assert.match(await p.locator('#list .row').first().innerText(), /^Vega/);
+  assert.ok(field.y >= 0 && field.y + field.height <= line, `the search field runs from ${field.y} to ${field.y + field.height} with the keyboard at ${line} on a ${size} screen`);
+  assert.ok(hit.y + hit.height <= line, `the first hit ends at ${hit.y + hit.height}, behind the keyboard at ${line} on a ${size} screen`);
+  assert.ok(close.y >= 0 && close.y + close.height <= line && close.x >= field.x + field.width, `the close button is not beside the search field on a ${size} screen`);
+  assert.equal(await p.locator('#picker h2').evaluate(el => el.getClientRects().length), 0);
+  await keyboard(false);
+  assert.equal(await p.locator('#picker h2').evaluate(el => el.getClientRects().length), 1, 'the heading did not come back with the keyboard away');
+  await p.tap('#picker .close');
+  assert.equal(await p.locator('#picker').evaluate(el => el.hidden), true);
+  await typing.close();
+}
+
 // Tapping a star chooses it.
 await page.evaluate(() => engage.lookAtStar('Sirius'));
 await page.waitForTimeout(400);

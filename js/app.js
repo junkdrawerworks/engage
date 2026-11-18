@@ -1065,6 +1065,7 @@ function watchKeyboard() {
     // The window's height follows the browser's own bars as they come and go; a keyboard is what's left over.
     const covered = vv.scale > 1.05 ? 0 : innerHeight - vv.height - vv.offsetTop;
     document.documentElement.style.setProperty('--kb', `${covered > 80 ? Math.round(covered) : 0}px`);
+    document.documentElement.classList.toggle('kb', covered > 80); // for the styles that only apply with a keyboard up
   };
   vv.addEventListener('resize', set);
   vv.addEventListener('scroll', set);

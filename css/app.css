@@ -252,6 +252,24 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   @keyframes slide { from { transform: translateX(30px); opacity: 0; } }
 }
 
+/* A phone on its side with its keyboard up has about 180 px of screen left. The Set course sheet, with its heading
+   above the search field, left the field half under the keyboard and no room for a single hit: you typed without
+   seeing what you typed or what it found. There the sheet takes all the room above the keyboard (the "kb" class is
+   there while one is up: see watchKeyboard in js/app.js), and the heading gives way, with the close button beside
+   the search field. */
+@media (max-height: 500px) {
+  .kb #picker { top: calc(6px + var(--safe-t)); bottom: var(--kb, 0px); height: auto; max-height: none; padding-top: 8px; padding-bottom: 4px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr); column-gap: 10px; }
+  .kb #picker .sheet-head { display: contents; }
+  .kb #picker h2 { display: none; }
+  .kb #picker .close { grid-column: 2; grid-row: 1; align-self: center; }
+  .kb #picker .search { grid-column: 1; grid-row: 1; }
+  .kb #picker .list { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (max-height: 500px) and (min-width: 760px) {
+  .kb #picker { bottom: calc(6px + var(--kb, 0px)); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheet, .console { animation: none; transition: none; }
 }
