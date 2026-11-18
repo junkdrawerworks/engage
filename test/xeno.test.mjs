@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { grow, growFor, WORLDS, ODDS, oddsFor, summary } from '../js/xeno-gen.js';
+import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS } from '../js/xeno-gen.js';
 import { CLASSES, byId, LAB_WORLDS, grows, worldByName } from '../js/classes.js';
 import { widthFor } from '../js/physics.js';
 import { SPECIMENS, specimensFor } from '../js/species.js';
@@ -19,6 +19,97 @@ test('every planet class has lab rules', () => {
 test('the same class and seed always grow the same creature', () => {
   assert.deepEqual(grow('M', 482), grow('M', 482));
   assert.notDeepEqual(grow('M', 482).name, grow('M', 483).name);
+  // A creature for a real planet has a name of its own, not its class's creature's with the same number.
+  assert.notDeepEqual(growFor('Proxima b', 482).name, grow('M', 482).name);
+});
+
+test('a class has many names, and no one name for most of its creatures', () => {
+  // The first 200 specimens of each class. Lava worlds and hot Jupiters used to have one name between all 200, Class N
+  // three, and six classes a single Latin name.
+  const everyName = new Set();
+  for (const c of CLASSES) {
+    const common = new Map(), latin = new Set();
+    for (let seed = 1; seed <= 200; seed++) {
+      const { name } = grow(c.id, seed);
+      common.set(name.common, (common.get(name.common) || 0) + 1);
+      latin.add(`${name.genus} ${name.species}`);
+      everyName.add(name.common);
+    }
+    const [top, n] = [...common].sort((a, b) => b[1] - a[1])[0];
+    assert.ok(common.size >= 25, `${c.id}: only ${common.size} names in 200 creatures`);
+    assert.ok(n <= 30, `${c.id}: ${n} of 200 are called “${top}”`);
+    assert.ok(latin.size >= 20, `${c.id}: only ${latin.size} Latin names in 200 creatures`);
+  }
+  assert.ok(everyName.size > 1500, `${everyName.size} names in 3,400 creatures`);
+});
+
+test('a name says only what is true of the creature', () => {
+  // The first word of the common name is one of the lab's words for something about the body. Whichever list it is
+  // from, that thing has to be so. (Glassy is in two lists: crystal and jelly.)
+  const [dwarf, giant] = [new Set(LOOKS.small), new Set(LOOKS.big)];
+  const colours = ['black', 'pale', 'red', 'sandy', 'copper', 'green', 'teal', 'blue'];
+  const is = {
+    crystal: b => b.crystals, glow: b => b.glow, fur: b => b.covering === 'fur', armor: b => b.armor, sail: b => b.sail, sacs: b => b.sacs,
+    jelly: b => b.covering === 'jelly', blind: b => b.eyes === 0, bigEyes: b => b.eyes > 0 && b.eyeSize > 1.5, hooded: b => b.eyes > 0 && b.eyeSize < 1,
+    tail: b => b.tail, noTail: b => !b.tail, small: () => true, big: () => true,
+    black: b => b.color.l <= 26, pale: b => b.color.l >= 70, red: b => b.color.h < 20 || b.color.h >= 345, sandy: b => b.color.h >= 20 && b.color.h < 80 && b.color.l >= 55,
+    copper: b => b.color.h >= 20 && b.color.h < 80 && b.color.l < 55, green: b => b.color.h >= 80 && b.color.h < 160,
+    teal: b => b.color.h >= 160 && b.color.h < 200, blue: b => b.color.h >= 200 && b.color.h < 345,
+  };
+  const seen = new Set();
+  const bySize = new Map(); // plan -> sizes called small, and sizes called big
+  for (const c of all) {
+    const { body: b, name, env } = c;
+    const first = name.common.split(' ')[0];
+    const eyes = { 'Three-eyed': 3, 'Four-eyed': 4 }[first], legs = { 'Two-legged': 2, 'Six-legged': 6, 'Eight-legged': 8 }[first];
+    if (eyes) { assert.equal(b.eyes, eyes, `${c.classId}-${c.seed} ${name.common}`); seen.add('eyes'); continue; }
+    if (legs) { assert.equal(b.legs, legs, `${c.classId}-${c.seed} ${name.common}`); seen.add('legs'); continue; }
+    const lists = Object.keys(is).filter(k => LOOKS[k].includes(first));
+    assert.ok(lists.length, `${c.classId}-${c.seed}: “${first}” is not one of the lab’s words`);
+    assert.ok(lists.some(k => is[k](b)), `${c.classId}-${c.seed} is called ${name.common}, and is not ${lists.join(' or ')}`);
+    for (const k of lists) if (is[k](b)) seen.add(k);
+    if (dwarf.has(first) || giant.has(first)) {
+      const plan = b.plan === 'crawler' && !b.crystals ? 'mite' : b.plan;
+      const e = bySize.get(plan) || bySize.set(plan, { small: [], big: [] }).get(plan);
+      e[dwarf.has(first) ? 'small' : 'big'].push(b.size);
+    }
+    // The place in the middle is where it lives, and the last word is one for its shape.
+    assert.ok(name.common.includes(` ${env.place} `), name.common);
+    const nouns = b.plan === 'crawler' ? NOUNS.crawler[b.crystals ? 'rock' : 'mite'] : NOUNS[b.plan][b.build] || Object.values(NOUNS[b.plan])[0];
+    assert.ok(nouns.includes(name.common.split(' ').pop()), `${c.classId}-${c.seed} ${name.common} (${b.plan}, ${b.build})`);
+    assert.ok(ENDINGS[b.plan].some(e => name.genus.endsWith(e)) && EPITHETS[c.classId].includes(name.species), `${name.genus} ${name.species}`);
+  }
+  // Anything called a dwarf is smaller than anything of its kind called a giant.
+  for (const [plan, e] of bySize) if (e.small.length && e.big.length) assert.ok(Math.max(...e.small) < Math.min(...e.big), `${plan}: a “lesser” one is bigger than a “greater” one`);
+  // Every kind of word turned up, so each was checked.
+  for (const k of [...Object.keys(is), 'eyes', 'legs']) assert.ok(seen.has(k), `no creature was named for ${k}`);
+  assert.ok(colours.every(k => seen.has(k)));
+});
+
+test('the lab’s words are plain ones', () => {
+  const looks = Object.values(LOOKS).flatMap(v => (Array.isArray(v) ? v : Object.values(v).flat()));
+  const nouns = Object.values(NOUNS).flatMap(v => Object.values(v).flat());
+  const latin = [...Object.values(EPITHETS).flat(), ...Object.values(ENDINGS).flat()];
+  for (const w of looks) assert.match(w, /^[A-Z][a-z]+(-[a-z]+)?$/, w);
+  for (const w of nouns) assert.match(w, /^[a-z]+(-[a-z]+)?$/, w);
+  for (const w of latin) assert.match(w, /^[a-z]{4,}$/, w);
+  // Each slot has a few honest alternatives, and a class three or four species.
+  for (const [k, v] of Object.entries(NOUNS)) for (const list of Object.values(v)) assert.ok(list.length >= 4 && new Set(list).size === list.length, `${k}: ${list}`);
+  for (const [k, v] of Object.entries(EPITHETS)) assert.ok(v.length >= 3 && v.length <= 4 && new Set(v).size === v.length, `${k}: ${v}`);
+  for (const v of Object.values(ENDINGS)) assert.equal(v.length, 2);
+  assert.deepEqual(Object.keys(EPITHETS).sort(), CLASSES.map(c => c.id).sort());
+  assert.equal(new Set(Object.values(EPITHETS).flat()).size, Object.values(EPITHETS).flat().length, 'two classes share a species name');
+  // Nothing rude, in a word or across the join of a made-up genus (the list first contact's languages are held to,
+  // and a few more), and no genus Earth already has a famous one of.
+  const rude = /fuk|fuck|suk|kok|cock|kum|cum|pis|dik|dick|pus|kike|shit|paki|rape|nazi|pedo|nig|peni|tit|arse|anus|sex|slut|fag|crap|damn|poo/i;
+  for (const w of [...looks, ...nouns, ...latin]) assert.doesNotMatch(w, rude, w);
+  const genera = new Set(all.map(c => c.name.genus));
+  for (const g of genera) {
+    assert.doesNotMatch(g, rude, g);
+    assert.match(g, /^[A-Z][a-z]+$/, g);
+    assert.ok(!['Rhododendron', 'Philodendron', 'Homo', 'Tyrannosaurus'].includes(g), g);
+  }
+  assert.ok(genera.size > 150, `${genera.size} genera`);
 });
 
 test('every creature has a name, a size and four readable field notes', () => {

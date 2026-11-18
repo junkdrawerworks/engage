@@ -140,7 +140,7 @@ function make(classId, seed, world) {
   if (world?.places) env.place = world.places[Math.floor(k * world.places.length)];
 
   const body = shape(env, classId, r);
-  const name = names(env, body, classId, r);
+  const name = names(env, body, classId, rng(hash(`name/${world ? `${classId}/${world.name}` : classId}`) ^ seed));
   const c = { cls, classId, seed, env, body, name, notes: notes(env, body, cls), odds: W.odds };
   if (world) { c.world = world; c.notes = worldNotes(c); }
   return c;
@@ -250,25 +250,118 @@ function shape(env, classId, r) {
 
 // ---------- Names ----------
 
-const EPITHET = {
-  M: 'minsharae', L: 'marginalis', K: 'adaptabilis', H: 'deserti', N: 'venerea', O: 'pelagica', P: 'glacialis', D: 'planetoidea',
-  Y: 'daemonis', J: 'jovialis', T: 'ultragigantea', R: 'erratica', 'super-earth': 'gravis', 'sub-neptune': 'nebulosa',
-  'lava-world': 'ignea', 'hot-jupiter': 'torrida', 'ice-giant': 'caerulea',
-};
-const ENDING = { walker: 'podus', flyer: 'pteryx', swimmer: 'ichthys', floater: 'physa', burrower: 'oryctes', plant: 'phyton', crawler: 'tardus' };
-const NOUN = {
-  walker: { squat: 'lumberer', even: 'grazer', lanky: 'strider' },
-  flyer: { lanky: 'glider' }, swimmer: { squat: 'ray', even: 'swimmer', lanky: 'eel' }, floater: { squat: 'sail', even: 'drifter', lanky: 'drifter' },
-  burrower: { squat: 'borer', even: 'burrower', lanky: 'worm' }, plant: { squat: 'mat', even: 'frond', lanky: 'spire' }, crawler: { squat: 'creeper' },
-};
+// A name is put together from what is true of the creature, and where more than one thing is true, or there is more
+// than one honest word for it, a generator of the name's own chooses: seeded from the class (or planet) and the
+// specimen number, and apart from the one that grows the body, so widening these lists never changes an animal.
 
-function names(env, b, classId, r) {
-  const root = b.crystals ? 'Litho' : env.dark ? 'Nycto' : env.g >= 1.6 ? 'Bary' : env.g < 0.6 ? 'Lepto' : env.temp > 320 ? 'Pyro' : env.temp < 262 ? 'Cryo'
-    : env.star === 'red' ? 'Erythro' : b.plan === 'swimmer' ? 'Thalasso' : b.plan === 'floater' ? 'Nephelo' : pick(r, ['Xeno', 'Neo', 'Allo']);
-  const look = b.crystals ? 'Glassy' : b.glow ? 'Lantern' : b.covering === 'fur' ? 'Shaggy' : b.armor ? 'Armoured' : b.sail ? 'Sail-backed'
-    : env.star === 'red' && !env.dark ? 'Black' : env.dark ? 'Pale' : b.eyes >= 3 ? `${b.eyes === 3 ? 'Three' : 'Four'}-eyed` : b.covering === 'jelly' ? 'Glassy' : pick(r, ['Common', 'Spotted', 'Lesser', 'Greater']);
-  const noun = NOUN[b.plan][b.build] || Object.values(NOUN[b.plan])[0];
-  return { genus: root + ENDING[b.plan], species: EPITHET[classId], common: `${look} ${env.place} ${noun}` };
+// The species: three or four per class, each a Latin word for the kind of world.
+export const EPITHETS = {
+  M: ['minsharae', 'terrestris', 'communis', 'temperans'], L: ['marginalis', 'silvestris', 'nemoralis', 'herbarum'],
+  K: ['adaptabilis', 'frigoris', 'pulveris', 'martialis'], H: ['deserti', 'harenae', 'solis', 'sitiens'],
+  N: ['venerea', 'nubium', 'sulphuris', 'acidi'], O: ['pelagica', 'maris', 'oceani', 'fluctuum'],
+  P: ['glacialis', 'nivis', 'glaciei', 'hiemalis'], D: ['planetoidea', 'lunaris', 'crateris', 'vacui'],
+  Y: ['daemonis', 'infernalis', 'veneni', 'cineris'], J: ['jovialis', 'nubigena', 'procellae', 'zonarum'],
+  T: ['ultragigantea', 'gigantis', 'ponderis', 'colossi'], R: ['erratica', 'vagans', 'tenebrarum', 'solitudinis'],
+  'super-earth': ['gravis', 'molis', 'oneris', 'firmans'], 'sub-neptune': ['nebulosa', 'nebulae', 'caliginis', 'profundi'],
+  'lava-world': ['ignea', 'ignis', 'vulcani', 'fornacis'], 'hot-jupiter': ['torrida', 'ardoris', 'aestus', 'fervens'],
+  'ice-giant': ['caerulea', 'neptuni', 'urani', 'abyssi'],
+};
+// The genus ends in a word for how it gets about: foot and walker, wing and flier, fish and swimmer, bladder and
+// air, digger twice, plant and shoot, slow one and creeping thing. (Not "dendron", tree: a red one would be a
+// Rhododendron, which Earth already has.)
+export const ENDINGS = {
+  walker: ['podus', 'bates'], flyer: ['pteryx', 'petes'], swimmer: ['ichthys', 'nectes'], floater: ['physa', 'aeron'],
+  burrower: ['oryctes', 'scaptor'], plant: ['phyton', 'thallus'], crawler: ['tardus', 'herpeton'],
+};
+// What it is called for its shape: a few honest words for each body plan and build. A crawler is a dome of rock
+// where it is too hot for water (`rock`), and a mite the size of a grain of dust everywhere else (`mite`).
+export const NOUNS = {
+  walker: { squat: ['lumberer', 'plodder', 'trundler', 'tramper', 'stomper'], even: ['grazer', 'browser', 'forager', 'rambler', 'roamer'], lanky: ['strider', 'stalker', 'loper', 'bounder', 'stilt-walker'] },
+  flyer: { lanky: ['glider', 'soarer', 'flier', 'skimmer', 'wind-rider'] },
+  swimmer: { squat: ['ray', 'skate', 'flapper', 'wing-fish', 'blanket-fish'], even: ['swimmer', 'fish', 'darter', 'cruiser', 'finback'], lanky: ['eel', 'ribbon', 'sea-snake', 'whip', 'wriggler'] },
+  floater: { squat: ['sail', 'disc', 'veil', 'raft', 'kite', 'parasol'], even: ['drifter', 'balloon', 'gas-bag', 'float', 'bell', 'bladder'] },
+  burrower: { squat: ['borer', 'digger', 'mole', 'delver', 'shoveller'], even: ['burrower', 'tunneller', 'miner', 'excavator', 'delver'], lanky: ['worm', 'threader', 'slider', 'needle-worm', 'burrow-snake'] },
+  plant: { squat: ['mat', 'cushion', 'carpet', 'rosette', 'tussock'], even: ['frond', 'fern', 'bush', 'thicket', 'shrub'], lanky: ['spire', 'pole', 'mast', 'reed', 'tower'] },
+  crawler: { rock: ['creeper', 'rock-eater', 'stone-borer', 'dome', 'grinder', 'crawler'], mite: ['creeper', 'mite', 'grain-clinger', 'dust-bear', 'crawler'] },
+};
+// What it is called for its looks: each list is ways of saying one thing that is true of it.
+export const LOOKS = {
+  crystal: ['Glassy', 'Faceted', 'Flinty', 'Crystal-backed', 'Stone-skinned', 'Quartz'],
+  glow: ['Lantern', 'Glow-spotted', 'Lamplit', 'Glimmering', 'Star-flecked'],
+  fur: ['Shaggy', 'Woolly', 'Furred', 'Thick-coated', 'Downy'],
+  armor: ['Armoured', 'Plated', 'Shield-backed', 'Shelled', 'Hard-shelled'],
+  sail: ['Sail-backed', 'Fan-backed', 'Fin-backed', 'Crested'],
+  sacs: ['Barrel-chested', 'Sac-backed', 'Deep-chested', 'Big-lunged'],
+  jelly: ['Glassy', 'Clear', 'Filmy', 'Jelly', 'Bubble'],
+  blind: ['Blind', 'Eyeless'],
+  bigEyes: ['Big-eyed', 'Wide-eyed', 'Owl-eyed', 'Saucer-eyed'],
+  hooded: ['Hooded', 'Heavy-browed', 'Squinting'],
+  eyes: { 3: ['Three-eyed'], 4: ['Four-eyed'] },
+  legs: { 2: ['Two-legged'], 6: ['Six-legged'], 8: ['Eight-legged'] },
+  tail: ['Long-tailed', 'Whip-tailed'], noTail: ['Bob-tailed', 'Tailless'],
+  small: ['Lesser', 'Dwarf', 'Little', 'Pygmy'], big: ['Greater', 'Giant', 'Great', 'King'],
+  // The colour it is drawn in: by how light it is, and otherwise by its hue.
+  black: ['Black', 'Sooty', 'Coal', 'Dusky', 'Inky'], pale: ['Pale', 'Ashen', 'Milky', 'Ghost', 'Bone-white'],
+  red: ['Russet', 'Brick', 'Rust-red'], sandy: ['Sandy', 'Tawny', 'Buff', 'Dun'], copper: ['Copper', 'Ginger', 'Amber', 'Rusty'],
+  green: ['Green', 'Moss', 'Olive', 'Fern'], teal: ['Teal', 'Sea-green', 'Turquoise'], blue: ['Blue', 'Slate', 'Azure'],
+};
+// The colour word list for a body's drawn colour ({ h, s, l }), and the Greek root that says the same.
+function colourOf({ h, l }) {
+  if (l <= 26) return ['black', 'Melano'];
+  if (l >= 70) return ['pale', 'Leuco'];
+  if (h < 20 || h >= 345) return ['red', 'Pyrrho'];
+  if (h < 80) return [l >= 55 ? 'sandy' : 'copper', 'Xantho'];
+  if (h < 160) return ['green', 'Chloro'];
+  if (h < 200) return ['teal', 'Glauco'];
+  return ['blue', 'Cyano']; // (the lab draws nothing violet that isn't near-black or pale)
+}
+// Small and big for each body plan, in metres: the bottom and top third or so of what the lab grows.
+const SIZES = { walker: [0.6, 1.9], flyer: [1.2, 3.5], swimmer: [1.5, 8], floater: [90, 420], burrower: [0.45, 1], plant: [3, 14], crawler: [1.1, 2] };
+
+function names(env, b, classId, nr) {
+  const tiny = b.plan === 'crawler' && !b.crystals; // a mite: its sizes are in millimetres
+  const [small, big] = tiny ? [0.0015, 0.003] : SIZES[b.plan];
+  const size = b.size < small ? 'small' : b.size > big ? 'big' : null;
+  const [colour, colourRoot] = colourOf(b.color);
+
+  // The genus: a Greek root for one thing that is true of it or its world, and an ending for how it gets about.
+  const roots = [];
+  if (b.crystals) roots.push('Litho');
+  if (env.dark) roots.push('Nycto');
+  if (env.g >= 1.6) roots.push('Bary');
+  if (env.g < 0.6) roots.push('Lepto');
+  if (env.temp > 320) roots.push('Pyro');
+  if (env.temp < 262) roots.push('Cryo');
+  if (env.star === 'red') roots.push('Erythro');
+  if (b.plan === 'swimmer') roots.push('Thalasso');
+  if (b.plan === 'floater') roots.push('Nephelo');
+  if (size) roots.push(size === 'big' ? 'Mega' : 'Micro');
+  roots.push(colourRoot);
+  if (roots.length < 3) roots.push(pick(nr, ['Xeno', 'Neo', 'Allo']));
+
+  // Its looks: every list that is true of it, then one of those, then one word from that.
+  const looks = [LOOKS[colour]];
+  if (b.crystals) looks.push(LOOKS.crystal);
+  if (b.glow) looks.push(LOOKS.glow);
+  if (b.covering === 'fur') looks.push(LOOKS.fur);
+  if (b.armor && !b.crystals) looks.push(LOOKS.armor);
+  if (b.sail) looks.push(LOOKS.sail);
+  if (b.sacs) looks.push(LOOKS.sacs);
+  if (b.covering === 'jelly') looks.push(LOOKS.jelly);
+  if (!b.eyes && b.plan !== 'plant') looks.push(LOOKS.blind);
+  if (b.eyes >= 3) looks.push(LOOKS.eyes[Math.min(4, b.eyes)]);
+  if (b.eyes && b.eyeSize > 1.5 && !b.crystals) looks.push(LOOKS.bigEyes);
+  if (b.eyes && b.eyeSize < 1) looks.push(LOOKS.hooded);
+  if (b.plan === 'walker' && LOOKS.legs[b.legs]) looks.push(LOOKS.legs[b.legs]);
+  if (b.plan === 'walker' || b.plan === 'flyer') looks.push(b.tail ? LOOKS.tail : LOOKS.noTail);
+  if (size) looks.push(LOOKS[size]);
+
+  const nouns = b.plan === 'crawler' ? NOUNS.crawler[b.crystals ? 'rock' : 'mite'] : NOUNS[b.plan][b.build] || Object.values(NOUNS[b.plan])[0];
+  return {
+    genus: pick(nr, roots) + pick(nr, ENDINGS[b.plan]),
+    species: pick(nr, EPITHETS[classId]),
+    common: `${pick(nr, pick(nr, looks))} ${env.place} ${pick(nr, nouns)}`,
+  };
 }
 
 // ---------- Field notes ----------

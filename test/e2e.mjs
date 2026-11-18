@@ -1328,6 +1328,20 @@ await page.waitForFunction(() => window.survey);
 await Promise.all([page.waitForNavigation(), page.locator('#file a', { hasText: 'Grow a creature for Class O' }).click()]);
 await page.waitForFunction(() => window.xeno?.current);
 assert.equal(await page.evaluate(() => xeno.current.classId), 'O');
+// Grow another gives another animal by name too. Lava worlds and hot Jupiters had one name for every creature and
+// Class N three; ten presses on each now bring at least five names, and no blank or broken one.
+for (const id of ['lava-world', 'hot-jupiter', 'N']) {
+  await page.evaluate(c => xeno.show(c, 1, false), id);
+  const seen = new Set();
+  for (let k = 0; k < 10; k++) {
+    await page.click('#again');
+    const [common, latin] = [await text('#specimen h2'), await text('#specimen .latin')];
+    assert.match(common, /^[A-Z][a-z-]+ [a-z -]+ [a-z-]+$/, `${id}: “${common}”`);
+    assert.match(latin, /^[A-Z][a-z]+ [a-z]+$/, `${id}: “${latin}”`);
+    seen.add(common);
+  }
+  assert.ok(seen.size >= 5, `ten ${id} creatures had ${seen.size} names between them: ${[...seen].join(', ')}`);
+}
 // A creature for a real planet. The Class M file's planets each have their own link beside Set course; the lab grows
 // one from TRAPPIST-1 e's own width, mass, temperature and star, and the link, a reload and a jar all bring it back.
 await page.goto(base + 'survey.html#M');

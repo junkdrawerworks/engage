@@ -542,15 +542,20 @@ function swimmer(g, b, s, t) {
 
 function floater(g, b, s, t) {
   const flat = b.build === 'squat';
+  // No two gas bags are alike: how tall the bell is, how many tentacles trail from it and how long, whether it has
+  // fins and how far they sweep, and how it is marked all come from the creature's own numbers.
+  const v = rng(Math.round(b.wobble * 1e6) + 21);
+  const tall = flat ? 0.24 + 0.2 * v() : 0.62 + 0.55 * v();
   const pulse = 1 + 0.03 * Math.sin(t * 1.2);
-  const R = s * (flat ? 0.48 : 0.34) * pulse, Rh = flat ? R * 0.32 : R * 0.9;
+  const R = s * (flat ? 0.48 : tall > 0.95 ? 0.29 : 0.34) * pulse, Rh = R * tall;
   const bob = Math.sin(t * 0.7) * s * 0.015;
   g.save(); g.translate(0, bob);
   // Tentacles
-  const n = flat ? 14 : 9;
+  const n = flat ? 9 + Math.floor(v() * 9) : 4 + Math.floor(v() * 9);
+  const trail = 0.55 + 0.75 * v(), finned = v() > 0.3, sweep = 1.2 + 0.5 * v(), bands = v() > 0.5 ? 1 + Math.floor(v() * 3) : 0, veins = 1 + Math.floor(v() * 4);
   for (let i = 0; i < n; i++) {
     const x0 = -R * 0.8 + (R * 1.6 * i) / (n - 1);
-    const len = s * (flat ? 0.18 : 0.5) * (0.7 + 0.3 * Math.sin(i * 2.3));
+    const len = s * (flat ? 0.18 : 0.42) * trail * (0.7 + 0.3 * Math.sin(i * 2.3));
     g.strokeStyle = `hsla(${b.color.h},${b.color.s}%,${b.color.l + 10}%,0.7)`;
     g.lineWidth = Math.max(1, s * (flat ? 0.006 : 0.01));
     g.beginPath(); g.moveTo(x0, Rh * 0.2);
@@ -560,9 +565,9 @@ function floater(g, b, s, t) {
   // Fins
   g.fillStyle = `hsla(${b.accent},45%,60%,0.45)`;
   const fl = Math.sin(t * 1.3) * 0.2;
-  for (const side of [-1, 1]) {
+  if (finned) for (const side of [-1, 1]) {
     g.beginPath(); g.moveTo(side * R * 0.85, 0);
-    g.quadraticCurveTo(side * R * 1.45, -Rh * (0.5 + fl), side * R * 1.35, Rh * 0.3);
+    g.quadraticCurveTo(side * R * (sweep + 0.1), -Rh * (0.5 + fl), side * R * sweep, Rh * 0.3);
     g.closePath(); g.fill();
   }
   // Gas bag
@@ -575,9 +580,14 @@ function floater(g, b, s, t) {
   g.bezierCurveTo(R * 0.9, Rh * 0.35, -R * 0.9, Rh * 0.35, -R, 0);
   g.fill();
   outline(g, b, s); g.lineWidth = Math.max(1, s * 0.006); g.stroke();
-  // Veins
+  // Veins, and on some a few bands across the bell
   g.strokeStyle = `hsla(${b.accent},50%,45%,0.35)`;
-  for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(i * R * 0.12, Rh * 0.2); g.quadraticCurveTo(i * R * 0.3, -Rh * 0.5, i * R * 0.2, -Rh * 0.95); g.stroke(); }
+  for (let i = -veins; i <= veins; i++) { g.beginPath(); g.moveTo(i * R * 0.36 / veins, Rh * 0.2); g.quadraticCurveTo(i * R * 0.9 / veins, -Rh * 0.5, i * R * 0.6 / veins, -Rh * 0.95); g.stroke(); }
+  g.strokeStyle = `hsla(${b.accent},55%,${b.color.l > 55 ? 38 : 70}%,0.4)`; g.lineWidth = Math.max(1.5, s * 0.012);
+  for (let k = 1; k <= bands; k++) {
+    const u = k / (bands + 1), yy = -Rh * u, half = R * Math.sqrt(1 - u * u) * 0.97;
+    g.beginPath(); g.moveTo(-half, yy); g.quadraticCurveTo(0, yy + Rh * 0.12, half, yy); g.stroke();
+  }
   g.fillStyle = 'rgba(255,255,255,0.35)';
   g.beginPath(); g.ellipse(-R * 0.35, -Rh * 0.55, R * 0.18, Rh * 0.12, -0.5, 0, TAU); g.fill();
   // Eyes along the rim
@@ -624,24 +634,29 @@ function plant(g, b, s, t) {
     g.strokeStyle = hsl(b.color, -15, 0.8); g.lineWidth = 1; g.beginPath(); g.moveTo(0, 0); g.lineTo(len * 0.9, 0); g.stroke();
     g.restore();
   };
+  // How many stems, how thickly leaved and how broad: the plant's own numbers, so no two fronds are the same.
+  const v = rng(Math.round(b.wobble * 1e6) + 25);
   if (kind === 'squat') { // a cushion of leaves
-    for (let i = 0; i < 60; i++) {
+    const spread = 0.3 + 0.2 * v(), leaves = 36 + Math.floor(v() * 50), long = 0.8 + 0.6 * v();
+    for (let i = 0; i < leaves; i++) {
       const a = Math.PI + r() * Math.PI, d = r();
-      leaf(Math.cos(a) * s * 0.4 * d, Math.sin(a) * Hh * d, s * (0.08 + r() * 0.06), a + (r() - 0.5));
+      leaf(Math.cos(a) * s * spread * d, Math.sin(a) * Hh * d, s * (0.08 + r() * 0.06) * long, a + (r() - 0.5));
     }
     return Hh;
   }
-  const stems = kind === 'lanky' ? 1 : 3;
+  const stems = kind === 'lanky' ? 1 + Math.floor(v() * 2.4) : 2 + Math.floor(v() * 4);
+  const tallest = Math.floor(v() * stems), gap = (kind === 'lanky' ? 0.12 : 0.62 / stems) * (0.8 + 0.5 * v());
+  const leafy = 0.75 + 0.6 * v(), broad = 0.8 + 0.55 * v();
   for (let k = 0; k < stems; k++) {
-    const x0 = (k - (stems - 1) / 2) * s * 0.18, top = Hh * (k === 1 || stems === 1 ? 1 : 0.75);
+    const x0 = (k - (stems - 1) / 2) * s * gap, top = Hh * (k === tallest ? 1 : 0.55 + 0.4 * v());
     const sway = u => Math.sin(t * 0.8 + k) * s * 0.03 * u * u;
     g.strokeStyle = `hsl(${(b.color.h + 300) % 360},25%,${Math.max(12, b.color.l - 12)}%)`;
     g.lineWidth = Math.max(2, s * (kind === 'lanky' ? 0.03 : 0.022));
     g.beginPath(); g.moveTo(x0, 0); g.quadraticCurveTo(x0 + s * 0.02, -top * 0.5, x0 + sway(1), -top); g.stroke();
-    const nl = kind === 'lanky' ? 14 : 9;
+    const nl = Math.round((kind === 'lanky' ? 14 : 9) * leafy);
     for (let i = 2; i <= nl; i++) {
       const u = i / nl, side = i % 2 ? 1 : -1;
-      leaf(x0 + sway(u), -top * u, s * (0.2 - u * 0.1) * (kind === 'lanky' ? 0.7 : 1), side > 0 ? -0.5 - u * 0.4 : Math.PI + 0.5 + u * 0.4);
+      leaf(x0 + sway(u), -top * u, s * (0.2 - u * 0.1) * (kind === 'lanky' ? 0.7 : 1) * broad * (stems > 3 ? 0.8 : 1), side > 0 ? -0.5 - u * 0.4 : Math.PI + 0.5 + u * 0.4);
     }
   }
   return Hh;
@@ -649,7 +664,10 @@ function plant(g, b, s, t) {
 
 function crawler(g, b, s, t) {
   if (b.crystals) {
-    const W = s * 0.85, Hh = s * 0.3;
+    // Each dome is its own: how wide and how high, how many crystals stand on it and how tall, and which way they lean.
+    const v = rng(Math.round(b.wobble * 1e6) + 23);
+    const W = s * (0.68 + 0.24 * v()), Hh = s * (0.2 + 0.18 * v());
+    const spikes = 4 + Math.floor(v() * 10), spikeH = 0.6 + 1.1 * v(), lean = (v() - 0.5) * 0.9, cracks = 3 + Math.floor(v() * 6);
     const breathe = 1 + 0.02 * Math.sin(t * 0.9);
     // The rock-eater: a low dome studded with crystals, glowing where it digests stone.
     g.fillStyle = bodyFill(g, b, 0, -Hh * 0.5, W, Hh);
@@ -659,20 +677,21 @@ function crawler(g, b, s, t) {
     g.save(); g.clip();
     g.strokeStyle = 'rgba(255,120,40,0.75)'; g.lineWidth = Math.max(1, s * 0.006);
     const r = rng(Math.round(b.wobble * 1e6) + 11);
-    for (let i = 0; i < 6; i++) { let x = (r() - 0.5) * W, y = -r() * Hh; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 3; j++) { x += (r() - 0.5) * s * 0.1; y += (r() - 0.5) * s * 0.05; g.lineTo(x, y); } g.stroke(); }
+    for (let i = 0; i < cracks; i++) { let x = (r() - 0.5) * W, y = -r() * Hh; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 3; j++) { x += (r() - 0.5) * s * 0.1; y += (r() - 0.5) * s * 0.05; g.lineTo(x, y); } g.stroke(); }
     g.restore();
     outline(g, b, s); g.stroke();
-    for (let i = 0; i < 9; i++) { // crystals
-      const u = (i + 0.5) / 9, x = -W * 0.42 + W * 0.84 * u;
+    for (let i = 0; i < spikes; i++) { // crystals
+      const u = (i + 0.5) / spikes, x = -W * 0.42 + W * 0.84 * u;
       const base = -Hh * Math.sin(u * Math.PI) * 0.95 * breathe;
-      const hh = s * (0.05 + 0.05 * Math.sin(i * 2.7) ** 2);
+      const hh = s * (0.05 + 0.05 * Math.sin(i * 2.7 + spikes) ** 2) * spikeH, tip = hh * lean;
+      const wide = s * 0.02 * Math.min(1.5, 9 / spikes);
       g.fillStyle = `hsla(${b.accent},35%,${70 + (i % 3) * 6}%,0.9)`;
-      g.beginPath(); g.moveTo(x - s * 0.02, base + 2); g.lineTo(x - s * 0.005, base - hh); g.lineTo(x + s * 0.02, base - hh * 0.6); g.lineTo(x + s * 0.025, base + 2); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(x - wide, base + 2); g.lineTo(x - wide * 0.25 + tip, base - hh); g.lineTo(x + wide + tip * 0.6, base - hh * 0.6); g.lineTo(x + wide * 1.25, base + 2); g.closePath(); g.fill();
       g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1; g.stroke();
     }
-    if (b.eyes) for (let i = 0; i < Math.min(2, b.eyes); i++) {
+    if (b.eyes) for (let i = 0; i < Math.min(4, b.eyes); i++) { // as many glowing lenses as it has eyes
       g.save(); g.globalCompositeOperation = 'lighter';
-      const ex = W * (0.3 + i * 0.08), ey = -Hh * 0.45;
+      const ex = W * (0.3 + (i % 2) * 0.08 - (i > 1 ? 0.04 : 0)), ey = -Hh * (i > 1 ? 0.75 : 0.45);
       const gr = g.createRadialGradient(ex, ey, 0, ex, ey, s * 0.03);
       gr.addColorStop(0, 'rgba(255,200,90,0.95)'); gr.addColorStop(1, 'rgba(255,150,40,0)');
       g.fillStyle = gr; g.beginPath(); g.arc(ex, ey, s * 0.03, 0, TAU); g.fill(); g.restore();
