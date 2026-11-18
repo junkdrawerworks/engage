@@ -233,12 +233,26 @@ export function planetAt(name, jd) {
 }
 export const earthAt = jd => planetAt('earth', jd);
 
-// The Moon, roughly (a degree or so): its distance from Earth in km and direction, for the near-Earth view.
+// The Moon from Earth's centre: [x, y, z] in km, in the same axes as the planets (the ecliptic and equinox of 2000).
+// The largest terms of the series in Meeus, Astronomical Algorithms (2nd ed.), chapter 47: the Moon's place to about
+// a fifth of a degree, three or four tenths of its own width, and its distance to a few hundred km. Angles in degrees
+// at the start of 2000 and their rates per day: the Moon's mean longitude L, its distance round from the Sun D, the
+// Sun's and the Moon's mean anomalies M and Mm, and the Moon's distance round from where it crosses the ecliptic, F.
 export function moonAt(jd) {
   const d = jd - 2451545;
-  const L = (218.316 + 13.176396 * d) * DEG, M = (134.963 + 13.064993 * d) * DEG, F = (93.272 + 13.229350 * d) * DEG;
-  const lon = L + 6.289 * DEG * Math.sin(M), lat = 5.128 * DEG * Math.sin(F), r = 385001 - 20905 * Math.cos(M);
-  return [r * Math.cos(lat) * Math.cos(lon), r * Math.cos(lat) * Math.sin(lon), r * Math.sin(lat)];
+  const D = (297.8501921 + 12.19074912 * d) * DEG, M = (357.5291092 + 0.98560028 * d) * DEG;
+  const Mm = (134.9633964 + 13.06499295 * d) * DEG, F = (93.272095 + 13.22935024 * d) * DEG;
+  const sin = Math.sin, cos = Math.cos;
+  // The series gives longitude from the equinox of the date; the last term turns that back to 2000's (1.397° a century).
+  const lon = (218.3164477 + 13.17639648 * d
+    + 6.288774 * sin(Mm) + 1.274027 * sin(2 * D - Mm) + 0.658314 * sin(2 * D) + 0.213618 * sin(2 * Mm) - 0.185116 * sin(M)
+    - 0.114332 * sin(2 * F) + 0.058793 * sin(2 * D - 2 * Mm) + 0.057066 * sin(2 * D - M - Mm) + 0.053322 * sin(2 * D + Mm)
+    + 0.045758 * sin(2 * D - M) - 1.396971 * d / 36525) * DEG;
+  const lat = (5.128122 * sin(F) + 0.280602 * sin(Mm + F) + 0.277693 * sin(Mm - F) + 0.173237 * sin(2 * D - F)
+    + 0.055413 * sin(2 * D - Mm + F) + 0.046271 * sin(2 * D - Mm - F) + 0.032573 * sin(2 * D + F)) * DEG;
+  const r = 385000.56 - 20905.355 * cos(Mm) - 3699.111 * cos(2 * D - Mm) - 2955.968 * cos(2 * D) - 569.925 * cos(2 * Mm)
+    + 246.158 * cos(2 * D - 2 * Mm) - 204.586 * cos(2 * D - M) - 170.733 * cos(2 * D + Mm) - 152.138 * cos(2 * D - M - Mm);
+  return [r * cos(lat) * cos(lon), r * cos(lat) * sin(lon), r * sin(lat)];
 }
 
 // ---------- JWST ----------

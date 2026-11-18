@@ -27,12 +27,17 @@ test('the pole star stands as high as your latitude', () => {
 });
 
 test('a star crossing the meridian is due south at 90 minus the gap in latitude', () => {
-  // Vega (RA 18h 36.9m, Dec +38.78) when the local sidereal time equals its RA.
+  // Vega when the local sidereal time equals its right ascension. The catalogue has it at 18h 36.9m, +38.78° (the
+  // equator and equinox of 2000); the Earth's axis has swung round since, and on 1 July 2026 it is at 18h 37.8m,
+  // +38.81° (astropy, FK5 for the date). The frame allows for that: the catalogue's direction crosses the meridian
+  // when today's right ascension says, not 2000's, which is 53 seconds earlier.
   const jd0 = jdOf(Date.UTC(2026, 6, 1));
-  const lon = 18.615 * 15 - gmst(jd0); // the longitude where it's on the meridian at that moment
+  const lon = 18.63048 * 15 - gmst(jd0); // the longitude where it's on the meridian at that moment
   const { alt, az } = altAz(toLocal(frame(20, lon, jd0), radec(18.615, 38.78)));
-  near(alt, 90 - (38.78 - 20), 0.05, 'Vega’s height');
-  near(az, 0, 0.5, 'Vega north of the zenith when it culminates from 20°N');
+  near(alt, 90 - (38.8077 - 20), 0.02, 'Vega’s height');
+  near((az + 180) % 360 - 180, 0, 0.1, 'Vega north of the zenith when it culminates from 20°N');
+  const old = altAz(toLocal(frame(20, 18.615 * 15 - gmst(jd0), jd0), radec(18.615, 38.78)));
+  assert.ok(Math.abs(old.az > 180 ? old.az - 360 : old.az) > 0.3, 'the frame takes the catalogue’s year for today');
 });
 
 test('the Sun at noon on the solstice', () => {
@@ -84,6 +89,43 @@ test('Venus and Mercury fade as crescents, the way the Astronomical Almanac work
   near(phaseMag('venus', 0), -4.384, 1e-9, 'Venus full');
   near(phaseMag('mercury', 0), -0.613, 1e-9, 'Mercury full');
   near(phaseMag('mercury', 90), 2.26, 0.01, 'Mercury half lit');
+});
+
+test('the Moon, the Sun and the stars stand where astropy puts them', () => {
+  // Heights and bearings seen from the place itself (not the Earth's centre), with no bending by the air, from
+  // astropy 7 with its built-in ephemeris (ERFA's Moon). The Moon had been up to 2.3° out: one term of its series,
+  // and no allowance for where on Earth you stand, which moves it by up to a degree.
+  const PLACES = { 'New York': [40.71, -74.01], Sydney: [-33.87, 151.21], 'Reykjavík': [64.15, -21.94], Auckland: [-36.85, 174.76], 'the pole': [89.9, 0] };
+  const WHEN = ['2026-11-19T02:00:00Z', '2026-06-21T12:00:00Z', '2027-03-01T10:30:00Z'];
+  const MOON = { // [alt, az] for each of WHEN
+    'New York': [[37.12, 217.27], [-45.70, 30.29], [18.08, 160.62]],
+    Sydney: [[-11.74, 102.79], [18.73, 283.91], [-25.04, 156.29]],
+    'Reykjavík': [[-0.83, 259.76], [-8.23, 74.55], [-5.97, 207.52]],
+    Auckland: [[7.61, 89.05], [-0.70, 270.25], [-12.15, 137.85]],
+    'the pole': [[-5.31, 282.65], [-0.89, 94.89], [-28.42, 233.21]],
+  };
+  const LIT = [0.656, 0.457, 0.384];
+  for (const [name, [lat, lon]] of Object.entries(PLACES)) {
+    WHEN.forEach((iso, k) => {
+      const jd = jdOf(new Date(iso)), f = frame(lat, lon, jd);
+      const moon = moonSky(jd, { lat, lon });
+      const [alt, az] = MOON[name][k];
+      near(angle(toLocal(f, moon.dir), fromAltAz(alt, az)), 0, 0.2, `the Moon from ${name} at ${iso}`);
+      near(moon.lit, LIT[k], 0.02, `how much of the Moon is lit at ${iso}`);
+      // From the Earth's centre it is somewhere else, by up to a degree: more when it is low, almost nothing overhead.
+      const shift = angle(moonSky(jd).dir, moon.dir);
+      assert.ok(shift < 1.02 && (Math.abs(alt) > 20 || shift > 0.8), `the Moon shifts ${shift}° between ${name} and the Earth’s centre`);
+    });
+  }
+  // The night the Moon had set in Reykjavík and was drawn as up: 19 November 2026, 2am.
+  const jd = jdOf(new Date(WHEN[0]));
+  assert.ok(altAz(toLocal(frame(64.15, -21.94, jd), moonSky(jd, { lat: 64.15, lon: -21.94 }).dir)).alt < -0.5, 'the Moon is still up in Reykjavík');
+  // New York, 19 November 2026, 02:00 UTC: the Sun and three stars (catalogue places, with their own drift since 2000 left out).
+  const f = frame(40.71, -74.01, jd);
+  near(angle(toLocal(f, sunDir(jd)), fromAltAz(-49.63, 289.55)), 0, 0.05, 'the Sun');
+  near(angle(toLocal(f, radec(101.2872 / 15, -16.7161)), fromAltAz(-8.98, 104.42)), 0, 0.05, 'Sirius');
+  near(angle(toLocal(f, radec(279.2347 / 15, 38.7837)), fromAltAz(21.15, 303.62)), 0, 0.05, 'Vega');
+  near(angle(toLocal(f, radec(37.9546 / 15, 89.2641)), fromAltAz(41.23, 0.45)), 0, 0.05, 'Polaris');
 });
 
 test('the Moon’s phases', () => {

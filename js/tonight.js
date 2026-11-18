@@ -195,7 +195,7 @@ function compute() {
   const date = when(), jd = jdOf(date);
   const f = frame(lat, lon, jd);
   const sun = toLocal(f, sunDir(jd));
-  const moon = moonSky(jd);
+  const moon = moonSky(jd, { lat, lon }); // from where you stand: the Moon is near enough for that to show
   const moonL = toLocal(f, moon.dir);
   const sunAlt = altAz(sun).alt, moonAlt = altAz(moonL).alt;
   const lim = limitingMag(saved.sky, sunAlt, moon.lit, moonAlt);

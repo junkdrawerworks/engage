@@ -1,7 +1,7 @@
 // Where things are in your own sky: turns the catalogue's directions into "how high, and which way" for a place on
 // Earth and a moment, and finds the Sun, the Moon and the planets. Pure functions, so test/tonight.test.mjs can check them.
-// Star directions are the catalogue's (the year 2000 equinox); the 26 years of precession since move them about a
-// third of a degree, less than a phone's compass can tell.
+// Star directions are the catalogue's (the equator and equinox of 2000); the local frame allows for the third of a
+// degree the Earth's axis has swung round since, so the Moon and planets sit where they should among the stars.
 import { planetAt, earthAt, moonAt } from './ephemeris.js';
 
 const DEG = Math.PI / 180;
@@ -15,15 +15,32 @@ export function gmst(jd) {
   return (((280.46061837 + 360.98564736629 * d + 0.000387933 * T * T) % 360) + 360) % 360;
 }
 
+// Turns a direction from the equator and equinox of the date (which sidereal time is measured from) back to those
+// of 2000, which the catalogue and the planets' tables use: the Earth's axis has swung round about a third of a
+// degree since. The IAU 1976 angles, as in Meeus, Astronomical Algorithms, chapter 21.
+function toJ2000(jd) {
+  const T = (jd - 2451545) / 36525, AS = DEG / 3600;
+  const zeta = (2306.2181 * T + 0.30188 * T * T) * AS, z = (2306.2181 * T + 1.09468 * T * T) * AS, theta = (2004.3109 * T - 0.42665 * T * T) * AS;
+  const cz = Math.cos(zeta), sz = Math.sin(zeta), cZ = Math.cos(z), sZ = Math.sin(z), ct = Math.cos(theta), st = Math.sin(theta);
+  // The rows take 2000 to the date; a direction of the date dotted with each column comes back to 2000.
+  const P = [
+    [cz * ct * cZ - sz * sZ, -sz * ct * cZ - cz * sZ, -st * cZ],
+    [cz * ct * sZ + sz * cZ, -sz * ct * sZ + cz * cZ, -st * sZ],
+    [cz * st, -sz * st, ct],
+  ];
+  return v => [0, 1, 2].map(k => P[0][k] * v[0] + P[1][k] * v[1] + P[2][k] * v[2]);
+}
+
 // The local frame for a place and moment, as three unit vectors in the catalogue's axes: east, north and up.
 // A direction's height above the horizon and its bearing then come from dot products with these.
 export function frame(lat, lon, jd) {
   const th = (gmst(jd) + lon) * DEG, ph = lat * DEG;
   const ct = Math.cos(th), st = Math.sin(th), cp = Math.cos(ph), sp = Math.sin(ph);
+  const back = toJ2000(jd);
   return {
-    east: [-st, ct, 0],
-    north: [-sp * ct, -sp * st, cp],
-    up: [cp * ct, cp * st, sp],
+    east: back([-st, ct, 0]),
+    north: back([-sp * ct, -sp * st, cp]),
+    up: back([cp * ct, cp * st, sp]),
   };
 }
 
@@ -85,14 +102,19 @@ export function planetSky(name, jd) {
   return { dir: eclipticToEquatorial(g), au: delta, phase, mag: 5 * Math.log10(r * delta) + phaseMag(name, phase) };
 }
 
-// The Moon: its direction, how much of it is lit (0 new to 1 full), and whether it's growing.
-export function moonSky(jd) {
+// The Moon: its direction, how much of it is lit (0 new to 1 full), and whether it's growing. The Moon is close
+// enough that where you stand matters: from one side of the Earth to the other it shifts nearly two degrees against
+// the stars. Given a place ({ lat, lon }), the direction is the one from there; without, from the Earth's centre.
+const EARTH_KM = 6378.14;
+export function moonSky(jd, place) {
   const m = moonAt(jd), s = earthAt(jd).map(v => -v);
   const lonM = Math.atan2(m[1], m[0]), lonS = Math.atan2(s[1], s[0]);
   const cosE = dot(m, s) / (Math.hypot(...m) * Math.hypot(...s));
   const lit = (1 - cosE) / 2;
   const waxing = ((lonM - lonS) / DEG + 720) % 360 < 180;
-  return { dir: eclipticToEquatorial(m), km: Math.hypot(...m), lit, waxing };
+  let dir = eclipticToEquatorial(m);
+  if (place) { const { up } = frame(place.lat, place.lon, jd); dir = dir.map((v, k) => v - EARTH_KM * up[k]); }
+  return { dir, km: Math.hypot(...m), lit, waxing };
 }
 
 export function moonPhaseName(lit, waxing) {
