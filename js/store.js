@@ -6,7 +6,9 @@
 // no room (junkdrawer.works's other tools share it), or 'blocked' when the browser won't store anything at all.
 export function keep(key, value) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    const text = JSON.stringify(value);
+    localStorage.setItem(key, text);
+    seen.set(key, text);
     return '';
   } catch (e) {
     // Firefox has its own name and number for a full store.
@@ -22,10 +24,25 @@ export function unkept(why, room, thing) {
 }
 
 // Calls changed() when something else has saved under `key`: another tab or window (the browser never tells the tab
-// that did the writing), or anything at all while this page was put aside whole and has now been brought back with
-// Back. A key that has been taken away is not a save: what this tab holds is then the only copy, and it keeps it.
+// that did the writing). A phone puts tabs to sleep and doesn't always say afterwards what was saved meanwhile, so
+// the tab also looks for itself whenever it comes back into view, or is brought back whole with Back. A key that
+// has been taken away is not a save: what this tab holds is then the only copy, and it keeps it.
 // changed() must read and redraw only. If it saved, two tabs would answer each other for ever.
 export function watch(key, changed) {
-  addEventListener('storage', e => { if (e.key === key && e.newValue !== null) changed(); });
-  addEventListener('pageshow', e => { if (e.persisted) changed(); });
+  seen.set(key, held(key));
+  const look = () => {
+    const now = held(key);
+    if (now === null || now === seen.get(key)) return;
+    seen.set(key, now);
+    changed();
+  };
+  addEventListener('storage', e => { if (e.key === key) look(); });
+  addEventListener('pageshow', e => { if (e.persisted) look(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) look(); });
+}
+
+// What the browser holds under each key, as this tab last read or wrote it.
+const seen = new Map();
+function held(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
 }

@@ -2533,6 +2533,47 @@ await page.emulateMedia({ reducedMotion: null });
   await phone.close();
 }
 
+// A tab that was asleep while another saved (a phone does that to tabs, and doesn't always tell them afterwards)
+// looks for itself when it comes back into view. Stood in for here by a save the tab is not told about, and then
+// the browser's "you're in view again".
+{
+  const two = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  await two.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+  const p = await two.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => window.engage.jump('Vega'));
+  const wake = () => p.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); });
+  // Nothing saved meanwhile: coming back into view changes nothing.
+  await p.evaluate(() => { window.engage.state.warp = 3.3; });
+  await wake();
+  assert.equal(await p.evaluate(() => window.engage.state.warp), 3.3, 'a tab that came back into view re-read a save that had not changed');
+  // Something saved meanwhile: it is taken up.
+  await p.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('engage.v1'));
+    s.log.unshift({ ...s.log[0], id: s.log[0].id + 1, title: 'Sirius' });
+    s.warp = 6.5;
+    localStorage.setItem('engage.v1', JSON.stringify(s));
+  });
+  assert.equal(await p.evaluate(() => window.engage.state.log.length), 1);
+  await wake();
+  assert.deepEqual(await p.evaluate(() => [window.engage.state.log.map(e => e.title).join(), window.engage.state.warp, document.getElementById('warp-out').textContent]), ['Sirius,Vega', 6.5, '6.5'], 'a tab that came back into view did not take up what was saved while it slept');
+  // And so its next save keeps it.
+  await p.focus('#warp');
+  await p.keyboard.press('ArrowRight');
+  assert.deepEqual(await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.v1')); return [s.log.length, s.warp]; }), [2, 6.6]);
+  // The lab the same.
+  await p.goto(base + 'xeno.html#M-5');
+  await p.waitForFunction(() => window.xeno?.current);
+  await p.evaluate(() => localStorage.setItem('engage.xeno.v1', JSON.stringify({ jars: [{ id: 'K', seed: 9 }, { id: 'H', seed: 4 }] })));
+  await wake();
+  assert.equal(await p.locator('#jars .jar').count(), 2, 'the lab did not take up jars kept while it slept');
+  await p.tap('#keep');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars.length), 3);
+  await two.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

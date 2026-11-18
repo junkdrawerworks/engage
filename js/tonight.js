@@ -11,7 +11,7 @@ import {
   phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone, daylightNote, tonightPlan, planLines, showersOn, radiantDir,
 } from './astro.js';
 import { hold, release } from './wake.js';
-import { watch } from './store.js';
+import { keep, watch } from './store.js';
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -67,13 +67,14 @@ function loadVisits() {
 }
 function save() {
   const { place, sky: s, trim, night } = saved;
-  try { localStorage.setItem(KEY, JSON.stringify({ place, sky: s, trim, night })); } catch { /* fine */ }
+  keep(KEY, { place, sky: s, trim, night }); // only settings: nothing is lost if they can't be kept
 }
 
 // ---------- Startup ----------
 
 async function start() {
   cat = await loadCatalog();
+  Object.assign(saved, load()); // as it stands now: another tab may have saved while the stars were being fetched
   canvas = $('view');
   ctx = canvas.getContext('2d');
   // A guess is saved along with everything else, but it's still only a guess: make it afresh from today's time zone.

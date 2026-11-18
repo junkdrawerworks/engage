@@ -6,7 +6,7 @@ import {
   formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt,
 } from './warp-scale.js';
 import { hold, release } from './wake.js';
-import { watch } from './store.js';
+import { keep, watch } from './store.js';
 
 const KEY = 'engage.warp.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -34,7 +34,7 @@ function load() {
   const warp = Number(s.warp);
   return { place: typeof s.place === 'string' ? s.place : null, warp: warp >= 1 && warp <= 9.99 ? warp : 9 };
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify({ place: place.id, warp: custom })); } catch { /* fine */ } }
+function save() { keep(KEY, { place: place.id, warp: custom }); } // only where you left off: nothing is lost if it can't be kept
 
 const warpName = w => `Warp ${w.toFixed(2).replace(/\.?0+$/, '')}`;
 const times = n => `${n < 10 ? n.toFixed(n < 1 ? 5 : 1).replace(/\.?0+$/, '') : Math.round(n).toLocaleString('en-US')} × light`;
