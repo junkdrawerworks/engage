@@ -449,7 +449,7 @@ function engage() {
     i, from, S, dir, hold, D, ly, a0, cam: from.slice(),
     fromTitle: state.at === 0 ? 'Sol' : inTextFor(cat, state.at), nominal: nominal(i),
     yaw0: state.yaw, pitch0: state.pitch, yaw1: nearestYaw(state.yaw, heading.yaw), pitch1: heading.pitch, fov0: state.fov,
-    t0: performance.now(), align: 1.5 / speedUp, spool: 1.5 / speedUp, cruise, drop: 1.6 / speedUp,
+    t0: performance.now(), align: (still.matches ? 0.4 : 1.5) / speedUp, spool: 1.5 / speedUp, cruise, drop: 1.6 / speedUp,
     years: tripYears(ly, state.warp), warpFactor: state.warp, warp: 0, streak: 0, phase: 'align', rebased: false,
   };
   helmAway(true);
@@ -476,13 +476,18 @@ function along(t, T) {
   return T.D - T.hold * (Math.exp(Math.log(1 + half / T.hold) * 2 * (1 - t)) - 1);
 }
 
+// With reduced motion asked for (`calm`), nothing rushes or streaks: the view cuts to the heading, the sky it left
+// dims and goes dark, the ship is at the star by the time it comes up again, and it settles before it can be seen.
+// The readout counts the trip all the same, so it still reads as a trip.
 function fly(now) {
   const T = trip;
   const s = T.frozen ?? (now - T.t0) / 1000;
   const ease = x => x * x * (3 - 2 * x);
-  let dist = 0;
+  const calm = still.matches;
+  let dist = 0, lit = 1; // how far along the ship is drawn, and how much of the sky's light shows
+  if (calm) T.warp = T.streak = 0;
   if (s < T.align) {
-    const k = ease(s / T.align);
+    const k = calm ? 1 : ease(s / T.align);
     state.yaw = T.yaw0 + (T.yaw1 - T.yaw0) * k;
     state.pitch = T.pitch0 + (T.pitch1 - T.pitch0) * k;
     state.fov = T.fov0 + (60 * DEG - T.fov0) * k;
@@ -490,18 +495,29 @@ function fly(now) {
   } else if (s < T.align + T.spool) {
     const k = (s - T.align) / T.spool;
     if (T.phase !== 'spool') { T.phase = 'spool'; sound.engage(T.spool + T.cruise); updateHud(); }
-    state.yaw = T.yaw1; state.pitch = T.pitch1;
-    T.warp = k * k;
-    T.streak = 6 + 40 * k * k;
-    if (k > 0.82 && !T.flashed) { T.flashed = true; flash(0.85); }
+    state.yaw = T.yaw1; state.pitch = T.pitch1; state.fov = 60 * DEG;
+    if (calm) lit = 1 - (1 - DIM) * ease(k);
+    else {
+      T.warp = k * k;
+      T.streak = 6 + 40 * k * k;
+      if (k > 0.82 && !T.flashed) { T.flashed = true; flash(0.85); }
+    }
   } else if (s < T.align + T.spool + T.cruise) {
     const t = (s - T.align - T.spool) / T.cruise;
     if (T.phase !== 'cruise') { T.phase = 'cruise'; updateHud(); }
     dist = along(t, T);
-    T.warp = 1;
-    T.streak = 46 + 90 * Math.pow(Math.sin(Math.PI * t), 0.6);
+    if (!calm) {
+      T.warp = 1;
+      T.streak = 46 + 90 * Math.pow(Math.sin(Math.PI * t), 0.6);
+    }
     if (t >= 0.5 && !T.rebased) { T.rebased = true; sky.setOrigin(T.S); }
     readout(dist);
+    if (calm) {
+      // Dark at the midpoint, which is where the sky is swapped for the one at the far end.
+      lit = DIM * Math.abs(1 - 2 * t);
+      dist = t < 0.5 ? 0 : T.D;
+      state.yaw = T.yaw1; state.pitch = t < 0.5 ? T.pitch1 : T.pitch1 - lift();
+    }
   } else if (s < T.align + T.spool + T.cruise + T.drop) {
     const k = (s - T.align - T.spool - T.cruise) / T.drop;
     if (T.phase !== 'drop') {
@@ -512,16 +528,29 @@ function fly(now) {
       updateHud();
     }
     dist = T.D;
-    T.warp = Math.max(0, 1 - k * 2.2);
-    T.streak = 46 * (1 - k);
-    // Settle the view so the star sits above the log on a phone.
-    state.pitch = T.pitch1 - lift() * ease(k);
+    if (calm) {
+      lit = DIM + (1 - DIM) * ease(k);
+      state.pitch = T.pitch1 - lift();
+    } else {
+      T.warp = Math.max(0, 1 - k * 2.2);
+      T.streak = 46 * (1 - k);
+      // Settle the view so the star sits above the log on a phone.
+      state.pitch = T.pitch1 - lift() * ease(k);
+    }
     readout(dist);
   } else {
     arrive();
     return;
   }
   T.cam = T.from.map((v, k) => v + T.dir[k] * dist);
+  light(lit);
+}
+const DIM = 0.3; // how much of the sky's light is left while a reduced-motion flight is under way
+
+// How much of the viewscreen's light shows, 0 to 1: the stars and the names over them, against the dark behind.
+function light(a) {
+  const o = a >= 1 ? '' : a.toFixed(3);
+  for (const id of ['sky', 'labels']) if ($(id).style.opacity !== o) $(id).style.opacity = o;
 }
 
 // What the flight says as it goes. The time is the time the real trip would have taken to come this far, so it
@@ -538,6 +567,7 @@ function readout(dist) {
 function arrive() {
   const T = trip;
   trip = null;
+  light(1);
   state.at = T.i;
   state.offset = T.dir.map(v => -v * T.hold);
   state.target = null;
@@ -600,7 +630,8 @@ function lookAt(pos, duration = 1000) {
   const d = pos.map((v, k) => v - cam[k]);
   const l = Math.hypot(...d);
   const h = headingOf(d.map(v => v / l));
-  turn = { t0: performance.now(), dur: duration, yaw0: state.yaw, pitch0: state.pitch, yaw1: nearestYaw(state.yaw, h.yaw), pitch1: Math.max(-1.5, Math.min(1.5, h.pitch - aimLift())) };
+  // With reduced motion the view cuts to it instead of panning across the sky.
+  turn = { t0: performance.now(), dur: still.matches ? 1 : duration, yaw0: state.yaw, pitch0: state.pitch, yaw1: nearestYaw(state.yaw, h.yaw), pitch1: Math.max(-1.5, Math.min(1.5, h.pitch - aimLift())) };
 }
 
 // On a short screen (a phone on its side) or the narrowest phones, the helm reaches up to the middle of the view, so
@@ -625,7 +656,7 @@ function lookHome() {
   closeSheets();
   if (Math.hypot(...camAbs()) < 0.002) { lookAt(starPos(0)); return; }
   lookAt(starPos(0), 1400);
-  state.sunPulse = performance.now() + 1000;
+  if (!still.matches) state.sunPulse = performance.now() + 1000; // the Sun's ring beats a few times once the view gets there
 }
 
 // ---------- Sheets ----------
@@ -869,6 +900,7 @@ function bind() {
     if (trip) { // a flight under way ends here too, back at Earth
       trip = null;
       stale = false;
+      light(1);
       $('readout').hidden = true;
       helmAway(false);
       sound.stop();
@@ -896,6 +928,7 @@ function bind() {
     }
   });
   addEventListener('resize', () => { dirty = true; });
+  still.addEventListener?.('change', () => { dirty = true; });
 
   // Drag to look around, pinch or scroll to zoom, tap to pick a star.
   const view = $('labels');

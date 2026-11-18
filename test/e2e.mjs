@@ -2058,6 +2058,63 @@ await page.emulateMedia({ reducedMotion: null });
   await keys.close();
 }
 
+// With reduced motion asked for, a flight has no streaks and no rush toward the star. It used to skip only the white
+// flash. Now the sky it leaves dims and goes dark, the ship is at the star when it comes up again, and the view
+// cuts where it used to pan; the readout still counts the light years down.
+{
+  const calm = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  await calm.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+  const p = await calm.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  // Looking for a star cuts to it: one frame later the view is where it will stay.
+  await p.evaluate(() => window.engage.lookAtStar('Sirius'));
+  await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const cut = await p.evaluate(() => window.engage.state.yaw);
+  await p.waitForTimeout(400);
+  assert.equal(await p.evaluate(() => window.engage.state.yaw), cut, 'the view panned across the sky with reduced motion on');
+  // Every frame of a flight to Sirius: what the streaks are doing, where the ship is drawn, how lit the sky is.
+  await p.evaluate(() => {
+    window.engage.speed(3);
+    window.engage.target('Sirius');
+    window.seen = { streak: 0, warp: 0, places: new Set(), dark: 1, left: new Set(), frames: 0 };
+    const look = () => {
+      const T = window.engage.trip;
+      if (T) {
+        window.seen.frames++;
+        window.seen.streak = Math.max(window.seen.streak, T.streak);
+        window.seen.warp = Math.max(window.seen.warp, T.warp);
+        window.seen.places.add(T.cam.map(v => v.toFixed(6)).join());
+        window.seen.dark = Math.min(window.seen.dark, Number(document.getElementById('sky').style.opacity || 1));
+        if (T.phase === 'cruise') window.seen.left.add(document.getElementById('readout-left').textContent);
+      }
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  });
+  await p.tap('#engage');
+  await p.waitForFunction(() => window.engage.trip?.phase === 'cruise');
+  assert.deepEqual(await p.evaluate(() => [window.engage.trip.streak, window.engage.trip.warp]), [0, 0], 'the warp streaks still play with reduced motion on');
+  await p.waitForFunction(() => !window.engage.trip, null, { timeout: 30000 });
+  const seen = await p.evaluate(() => ({ ...window.seen, places: window.seen.places.size, left: window.seen.left.size }));
+  assert.ok(seen.frames > 30, `only ${seen.frames} frames of the flight were seen`);
+  assert.deepEqual([seen.streak, seen.warp], [0, 0], 'streaks were drawn at some point in a reduced-motion flight');
+  assert.equal(seen.places, 2, `the ship was drawn in ${seen.places} places on the way: it should be where it set out, then where it arrives`);
+  assert.ok(seen.dark < 0.05, `the sky was never dark for the swap (its dimmest was ${seen.dark})`);
+  assert.ok(seen.left > 10, 'the readout did not count the light years down');
+  assert.equal(await p.evaluate(() => document.getElementById('sky').style.opacity + document.getElementById('labels').style.opacity), '', 'the sky was left dimmed after the flight');
+  assert.equal(await p.locator('#where').innerText(), 'Sirius');
+  // Without it, the streaks play as they always have.
+  await p.emulateMedia({ reducedMotion: 'no-preference' });
+  await p.evaluate(() => { window.engage.closeSheets(); window.engage.speed(6); window.engage.target('Procyon'); });
+  await p.tap('#engage');
+  await p.waitForFunction(() => window.engage.trip?.phase === 'cruise' && window.engage.trip.streak > 60);
+  assert.equal(await p.evaluate(() => document.getElementById('sky').style.opacity), '');
+  await p.waitForFunction(() => !window.engage.trip, null, { timeout: 30000 });
+  await calm.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];
