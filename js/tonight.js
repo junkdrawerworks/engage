@@ -16,6 +16,7 @@ import { backCloses, swipeDown } from './sheets.js';
 import { LIVE, share } from './share.js';
 import { PLACES } from './warp-scale.js';
 import { fileForHome, label as fileLabel } from './classes.js';
+import { linesForStar, readContacts } from './contacts.js';
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -27,6 +28,7 @@ const PLANET_NAMES = { mercury: 'Mercury', venus: 'Venus', mars: 'Mars', jupiter
 
 const saved = load();
 const visits = loadVisits(); // star index -> { stardate, n }: where the bridge's log says the ship has been
+const contacts = readContacts(); // the contacts first contact's record says were made, and at which star
 let shipAt = loadAt();       // the star the ship is holding at now, read again each time a card opens
 let cat, ctx, canvas;
 let sky = null;          // everything worked out for the current place and moment
@@ -766,6 +768,8 @@ function fillCard(s) {
       const on = v.stardate ? ` on stardate ${v.stardate}` : '';
       been = v.n > 1 ? `You’ve dropped out of warp here ${v.n === 2 ? 'twice' : `${v.n} times`}${on && `, the last${on}`}.` : `You dropped out of warp here${on}.`;
     }
+    // And any first contact made here, from first contact's own record.
+    been = [been, ...linesForStar(contacts, s.i)].filter(Boolean).join(' ');
     title = t ? t.name : titleFor(cat, s.i);
     // The catalogue has no distance for some stars: the bridge says so, and so does this card, with no year for its light.
     const unmeasured = !!cat.unmeasured[s.i];

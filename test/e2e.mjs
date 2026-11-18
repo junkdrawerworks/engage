@@ -2264,6 +2264,67 @@ for (const when of await page.locator('#runs .when').allInnerTexts()) assert.mat
 await page.goto(base);
 await bridgeReady();
 
+// First contact happens where the ship is. Holding at Vega, the briefing says the ship has dropped out of warp "here
+// at Vega"; the contact made there goes on the record with the star and the stay, and the bridge's log tells it on that
+// stay's entry (and not on a later visit to Vega), as tonight's card for Vega does. The debrief offers what might
+// live on their world, in the lab. With no save at all the ship is in Earth orbit, where the bridge starts.
+{
+  const where = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await where.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await p.locator('#brief-where').innerText(), 'A ship of no known design has dropped out of warp off your bow, in Earth orbit, and she’s hailing you.');
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.click('#intro-go');
+  await p.evaluate(() => { engage.jump('Vega'); engage.closeSheets(); });
+  const stay = await p.evaluate(() => ({ ...engage.state.log[0], star: engage.state.at }));
+  await Promise.all([p.waitForNavigation(), p.click('#open-contact')]);
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await p.locator('#brief-where').innerText(), `A ship of no known design has dropped out of warp off your bow, here at ${stay.title}, and she’s hailing you.`);
+  await p.click('#start');
+  await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  // The ship taken home in another tab while the hail is answered doesn't move the encounter: it is where it began.
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.v1')); localStorage.setItem('engage.v1', JSON.stringify({ ...s, at: 0 })); });
+  for (let n = 0; n < 20 && !(await p.evaluate(() => contact.game.over)); n++) {
+    await p.evaluate(() => { contact.pick(contact.hint()); contact.send(); });
+    await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  }
+  const people = await p.evaluate(() => contact.game.lang.people);
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')));
+  const run = kept.runs.at(-1);
+  assert.deepEqual([run.outcome, run.star, run.place, run.visit], ['contact', stay.star, stay.title, stay.id]);
+  assert.match(run.sd, /^\d{4}\.\d{3}$/);
+  assert.deepEqual(kept.friends.map(f => [f.people, f.star, f.place, f.visit, f.sd, f.seed]), [[people, stay.star, stay.title, stay.id, run.sd, run.seed]]);
+  await p.click('#send');
+  assert.equal(await p.locator('#to-lab').isVisible(), true, 'the debrief has no way to the lab');
+  assert.match(await p.locator('#to-lab').getAttribute('href'), /^xeno\.html#M-\d{1,4}$/);
+  await p.click('#again');
+  assert.match(await p.locator('#runs li').first().innerText(), new RegExp(`The ${people} · at ${stay.title} · `));
+  const line = `First contact was made here with the ${people}, stardate ${run.sd}.`;
+  // The bridge's log, on the entry for that stay.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.click('#open-log');
+  await p.locator('.past summary').nth(0).click();
+  assert.equal(await p.locator('.past').nth(0).locator('.contact-made').innerText(), line);
+  // Tonight's card for Vega.
+  await p.goto(base + 'tonight.html#star=Vega');
+  await p.waitForFunction(() => window.tonight);
+  await p.waitForFunction(() => !document.getElementById('card').hidden);
+  assert.ok((await p.locator('#card-been').innerText()).endsWith(line), 'tonight’s card for Vega does not say first contact was made there');
+  // Away and back to Vega: the new stay's entry says nothing of it, the old one still does, and the card still does.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => { for (const name of ['Altair', 'Vega']) { engage.jump(name); engage.closeSheets(); } });
+  await p.click('#open-log');
+  await p.locator('.past summary').nth(0).click();
+  await p.locator('.past summary').nth(2).click();
+  assert.deepEqual(await p.locator('.past').evaluateAll(els => els.map(el => el.querySelectorAll('.contact-made').length)), [0, 0, 1]);
+  await where.close();
+}
+
 // The warp scale: reached from under the warp slider with the helm's warp factor, a race to the galactic core run to
 // the end, another place picked from the ladder, and a link back to the bridge with a course set. (With a star chosen
 // at the helm the link races there instead: see "Doors between rooms" below.)

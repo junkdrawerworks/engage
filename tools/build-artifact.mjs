@@ -53,7 +53,7 @@ async function bundle(order, patch = (name, src) => src) {
 }
 const pageBody = page => page.slice(page.indexOf('<body') , page.indexOf('</body>')).replace(/^<body[^>]*>/, '').replace(/<script type="module" src="[^"]+"><\/script>/, '');
 
-const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'ships', 'log', 'search', 'share', 'store', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'app'];
+const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'ships', 'log', 'search', 'share', 'store', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'app'];
 const js = await bundle(ORDER, async (name, src) => {
   if (name !== 'app') return src;
   for (const [from, to] of [
@@ -167,7 +167,7 @@ console.log(`missions.html: ${(missionsOut.length / 1024).toFixed(0)} KB`);
 
 // Tonight's sky, as its own single file, with the stars inline. Links back to the bridge go to the live site.
 const tonightHtml = await read('tonight.html');
-const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'ships', 'log', 'catalog', 'wake', 'store', 'sheets', 'share', 'warp-scale', 'classes', 'tonight'], liveBridge('tonight'));
+const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'ships', 'log', 'catalog', 'wake', 'store', 'sheets', 'share', 'warp-scale', 'classes', 'contacts', 'tonight'], liveBridge('tonight'));
 const tonightOut = `<title>Tonight’s sky</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -207,7 +207,9 @@ console.log(`xeno.html: ${(xenoOut.length / 1024).toFixed(0)} KB`);
 
 // First contact, as its own single file. Links back to the bridge go to the live site.
 const contactHtml = await read('contact.html');
-const contactJs = await bundle(['audio', 'store', 'onscreen', 'share', 'switch', 'archive', 'contact-sim', 'contact-art', 'contact']);
+// Its link to the lab goes to the live site too.
+const contactJs = await bundle(['physics', 'audio', 'store', 'onscreen', 'share', 'switch', 'archive', 'contacts', 'contact-sim', 'contact-art', 'contact'],
+  (name, src) => (name === 'contact' ? swap(src, "const LAB = 'xeno.html';", `const LAB = '${LIVE}xeno.html';`, 'js/contact.js') : src));
 const contactOut = `<title>First contact</title>
 <meta name="theme-color" content="#05070d">
 <style>

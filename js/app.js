@@ -11,6 +11,7 @@ import { askToKeep, current, keep, watch } from './store.js';
 import { ROOMS, inWords, roomList } from './rooms.js';
 import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
+import { linesForVisit, readContacts } from './contacts.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -843,6 +844,7 @@ let arrived = null; // the entry on the arrival sheet
 // `again` when the sheet is being put back as it was left, and not for a new arrival: its lines don't file in afresh.
 function showArrival(entry, again = false) {
   arrived = entry;
+  contacts = readContacts();
   $('arrival-date').textContent = `Captain’s log · Stardate ${entry.stardate}`;
   $('arrival-entry').innerHTML = entryHtml(entry, true, !again);
   // What this arrival did to the records, said once under the star's name: it is the newest entry that is up.
@@ -862,6 +864,9 @@ function showArrival(entry, again = false) {
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
+// The contacts first contact says were made, and where (see contacts.js): read again each time the log is drawn.
+let contacts = [];
+
 // `heading` for the arrival's sheet, which has the star's name over the entry; `staged` when its lines come in one
 // after another, as they do on arrival.
 function entryHtml(e, heading, staged = heading) {
@@ -875,6 +880,8 @@ function entryHtml(e, heading, staged = heading) {
     if (label === 'Planets') parts.push(surveyLinks(e.star, style));
     if (label === 'Looking home') parts.push(shipLink(e.ship, style));
   }
+  // First contact made during this stay, read from first contact's own record.
+  for (const line of linesForVisit(contacts, e)) parts.push(`<dd class="note contact-made">${esc(line)}</dd>`);
   parts.push('</dl>', entryActions(e, heading));
   return parts.join('');
 }
@@ -1036,6 +1043,7 @@ function returnTo(coursed) {
 }
 
 function drawLog() {
+  contacts = readContacts();
   unsavedNote('log-unsaved', 'The log is full: new entries and the ship’s position aren’t being kept. Clearing the log, in settings, makes room.',
     'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;

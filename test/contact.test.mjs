@@ -386,3 +386,45 @@ test('the briefing greets a returning officer, and a first hail reads as it alwa
     assert.equal(briefingLine({ runs: [run('contact', people)] }), `Your second unknown ship. The last were the ${people}; these are not.`, `seed ${seed}: ${people}`);
   }
 });
+
+// Where first contact happens (js/contacts.js): the star the bridge's save has the ship holding at, and the contacts
+// first contact's record says were made at each star, for the bridge's log and tonight's card.
+test('the hail comes in where the bridge left the ship, and the log and tonight’s card are told where contact was made', async () => {
+  const { shipPlace, whereWords, contactsMade, contactLine, linesForVisit, linesForStar } = await import('../js/contacts.js');
+  const vega = { star: 12, title: 'Vega', stardate: '2026.880', id: 1700000000000 };
+  const sol = { star: 0, title: 'Sol', stardate: '2026.870', id: 1690000000000 };
+  // Holding at Vega, the newest entry: this stay.
+  assert.deepEqual(shipPlace({ at: 12, log: [vega, sol] }), { star: 12, place: 'Vega', visit: vega.id });
+  assert.equal(whereWords(shipPlace({ at: 12, log: [vega, sol] })), 'here at Vega');
+  // No save at all is the bridge's start, in Earth orbit; so is home.
+  assert.deepEqual(shipPlace(null), { star: 0, place: '', visit: null });
+  assert.equal(whereWords(shipPlace(null)), 'in Earth orbit');
+  assert.equal(whereWords(shipPlace({ at: 0, log: [sol] })), 'in Earth orbit');
+  // A star the log no longer names (cleared) is somewhere, but the briefing can't say where.
+  assert.deepEqual(shipPlace({ at: 12, log: [] }), { star: 12, place: '', visit: null });
+  assert.equal(whereWords(shipPlace({ at: 12, log: [] })), '');
+  // Damaged saves are home, and a name that isn't one is no name.
+  assert.deepEqual(shipPlace({ at: -3, log: 'x' }), { star: 0, place: '', visit: null });
+  assert.equal(shipPlace({ at: 12, log: [{ ...vega, title: '<img src=x>' }] }).place, '');
+  // The record: a first contact at Vega during that stay, and one at home.
+  const saved = { friends: [
+    { seed: 5, people: 'Qaethuk', star: 12, visit: vega.id, sd: '2026.880' },
+    { seed: 9, people: 'Tal Vek', star: 0, visit: sol.id, sd: '2026.901' },
+    { seed: 6, people: 'Beqen', star: 12, sd: '2026.881' }, // made at Vega with no log entry for the stay
+    { seed: 7, people: 'Orru', star: 12, visit: vega.id, sd: 'soon' }, // not a stardate: left out
+    { seed: 8, people: '<b>', star: 12, sd: '2026.882' },
+    null,
+  ] };
+  const made = contactsMade(saved);
+  assert.deepEqual(made.map(c => [c.people, c.star]), [['Qaethuk', 12], ['Tal Vek', 0], ['Beqen', 12]]);
+  assert.equal(contactLine(made[0]), 'First contact was made here with the Qaethuk, stardate 2026.880.');
+  // The log tells it on the stay it happened in, and not on another visit to the same star.
+  assert.deepEqual(linesForVisit(made, vega), ['First contact was made here with the Qaethuk, stardate 2026.880.']);
+  assert.deepEqual(linesForVisit(made, { ...vega, id: 1800000000000 }), []);
+  assert.deepEqual(linesForVisit(made, sol), ['First contact was made here with the Tal Vek, stardate 2026.901.']);
+  // Tonight's card tells every contact made at the star, and there is no card for home.
+  assert.deepEqual(linesForStar(made, 12), ['First contact was made here with the Qaethuk, stardate 2026.880.', 'First contact was made here with the Beqen, stardate 2026.881.']);
+  assert.deepEqual(linesForStar(made, 0), []);
+  assert.deepEqual(contactsMade({}), []);
+  assert.deepEqual(contactsMade(null), []);
+});
