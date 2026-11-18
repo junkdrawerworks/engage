@@ -6,6 +6,7 @@ import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
 import { keep, unkept, watch } from './store.js';
+import { onScreen } from './onscreen.js';
 
 const KEY = 'engage.xeno.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -23,6 +24,8 @@ let current = null; // the creature in the tank
 let born = 0; // when it started growing
 const tank = $('tank');
 const tg = tank.getContext('2d');
+const tankSeen = onScreen(tank); // the creature isn't drawn while the tank is scrolled out of sight
+let draws = 0;                   // how many times it has been drawn, for tests
 
 function load() {
   let s = {};
@@ -112,10 +115,11 @@ function frame(now) {
   const t = still.matches ? 0 : now / 1000;
   const grown = Math.min(1, (now - born) / 1400);
   drawScene(tg, current, w, h, t, grown);
+  draws++;
 }
 
 function loop(now) {
-  if (!still.matches && !document.hidden) frame(now);
+  if (!still.matches && !document.hidden && tankSeen.on) frame(now);
   requestAnimationFrame(loop);
 }
 
@@ -310,7 +314,7 @@ window.addEventListener('hashchange', () => {
 window.addEventListener('resize', () => { if (still.matches) frame(performance.now()); });
 still.addEventListener?.('change', () => frame(performance.now()));
 
-window.xeno = { show, showWorld, get current() { return current; }, get jars() { return saved.jars; } };
+window.xeno = { show, showWorld, get current() { return current; }, get jars() { return saved.jars; }, get draws() { return draws; } };
 
 // A link that names nothing the lab knows (a class it hasn't got, a planet it has no readings for, a link cut off on
 // its way) still opens the lab, on a new creature, with a line to say that is what happened.

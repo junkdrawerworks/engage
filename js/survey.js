@@ -2,6 +2,7 @@
 import { CLASSES, byId, label, quizReadings, grows } from './classes.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
+import { onScreen } from './onscreen.js';
 
 const KEY = 'engage.survey.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -18,6 +19,7 @@ let at = 0; // the file on screen
 let turn = 0, last = performance.now();
 const globe = new Globe($('globe'));
 const drillGlobe = new Globe($('drill-globe'));
+const inView = new Map([[globe, onScreen(globe.canvas)], [drillGlobe, onScreen(drillGlobe.canvas)]]);
 let drill = null; // the world being matched
 let paintId = 0;
 
@@ -378,13 +380,20 @@ function sizeFor(canvas) {
   return Math.min(720, Math.round(css * Math.min(devicePixelRatio || 1, 2)));
 }
 
+// The globe is painted pixel by pixel, the dearest thing any room draws. It is drawn only while it is on the screen
+// (not while a long file is being read under it), and at most 30 times a second as it turns: at 0.12 radians a second
+// that is a pixel or two between pictures. Another world, or another size, is drawn at once.
+let drew = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   if (!document.hidden) {
     turn += dt * (still.matches ? 0 : 0.12);
-    if (mode === 'files') globe.draw(turn, sizeFor(globe.canvas));
-    else drillGlobe.draw(turn, sizeFor(drillGlobe.canvas));
+    const g = mode === 'files' ? globe : drillGlobe;
+    if (inView.get(g).on) {
+      const size = sizeFor(g.canvas);
+      if (now - drew >= 30 || g.stale(size)) { g.draw(turn, size); drew = now; }
+    }
   }
   requestAnimationFrame(frame);
 }
@@ -394,4 +403,4 @@ bind();
 fromHash();
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, get world() { return drill; }, answer, get cached() { return maps.size; } };
+window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, get world() { return drill; }, answer, get cached() { return maps.size; }, get draws() { return (globe.draws || 0) + (drillGlobe.draws || 0); } };

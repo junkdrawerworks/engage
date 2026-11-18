@@ -587,6 +587,54 @@ world = await page.evaluate(() => survey.world.cls.id);
 await page.click('#verdict-file');
 assert.equal(await shown('#files'), true, 'reading the file did not open it');
 assert.equal(await page.evaluate(() => location.hash.slice(1)), world);
+// A picture nobody can see isn't drawn. Five rooms animate a canvas, and each kept drawing it sixty times a second
+// with the canvas scrolled out of sight (a long file read to its end, the notebook under a viewscreen); the survey's
+// globe, painted pixel by pixel, kept a whole processor core busy that way. Each room now stops drawing while its
+// canvas is off the screen and picks up again within a few frames of its coming back. On the screen the survey's
+// globe still turns, but is drawn at most 30 times a second.
+{
+  const quiet = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await quiet.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const frames = n => p.evaluate(n => new Promise(done => { const f = () => (n-- > 0 ? requestAnimationFrame(f) : done()); f(); }), n);
+  const settled = () => p.waitForFunction(() => !window.contact.busy, null, { timeout: 20000 });
+  const rooms = [
+    ['survey', '#globe', () => window.survey, null],
+    ['xeno', '#tank', () => window.xeno?.current, null],
+    ['missions', '#map', () => window.missions, null],
+    ['maru', '#plot', () => window.maru, async () => { await p.tap('#start'); }],
+    ['contact', '#screen', () => window.contact, async () => { await p.tap('#start'); await settled(); }],
+  ];
+  for (const [room, canvas, ready, begin] of rooms) {
+    // (The two games' pages are short at the start: on a shorter screen their viewscreens scroll right off it.)
+    await p.setViewportSize(begin ? { width: 390, height: 300 } : { width: 390, height: 844 });
+    await p.goto(`${base}${room}.html`);
+    await p.waitForFunction(ready);
+    if (begin) await begin();
+    const draws = () => p.evaluate(name => window[name].draws, room);
+    const pixels = () => p.locator(canvas).evaluate(c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 97) h = (h * 31 + d[i]) | 0; return h; });
+    await p.waitForFunction(name => window[name].draws > 2, room);
+    const [n0, t0, look0] = [await draws(), Date.now(), room === 'survey' ? await pixels() : 0];
+    await p.waitForTimeout(700);
+    const [n1, secs] = [await draws(), (Date.now() - t0) / 1000];
+    assert.ok(n1 - n0 >= 3, `${room}’s picture stands still on the screen: ${n1 - n0} draws in ${secs.toFixed(1)} s`);
+    if (room === 'survey') {
+      assert.ok((n1 - n0) / secs <= 34, `the globe is drawn ${((n1 - n0) / secs).toFixed(0)} times a second`);
+      assert.notEqual(await pixels(), look0, 'the globe is drawn but does not turn');
+    }
+    await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await frames(4);
+    assert.ok(await p.locator(canvas).evaluate(c => c.getBoundingClientRect().bottom) < -125, `${room}’s canvas is still near the screen at the end of the page`);
+    const away = await draws();
+    await p.waitForTimeout(500);
+    assert.equal(await draws(), away, `${room} went on drawing a picture scrolled out of sight`);
+    await p.evaluate(() => window.scrollTo(0, 0));
+    await frames(4);
+    assert.ok(await draws() > away, `${room}’s picture was not drawn again when it came back on the screen`);
+  }
+  await quiet.close();
+}
+
 // The Kobayashi Maru: reached from the bridge, played to the end, graded and remembered.
 await page.goto(base);
 await bridgeReady();

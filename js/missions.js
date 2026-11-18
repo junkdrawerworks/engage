@@ -7,6 +7,7 @@ import {
 } from './ephemeris.js';
 import { warpSpeed, stardate, plural } from './physics.js';
 import { keep, unkept, watch } from './store.js';
+import { onScreen } from './onscreen.js';
 
 const KEY = 'engage.missions.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -245,6 +246,8 @@ function tick(force = false) {
 
 const canvas = $('map');
 const ctx = canvas.getContext('2d');
+const mapSeen = onScreen(canvas); // the map isn't drawn while it is scrolled out of sight; the numbers go on ticking
+let draws = 0;                    // how many times it has been drawn, for tests
 let W = 0, H = 0, DPR = 1;
 const R_MIN = 0.6, R_MAX = 230; // AU at the centre and at the edge of the Solar System view
 const NEAR_SPAN = 2.1e6; // km from Earth to the edge of the near-Earth view
@@ -512,7 +515,7 @@ function setView(v) {
 // ---------- Running ----------
 
 function frame(now) {
-  draw(now);
+  if (mapSeen.on) { draw(now); draws++; }
   tick();
   requestAnimationFrame(frame);
 }
@@ -540,4 +543,4 @@ bind();
 choose(sel);
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.missions = { get sel() { return sel; }, get view() { return view; }, get hails() { return saved.hails; }, readings, choose, nearLabels };
+window.missions = { get sel() { return sel; }, get view() { return view; }, get hails() { return saved.hails; }, readings, choose, nearLabels, get draws() { return draws; } };

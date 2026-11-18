@@ -4,6 +4,7 @@ import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, DANGE
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
+import { onScreen } from './onscreen.js';
 
 const KEY = 'engage.contact.v1';
 const $ = id => document.getElementById(id);
@@ -374,6 +375,8 @@ function showEval() {
 
 const canvas = $('screen');
 const cx = canvas.getContext('2d');
+const screenSeen = onScreen(canvas); // the viewscreen isn't drawn while it is scrolled out of sight
+let draws = 0;                       // how many times it has been drawn, for tests
 let W = 0, H = 0;
 function sizeScreen() {
   const r = canvas.getBoundingClientRect();
@@ -411,7 +414,7 @@ function loop() {
   looping = true;
   const frame = now => {
     if ($('sim').hidden || document.hidden || !g) { looping = false; return; }
-    if (W) drawScreen(cx, W, H, look, screenState(now), still.matches ? 0 : now);
+    if (W && screenSeen.on) { drawScreen(cx, W, H, look, screenState(now), still.matches ? 0 : now); draws++; }
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
@@ -473,7 +476,7 @@ watch(KEY, () => {
 showBrief();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.contact = {
-  get game() { return g; }, get busy() { return busy; },
+  get game() { return g; }, get busy() { return busy; }, get draws() { return draws; },
   start, resume, send, act: doAct, showEval,
   // Puts phrases in the reply by meaning, as if tapped in the notebook.
   pick(...ids) { for (const id of ids) if (g.heard.includes(id) && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id); update(); keepGame(); },

@@ -465,6 +465,40 @@ export class Globe {
     this.view = Float32Array.from(view);
   }
 
+  // Whether the picture on the canvas is of another world or another size than asked for: something to draw at once.
+  stale(size) { return !this.drawn || this.drawn.size !== size || this.drawn.map !== this.map; }
+
+  // Works out, for each pixel, everything about this world's light that doesn't change as it turns: how lit it is
+  // (with a gas giant's darkening toward the edge), how much of its own glow shows, how much atmosphere lies over it,
+  // which two rows of the map it falls between, and the soft edge of the disc. Redone only for another world or
+  // size; the turning globe then only looks colours up and multiplies. (These were all worked out again for every
+  // pixel of every frame: two powers and up to three smooth steps each.) Kept at full precision, so the picture is
+  // the same to the last bit.
+  shade(m) {
+    if (this.shaded && this.shaded.map === m && this.shaded.size === this.size) return this.shaded;
+    const { sun, rim, view, lat } = this, n = this.px.length;
+    const { w, h, glow, look } = m;
+    const atm = look.atm, atmK = look.atmK, dark = !!look.dark;
+    const lit = new Float64Array(n), row0 = new Int32Array(n), row1 = new Int32Array(n), bv = new Float64Array(n), alpha = new Uint8ClampedArray(n);
+    const night = glow ? new Float64Array(n) : null, air = atm ? new Float64Array(n) : null;
+    for (let k = 0; k < n; k++) {
+      const fv = Math.max(0, Math.min(h - 1.001, (0.5 - lat[k]) * h - 0.5));
+      const v = fv | 0, v2 = v + 1 < h ? v + 1 : v;
+      row0[k] = v * w; row1[k] = v2 * w; bv[k] = fv - v;
+      const s = sun[k];
+      // Soft terminator, and a little light from the night sky.
+      let l = dark ? 0.4 + 0.3 * Math.max(0, s) - 0.15 * rim[k] : smooth(-0.12, 0.6, s) * 1.05 + 0.025;
+      if (look.gas) l *= 0.75 + 0.25 * Math.pow(view[k], 0.5); // gas giants darken toward their edges
+      lit[k] = l;
+      // Its own light shows most on the night side, and through the day side when it's bright enough.
+      if (night) night[k] = look.nightGlow ? 1 - smooth(-0.2, 0.4, s) * 0.6 : look.lava ? 1 : 1 - smooth(-0.1, 0.5, s) * 0.5;
+      if (air) air[k] = Math.min(1, Math.pow(rim[k], 2.2) * atmK * (0.15 + 0.85 * smooth(-0.3, 0.6, s)));
+      // Smooth the edge of the disc.
+      alpha[k] = rim[k] > 0.985 ? 255 * clamp((1 - rim[k]) / 0.015 * 0.9 + 0.1) : 255;
+    }
+    return (this.shaded = { map: m, size: this.size, lit, row0, row1, bv, alpha, night, air });
+  }
+
   draw(turn = 0, size = this.canvas.width || 256) {
     // Nothing to do if it hasn't turned, changed size or changed its map since last time (it stands still with reduced motion).
     const was = this.drawn;
@@ -473,53 +507,47 @@ export class Globe {
     const m = this.map;
     if (!m) return;
     this.drawn = { turn, size, map: m };
-    const { g, img, px, lon, lat, sun, rim, view } = this;
-    const data = img.data;
-    data.fill(0);
-    const { w, h, color, glow, cloud, look } = m;
+    this.draws = (this.draws || 0) + 1; // how many pictures this globe has drawn, for tests
+    const { g, img, px, lon } = this;
+    const { lit, row0, row1, bv: bvs, alpha, night, air } = this.shade(m);
+    const data = img.data; // (every pixel of the disc is written below, and nothing outside it ever is)
+    const { w, color, glow, cloud, look } = m;
     const atm = look.atm, atmK = look.atmK;
     const cc = look.cloud;
     const u0 = (turn / (Math.PI * 2)) * look.spin;
     const u1 = u0 * 1.25; // clouds drift a little faster than the ground
-    const dark = !!look.dark;
     for (let k = 0; k < px.length; k++) {
       // Blend the four nearest texels, so coastlines and cloud edges stay smooth when the globe is big.
-      const fv = Math.max(0, Math.min(h - 1.001, (0.5 - lat[k]) * h - 0.5));
-      const v = fv | 0, v2 = v + 1 < h ? v + 1 : v, bv = fv - v;
+      const vw = row0[k], v2w = row1[k], bv = bvs[k];
       let uf = lon[k] + u0; uf -= Math.floor(uf);
-      const fu = uf * w - 0.5 + w;
-      const i0 = (fu | 0) % w, i1 = (i0 + 1) % w, bu = fu - Math.floor(fu);
-      const t00 = v * w + i0, t01 = v * w + i1, t10 = v2 * w + i0, t11 = v2 * w + i1;
+      const fu = uf * w - 0.5 + w, fi = fu | 0; // fu is w - 0.5 or more, so cutting it short rounds it down
+      const i0 = fi >= w ? fi - w : fi, i1 = i0 + 1 === w ? 0 : i0 + 1, bu = fu - fi;
+      const t00 = vw + i0, t01 = vw + i1, t10 = v2w + i0, t11 = v2w + i1;
       const q00 = (1 - bu) * (1 - bv), q01 = bu * (1 - bv), q10 = (1 - bu) * bv, q11 = bu * bv;
-      const t = q00 >= q01 && q00 >= q10 && q00 >= q11 ? t00 : q01 >= q10 && q01 >= q11 ? t01 : q10 >= q11 ? t10 : t11;
-      const s = sun[k];
-      // Soft terminator, and a little light from the night sky.
-      let lit = dark ? 0.4 + 0.3 * Math.max(0, s) - 0.15 * rim[k] : smooth(-0.12, 0.6, s) * 1.05 + 0.025;
-      if (look.gas) lit *= 0.75 + 0.25 * Math.pow(view[k], 0.5); // gas giants darken toward their edges
-      let r = (color[t00 * 3] * q00 + color[t01 * 3] * q01 + color[t10 * 3] * q10 + color[t11 * 3] * q11) * lit;
-      let gg = (color[t00 * 3 + 1] * q00 + color[t01 * 3 + 1] * q01 + color[t10 * 3 + 1] * q10 + color[t11 * 3 + 1] * q11) * lit;
-      let b = (color[t00 * 3 + 2] * q00 + color[t01 * 3 + 2] * q01 + color[t10 * 3 + 2] * q10 + color[t11 * 3 + 2] * q11) * lit;
+      const l = lit[k];
+      let r = (color[t00 * 3] * q00 + color[t01 * 3] * q01 + color[t10 * 3] * q10 + color[t11 * 3] * q11) * l;
+      let gg = (color[t00 * 3 + 1] * q00 + color[t01 * 3 + 1] * q01 + color[t10 * 3 + 1] * q10 + color[t11 * 3 + 1] * q11) * l;
+      let b = (color[t00 * 3 + 2] * q00 + color[t01 * 3 + 2] * q01 + color[t10 * 3 + 2] * q10 + color[t11 * 3 + 2] * q11) * l;
       if (cloud) {
         let uc = lon[k] + u1; uc -= Math.floor(uc);
-        const fc = uc * w - 0.5 + w;
-        const c0 = (fc | 0) % w, c1 = (c0 + 1) % w, bc = fc - Math.floor(fc);
-        const a = ((cloud[v * w + c0] * (1 - bc) + cloud[v * w + c1] * bc) * (1 - bv) + (cloud[v2 * w + c0] * (1 - bc) + cloud[v2 * w + c1] * bc) * bv) / 255;
-        const cl = lit * 1.05;
+        const fc = uc * w - 0.5 + w, ci = fc | 0;
+        const c0 = ci >= w ? ci - w : ci, c1 = c0 + 1 === w ? 0 : c0 + 1, bc = fc - ci;
+        const a = ((cloud[vw + c0] * (1 - bc) + cloud[vw + c1] * bc) * (1 - bv) + (cloud[v2w + c0] * (1 - bc) + cloud[v2w + c1] * bc) * bv) / 255;
+        const cl = l * 1.05;
         r += (cc[0] * cl - r) * a; gg += (cc[1] * cl - gg) * a; b += (cc[2] * cl - b) * a;
       }
       if (glow) {
-        // Its own light shows most on the night side, and through the day side when it's bright enough.
-        const night = look.nightGlow ? 1 - smooth(-0.2, 0.4, s) * 0.6 : look.lava ? 1 : 1 - smooth(-0.1, 0.5, s) * 0.5;
-        r += glow[t * 3] * night; gg += glow[t * 3 + 1] * night; b += glow[t * 3 + 2] * night;
+        const t = q00 >= q01 && q00 >= q10 && q00 >= q11 ? t00 : q01 >= q10 && q01 >= q11 ? t01 : q10 >= q11 ? t10 : t11;
+        const ng = night[k];
+        r += glow[t * 3] * ng; gg += glow[t * 3 + 1] * ng; b += glow[t * 3 + 2] * ng;
       }
       if (atm) {
-        const e = Math.pow(rim[k], 2.2) * atmK * (0.15 + 0.85 * smooth(-0.3, 0.6, s));
-        r += (atm[0] - r) * Math.min(1, e); gg += (atm[1] - gg) * Math.min(1, e); b += (atm[2] - b) * Math.min(1, e);
+        const e = air[k];
+        r += (atm[0] - r) * e; gg += (atm[1] - gg) * e; b += (atm[2] - b) * e;
       }
       const o = px[k] * 4;
       data[o] = r; data[o + 1] = gg; data[o + 2] = b;
-      // Smooth the edge of the disc.
-      data[o + 3] = rim[k] > 0.985 ? 255 * clamp((1 - rim[k]) / 0.015 * 0.9 + 0.1) : 255;
+      data[o + 3] = alpha[k];
     }
     g.putImageData(img, 0, 0);
     // A halo of atmosphere outside the disc, brightest on the lit side.

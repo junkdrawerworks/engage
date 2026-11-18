@@ -2,6 +2,7 @@
 import { newGame, orders, act, evaluate, replay, tactical, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
+import { onScreen } from './onscreen.js';
 
 const KEY = 'engage.maru.v1';
 const $ = id => document.getElementById(id);
@@ -246,6 +247,8 @@ function showEval() {
 let W = 1000;
 const canvas = $('plot');
 const cx = canvas.getContext('2d');
+const plotSeen = onScreen(canvas); // the tactical display isn't drawn while it is scrolled out of sight
+let draws = 0;                     // how many times it has been drawn, for tests
 let H = 800, dpr = 1;
 
 function sizePlot() {
@@ -621,7 +624,7 @@ function loop() {
   looping = true;
   const frame = now => {
     if ($('sim').hidden || document.hidden) { looping = false; return; }
-    scene.draw(now);
+    if (plotSeen.on) { scene.draw(now); draws++; }
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
@@ -658,4 +661,4 @@ watch(KEY, () => {
 }
 showBrief();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.maru = { get game() { return g; }, start, resume, give, get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU };
+window.maru = { get game() { return g; }, start, resume, give, get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU, get draws() { return draws; } };
