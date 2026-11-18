@@ -17,6 +17,10 @@
   <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="data/stars.bin" as="fetch" crossorigin>
+  <!-- Between the bridge and its rooms, one page fades into the next instead of cutting, where the browser can do it
+       and reduced motion isn't asked for. The rule is here and not in css/app.css: a stylesheet that comes through the
+       service worker is not always in when the browser decides, and the fade then fails with an error. -->
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -29,8 +33,8 @@
 
     <header class="hud">
       <div class="where">
-        <p class="eyebrow" id="status">Holding</p>
-        <h1 id="where" tabindex="-1">Earth orbit</h1>
+        <p class="eyebrow" id="status"></p>
+        <h1 id="where" tabindex="-1"></h1>
         <p class="sub" id="when"></p>
       </div>
       <div class="hud-buttons">

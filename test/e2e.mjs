@@ -2982,6 +2982,201 @@ await page.emulateMedia({ reducedMotion: null });
   await years.close();
 }
 
+// Back to the bridge returns you. Every room's Back is a plain link, so the bridge loads afresh, and three things
+// used to be lost on the way: the zoom (a wheel or a pinch was never saved: 29 degrees came back as 60), the log
+// entry whose link you had followed (you were back on the bare viewscreen), and for a moment the ship's place (the
+// header said "Earth orbit" over a black screen until the stars had loaded, wherever the ship was).
+{
+  const back = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await back.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await back.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  const view = () => p.evaluate(() => { const { yaw, pitch, fov } = engage.state; return { yaw, pitch, fov }; });
+  const kept = () => p.evaluate(() => { const { yaw, pitch, fov } = JSON.parse(localStorage.getItem('engage.v1')); return { yaw, pitch, fov }; });
+  const go = async (click, hook) => { await Promise.all([p.waitForNavigation(), click()]); await p.waitForFunction(hook); };
+  const home = async () => { await Promise.all([p.waitForNavigation(), p.click('a.back')]); await bridgeReady(p); };
+  const up = sheet => p.locator(sheet).evaluate(el => !el.hidden);
+
+  // The zoom. A wheel is kept once it has been still for a moment, and comes back from a room as it was left.
+  await p.mouse.move(640, 300);
+  await p.mouse.wheel(0, -600);
+  const zoomed = (await view()).fov;
+  assert.ok(zoomed < 0.55, `the wheel did not zoom in: ${zoomed}`);
+  await p.waitForTimeout(700);
+  assert.equal((await kept()).fov, zoomed, 'a zoom with the wheel was not kept');
+  await go(() => p.click('#open-survey'), () => window.survey);
+  await home();
+  assert.equal((await view()).fov, zoomed, 'the zoom was lost on the way back from the survey');
+  // Left before that moment is up, it is kept on the way out.
+  await go(() => p.evaluate(() => {
+    document.getElementById('labels').dispatchEvent(new WheelEvent('wheel', { deltaY: 250, bubbles: true, cancelable: true }));
+    document.getElementById('open-xeno').click();
+  }), () => window.xeno?.current);
+  await home();
+  const out = (await view()).fov;
+  assert.ok(Math.abs(out / zoomed - Math.exp(0.3)) < 1e-6, `a zoom made just before leaving was lost: ${out} after ${zoomed}`);
+  // A turn still under way as the page is left ends up where it was going: Look for the Sun, then a room at once.
+  await p.evaluate(() => { engage.jump('Sirius'); engage.closeSheets(); });
+  await go(() => p.evaluate(() => { engage.lookHome(); document.getElementById('open-survey').click(); }), () => window.survey);
+  await home();
+  const facing = await view();
+  await p.evaluate(() => engage.lookHome());
+  await p.waitForTimeout(1900);
+  const sunward = await view();
+  assert.ok(Math.abs(Math.sin((facing.yaw - sunward.yaw) / 2)) < 1e-6 && Math.abs(facing.pitch - sunward.pitch) < 1e-6, 'a turn under way when the page was left was saved half done');
+  // This tab never writes over a save it hasn't seen. Another tab's save that it wasn't told about (it slept through
+  // it) stands, though this one zooms and leaves.
+  await p.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('engage.v1'));
+    s.log.unshift({ ...s.log[0], id: s.log[0].id + 1, title: 'Elsewhere' });
+    localStorage.setItem('engage.v1', JSON.stringify(s));
+  });
+  await go(() => p.evaluate(() => {
+    document.getElementById('labels').dispatchEvent(new WheelEvent('wheel', { deltaY: -250, bubbles: true, cancelable: true }));
+    document.getElementById('open-xeno').click();
+  }), () => window.xeno?.current);
+  assert.deepEqual(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).log.map(e => e.title)), ['Elsewhere', 'Sirius'], 'a tab on its way out wrote over a save it had not seen');
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.v1')); s.log.shift(); localStorage.setItem('engage.v1', JSON.stringify(s)); });
+  await home();
+
+  // The entry. On arrival at Proxima, scroll the entry down to its planets, follow the survey's link, and come back:
+  // the entry is up again, where it was, and its lines don't file in a second time.
+  await p.evaluate(() => { engage.closeSheets(); engage.jump('Vega'); engage.jump('Proxima Centauri'); });
+  const entry = p.locator('#arrival-entry');
+  await entry.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(a => a.finished))); // its lines have filed in
+  await entry.evaluate(el => { const a = el.querySelector('.files a'); el.scrollTop = a.getBoundingClientRect().top - el.getBoundingClientRect().top - 30; });
+  const scrolled = await entry.evaluate(el => el.scrollTop);
+  assert.ok(scrolled > 50, 'the entry is too short to scroll here: the test checks nothing');
+  await go(() => p.locator('#arrival-entry .files a', { hasText: 'Proxima b: ' }).click(), () => window.survey);
+  await home();
+  assert.ok(await up('#arrival'), 'back from the survey, the arrival’s entry was gone');
+  assert.equal(await p.locator('#arrival-entry h3').innerText(), 'Proxima Centauri');
+  assert.equal(await entry.evaluate(el => el.scrollTop), scrolled, 'the entry came back scrolled somewhere else');
+  assert.equal(await p.locator('#arrival-entry [style*="animation"]').count(), 0, 'the entry’s lines filed in again on the way back');
+  assert.equal(await p.locator('#scrim').evaluate(el => el.hidden), true);
+  // Once: a reload afterwards opens the bridge plain.
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await up('#arrival'), false, 'the entry came back a second time');
+  // From the captain's log: the second entry down (Vega), its link to tonight's sky, and back. The log is up with
+  // that entry open and the keyboard on it.
+  await p.click('#open-log');
+  await p.locator('.past summary').nth(1).click();
+  await go(() => p.locator('.past').nth(1).getByRole('link', { name: 'In your sky tonight' }).click(), () => window.tonight);
+  await home();
+  assert.ok(await up('#log'), 'back from tonight’s sky, the captain’s log was closed');
+  assert.deepEqual(await p.locator('.past').evaluateAll(els => els.map(el => el.open)), [false, true, false]);
+  assert.equal(await p.evaluate(() => document.activeElement?.closest('.past')?.querySelector('b').textContent), 'Vega');
+  // The ship's own link in Looking home is one of an entry's links too.
+  await p.locator('.past summary').nth(1).click();
+  await p.locator('.past summary').nth(0).click();
+  await go(() => p.locator('.past').nth(0).locator('a[href^="missions.html#"]').click(), () => window.missions);
+  await home();
+  assert.deepEqual(await p.locator('.past').evaluateAll(els => els.map(el => el.open)), [true, false, false]);
+  // A room's own Set course link is there for the helm: the log stays shut, and the mark is spent.
+  await go(() => p.locator('.past').nth(0).getByRole('link', { name: 'In your sky tonight' }).click(), () => window.tonight);
+  await p.goto(base + '?course=Vega');
+  await bridgeReady(p);
+  assert.deepEqual([await up('#log'), await up('#arrival'), await p.locator('#target-name').innerText()], [false, false, 'Vega']);
+  await p.reload();
+  await bridgeReady(p);
+  assert.deepEqual([await up('#log'), await up('#arrival')], [false, false]);
+  // Half an hour on, the bridge opens plain: a mark that old is somebody else's errand.
+  for (const [minutes, open] of [[31, false], [29, true]]) {
+    await p.evaluate(m => { const e = engage.state.log[0]; sessionStorage.setItem('engage.return', JSON.stringify({ sheet: 'log', id: e.id, stardate: e.stardate, star: e.star, scroll: 0, at: Date.now() - m * 60000 })); }, minutes);
+    await p.reload();
+    await bridgeReady(p);
+    assert.equal(await up('#log'), open, `a mark ${minutes} minutes old`);
+    assert.equal(await p.evaluate(() => sessionStorage.getItem('engage.return')), null);
+  }
+  // A link opened in a new tab leaves no mark: this page hasn't gone anywhere. (The log is up, at the newest entry.)
+  await p.locator('.past').nth(0).getByRole('link', { name: 'In your sky tonight' }).click({ modifiers: ['Control'] });
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await up('#log'), false, 'a link opened in a new tab left a mark to come back to');
+  for (const other of back.pages()) if (other !== p) await other.close();
+
+  await back.close();
+
+  // The header, before the stars are in: where the ship was left, not "Earth orbit". (No service worker here, so
+  // that the catalogue can be held back on its way from the server.)
+  const slow = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+  await slow.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const r = await slow.newPage();
+  r.on('pageerror', e => problems.push(e.message));
+  await r.goto(base);
+  await bridgeReady(r);
+  await r.evaluate(() => engage.jump('Proxima Centauri'));
+  let release;
+  const held = new Promise(done => { release = done; });
+  await r.route('**/data/stars.bin', async route => { await held; await route.continue(); });
+  await r.reload();
+  await r.waitForFunction(() => document.getElementById('where').textContent !== '');
+  assert.deepEqual(await r.evaluate(() => [document.getElementById('status').textContent, document.getElementById('where').textContent, !!document.getElementById('loading')]), ['Holding', 'Proxima Centauri', true]);
+  release();
+  await bridgeReady(r);
+  assert.equal(await r.locator('#where').innerText(), 'Proxima Centauri');
+  await slow.close();
+
+  // A pinch on a phone is kept as the fingers lift.
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  await phone.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const q = await phone.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  // A ship that has never flown reads Earth orbit from the first moment.
+  let let2;
+  const held2 = new Promise(r => { let2 = r; });
+  await q.route('**/data/stars.bin', async route => { await held2; await route.continue(); });
+  await q.goto(base);
+  await q.waitForFunction(() => document.getElementById('where').textContent !== '');
+  assert.equal(await q.evaluate(() => document.getElementById('where').textContent), 'Earth orbit');
+  let2();
+  await bridgeReady(q);
+  const touch = await phone.newCDPSession(q);
+  const fingers = d => [{ x: 195 - d, y: 300, id: 0 }, { x: 195 + d, y: 300, id: 1 }];
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [fingers(40)[0]] });
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(40) });
+  for (let d = 50; d <= 120; d += 10) await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(d) });
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  const pinched = await q.evaluate(() => engage.state.fov);
+  assert.ok(pinched < 0.5, `the pinch did not zoom in: ${pinched}`);
+  assert.equal(await q.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).fov), pinched, 'a pinch was not kept');
+  await Promise.all([q.waitForNavigation(), q.tap('#open-xeno')]);
+  await q.waitForFunction(() => window.xeno?.current);
+  await Promise.all([q.waitForNavigation(), q.tap('a.back')]);
+  await bridgeReady(q);
+  assert.equal(await q.evaluate(() => engage.state.fov), pinched, 'the pinch was lost on the way back from the lab');
+  await phone.close();
+
+  // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
+  // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
+  // half the time once the service worker was handing the stylesheet over.
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html']) {
+    assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
+  }
+  for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
+    const fade = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion });
+    await fade.addInitScript(() => {
+      if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } }));
+      addEventListener('pagereveal', e => { sessionStorage.setItem('fades', (sessionStorage.getItem('fades') || '') + (e.viewTransition ? 'y' : 'n')); });
+    });
+    const f = await fade.newPage();
+    f.on('pageerror', e => problems.push(e.message));
+    await f.goto(base);
+    await bridgeReady(f);
+    await f.waitForFunction(() => navigator.serviceWorker?.controller); // the copy for offline is in charge, as on any visit but the first
+    for (const [link, hook] of [['#open-survey', () => window.survey], ['a.back', () => typeof window.engage?.jump === 'function'], ['#open-missions', () => window.missions], ['a.back', () => typeof window.engage?.jump === 'function']]) {
+      await Promise.all([f.waitForNavigation(), f.tap(link)]);
+      await f.waitForFunction(hook);
+      await f.waitForTimeout(300);
+    }
+    if (await f.evaluate(() => 'onpagereveal' in window)) assert.equal(await f.evaluate(() => sessionStorage.getItem('fades')), fades ? 'nyyyy' : 'nnnnn', `with reduced motion ${reducedMotion}`);
+    await fade.close();
+  }
+}
+
 // A tab that was asleep while another saved (a phone does that to tabs, and doesn't always tell them afterwards)
 // looks for itself when it comes back into view. Stood in for here by a save the tab is not told about, and then
 // the browser's "you're in view again".

@@ -41,6 +41,10 @@ export function watch(key, changed) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) look(); });
 }
 
+// Whether what the browser holds under `key` is still what this tab last read or wrote there. A tab that was put
+// to sleep can be closed without ever hearing that another tab saved: before it writes on its way out, it asks.
+export const current = key => held(key) === seen.get(key);
+
 // What the browser holds under each key, as this tab last read or wrote it.
 const seen = new Map();
 function held(key) {

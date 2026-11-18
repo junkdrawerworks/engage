@@ -7,12 +7,14 @@ import { companions, composeEntry, describeKind, inTextFor, logRecords, nearestS
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { LIVE, share } from './share.js';
-import { keep, watch } from './store.js';
+import { current, keep, watch } from './store.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, stardate, tripYears, warpSpeed,
 } from './physics.js';
 
 const KEY = 'engage.v1';
+// Where to come back to, for this tab only: the log entry a link to another room was followed from (see returnTo).
+const RETURN = 'engage.return';
 // The planetary survey page. The single-file copy points this at the live site.
 const SURVEY = 'survey.html';
 const AWAY = SURVEY.startsWith('http') ? ' target="_blank" rel="noopener"' : '';
@@ -83,6 +85,7 @@ function tidy() {
 // (see unsavedNote), and everything is kept as soon as there is room again.
 let unsaved = null;
 function save() {
+  viewMoved = false;
   const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro } = state;
   unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro }) || null;
   return !unsaved;
@@ -140,7 +143,20 @@ const nominal = i => !!(cat.unmeasured[i] || cat.unmeasured[trip ? trip.i : stat
 
 // ---------- Startup ----------
 
+// Until the catalogue is in (half a second here, seconds on a slow line) the header used to say "Holding, Earth
+// orbit" over a black screen wherever the ship was: every return from another room said the ship was home. It says
+// where the ship was left instead, from what is saved: the newest log entry is the arrival there. A ship that has
+// never flown is in Earth orbit; one whose star can't be named yet says nothing until the stars are charted.
+function preview() {
+  const saved = stored();
+  const away = Number.isInteger(saved?.at) && saved.at > 0;
+  const entry = away && Array.isArray(saved.log) ? saved.log[0] : null;
+  $('status').textContent = 'Holding';
+  $('where').textContent = !away ? 'Earth orbit' : entry && entry.star === saved.at && typeof entry.title === 'string' ? entry.title : '';
+}
+
 async function start() {
+  preview();
   const img = new Image();
   img.src = 'img/milkyway.png';
   try {
@@ -162,8 +178,10 @@ async function start() {
   $('loading').remove();
   showSettings();
   setTarget(state.target, false);
+  const coursed = new URLSearchParams(location.search).has('course');
   courseFromLink();
   updateHud();
+  returnTo(coursed);
   // Take the helm takes focus without being scrolled to: on a small phone, or one on its side, the card is taller than
   // the screen, and it should open at the top.
   if (!state.seenIntro) { $('intro').hidden = false; behind(); $('intro-go').focus({ preventScroll: true }); }
@@ -745,10 +763,11 @@ function quiet(el) {
 }
 
 let arrived = null; // the entry on the arrival sheet
-function showArrival(entry) {
+// `again` when the sheet is being put back as it was left, and not for a new arrival: its lines don't file in afresh.
+function showArrival(entry, again = false) {
   arrived = entry;
   $('arrival-date').textContent = `Captain’s log · Stardate ${entry.stardate}`;
-  $('arrival-entry').innerHTML = entryHtml(entry, true);
+  $('arrival-entry').innerHTML = entryHtml(entry, true, !again);
   unsavedNote('arrival-unsaved', 'The log is full: this entry won’t be kept.', 'This browser isn’t letting the bridge save: this entry won’t be kept.');
   openSheet('arrival');
   $('scrim').hidden = true; // keep the view of the new star clear
@@ -763,12 +782,14 @@ function showArrival(entry) {
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-function entryHtml(e, heading) {
+// `heading` for the arrival's sheet, which has the star's name over the entry; `staged` when its lines come in one
+// after another, as they do on arrival.
+function entryHtml(e, heading, staged = heading) {
   const parts = heading ? [`<h3>${esc(e.title)}</h3>`] : [];
   parts.push(`<p class="intro-line">${esc(e.intro)}</p><dl>`);
   let delay = 0;
   for (const [label, text] of e.sections) {
-    const style = heading && !still.matches ? ` style="animation: rise .5s ${(delay += 0.12).toFixed(2)}s both"` : '';
+    const style = staged && !still.matches ? ` style="animation: rise .5s ${(delay += 0.12).toFixed(2)}s both"` : '';
     if (label) parts.push(`<dt${style}>${esc(label)}</dt>`);
     parts.push(`<dd class="${label ? (label === 'Looking home' ? 'home' : '') : 'note'}"${style}>${esc(text)}</dd>`);
     if (label === 'Planets') parts.push(surveyLinks(e.star, style));
@@ -823,6 +844,60 @@ function shipLink(ship, style) {
 function renderLog() {
   save(); // try again: room may have been made since
   drawLog();
+}
+
+// ---------- Back from another room ----------
+
+// Every room's Back is a plain link to the bridge, which loads afresh: the log entry you were reading when you
+// followed its link (to a planet's survey file, the lab, tonight's sky, a ship on a long mission) was gone, and you
+// were on the bare viewscreen. A link followed out of an entry leaves a mark for this tab: which sheet, which entry,
+// how far it was scrolled. The mark is only written as the page is really left (see leave), so a link opened in a
+// new tab, or one that went nowhere, leaves none.
+let leaving = null;
+function noteLeaving(id, e) {
+  const a = e.target.closest('a[href]');
+  if (!a || a.target || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const entry = id === 'arrival-entry' ? arrived : state.log[[...$('entries').querySelectorAll('.past')].indexOf(a.closest('.past'))];
+  if (!entry) return;
+  leaving = { at: performance.now(), mark: { sheet: id === 'arrival-entry' ? 'arrival' : 'log', id: entry.id ?? null, stardate: entry.stardate, star: entry.star, scroll: $(id).scrollTop } };
+}
+
+// As the page is left: the view as it stands, and the mark to come back to. The view is saved whenever it changes,
+// but a wheel that has only just stopped hasn't been yet, and a turn still under way is saved where it was going.
+// Not in flight, and not over another tab's save that this one never heard of (it may have slept through it).
+function leave() {
+  if (turn && !trip) { state.yaw = turn.yaw1; state.pitch = turn.pitch1; turn = null; viewMoved = true; }
+  if (viewMoved && !trip && current(KEY)) save();
+  if (!leaving || performance.now() - leaving.at > 30000) return;
+  try { sessionStorage.setItem(RETURN, JSON.stringify({ ...leaving.mark, at: Date.now() })); } catch { /* no storage: the bridge opens plain */ }
+  leaving = null;
+}
+
+// Back on the bridge within half an hour: the sheet is put back with that entry open, where it was scrolled to. The
+// mark is used once. A link that sets a course (`coursed`) is here for the helm, not for the log.
+function returnTo(coursed) {
+  let mark = null;
+  try { mark = JSON.parse(sessionStorage.getItem(RETURN) || 'null'); sessionStorage.removeItem(RETURN); } catch { return; }
+  if (coursed || !state.seenIntro || !mark || typeof mark !== 'object') return;
+  const age = Date.now() - mark.at;
+  if (!(age >= 0 && age < 30 * 60000)) return;
+  const k = state.log.findIndex(e => e.star === mark.star && (mark.id != null ? e.id === mark.id : e.stardate === mark.stardate));
+  if (k < 0) return;
+  const scroll = Number.isFinite(mark.scroll) ? mark.scroll : 0;
+  if (mark.sheet === 'arrival' && k === 0 && state.at === state.log[0].star) {
+    showArrival(state.log[0], true);
+    $('arrival-entry').scrollTop = scroll;
+    return;
+  }
+  drawLog();
+  openSheet('log', $('open-log'));
+  const past = $('entries').querySelectorAll('.past')[k];
+  past.open = true;
+  $('entries').scrollTop = scroll;
+  // Other entries may have been open above it when the page was left: if that leaves this one out of sight, show it.
+  const box = $('entries').getBoundingClientRect(), top = past.getBoundingClientRect().top;
+  if (top < box.top || top > box.bottom - 60) past.scrollIntoView({ block: 'start' });
+  past.querySelector('summary').focus({ preventScroll: true });
 }
 
 function drawLog() {
@@ -942,6 +1017,7 @@ function bind() {
   // sheet closes on the helm with that star chosen.
   for (const id of ['entries', 'arrival-entry']) {
     $(id).addEventListener('click', e => {
+      noteLeaving(id, e);
       const b = e.target.closest('[data-share]');
       if (b) shareCourse(b);
       const again = e.target.closest('[data-again], [data-course]');
@@ -1032,6 +1108,9 @@ function bind() {
     if (to) { e.preventDefault(); to.focus(); }
   });
   addEventListener('resize', () => { dirty = true; });
+  addEventListener('pagehide', leave);
+  // Brought back whole by the browser's own Back, the sheet is still as it was left: the mark has nothing to do.
+  addEventListener('pageshow', e => { if (e.persisted) { leaving = null; try { sessionStorage.removeItem(RETURN); } catch { /* no storage */ } } });
   still.addEventListener?.('change', () => { dirty = true; });
 
   // Drag to look around, pinch or scroll to zoom, tap to pick a star.
@@ -1067,7 +1146,8 @@ function bind() {
     if (!pts.has(e.pointerId)) return;
     pts.delete(e.pointerId);
     view.classList.remove('dragging');
-    if (pts.size < 2) pinch = null;
+    // Where a pinch leaves the zoom is kept, as where a drag leaves the view is.
+    if (pts.size < 2 && pinch) { pinch = null; if (!trip) save(); }
     if (drag && !drag.moved && !trip && pts.size === 0) {
       const r = view.getBoundingClientRect();
       const i = sky.pick(e.clientX - r.left, e.clientY - r.top, 6.5 + Math.max(0, Math.log2(60 * DEG / state.fov)));
@@ -1082,7 +1162,15 @@ function bind() {
   };
   view.addEventListener('pointerup', up);
   view.addEventListener('pointercancel', up);
-  view.addEventListener('wheel', e => { e.preventDefault(); if (!trip) setFov(state.fov * Math.exp(e.deltaY * 0.0012)); }, { passive: false });
+  // And where the wheel leaves it, once it has been still for a moment.
+  let wheeled = 0;
+  view.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (trip) return;
+    setFov(state.fov * Math.exp(e.deltaY * 0.0012));
+    clearTimeout(wheeled);
+    wheeled = setTimeout(() => { if (!trip && viewMoved) save(); }, 400);
+  }, { passive: false });
 }
 
 // A phone's keyboard covers the bottom of the screen without the page being resized (always on an iPhone, usually on
@@ -1104,9 +1192,11 @@ function watchKeyboard() {
 
 const clampPitch = p => Math.max(-89 * DEG, Math.min(89 * DEG, p));
 
+let viewMoved = false; // the zoom has changed since the last save
 function setFov(f) {
   state.fov = Math.max(2 * DEG, Math.min(100 * DEG, f));
   dirty = true;
+  viewMoved = true;
 }
 
 // ---------- Hooks for tests and screenshots ----------
