@@ -307,7 +307,7 @@ function draw() {
   W = cw; H = ch;
   B = basis();
   S = Math.sqrt(W * H) / 2 / (2 * Math.tan(view.fov / 4));
-  placed = [];
+  placed = []; labelled = [];
   // Keep labels clear of the header, the controls and the daylight notice when it's up.
   const hud = document.querySelector('.hud').getBoundingClientRect(), controls = document.querySelector('.controls .row').getBoundingClientRect();
   labelBoxes = [{ x: -100, y: -100, w: W + 200, h: hud.bottom - 10 + 100 }, { x: controls.left, y: controls.top - 34, w: controls.width, h: H }];
@@ -360,7 +360,10 @@ function draw() {
     if (m < 2.2) placed.push({ x: p.x, y: p.y, r: 16, hit: { kind: 'star', i }, rank: m });
   }
 
-  // Planets, the Moon and the Sun
+  // Planets, the Moon and the Sun. Every disc goes down before any name, and each disc is somewhere no name may go:
+  // with two planets close together (Mars and Jupiter, 1.4° apart on 18 November 2026) the first one's name used to
+  // take the only place tried, the second went unnamed, and its disc was painted over the first one's name.
+  bodies = [];
   for (const pl of sky.planets) {
     if (pl.local[2] < -0.02 || pl.mag > Math.max(lim, 2)) continue;
     const p = project(pl.local);
@@ -370,10 +373,15 @@ function draw() {
     ctx.shadowColor = 'rgba(255, 200, 120, 0.8)'; ctx.shadowBlur = 10;
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
     ctx.shadowBlur = 0;
-    label(pl.label, p.x, p.y, r + 6, 'planet');
+    bodies.push({ name: pl.label, x: p.x, y: p.y, r, mag: pl.mag });
     placed.push({ x: p.x, y: p.y, r: 22, hit: { kind: 'planet', name: pl.name }, rank: -5 });
   }
   if (sky.moonL[2] > -0.02) drawMoon();
+  for (const b of bodies) labelBoxes.push({ x: b.x - b.r, y: b.y - b.r, w: b.r * 2, h: b.r * 2 });
+  // The brightest is named first, so it has first pick of the room beside it.
+  for (const b of [...bodies].sort((a, c) => a.mag - c.mag)) {
+    if (b.x > -b.r && b.x < W + b.r && b.y > -b.r && b.y < H + b.r) label(b.name, b.x, b.y, b.r + 6, 'planet');
+  }
   if (sky.sun[2] > -0.02) {
     const p = project(sky.sun);
     if (p && p.z > 0) {
@@ -482,7 +490,7 @@ function drawMoon() {
   ctx.ellipse(0, 0, w, r, 0, Math.PI / 2, -Math.PI / 2, lit < 0.5);
   ctx.fill();
   ctx.restore();
-  label('Moon', p.x, p.y, r + 6, 'planet');
+  bodies.push({ name: 'Moon', x: p.x, y: p.y, r, mag: -12 });
   placed.push({ x: p.x, y: p.y, r: Math.max(24, r), hit: { kind: 'moon' }, rank: -12 });
 }
 
@@ -555,15 +563,34 @@ const TAG = {
   night: { trek: '255, 255, 255', other: '236, 196, 180', sub: '255, 240, 236', subA: 1, otherSub: '226, 200, 190' },
 };
 let labelBoxes = [], reservedBoxes = 0; // the first few are the page's own: the header, the controls and the daylight notice
+let bodies = [];   // the planets and the Moon drawn last frame: { name, x, y, r, mag }
+let labelled = []; // the names written beside things last frame, with their boxes on screen, for tests
+// A name beside something: to its right, or where that is taken or off the screen, to its left, below it or above it.
+// A star's name or a shower's with no room in any of the four is left out. A planet's or the Moon's is always
+// written, where it covers the least, unless the only places on the screen are under the header, the controls or
+// the daylight notice.
 function label(text, x, y, gap, style) {
   ctx.font = `${style === 'star' ? 500 : 600} ${style === 'star' ? 11 : 12}px ${FONT}`;
-  const w = ctx.measureText(text).width;
-  const box = { x: x + gap, y: y - 8, w, h: 14 };
-  if (overlaps(box)) return;
+  const w = ctx.measureText(text).width, h = 14;
+  const mid = Math.min(Math.max(x - w / 2, 2), Math.max(2, W - 2 - w)); // centred under or over it, but kept on the screen
+  const spots = [{ x: x + gap, y: y - 8 }, { x: x - gap - w, y: y - 8 }, { x: mid, y: y + gap - 4 }, { x: mid, y: y - gap - h + 4 }];
+  let box = null, least = Infinity;
+  for (const s of spots) {
+    const b = { x: s.x, y: s.y, w, h };
+    if (b.x < 2 || b.x + w > W - 2) continue;
+    if (!overlaps(b)) { box = b; break; }
+    if (style !== 'planet' || labelBoxes.slice(0, reservedBoxes).some(o => meets(b, o))) continue;
+    let cost = 0;
+    for (const o of labelBoxes) cost += Math.max(0, Math.min(b.x + w, o.x + o.w) - Math.max(b.x, o.x)) * Math.max(0, Math.min(b.y + h, o.y + o.h) - Math.max(b.y, o.y));
+    if (cost < least) { least = cost; box = b; }
+  }
+  if (!box) return;
   labelBoxes.push(box);
+  labelled.push({ text, style, ...box });
   ctx.fillStyle = style === 'planet' ? '#ffd28a' : style === 'shower' ? 'rgba(190, 255, 214, 0.9)' : 'rgba(200, 210, 230, 0.62)';
-  ctx.fillText(text, x + gap, y + 4);
+  ctx.fillText(text, box.x, box.y + 12);
 }
+const meets = (b, o) => b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h;
 const overlaps = b => labelBoxes.some(o => b.x < o.x + o.w + 4 && o.x < b.x + b.w + 4 && b.y < o.y + o.h && o.y < b.y + b.h);
 
 // A Starfleet tag: a targeting ring on the star, its name and a line under it.
@@ -1121,6 +1148,10 @@ function hooks() {
     get shower() { const sh = sky.shower; return sh ? { name: sh.shower.name, alt: altAz(sh.local).alt, drawn: placed.some(q => q.hit.kind === 'shower') } : null; },
     get plan() { return plan; },
     // The constellations named on the sky in the last frame drawn.
+    // The names written beside planets, the Moon, bright stars and the shower in the last frame, each with its box on
+    // screen, and the planets' and the Moon's discs.
+    labels: () => labelled.map(l => ({ ...l })),
+    bodies: () => bodies.map(b => ({ ...b })),
     names: () => named.map(n => n.name),
     nameBox: name => named.find(n => n.name === name) || null,
     // Open the card for anything in the sky: { kind: 'planet', name: 'venus' }, { kind: 'moon' }.

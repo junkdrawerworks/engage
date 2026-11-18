@@ -931,6 +931,33 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= i
   await reset('2026-11-19T11:15:00Z', sliderWas);
 }
 
+// Two planets close together each keep their name. Before dawn on 18 November 2026 Mars and Jupiter are 1.4° apart in
+// Leo: Mars's name used to take the only place tried, Jupiter went unnamed, and its disc was painted over "Mars".
+// Each name is clear of both discs and of the other name, close in and in the wide view, upright and on its side.
+for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+  const dawn = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'America/New_York' });
+  const p = await dawn.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  await p.evaluate(() => { tonight.place(40.71, -74.01, 'New York', 'America/New_York'); tonight.at('2026-11-18T09:30:00Z'); });
+  const where = `on a ${viewport.width}×${viewport.height} screen`;
+  for (const fov of [30, 80]) {
+    await p.evaluate(f => { tonight.aimAt('Regulus'); const v = tonight.state.view; tonight.look(v.az, v.alt, f); }, fov);
+    await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const { labels, bodies } = await p.evaluate(() => ({ labels: tonight.labels(), bodies: tonight.bodies() }));
+    const meet = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    const names = ['Mars', 'Jupiter'].map(n => labels.find(l => l.text === n));
+    assert.ok(names[0] && names[1], `Mars and Jupiter are not both named ${where} at ${fov}°: ${labels.map(l => l.text)}`);
+    assert.ok(!meet(names[0], names[1]), `Mars's and Jupiter's names overlap ${where} at ${fov}°`);
+    for (const l of names) {
+      assert.ok(l.x >= 0 && l.x + l.w <= viewport.width, `${l.text}'s name runs off the screen ${where}`);
+      for (const b of bodies) assert.ok(!meet(l, { x: b.x - b.r, y: b.y - b.r, w: b.r * 2, h: b.r * 2 }), `${l.text}'s name is under ${b.name}'s disc ${where} at ${fov}°`);
+    }
+  }
+  await dawn.close();
+}
+
 // The place button, the only way into "Where you are", is a full-size tap target, and a guessed place and the time
 // both fit on a phone.
 {
