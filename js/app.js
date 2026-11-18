@@ -951,7 +951,7 @@ async function showPhone() {
   $('phone-installed').hidden = !home;
   $('install').hidden = home || !installAsk;
   $('phone-ios').hidden = home || !iOS || !!installAsk;
-  $('phone-safari').hidden = home || !safari;
+  $('phone-safari').hidden = home || !iOS || !safari; // a Mac has no Home Screen to add it to
   let kept = false;
   try { kept = !!(await navigator.storage?.persisted?.()); } catch { /* can't say */ }
   $('phone-kept').hidden = !kept;

@@ -357,6 +357,17 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   assert.match(await q.locator('#phone-safari').innerText(), /^Safari deletes what a site has saved after seven days/);
   assert.equal(await q.locator('#phone-copy').isHidden(), true, 'a copy for no signal was promised with no service worker to keep it');
   await iphone.close();
+  // Safari on a Mac: no Home Screen to add it to, so neither line.
+  const mac = await browser.newContext({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15', serviceWorkers: 'block' });
+  const r = await mac.newPage();
+  r.on('pageerror', e => problems.push(e.message));
+  await r.addInitScript(() => localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })));
+  await r.goto(base);
+  await bridgeReady(r);
+  await r.click('#open-settings');
+  await r.waitForTimeout(500);
+  assert.deepEqual(await r.evaluate(() => ['phone-ios', 'phone-safari'].filter(id => !document.getElementById(id).hidden)), [], 'Safari on a Mac was told about the Home Screen');
+  await mac.close();
 }
 
 // On a phone on its side the chosen star sits above the helm, the star you arrive at clear of the log, and the settings
