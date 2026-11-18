@@ -66,6 +66,47 @@ assert.equal(await shown('#intro'), false);
 assert.equal(await text('#where'), 'Earth orbit');
 assert.ok(await page.locator('#engage').isDisabled(), 'engage works with no destination');
 
+// The welcome card lists the rooms off the bridge, each a link with its picture, its name and a line, from the same
+// table as Bridge settings' list. Bridge settings can bring the card back. The round buttons are drawn at 38 px on a
+// phone, but each can be tapped anywhere in a 44 px square around its middle, without reaching its neighbour.
+{
+  const fresh = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await fresh.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  const { ROOMS: LISTED } = await import('../js/rooms.js');
+  const listed = sel => p.locator(`${sel} .rooms a`).evaluateAll(as => as.map(a => [a.getAttribute('href'), a.querySelector('b').textContent, a.querySelector('.room-text > span').textContent]));
+  const want = LISTED.map(r => [r.href, r.name, r.line]);
+  assert.deepEqual(await listed('#intro'), want, 'the welcome card does not list the rooms');
+  assert.equal(await p.locator('#intro .intro-card > p:not([class])').count(), 2, 'the welcome card still has its long paragraph about the buttons');
+  await p.tap('#intro-go');
+  // Every round button, tapped 21 px left, right, above and below its middle, is that button.
+  const misses = await p.evaluate(() => [...document.querySelectorAll('.hud-buttons .round')].flatMap(b => {
+    const r = b.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
+    return [[-21, 0], [21, 0], [0, -21], [0, 21]].filter(([dx, dy]) => document.elementFromPoint(x + dx, y + dy)?.closest('.round') !== b).map(d => `${b.id} ${d}`);
+  }));
+  assert.deepEqual(misses, [], 'a round button’s tap area is less than 44 px across');
+  assert.equal(await p.locator('#open-log').evaluate(b => b.getBoundingClientRect().width), 38, 'the round buttons are drawn at a new size');
+  await p.tap('#open-settings');
+  assert.deepEqual(await listed('#settings'), want, 'Bridge settings does not list the rooms');
+  await p.tap('#show-intro');
+  assert.ok(await p.locator('#intro').evaluate(el => !el.hidden), 'Show the welcome again did not bring the card back');
+  assert.ok(await p.locator('#settings').evaluate(el => el.hidden), 'Bridge settings stayed up behind the welcome card');
+  await p.tap('#intro-go');
+  assert.ok(await p.locator('#intro').evaluate(el => el.hidden));
+  // A room followed from the welcome card counts as having read it: back on the bridge, the card isn't up again.
+  await p.evaluate(() => { localStorage.removeItem('engage.v1'); });
+  await p.reload();
+  await bridgeReady(p);
+  await p.tap('#intro a[href="maru.html"]');
+  await p.waitForURL(/maru\.html/);
+  await p.goBack();
+  await bridgeReady(p);
+  assert.ok(await p.locator('#intro').evaluate(el => el.hidden), 'the welcome card came back after a room was opened from it');
+  await fresh.close();
+}
+
 // On a small phone, or any phone turned on its side, the welcome card is taller than the screen, so it scrolls and
 // Take the helm can still be reached. It opens at the top all the same, though Take the helm has the focus.
 for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }]) {

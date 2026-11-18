@@ -8,6 +8,7 @@ import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { LIVE, share } from './share.js';
 import { current, keep, watch } from './store.js';
+import { roomList } from './rooms.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -29,6 +30,8 @@ const MISSIONS = SURVEY.replace('survey.html', 'missions.html');
 const TONIGHT = 'tonight.html';
 // And the warp scale.
 const SCALE = 'warp.html';
+// Where the rooms' pages are, for the room list (the single-file copy's SURVEY is on the live site).
+const ROOM_BASE = SURVEY.replace('survey.html', '');
 const $ = id => document.getElementById(id);
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 const DEG = Math.PI / 180;
@@ -207,6 +210,7 @@ async function start() {
   sky.setOrigin(starPos(state.at));
   watchGraphics();
   $('loading').remove();
+  for (const id of ['intro-rooms', 'settings-rooms']) $(id).innerHTML = roomList(ROOM_BASE, AWAY);
   showSettings();
   setTarget(state.target, false);
   const coursed = new URLSearchParams(location.search).has('course');
@@ -1109,6 +1113,20 @@ function bind() {
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeSheets));
   // A click made with Enter or Space has no count of presses; one made with a finger or a mouse does.
   $('intro-go').addEventListener('click', e => dismissIntro(e.detail > 0));
+  // A room taken from the welcome card counts as the card read: back on the bridge, it isn't up again.
+  $('intro-rooms').addEventListener('click', e => {
+    if (!e.target.closest('a[href]')) return;
+    state.seenIntro = true;
+    save();
+  });
+  // Bridge settings can bring the welcome card back, with its list of rooms. Take the helm puts it away again.
+  $('show-intro').addEventListener('click', () => {
+    closeSheets();
+    $('intro').hidden = false;
+    $('intro').scrollTop = 0;
+    behind();
+    $('intro-go').focus({ preventScroll: true });
+  });
   for (const [id, key] of [['opt-lines', 'lines'], ['opt-labels', 'labels'], ['opt-sound', 'sound']]) {
     $(id).addEventListener('change', e => {
       state.opts[key] = e.target.checked;
@@ -1184,7 +1202,13 @@ function bind() {
   addEventListener('resize', () => { dirty = true; });
   addEventListener('pagehide', leave);
   // Brought back whole by the browser's own Back, the sheet is still as it was left: the mark has nothing to do.
-  addEventListener('pageshow', e => { if (e.persisted) { leaving = null; try { sessionStorage.removeItem(RETURN); } catch { /* no storage */ } } });
+  addEventListener('pageshow', e => {
+    if (!e.persisted) return;
+    leaving = null;
+    try { sessionStorage.removeItem(RETURN); } catch { /* no storage */ }
+    // Left for a room from the welcome card: the card was read, and isn't up on the way back.
+    if (state.seenIntro && !$('intro').hidden) { $('intro').hidden = true; behind(); }
+  });
   still.addEventListener?.('change', () => { dirty = true; });
 
   // Drag to look around, pinch or scroll to zoom, tap to pick a star.

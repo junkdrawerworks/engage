@@ -59,8 +59,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .where .sub span + span::before { content: '·'; position: absolute; left: -0.7em; }
 .where .sub { margin: 3px 0 0; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
 .hud-buttons { display: flex; gap: 8px; pointer-events: auto; flex: none; }
-.round { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel); display: grid; place-items: center; padding: 0;
+.round { position: relative; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel); display: grid; place-items: center; padding: 0;
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: border-color .15s, background .15s; }
+/* Each button can be tapped anywhere in a 44 px square round its middle, though it is drawn smaller. The squares meet
+   in the middle of the gap between buttons, so a tap never lands on the neighbour. */
+.round::after { content: ''; position: absolute; inset: -2px; }
 .round:hover { border-color: var(--cyan); }
 .round svg { width: 20px; height: 20px; }
 a.round { color: var(--text); text-decoration: none; }
@@ -219,6 +222,24 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .intro-card h2 { margin: 4px 0 10px; font: 600 40px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; }
 .intro-card p { color: #cdd5e3; margin: 0 0 12px; }
 .intro-card .primary { width: 100%; margin-top: 6px; }
+/* The rooms off the bridge, on the welcome card and in Bridge settings: each a link with its button's picture. */
+.rooms { list-style: none; margin: 0 0 12px; padding: 0; }
+.rooms li + li { border-top: 1px solid var(--line); }
+.rooms a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 5px 2px; color: var(--text); text-decoration: none; }
+.rooms a:hover b { color: var(--cyan); }
+.room-icon { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; }
+.room-icon svg { width: 18px; height: 18px; }
+.room-text { display: grid; gap: 1px; min-width: 0; }
+.room-text b { font: 600 14px/1.25 var(--display); letter-spacing: 0.04em; }
+.room-text span { color: var(--muted); font-size: 13px; line-height: 1.35; }
+.intro-card .rooms { margin-top: -2px; }
+/* Each room's picture in the colour of its button on the bridge. */
+.rooms [data-room=maru] svg { stroke: #ff8f84; }
+.rooms [data-room=missions] svg { stroke: var(--cyan); }
+.rooms [data-room=tonight] svg { stroke: var(--sun); }
+.rooms [data-room=xeno] svg { stroke: #6fe3a4; }
+.rooms [data-room=contact] svg, .rooms [data-room=warp] svg { stroke: #c9a2ff; }
+#show-intro { margin: 0 0 4px; }
 
 .loading { position: fixed; left: 0; right: 0; top: 45%; text-align: center; margin: 0; font: 500 14px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .noscript { position: fixed; inset: 0; z-index: 30; margin: 0; padding: 24px; background: var(--bg); }
@@ -240,7 +261,7 @@ body.red { --cyan: #fff; --text: #fff0ec; --muted: #ecd0c8; --dim: #d8b8b0; }
 /* The log's words and the links that were green or violet have too little red of their own. */
 body.red .entry dd:not(.home), body.red .intro-card p, body.red .lost p { color: var(--text); }
 body.red .entry .files a.to-lab, body.red #open-scale { color: var(--text); border-color: rgba(255, 255, 255, 0.4); }
-body.red #open-xeno svg, body.red #open-contact svg { stroke: currentColor; }
+body.red #open-xeno svg, body.red #open-contact svg, body.red .rooms [data-room=xeno] svg, body.red .rooms [data-room=contact] svg, body.red .rooms [data-room=warp] svg { stroke: currentColor; }
 /* Nothing large and bright is left: the big buttons are drawn as outlines. (The flash of going to warp is dimmed
    too: see flash() in js/app.js.) */
 body.red .primary, body.red .engage:not(:disabled) { background: none; box-shadow: none; border: 1.5px solid currentColor; color: var(--text); }
@@ -251,6 +272,7 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
   .arrival-actions button { font-size: 13px; letter-spacing: 0.04em; padding: 0 6px; }
   .hud-buttons { gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: calc(5 * 38px + 4 * 6px); }
   .round { width: 38px; height: 38px; }
+  .round::after { inset: -4px; }
   .round svg { width: 18px; height: 18px; }
 }
 
@@ -282,6 +304,7 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
   .sheet { left: auto; right: max(20px, var(--safe-r)); top: calc(84px + var(--safe-t)); bottom: 20px; width: 440px; max-height: none; border-radius: 22px; border-bottom: 1px solid var(--line); padding: 6px 16px 14px; animation-name: slide; }
   .sheet.arrival { top: auto; max-height: calc(100vh - 104px); }
   #picker { bottom: calc(20px + var(--kb, 0px)); height: auto; }
+  .intro-card { max-width: 470px; } /* each room's line fits on one line */
   @keyframes slide { from { transform: translateX(30px); opacity: 0; } }
 }
 
