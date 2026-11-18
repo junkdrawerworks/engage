@@ -326,6 +326,38 @@ export function transcript(saved = {}) {
   return { seen: ENDINGS.filter(t => seen.has(t)), best, taken };
 }
 
+// What a run added to the record: `before` is the record as it stood when the run ended (transcript() of the save
+// before this run went on it) and `e` its evaluation. A new ending is one not seen before, and `endingsSeen` counts
+// it. `better` names the grades whose letter beat the best on record. A first run has no record to beat, so it only
+// ever has a new ending; and Honesty, which is only ever an F, is never a best.
+export function runFirsts(before = {}, e) {
+  const seen = new Set((Array.isArray(before.seen) ? before.seen : []).filter(t => ENDINGS.includes(t)));
+  const newEnding = ENDINGS.includes(e.title) && !seen.has(e.title);
+  const best = before.best && typeof before.best === 'object' ? before.best : {};
+  const better = e.grades.filter(x => GRADED.includes(x.name) && best[x.name] && x.letter < best[x.name]).map(x => x.name);
+  return { newEnding, endingsSeen: seen.size + (newEnding ? 1 : 0), better };
+}
+
+// The line under the examiner's notes. The test has no winning answer; the one cadet who wrote one in is told what
+// that left unanswered. (It used to say "has no winning answer" straight under "You are the only cadet to beat it".)
+export const moral = e => (e.outcome === 'rewritten'
+  ? 'The Kobayashi Maru had no winning answer until you wrote one in. The examiners still haven’t seen how you face losing.'
+  : 'The Kobayashi Maru has no winning answer. It shows the examiners how you face one.');
+
+// One line at the head of the briefing for a cadet who has been here before, from the standing record (transcript()).
+// A first attempt gets none: the briefing reads as it always has.
+const ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth', 'Eleventh', 'Twelfth'];
+export function briefingLine(record = {}) {
+  const taken = Number.isInteger(record.taken) && record.taken > 0 ? record.taken : 0;
+  const seen = Array.isArray(record.seen) ? record.seen : [];
+  if (!taken) return '';
+  if (ENDINGS.every(t => seen.includes(t))) return 'You have seen every way this ends, cadet. The board has nothing left to show you. The chair is yours all the same.';
+  if (seen.includes('Changed the rules')) return 'The simulator’s code has been restored. The board would like a word afterwards.';
+  if (taken === 1) return 'Second attempt, cadet. The scenario has not changed.';
+  if (taken === 2) return 'Third attempt. The board notes your persistence.';
+  return `${taken < ORDINALS.length ? `${ORDINALS[taken]} attempt` : `Attempt ${taken + 1}`}, cadet. The scenario has not changed.`;
+}
+
 const letter = s => (s >= 85 ? 'A' : s >= 70 ? 'B' : s >= 55 ? 'C' : s >= 40 ? 'D' : 'F');
 const clamp = s => Math.max(0, Math.min(100, Math.round(s)));
 const people = n => `${n.toLocaleString('en-US')} ${n === 1 ? 'person' : 'people'}`;

@@ -22,6 +22,8 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 /* Briefing */
 #brief:not([hidden]) { display: grid; gap: 12px; max-width: 640px; margin: 6px auto 0; }
 .brief .how { color: var(--muted); }
+/* Communications' line for an officer who has answered a hail before. */
+.brief .returning { padding: 8px 12px; border-left: 3px solid var(--alien); border-radius: 0 10px 10px 0; background: rgba(201, 162, 255, 0.08); color: var(--text); }
 .brief .primary, .brief .secondary { width: 100%; margin-top: 6px; }
 .brief .resume-note { margin: 8px 0 4px; font-size: 14px; color: var(--muted); }
 .record .tally { margin: 10px 0 12px; display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 6px; }
@@ -107,6 +109,8 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 .evaluation h2 { font-size: 34px; }
 .evaluation .summary { font-size: 16px; color: var(--text); }
 .evaluation .story { margin: 14px 0; padding: 14px 16px; border-left: 3px solid var(--alien); border-radius: 0 12px 12px 0; background: rgba(201, 162, 255, 0.08); font: 500 20px/1.3 var(--display); color: #f1ebff; }
+/* What this encounter added to the record, under the title. */
+.evaluation .firsts { margin: -4px 0 10px; font: 600 12px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--green); }
 .evaluation .story small { display: block; margin-top: 4px; font: 13px/1.4 var(--body); color: var(--muted); }
 .score { display: grid; grid-template-columns: auto 1fr; gap: 0 14px; align-items: center; margin: 14px 0 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
 .score .n { grid-row: span 2; font: 600 40px/1 var(--display); color: var(--alien); font-variant-numeric: tabular-nums; }

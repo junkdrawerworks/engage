@@ -454,6 +454,34 @@ export function standing(saved = {}) {
   };
 }
 
+// What an encounter added to the record: `before` is the record as it stood (standing() of the save before this
+// encounter went on it) and `d` its debrief. `best` is a notebook that beat the best on record, by standing()'s own
+// rule (a first encounter has no record to beat); `contacts` is how many first contacts that makes, when this was one.
+export function encounterFirsts(before = {}, d) {
+  const was = standing(before);
+  const now = standing({ ...was, runs: [{ decoded: d.decoded, of: d.of }] }).best;
+  const best = was.met > 0 && !!now && (!was.best || now.decoded !== was.best.decoded || now.of !== was.best.of);
+  return { best, contacts: d.outcome === 'contact' ? was.contacts + 1 : 0 };
+}
+// The same in words, for the debrief: "Your best notebook yet · First contact made: 1".
+export function firstsLine(f) {
+  return [f.best ? 'Your best notebook yet' : '', f.contacts ? `First contact${f.contacts === 1 ? '' : 's'} made: ${f.contacts}` : ''].filter(Boolean).join(' · ');
+}
+
+// One line at the head of the briefing for an officer who has answered a hail before, from what the page has saved:
+// which ship this is, and how the last one went. A first hail gets none: the briefing reads as it always has.
+const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth', 'eleventh', 'twelfth'];
+export function briefingLine(saved = {}) {
+  const { met } = standing(saved);
+  if (!met) return '';
+  const runs = Array.isArray(saved.runs) ? saved.runs.filter(r => r && typeof r === 'object') : [];
+  const last = runs[runs.length - 1];
+  const which = met < ORDINALS.length ? `Your ${ORDINALS[met]} unknown ship.` : `Unknown ship number ${met + 1}.`;
+  const people = typeof last?.people === 'string' && /^[\p{L}’' -]{1,30}$/u.test(last.people) ? last.people : '';
+  if (last?.outcome === 'silence') return `${which} The last ship left without being understood.`;
+  return people ? `${which} The last were the ${people}; these are not.` : which;
+}
+
 // A right answer for where things stand, from what you've heard so far. For the tests and the page's hook.
 export function hint(g) {
   if (g.over) return null;

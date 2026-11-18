@@ -289,3 +289,7 @@ export function filesForStar(name) {
   for (const cls of CLASSES) for (const w of cls.worlds) if (w.star === name) out.push({ world: w, cls });
   return out;
 }
+
+// Cover your tracks: whether a right answer has just made a new best streak, given the best before it. The first
+// right answer anyone gives is a streak of one and beats nothing, so it isn't a record worth announcing.
+export const streakRecord = (bestBefore, streak) => streak > bestBefore && bestBefore >= 1;

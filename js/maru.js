@@ -1,5 +1,5 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
-import { newGame, orders, act, evaluate, replay, tactical, transcript, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
+import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -75,6 +75,10 @@ $('where').innerHTML = `In the film the Maru gives her position as ${esc(POSITIO
   <span class="where-links"><a href="${BRIDGE}tonight.html#star=${encodeURIComponent(POSITION.star)}"${AWAY}>In your sky tonight</a><a href="${BRIDGE}?course=${encodeURIComponent(POSITION.star)}"${AWAY}>Set course</a></span>`;
 
 function renderRecord() {
+  // A cadet who has sat the test before is told so, in the examiners' voice, above the briefing they know.
+  const again = briefingLine(saved);
+  $('brief-line').hidden = !again;
+  $('brief-line').textContent = again;
   const left = keptGame()?.game;
   $('resume').hidden = $('resume-note').hidden = !left;
   if (left) $('resume-note').textContent = `You left a simulation on turn ${left.turn + 1}, ${left.where === 'zone' ? 'inside the Neutral Zone' : 'at the edge of the Neutral Zone'}. Taking command starts a new one.`;
@@ -227,11 +231,14 @@ function log(lines) {
 // ---------- Evaluation and the record ----------
 
 let lastEval = null;
+let firsts = null; // what the run just finished added to the record: a new ending, grades that beat the best
 function record() {
   lastEval = evaluate(g);
+  firsts = null;
   delete saved.game; // finished: there is nothing left to resume
   // One simulation is one run: picked up in two tabs and finished in both, it is still counted once.
   if (!saved.runs.some(r => r.id === gameId)) {
+    firsts = runFirsts(saved, lastEval); // against the record as it stood
     saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, grades: lastEval.grades.map(x => ({ name: x.name, letter: x.letter })), at: new Date().toISOString(), id: gameId });
     Object.assign(saved, transcript({ ...saved, taken: saved.taken + 1 })); // before the list is cut to its last 30
     saved.runs = saved.runs.slice(-30);
@@ -243,8 +250,15 @@ function showEval() {
   const e = lastEval || evaluate(g);
   $('eval-title').textContent = e.title;
   $('eval-summary').textContent = e.summary;
-  $('grades').innerHTML = e.grades.map(x => `<div class="grade ${x.letter}"><span class="l">${x.letter}</span><span class="n">${esc(x.name)}</span><span class="w">${esc(x.why)}</span></div>`).join('');
+  // Said when it is made, not left for the briefing's record card: a first sight of this ending, and any grade that
+  // beat the best on record. (The endings not seen yet stay unnamed: only the count goes up.)
+  $('eval-firsts').hidden = !firsts?.newEnding;
+  $('eval-firsts').textContent = firsts?.newEnding ? `New ending · ${firsts.endingsSeen} of ${ENDINGS.length} seen` : '';
+  // The four grades arrive one after another, as an arrival's log does on the bridge.
+  const stagger = k => (still.matches ? '' : ` style="animation: rise .5s ${(0.15 + k * 0.14).toFixed(2)}s both"`);
+  $('grades').innerHTML = e.grades.map((x, k) => `<div class="grade ${x.letter}"${stagger(k)}><span class="l">${x.letter}</span><span class="n">${esc(x.name)}${firsts?.better.includes(x.name) ? ' <b class="best-yet">best yet</b>' : ''}</span><span class="w">${esc(x.why)}</span></div>`).join('');
   $('eval-note').innerHTML = e.note.map(n => `<p>${esc(n)}</p>`).join('');
+  $('eval-moral').textContent = moral(e);
   showScreen('eval');
   $('eval-title').focus({ preventScroll: true }); // read from the verdict down
 }

@@ -1,5 +1,5 @@
 // The planetary survey: flip through the planet classes, or match an unlogged world to the file it would pass for.
-import { CLASSES, byId, label, quizReadings, grows } from './classes.js';
+import { CLASSES, byId, label, quizReadings, grows, streakRecord } from './classes.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -286,9 +286,14 @@ function answer(id) {
   const c = drill.cls;
   const right = id === c.id;
   saved.seen++;
+  const bestBefore = saved.best;
   saved.streak = right ? saved.streak + 1 : 0;
   saved.best = Math.max(saved.best, saved.streak);
   save();
+  // A new best streak is said in the verdict, not left to the small score line under it.
+  const record = right && streakRecord(bestBefore, saved.streak);
+  $('verdict-record').hidden = !record;
+  $('verdict-record').textContent = record ? `Best streak yet: ${saved.streak}` : '';
   $('choices').querySelectorAll('.choice').forEach(b => {
     b.disabled = true;
     if (b.dataset.id === c.id) b.classList.add('right');

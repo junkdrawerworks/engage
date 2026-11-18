@@ -3572,6 +3572,132 @@ await page.emulateMedia({ reducedMotion: null });
   await c.close();
 }
 
+// A record says so when it is made. Four rooms keep records, and none mentioned one at the moment it was earned:
+// a first-ever ending showed no "new ending", and you found out from the briefing's record card, or never.
+// And the two briefings know a returning player: one line above the briefing, from the standing record.
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const said = sel => p.locator(sel).evaluate(el => (el.hidden ? null : el.textContent));
+  // Turns are played with motion reduced (150 ms each), and the evaluation read with it back on.
+  const run = async (orders, { rewritten = false } = {}) => {
+    await p.emulateMedia({ reducedMotion: 'reduce' });
+    await p.tap(rewritten ? '#rewrite' : '#start');
+    for (const id of orders) { await p.evaluate(o => maru.give(o), id); await p.waitForFunction(() => !maru.busy, null, { timeout: 20000 }); }
+    await p.emulateMedia({ reducedMotion: null });
+    await p.tap('#read-eval');
+    return p.locator('.grade').evaluateAll(els => els.map(el => [el.querySelector('.n').firstChild.textContent, el.querySelector('.l').textContent, !!el.querySelector('.best-yet'), el.style.animationName, el.style.animationDelay]));
+  };
+
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  assert.equal(await said('#brief-line'), null, 'a first attempt’s briefing has a line for a returning cadet');
+  // A first run: its ending is new, and there is no record yet for a grade to beat.
+  const first = await run(['leave']);
+  assert.equal(await p.locator('#eval-title').innerText(), 'By the book');
+  assert.equal(await said('#eval-firsts'), 'New ending · 1 of 9 seen');
+  assert.deepEqual(first.map(g => g[2]), [false, false, false, false]);
+  // The four grades arrive one after another.
+  assert.deepEqual(first.map(g => g[3]), ['rise', 'rise', 'rise', 'rise']);
+  assert.deepEqual(first.map(g => g[4]), ['0.15s', '0.29s', '0.43s', '0.57s']);
+  assert.match(await said('#eval-moral'), /has no winning answer/);
+  await p.tap('#again');
+  assert.equal(await said('#brief-line'), 'Second attempt, cadet. The scenario has not changed.');
+  // A second ending, and "best yet" on exactly the grades that beat the first run's.
+  const second = await run(['hail-maru', 'enter', 'beam', 'beam', 'warp']);
+  assert.equal(await p.locator('#eval-title').innerText(), 'The lifeboat');
+  assert.equal(await said('#eval-firsts'), 'New ending · 2 of 9 seen');
+  assert.deepEqual(second.map(g => g[2]), second.map((g, k) => g[1] < first[k][1]), 'the grades marked best yet are not the ones that beat the record');
+  assert.ok(second.some(g => g[2]) && !second.every(g => g[2]), 'the test needs a run that beats some grades and not others');
+  const mark = await p.locator('.grade .best-yet').first().boundingBox(), tile = await p.locator('.grade:has(.best-yet)').first().boundingBox();
+  assert.ok(mark.x + mark.width <= tile.x + tile.width, 'the best yet mark runs out of its tile on a phone');
+  await p.tap('#again');
+  assert.equal(await said('#brief-line'), 'Third attempt. The board notes your persistence.');
+  // The same ending again is not news, and with motion reduced the grades are simply there.
+  await p.emulateMedia({ reducedMotion: 'reduce' });
+  await p.tap('#start');
+  await p.evaluate(() => maru.give('leave'));
+  await p.waitForFunction(() => !maru.busy);
+  await p.tap('#read-eval');
+  assert.equal(await said('#eval-firsts'), null);
+  assert.deepEqual(await p.locator('.grade').evaluateAll(els => els.map(el => el.style.animationName + el.querySelectorAll('.best-yet').length)), ['0', '0', '0', '0']);
+  await p.tap('#again');
+  // The reprogrammed win closes on a line that fits it. It used to read "has no winning answer" straight under
+  // "You are the only cadet to beat the Kobayashi Maru".
+  await run(['enter', 'beam', 'beam', 'beam', 'beam', 'beam', 'beam', 'warp'], { rewritten: true });
+  assert.equal(await p.locator('#eval-title').innerText(), 'Changed the rules');
+  assert.equal(await said('#eval-firsts'), 'New ending · 3 of 9 seen');
+  assert.match(await p.locator('#eval-note').innerText(), /You are the only cadet to beat the Kobayashi Maru/);
+  assert.equal(await said('#eval-moral'), 'The Kobayashi Maru had no winning answer until you wrote one in. The examiners still haven’t seen how you face losing.');
+  await p.tap('#again');
+  assert.equal(await said('#brief-line'), 'The simulator’s code has been restored. The board would like a word afterwards.');
+  // The endings not seen yet stay unnamed, on the briefing as on the evaluation.
+  const unseen = await p.evaluate(async () => (await import('./js/maru-sim.js')).ENDINGS.filter(t => !JSON.parse(localStorage.getItem('engage.maru.v1')).seen.includes(t)));
+  assert.equal(unseen.length, 6);
+  for (const t of unseen) assert.ok(!(await p.locator('#brief').innerText()).toLowerCase().includes(t.toLowerCase()), `the briefing names “${t}”, which hasn’t been seen`);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
+  // First contact the same. A first hail's briefing is as it always was; a contact made is said on the debrief.
+  await p.emulateMedia({ reducedMotion: 'reduce' });
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await said('#brief-line'), null, 'a first hail’s briefing has a line for a returning officer');
+  const meet = async (seed, notebook) => {
+    await p.evaluate(s => contact.start(s), seed);
+    for (let n = 0; n < 30 && !(await p.evaluate(() => contact.game.over)); n++) {
+      await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+      await p.evaluate(all => { const h = contact.hint(); if (all) for (const id of contact.game.heard) if (id !== 'story') contact.tag(id, id); if (h) { contact.pick(h); contact.send(); } else contact.act('listen'); }, notebook);
+    }
+    await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+    if (notebook) await p.evaluate(() => { for (const id of contact.game.heard) if (id !== 'story') contact.tag(id, id); });
+    await p.tap('#send'); // Read the debrief
+    return p.evaluate(() => contact.game.lang.people);
+  };
+  const people = await meet(6, false);
+  assert.equal(await p.locator('#eval-title').innerText(), 'First contact');
+  assert.equal(await said('#eval-firsts'), 'First contact made: 1');
+  await p.tap('#again');
+  assert.equal(await said('#brief-line'), `Your second unknown ship. The last were the ${people}; these are not.`);
+  // The second, with every phrase worked out: the best notebook yet, and a second contact. With motion back on, the
+  // score arrives a moment after the verdict.
+  await p.emulateMedia({ reducedMotion: null });
+  await meet(9, true);
+  assert.equal(await said('#eval-firsts'), 'Your best notebook yet · First contacts made: 2');
+  assert.match(await p.locator('#eval-score').evaluate(el => el.style.animation), /rise/);
+  await p.tap('#again');
+  // After a ship that gave up on being understood, the briefing says that instead.
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.contact.v1')); s.runs.push({ title: 'The channel closes', outcome: 'silence', people: 'Orru', decoded: 0, of: 5, at: new Date().toISOString(), id: 'x' }); s.met++; localStorage.setItem('engage.contact.v1', JSON.stringify(s)); });
+  await p.reload();
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await said('#brief-line'), 'Your fourth unknown ship. The last ship left without being understood.');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
+  // Cover your tracks: beating your best streak is said in the verdict, not left to the small score line.
+  await p.goto(base + 'survey.html#drill');
+  await p.waitForFunction(() => window.survey?.world);
+  await p.evaluate(() => localStorage.setItem('engage.survey.v1', JSON.stringify({ best: 3, streak: 2, seen: 9 })));
+  await p.reload();
+  await p.waitForFunction(() => window.survey?.world);
+  const answer = async right => {
+    await p.evaluate(ok => { const w = survey.world; survey.answer(ok ? w.cls.id : w.choices.find(x => x.id !== w.cls.id).id); }, right);
+    const line = await said('#verdict-record');
+    await p.tap('#drill-next');
+    return line;
+  };
+  assert.equal(await answer(true), null, 'equalling the best streak was called a record');
+  assert.equal(await answer(true), 'Best streak yet: 4');
+  assert.equal(await answer(true), 'Best streak yet: 5');
+  assert.equal(await answer(false), null);
+  assert.equal(await answer(true), null);
+  // From nothing: the first right answer anyone gives beats no record; the second is the first best streak.
+  await p.evaluate(() => localStorage.removeItem('engage.survey.v1'));
+  await p.reload();
+  await p.waitForFunction(() => window.survey?.world);
+  assert.deepEqual([await answer(true), await answer(true)], [null, 'Best streak yet: 2']);
+  await c.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

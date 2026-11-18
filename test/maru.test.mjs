@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { newGame, act, orders, evaluate, replay, tactical, transcript, CREW, MARU, WARP_HULL, ENDINGS, GRADED, POSITION } from '../js/maru-sim.js';
+import { newGame, act, orders, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, CREW, MARU, WARP_HULL, ENDINGS, GRADED, POSITION } from '../js/maru-sim.js';
 import { buildCatalog } from '../js/catalog.js';
 import { LY_PER_PC } from '../js/physics.js';
 
@@ -408,4 +408,55 @@ test('what was kept is only resumed if it could have been played', () => {
   // Reprogrammed only when it says so outright.
   assert.equal(replay({ seed: 7, rewritten: 'yes', orders: [] }).game.rewritten, false);
   assert.equal(replay({ seed: 7, rewritten: true, orders: [] }).game.rewritten, true);
+});
+
+// What a run added to the record, said on the evaluation as it is made.
+test('a run says what it added to the record: a new ending, and grades that beat the best', () => {
+  const stayed = evaluate(play(['leave']));
+  assert.equal(stayed.title, 'By the book');
+  // A first run: its ending is new, and there is no record for a grade to beat.
+  assert.deepEqual(runFirsts(transcript({}), stayed), { newEnding: true, endingsSeen: 1, better: [] });
+  assert.deepEqual(runFirsts(undefined, stayed), { newEnding: true, endingsSeen: 1, better: [] });
+  // The same ending again: nothing new, and equal grades are not better ones.
+  const after = transcript({ runs: [{ title: stayed.title, grades: stayed.grades }], taken: 1 });
+  assert.deepEqual(runFirsts(after, stayed), { newEnding: false, endingsSeen: 1, better: [] });
+  // A second ending, with the grades it beat the record on named and no others.
+  const boat = evaluate(play(['hail-maru', 'enter', 'beam', 'beam', 'warp']));
+  assert.equal(boat.title, 'The lifeboat');
+  const f = runFirsts(after, boat);
+  assert.deepEqual([f.newEnding, f.endingsSeen], [true, 2]);
+  const letterOf = (e, name) => e.grades.find(x => x.name === name).letter;
+  assert.deepEqual(f.better, GRADED.filter(name => letterOf(boat, name) < letterOf(stayed, name)));
+  assert.ok(f.better.length > 0 && f.better.length < GRADED.length, `the test needs a run that beats some grades and not others: ${f.better}`);
+  // Honesty is only ever an F, and never a best; an ending the record doesn't know isn't counted.
+  const cheat = evaluate(play(['enter', 'beam', 'beam', 'beam', 'beam', 'beam', 'beam', 'warp'], { rewritten: true }));
+  assert.equal(cheat.title, 'Changed the rules');
+  assert.ok(!runFirsts({ seen: [], best: { Honesty: 'F', Compassion: 'F' }, taken: 3 }, cheat).better.includes('Honesty'));
+  assert.deepEqual(runFirsts({ seen: ['Something else', 'By the book'], best: {} }, stayed), { newEnding: false, endingsSeen: 1, better: [] });
+  // Every evaluation the rules can give has a line to close on, and the reprogrammed win has its own.
+  assert.match(moral(stayed), /has no winning answer/);
+  assert.match(moral(cheat), /until you wrote one in/);
+  assert.doesNotMatch(moral(cheat), /has no winning answer/);
+});
+
+// The line at the head of the briefing, from the standing record.
+test('the briefing greets a returning cadet, and a first attempt reads as it always has', () => {
+  assert.equal(briefingLine(transcript({})), '');
+  assert.equal(briefingLine(), '');
+  assert.equal(briefingLine({ taken: 1, seen: ['By the book'] }), 'Second attempt, cadet. The scenario has not changed.');
+  assert.equal(briefingLine({ taken: 2, seen: ['By the book'] }), 'Third attempt. The board notes your persistence.');
+  assert.equal(briefingLine({ taken: 3, seen: [] }), 'Fourth attempt, cadet. The scenario has not changed.');
+  assert.equal(briefingLine({ taken: 11, seen: [] }), 'Twelfth attempt, cadet. The scenario has not changed.');
+  assert.equal(briefingLine({ taken: 12, seen: [] }), 'Attempt 13, cadet. The scenario has not changed.');
+  assert.equal(briefingLine({ taken: 240, seen: [] }), 'Attempt 241, cadet. The scenario has not changed.');
+  // Once the simulator has been reprogrammed and beaten, the board says so; with every ending seen, it closes.
+  assert.equal(briefingLine({ taken: 2, seen: ['By the book', 'Changed the rules'] }), 'The simulator’s code has been restored. The board would like a word afterwards.');
+  assert.match(briefingLine({ taken: 30, seen: [...ENDINGS] }), /^You have seen every way this ends, cadet\./);
+  // It never names an ending the cadet hasn't seen.
+  for (const taken of [1, 2, 3, 9, 40]) for (const seen of [[], ['By the book'], ENDINGS.slice(0, 8)]) {
+    const line = briefingLine({ taken, seen });
+    for (const t of ENDINGS) assert.ok(!line.includes(t), `the briefing names "${t}"`);
+  }
+  // A damaged record says nothing rather than something wrong.
+  assert.equal(briefingLine({ taken: 'lots', seen: 'all' }), '');
 });

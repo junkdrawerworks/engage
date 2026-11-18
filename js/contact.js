@@ -1,6 +1,6 @@
 // First contact: the page. The rules and the language are in contact-sim.js and the viewscreen in contact-art.js;
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
-import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -77,6 +77,10 @@ function showBrief() {
 }
 
 function renderRecord() {
+  // An officer who has answered a hail before is told which ship this is, above the briefing they know.
+  const again = briefingLine(saved);
+  $('brief-line').hidden = !again;
+  $('brief-line').textContent = again;
   const left = keptGame()?.game;
   $('resume').hidden = $('resume-note').hidden = !left;
   if (left) {
@@ -341,11 +345,14 @@ function guess(id, meaning) {
 
 // ---------- Debrief and the record ----------
 
+let firsts = null; // what the encounter just finished added to the record: a best notebook, a first contact
 function record() {
   lastEval = debrief(g);
+  firsts = null;
   delete saved.game; // finished: there is nothing left to resume
   // One encounter is one line on the record: picked up in two tabs and finished in both, it is still one.
   if (!saved.runs.some(r => r.id === gameId)) {
+    firsts = encounterFirsts(saved, lastEval); // against the record as it stood
     saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString(), id: gameId });
     Object.assign(saved, standing({ ...saved, met: saved.met + 1, contacts: saved.contacts + (lastEval.outcome === 'contact' ? 1 : 0) })); // before the list is cut to its last 30
     saved.runs = saved.runs.slice(-30);
@@ -361,7 +368,13 @@ function showEval() {
   $('eval-story').innerHTML = e.story ? `“${esc(e.story)}”<small>Their new phrase for the day you met.</small>` : '';
   const note = e.decoded === e.of && e.of ? 'Every phrase right. Hoshi Sato would be proud.'
     : e.decoded ? 'From your notebook, against what they really meant.' : 'You didn’t write any right guesses in the notebook. Here’s what they were saying.';
+  // Said when it is made, not left for the briefing's record card: a notebook that beat the best, a contact made.
+  const made = firsts ? firstsLine(firsts) : '';
+  $('eval-firsts').hidden = !made;
+  $('eval-firsts').textContent = made;
   $('eval-score').innerHTML = `<span class="n">${e.decoded}/${e.of}</span><b>${esc(e.fluency)}</b><span>${esc(note)}</span>`;
+  // The score arrives a moment after the verdict, as the Maru's grades do.
+  $('eval-score').style.animation = still.matches ? '' : 'rise .5s .25s both';
   $('dict').innerHTML = e.rows.map(r => `<li class="${r.right ? 'right' : r.guess ? 'wrong' : 'blank'}"><span class="mark" aria-hidden="true">${r.right ? '✓' : r.guess ? '✗' : '–'}</span>
     <span class="t">“${esc(r.text)}”</span>
     <span class="m">meant <b>${esc(r.meaning)}</b>${r.guess && !r.right ? `, you guessed ${esc(MEANING[r.guess])}` : ''}${!r.guess ? ', no guess' : ''}</span></li>`).join('');

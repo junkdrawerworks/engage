@@ -1,7 +1,7 @@
 // First contact's language and rules, checked without a browser:  node --test test/contact.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, MEANINGS, PATIENCE, BEAT_IDS, replay } from '../js/contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, encounterFirsts, firstsLine, briefingLine, MEANINGS, PATIENCE, BEAT_IDS, replay } from '../js/contact-sim.js';
 
 // Plays the right answer each turn, from what has been heard so far.
 function win(g) {
@@ -268,4 +268,52 @@ test('what was kept is only resumed if it could have been done', () => {
   const back = replay({ seed: 3, acts: [], tags: { [g.heard[0]]: 'meet', [g.heard[1]]: 'nonsense', go: 'go', story: 'meet' }, reply: ['go'] });
   assert.deepEqual(back.game.tags, { [g.heard[0]]: 'meet' });
   assert.deepEqual(back.reply, []);
+});
+
+// What an encounter added to the record, said on the debrief as it is made.
+test('an encounter says what it added to the record: a best notebook, a first contact', () => {
+  const d = (outcome, decoded, of) => ({ outcome, decoded, of });
+  // The first encounter of all: a contact made is the first, and there is no notebook to beat.
+  assert.deepEqual(encounterFirsts({}, d('contact', 6, 11)), { best: false, contacts: 1 });
+  assert.equal(firstsLine({ best: false, contacts: 1 }), 'First contact made: 1');
+  assert.deepEqual(encounterFirsts(undefined, d('silence', 0, 4)), { best: false, contacts: 0 });
+  assert.equal(firstsLine({ best: false, contacts: 0 }), '');
+  // With a record: a larger share of the phrases is a best; the same share with more phrases is too; an equal or
+  // worse notebook is not. A contact made counts on from the ones before.
+  const had = { met: 3, contacts: 1, best: { decoded: 6, of: 11 }, runs: [] };
+  assert.deepEqual(encounterFirsts(had, d('contact', 9, 11)), { best: true, contacts: 2 });
+  assert.equal(firstsLine({ best: true, contacts: 2 }), 'Your best notebook yet · First contacts made: 2');
+  assert.deepEqual(encounterFirsts(had, d('alone', 12, 22)), { best: true, contacts: 0 });
+  assert.equal(firstsLine({ best: true, contacts: 0 }), 'Your best notebook yet');
+  assert.deepEqual(encounterFirsts(had, d('fled', 6, 11)), { best: false, contacts: 0 });
+  assert.deepEqual(encounterFirsts(had, d('contact', 5, 11)), { best: false, contacts: 2 });
+  assert.deepEqual(encounterFirsts(had, d('hostile', 0, 0)), { best: false, contacts: 0 });
+  // The record as the page keeps it, with its runs: the same answer as standing() gives before and after.
+  const saved = { runs: [{ outcome: 'contact', decoded: 3, of: 9, people: 'Beqen' }, { outcome: 'silence', decoded: 4, of: 8, people: 'Orru' }] };
+  const real = debrief(win(newGame({ seed: 5 })));
+  const f = encounterFirsts(saved, real);
+  const after = standing({ ...saved, runs: [...saved.runs, { outcome: real.outcome, decoded: real.decoded, of: real.of }] });
+  assert.equal(f.contacts, after.contacts);
+  assert.equal(f.best, after.best.decoded * 8 > 4 * after.best.of && after.best.of === real.of);
+});
+
+// The line at the head of the briefing, from what the page has saved.
+test('the briefing greets a returning officer, and a first hail reads as it always has', () => {
+  assert.equal(briefingLine({}), '');
+  assert.equal(briefingLine(), '');
+  const run = (outcome, people) => ({ outcome, people, decoded: 2, of: 8 });
+  assert.equal(briefingLine({ runs: [run('contact', 'Beqen')] }), 'Your second unknown ship. The last were the Beqen; these are not.');
+  assert.equal(briefingLine({ met: 3, runs: [run('fled', 'Orru'), run('alone', 'Beqen')] }), 'Your fourth unknown ship. The last were the Beqen; these are not.');
+  assert.equal(briefingLine({ runs: [run('contact', 'Beqen'), run('silence', 'Orru')] }), 'Your third unknown ship. The last ship left without being understood.');
+  assert.equal(briefingLine({ met: 11, runs: [run('hostile', 'Tal Vek')] }), 'Your twelfth unknown ship. The last were the Tal Vek; these are not.');
+  assert.equal(briefingLine({ met: 12, runs: [run('contact', 'Beqen')] }), 'Unknown ship number 13. The last were the Beqen; these are not.');
+  // A save that has lost the last ship's name, or has something else in its place, still counts the ship.
+  assert.equal(briefingLine({ met: 4, runs: [] }), 'Your fifth unknown ship.');
+  assert.equal(briefingLine({ runs: [{ outcome: 'contact', people: '<b>x</b>' }] }), 'Your second unknown ship.');
+  assert.equal(briefingLine({ runs: [{ outcome: 'contact', people: 7 }] }), 'Your second unknown ship.');
+  // Every people the game can make up passes for a name.
+  for (let seed = 1; seed <= 300; seed++) {
+    const people = makeLanguage(seed).people;
+    assert.equal(briefingLine({ runs: [run('contact', people)] }), `Your second unknown ship. The last were the ${people}; these are not.`, `seed ${seed}: ${people}`);
+  }
 });

@@ -8,7 +8,7 @@ import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears
 import { THIN_LY, arrivalFirsts, chartedSaid, companions, describeKind, earthYear, homeLines, composeEntry, inTextFor, logRecords, momentFor, nearestStars, skyFrom, skyLine, starKinds, titleFor, tripLine } from '../js/log.js';
 import { ANCHORS, DESTINATIONS } from '../js/destinations.js';
 import { SHIPS, byId as shipById } from '../js/ships.js';
-import { CLASSES, quizReadings, fileForHome } from '../js/classes.js';
+import { CLASSES, quizReadings, fileForHome, streakRecord } from '../js/classes.js';
 import { rng, grow } from '../js/xeno-gen.js';
 import { CHARTS } from '../js/charts.js';
 import { sweep } from './sweep.mjs';
@@ -527,6 +527,16 @@ test('a real planet either fits its survey file or is marked as one that doesnâ€
   for (const [name, width, mass] of [['the Moon', 0.2727, 0.0123], ['Mercury', 0.3829, 0.0553]]) {
     assert.ok(width >= d.width[0] && width <= d.width[1] && mass >= d.mass[0] && mass <= d.mass[1], `${name} is off the Class D file`);
   }
+});
+
+// Cover your tracks says so when a right answer makes a new best streak.
+test('a best streak is one that beats a best there already was', () => {
+  assert.equal(streakRecord(0, 1), false, 'the first right answer anyone gives is not a record');
+  assert.equal(streakRecord(1, 2), true);
+  assert.equal(streakRecord(3, 4), true);
+  assert.equal(streakRecord(4, 4), false, 'equalling the best is not beating it');
+  assert.equal(streakRecord(4, 2), false);
+  assert.equal(streakRecord(4, 0), false, 'a wrong answer ends the streak and is no record');
 });
 
 test('the logâ€™s records are worked out from its entries', () => {

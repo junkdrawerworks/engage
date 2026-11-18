@@ -92,6 +92,7 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .verdict-head { font: 600 17px/1.25 var(--display); letter-spacing: 0.02em; }
 .verdict-head.ok { color: #6fe3a4; }
 .verdict-head.bad { color: #ff9a8c; }
+.verdict p.verdict-record { margin: -4px 0 10px; font: 600 12px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: #6fe3a4; }
 .verdict-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .verdict-actions > * { flex: 1 1 140px; display: inline-grid; place-items: center; text-decoration: none; }
 .score { margin: 12px 0 0; text-align: center; font: 500 13px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); min-height: 1em; }

@@ -23,6 +23,8 @@ body.maru.red { background: radial-gradient(ellipse at 50% -10%, #4a1016 0%, var
 /* Briefing */
 #brief:not([hidden]) { display: grid; gap: 12px; max-width: 640px; margin: 6px auto 0; }
 .brief .how { color: var(--muted); }
+/* The examiners' line for a cadet who has been here before. */
+.brief .returning { padding: 8px 12px; border-left: 3px solid var(--red); border-radius: 0 10px 10px 0; background: rgba(255, 107, 94, 0.07); color: var(--text); }
 /* Where the film puts the Maru, and the real star of that name: small print, with the two links a log entry has. */
 .brief .where { margin: 0; font-size: 14px; color: var(--muted); }
 .brief .where-links { display: flex; flex-wrap: wrap; gap: 0 18px; }
@@ -102,6 +104,9 @@ body.maru.red { background: radial-gradient(ellipse at 50% -10%, #4a1016 0%, var
 #eval:not([hidden]) { display: block; max-width: 680px; margin: 6px auto 0; }
 .evaluation h2 { font-size: 34px; color: var(--text); }
 .evaluation .summary { font-size: 16px; color: var(--text); }
+/* What this run added to the record: a new ending under the title, "best yet" on a grade that beat the record. */
+.evaluation .firsts { margin: -4px 0 10px; font: 600 12px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--green); }
+.grade .best-yet { margin-left: 6px; padding: 2px 6px; border-radius: 999px; border: 1px solid currentColor; font-size: 9px; letter-spacing: 0.1em; color: var(--green); white-space: nowrap; }
 .evaluation h3 { margin: 18px 0 6px; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .grades { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 4px; }
 .grade { display: grid; grid-template-columns: auto 1fr; gap: 0 12px; align-items: center; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
