@@ -55,19 +55,34 @@ export function eclipticToEquatorial([x, y, z]) {
 
 export const sunDir = jd => eclipticToEquatorial(earthAt(jd).map(v => -v));
 
-// Brightness at 1 AU from both the Sun and Earth, and how much it fades per degree of phase.
-const PLANET_MAG = { mercury: [-0.42, 0.038], venus: [-4.4, 0.01], mars: [-1.52, 0.016], jupiter: [-9.4, 0.005], saturn: [-8.88, 0.04], uranus: [-7.19, 0], neptune: [-6.87, 0] };
+// How bright a planet looks, less the 5 log10(r × delta) for its distances from the Sun and Earth, at a phase angle
+// `a` in degrees (0 when it is full, 180 when it is between us and the Sun). Mercury and Venus go through every phase
+// and fade fast as crescents, so they use the curves the Astronomical Almanac does: Mallama & Hilton 2018, "Computing
+// apparent planetary magnitudes for The Astronomical Almanac", Astronomy and Computing 25, 10 (equations 2 to 4).
+// The outer planets never show much phase, so a brightness at 1 AU and a fade per degree is within a few tenths of a
+// magnitude. Saturn's leaves out the tilt of its rings, which brighten it by up to a magnitude when they are wide open
+// (they were edge-on in 2025 and open until 2032).
+const OUTER_MAG = { mars: [-1.52, 0.016], jupiter: [-9.4, 0.005], saturn: [-8.88, 0.04], uranus: [-7.19, 0], neptune: [-6.87, 0] };
+export function phaseMag(name, a) {
+  if (name === 'mercury') return -0.613 + a * (6.3280e-2 + a * (-1.6336e-3 + a * (3.3644e-5 + a * (-3.4265e-7 + a * (1.6893e-9 + a * -3.0334e-12)))));
+  if (name === 'venus') {
+    return a <= 163.7
+      ? -4.384 + a * (-1.044e-3 + a * (3.687e-4 + a * (-2.814e-6 + a * 8.938e-9)))
+      : 236.05828 + a * (-2.81914 + a * 8.39034e-3); // the thin crescent, lit from behind through its own air
+  }
+  const [h, k] = OUTER_MAG[name];
+  return h + k * a;
+}
 export const NAKED_EYE_PLANETS = ['mercury', 'venus', 'mars', 'jupiter', 'saturn'];
 
-// A planet seen from Earth: its direction (catalogue axes), distance in AU and magnitude.
+// A planet seen from Earth: its direction (catalogue axes), distance in AU, phase angle in degrees and magnitude.
 export function planetSky(name, jd) {
   const p = planetAt(name, jd), e = earthAt(jd);
   const g = p.map((v, k) => v - e[k]);
   const r = Math.hypot(...p), delta = Math.hypot(...g);
   const cosPhase = (r * r + delta * delta - Math.hypot(...e) ** 2) / (2 * r * delta);
   const phase = Math.acos(Math.max(-1, Math.min(1, cosPhase))) / DEG;
-  const [h, k] = PLANET_MAG[name];
-  return { dir: eclipticToEquatorial(g), au: delta, mag: h + 5 * Math.log10(r * delta) + k * phase };
+  return { dir: eclipticToEquatorial(g), au: delta, phase, mag: 5 * Math.log10(r * delta) + phaseMag(name, phase) };
 }
 
 // The Moon: its direction, how much of it is lit (0 new to 1 full), and whether it's growing.

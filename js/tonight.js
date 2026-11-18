@@ -671,7 +671,8 @@ function fillCard(s) {
     kind = 'Planet'; title = PLANET_NAMES[s.name];
     const mins = p.au * 499 / 60;
     sub = `${p.au.toFixed(2)} AU away`;
-    line = `It shines at magnitude ${p.mag.toFixed(1)}, ${p.mag < 0 ? 'brighter than almost every star' : 'as bright as a fairly bright star'}, and doesn’t twinkle the way stars do.`;
+    // Sirius, the brightest star, is magnitude −1.5.
+    line = `It shines at magnitude ${p.mag.toFixed(1).replace('-', '−')}, ${p.mag < -1.5 ? 'brighter than any star' : p.mag < 0 ? 'brighter than almost every star' : 'as bright as a fairly bright star'}, and doesn’t twinkle the way stars do.`;
     facts = `Its light takes ${mins < 60 ? `${Math.round(mins)} minutes` : `${(mins / 60).toFixed(1)} hours`} to reach you.`;
   } else if (s.kind === 'moon') {
     kind = 'The Moon'; title = moonPhaseName(sky.moon.lit, sky.moon.waxing);
@@ -984,6 +985,8 @@ function hooks() {
     // The tags drawn last frame, with their boxes on screen.
     tags: () => placed.filter(q => q.box).map(q => ({ name: nameOf(q.hit), been: !!q.been, ...q.box })),
     tag(name) { const t = tags.find(x => x.name === name); return t && { alt: t.alt, seen: t.seen, mag: t.mag }; },
+    // Open the card for anything in the sky: { kind: 'planet', name: 'venus' }, { kind: 'moon' }.
+    show(s) { showCard(s); },
     // Pretend to be a phone held up: compass heading and tilt.
     sense(alpha, beta, gamma) { sensing = true; gotReading = true; pose = null; reading(alpha, { beta, gamma }); },
     unsense() { stopSensors(); },

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  jdOf, gmst, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark, phonePose,
+  jdOf, gmst, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, phaseMag, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark, phonePose,
 } from '../js/astro.js';
 import { CHARTS } from '../js/charts.js';
 
@@ -57,6 +57,33 @@ test('the planets are where they were seen', () => {
   jd = jdOf(Date.UTC(2024, 11, 7));
   assert.ok(angle(planetSky('jupiter', jd).dir, sunDir(jd)) > 177, 'Jupiter was not opposite the Sun');
   near(planetSky('jupiter', jd).mag, -2.8, 0.3, 'Jupiter at opposition');
+});
+
+test('Venus and Mercury fade as crescents, the way the Astronomical Almanac works them out', () => {
+  // Mallama & Hilton 2018 (Astronomy and Computing 25, 10): over fifty years Venus runs from -4.92 at its brightest
+  // to about -3 when it passes between us and the Sun, and Mercury from -2.48 to fainter than +7.
+  // On 19 November 2026 Venus is a morning crescent, 26 days past the Sun, 131° round from full: about -4.9.
+  const venus = planetSky('venus', jdOf(Date.UTC(2026, 10, 19, 11, 15)));
+  near(venus.phase, 130.5, 1, 'Venus’s phase angle');
+  assert.ok(venus.mag > -5.0 && venus.mag < -4.6, `Venus at ${venus.mag}`);
+  // A whole trip round for each (Venus comes back to the same place against the Sun every 584 days, Mercury 116).
+  let v = [9, -9], m = [9, -9];
+  for (let jd = jdOf(Date.UTC(2026, 0, 1)); jd < jdOf(Date.UTC(2028, 0, 1)); jd += 0.5) {
+    const a = planetSky('venus', jd), b = planetSky('mercury', jd);
+    v = [Math.min(v[0], a.mag), Math.max(v[1], a.mag)];
+    m = [Math.min(m[0], b.mag), Math.max(m[1], b.mag)];
+    if (b.phase > 160) assert.ok(b.mag > 3.5, `Mercury a thin crescent at magnitude ${b.mag}`);
+    if (a.phase > 170) assert.ok(a.mag > -4.5, `Venus nearly new at magnitude ${a.mag}`);
+  }
+  assert.ok(v[0] > -5.0 && v[0] < -4.8, `Venus at its brightest: ${v[0]}`);
+  assert.ok(v[1] > -4.0 && v[1] < -3.7, `Venus at its faintest in these two years: ${v[1]}`);
+  near(m[0], -2.48, 0.1, 'Mercury at its brightest');
+  assert.ok(m[1] > 5.5, `Mercury at its faintest: ${m[1]}`);
+  // The two halves of Venus's curve meet where the paper joins them, and the rest is the paper's constants.
+  near(phaseMag('venus', 163.7), phaseMag('venus', 163.71), 0.02, 'Venus’s curve at the join');
+  near(phaseMag('venus', 0), -4.384, 1e-9, 'Venus full');
+  near(phaseMag('mercury', 0), -0.613, 1e-9, 'Mercury full');
+  near(phaseMag('mercury', 90), 2.26, 0.01, 'Mercury half lit');
 });
 
 test('the Moon’s phases', () => {

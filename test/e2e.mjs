@@ -777,6 +777,10 @@ assert.equal(await shown('#daylight'), true, 'no daylight notice at noon');
 }
 await page.click('#go-dark');
 assert.ok(await page.evaluate(() => tonight.state.sunAlt) < -11, 'show tonight did not move to the dark');
+// Venus as a morning crescent on 19 November 2026 is magnitude −4.9, as bright as it ever gets and no brighter.
+await page.evaluate(() => { tonight.at('2026-11-19T11:15:00Z'); tonight.show({ kind: 'planet', name: 'venus' }); });
+assert.match(await text('#card-line'), /^It shines at magnitude −4\.[89], brighter than any star/);
+await page.click('#card [data-close]');
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'tonight’s sky scrolls sideways on a phone');
 
 // The place button, the only way into "Where you are", is a full-size tap target, and a guessed place and the time
