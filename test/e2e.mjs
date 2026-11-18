@@ -163,6 +163,40 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 320, height: 568 }
   await small.close();
 }
 
+// On a narrow phone the star's name stays clear of the round buttons. At 360 px wide "Teegarden's" and "Betelgeuse"
+// used to run on under the first of them, and at 320 px seventeen of the 32 destinations did. From 360 px the name
+// is a size smaller; narrower than that it has the row under the buttons. The viewscreen's star names keep clear of
+// the taller header too, and at 375 px and wider nothing has changed.
+for (const viewport of [{ width: 320, height: 568 }, { width: 360, height: 740 }, { width: 375, height: 667 }]) {
+  const narrow = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await narrow.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#intro-go');
+  for (const star of ['Teegarden\'s Star', 'Betelgeuse', 'Proxima Centauri']) {
+    await p.evaluate(name => { engage.jump(name); engage.closeSheets(); engage.target('Sirius'); }, star);
+    await p.waitForTimeout(1400); // the view turns to Sirius, with Orion's named stars around it
+    const hud = await p.evaluate(() => {
+      const h1 = document.querySelector('.where h1'), range = document.createRange();
+      range.selectNodeContents(h1);
+      const box = r => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+      return {
+        name: h1.textContent, size: getComputedStyle(h1).fontSize, words: [...range.getClientRects()].map(box), buttons: [...document.querySelectorAll('.hud-buttons .round')].map(b => box(b.getBoundingClientRect())),
+        blocks: [...document.querySelectorAll('.hud .where, .hud-buttons')].map(el => box(el.getBoundingClientRect())), labels: engage.labels(),
+      };
+    });
+    assert.ok(hud.words.length && hud.buttons.length === 9, `nothing to measure in the header at ${viewport.width} px`);
+    for (const w of hud.words) {
+      assert.ok(w.left >= 0 && w.right <= viewport.width, `${hud.name} runs off a ${viewport.width} px screen`);
+      for (const b of hud.buttons) assert.ok(w.left >= b.right || w.right <= b.left || w.top >= b.bottom || w.bottom <= b.top, `${hud.name} runs under a button at ${viewport.width} px`);
+    }
+    for (const l of hud.labels) for (const b of hud.blocks) assert.ok(l.x > b.right || l.x + l.w < b.left || l.y - 12 > b.bottom || l.y + 4 < b.top, `${l.text} is under the header at ${viewport.width} px`);
+    if (viewport.width === 375) assert.equal(hud.size, '22px', 'the name changed size at 375 px');
+  }
+  await narrow.close();
+}
+
 // Tapping a star chooses it.
 await page.evaluate(() => engage.lookAtStar('Sirius'));
 await page.waitForTimeout(400);

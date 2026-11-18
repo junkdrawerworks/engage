@@ -217,6 +217,20 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   .round svg { width: 18px; height: 18px; }
 }
 
+/* Narrower than 375 px, the buttons leave the star's name less room than its longest word, and the name ran on under
+   them ("Teegarden's" and "Betelgeuse" at 360 px, seventeen of the destinations at 320). From 360 px the name is a
+   size smaller, which fits the longest word among the destinations, and a longer word still breaks before it would
+   run under a button. Narrower than that, the name has the row under the buttons to itself. */
+@media (max-width: 374px) {
+  .where h1 { font-size: 17px; overflow-wrap: break-word; }
+}
+@media (max-width: 359px) {
+  .hud { flex-wrap: wrap; row-gap: 8px; }
+  .hud-buttons { order: -1; margin-left: auto; }
+  .where { flex: 1 1 100%; }
+  .where h1 { font-size: 22px; }
+}
+
 /* On the narrowest phones the warp slider gets a row of its own, with Engage under it. */
 @media (max-width: 360px) {
   .helm { flex-wrap: wrap; }
