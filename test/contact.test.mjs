@@ -128,6 +128,41 @@ test('throwing every phrase at them at once does not work', () => {
   assert.equal(h.misses, 1);
 });
 
+// Their own words straight back. On the greeting and the warning that is an answer, as Picard's was in Darmok. On the
+// three moments they ask you something (will you cross with us, will you take this, shall we go) it is their question
+// asked back: the captain asks again, nothing is lost, and nothing moves on. Echoing every line used to win all 500
+// encounters a triage ran, with nothing worked out in the notebook.
+const lastLine = g => g.log.filter(l => l.who === 'them').at(-1).ids;
+test('saying their question straight back is not an answer, and costs nothing', () => {
+  for (let seed = 1; seed <= 200; seed++) {
+    const g = newGame({ seed });
+    act(g, { say: lastLine(g) });
+    assert.equal(g.beat, 1, `seed ${seed}: their greeting said back did not answer it`);
+    act(g, { say: g.line });
+    assert.equal(g.beat, 2, `seed ${seed}: their warning said back did not answer it`);
+    for (const id of ['ask', 'give', 'run']) {
+      while (BEAT_IDS[g.beat] !== id) act(g, { say: [hint(g)] });
+      const [patience, misses, turn, line] = [g.patience, g.misses, g.turn, g.line];
+      act(g, { say: [...line].reverse() }); // in any order
+      assert.equal(BEAT_IDS[g.beat], id, `seed ${seed}: echoing on ${id} moved it on`);
+      assert.deepEqual([g.patience, g.misses, g.turn, g.over], [patience, misses, turn + 1, null], `seed ${seed}: echoing on ${id} cost something`);
+      assert.deepEqual(lastLine(g), line, `seed ${seed}: the captain did not ask the same thing again`);
+      assert.match(g.log.at(-1).act, /asks it again/);
+      act(g, { say: [hint(g)] });
+      assert.ok(g.over === 'contact' || BEAT_IDS[g.beat] !== id, `seed ${seed}: a real answer after an echo did not work`);
+    }
+    assert.equal(g.over, 'contact');
+    assert.equal(g.patience, PATIENCE);
+  }
+  // Echoing and nothing else never makes contact now: it stalls on the first question.
+  for (let seed = 1; seed <= 500; seed++) {
+    const g = newGame({ seed });
+    while (!g.over && g.turn < 60) act(g, { say: lastLine(g).filter(id => id !== 'story').slice(0, 3) });
+    assert.notEqual(g.over, 'contact', `seed ${seed}: echoing made contact`);
+    assert.equal(BEAT_IDS[g.beat], 'ask', `seed ${seed}`);
+  }
+});
+
 test('weapons cost twice, and raising shields makes them wary', () => {
   const g = newGame({ seed: 11 });
   act(g, 'shields');

@@ -162,7 +162,8 @@ export function makeLanguage(seed) {
 
 // The encounter, beat by beat. Each beat has what they say (a few ways, tried in turn when you need to hear it again),
 // what answers they hope for (`accept`), what they won't mind hearing alongside (`fits`), answers that end it another
-// way (`alt`), and what they say when you get it right.
+// way (`alt`), and what they say when you get it right. A beat that `asks` is a question put to you: their own words
+// sent straight back are heard as the question asked back, not as an answer (see reply()).
 const BEATS = [
   {
     id: 'hail',
@@ -186,7 +187,7 @@ const BEATS = [
     ok: () => [['understand', 'yes'], 'The captain lets out a long breath and closes {his} eyes for a moment, relieved.'],
   },
   {
-    id: 'ask',
+    id: 'ask', asks: true,
     lines: [
       [['we', 'you', 'together'], 'Their ship comes about and slides in alongside yours, close enough to see the lights in her ports.'],
       [['together', 'danger'], 'The captain lays two fingers side by side and runs them through the picture of {name}.'],
@@ -197,7 +198,7 @@ const BEATS = [
     ok: () => [['yes', 'together'], 'Their ship matches your course and speed to the metre.'],
   },
   {
-    id: 'give',
+    id: 'give', asks: true,
     lines: [
       [['we', 'give'], 'A data packet arrives: shield harmonics tuned to {name}. {gift}'],
       [['give', 'you'], 'The captain holds out both hands, palms up.'],
@@ -217,7 +218,7 @@ const BEATS = [
     ok: () => [['wait'], 'Both ships drift with their engines cold while {name} rolls past ahead.'],
   },
   {
-    id: 'run',
+    id: 'run', asks: true,
     lines: [
       [['go', 'together'], '{Gap} Their engines flare.'],
       [['you', 'go'], 'The captain points at you, then throws an arm forward.'],
@@ -244,6 +245,7 @@ export function newGame({ seed = Date.now() } = {}) {
     seed, lang, dist: 3 + Math.floor(rng(seed)() * 7),
     beat: 0, tries: [0], patience: PATIENCE, turn: 0, over: null,
     misses: 0, standard: 0, shields: false, gave: false,
+    line: [], // the phrase ids of the way they last put the beat they're on
     heard: [], // phrase ids in the order you first heard them
     count: {}, // how often each was said
     tags: {}, // your guess at each, by phrase id
@@ -251,6 +253,7 @@ export function newGame({ seed = Date.now() } = {}) {
   };
   crew(g, 'Communications', 'She’s hailing us. The translator has their words, but not what they mean.');
   them(g, ...BEATS[0].lines[0]);
+  g.line = BEATS[0].lines[0][0];
   g.tries[0] = 1;
   return g;
 }
@@ -286,6 +289,7 @@ function again(g, out, charged = false) {
   }
   if (g.over) return;
   out.push(them(g, ...b.lines[i % b.lines.length]));
+  g.line = b.lines[i % b.lines.length][0];
   g.tries[g.beat] = i + 1;
 }
 
@@ -363,6 +367,15 @@ function reply(g, ids, out) {
     g.misses++;
     lose(g, out); lose(g, out);
     if (!g.over) again(g, out, true);
+    return;
+  }
+  // Their whole line said straight back, when they have asked you something ("we, you, together?"), is the question
+  // asked back: Picard answered the Tamarians' greeting in their own words, but echoing a question doesn't answer it.
+  // The captain says it again, and nothing is lost; the encounter just doesn't move on. (Echoing used to win every
+  // encounter with nothing worked out in the notebook.) A greeting or a warning said back still works, as in Darmok.
+  if (b.asks && said.size === new Set(g.line).size && g.line.every(id => said.has(id))) {
+    g.echoes = (g.echoes || 0) + 1;
+    out.push(them(g, g.line, 'The captain hears {his} own words come back and nods, as if to say yes, that was the question. Then the captain asks it again, and waits for your answer.'));
     return;
   }
   const yes = b.accept.some(id => said.has(id));
