@@ -3864,6 +3864,13 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   const js = await readFile(join(root, f), 'utf8');
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
+// A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html']) {
+  const html = await readFile(join(root, f), 'utf8');
+  assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
+  const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';
+  assert.ok(alt.startsWith('Engage') && alt.length > 60 && alt.length < 200, `${f}'s preview picture has no description: “${alt}”`);
+}
 // A long press on the installed app's icon offers four rooms. Each shortcut opens a page the offline copy keeps, stays
 // inside the app (a plain file name beside the manifest, like every other address in it), and has an icon that is kept too.
 {

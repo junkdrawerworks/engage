@@ -185,7 +185,7 @@ if (!only || only === 'maru') {
     .view::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #05070d 0%, rgba(5,7,13,0) 35%); }
   </style>
   <div class="view"></div>
-  <div class="text"><div class="eyebrow">Starfleet Academy</div><h1>Kobayashi Maru</h1><p>The no-win test. You can’t save everyone, so you’re graded on how you lose.</p><div class="meta">One order a turn</div></div>`);
+  <div class="text"><div class="eyebrow">Engage · Starfleet Academy</div><h1>Kobayashi Maru</h1><p>The no-win test. You can’t save everyone, so you’re graded on how you lose.</p><div class="meta">One order a turn</div></div>`);
   await card.waitForTimeout(300);
   await save(await card.screenshot(), 'og-maru.png');
   await card.context().close();
@@ -354,8 +354,11 @@ if (!only || only === 'contact') {
     h1 { margin: 10px 0 18px; font: 600 80px/1 C; letter-spacing: .03em; }
     p { margin: 0; font: 32px/1.3 P; color: #cdd5e3; }
     .meta { margin-top: 30px; font: 600 22px C; letter-spacing: .08em; color: #ffb54a; }
-    .view { position: absolute; right: 0; top: 0; width: 700px; height: 630px; background: url(${shot}) 40% center / cover; }
-    .view::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #05070d 0%, rgba(5,7,13,0) 30%); }
+    /* The viewscreen is wider than this half of the card, so it is drawn a little smaller than the card is tall and
+       set so that the picture they are sending, frame and caption, clears the right edge by 40 px (it used to run
+       off it: "TRANSMITTED IMAG"). Its top, bottom and right edges fade into the card. */
+    .view { position: absolute; right: 0; top: 0; width: 700px; height: 630px; background: #05070d url(${shot}) -149px center / auto 580px no-repeat; }
+    .view::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #05070d 0%, rgba(5,7,13,0) 30%), linear-gradient(270deg, #05070d 0%, rgba(5,7,13,0) 5%), linear-gradient(180deg, #05070d 4%, rgba(5,7,13,0) 14%, rgba(5,7,13,0) 86%, #05070d 96%); }
   </style>
   <div class="view"></div>
   <div class="text"><div class="eyebrow">Engage · Communications</div><h1>First contact</h1><p>They speak in stories. Work out what they mean, and answer in their words.</p><div class="meta">A new language every time</div></div>`);

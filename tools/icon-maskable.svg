@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0" stop-color="#16244a"/>
+      <stop offset="1" stop-color="#05070d"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff4dc"/>
+      <stop offset=".35" stop-color="#ffb54a" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#ffb54a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- For Android's adaptive icon, which may cut the tile to a circle 80% of its width (radius 25.6 of these 64
+       units): the background runs to the edges and the drawing is scaled to .72 about the centre, so the longest
+       streak ends inside that circle. tools/make-icons.mjs draws icon-512-maskable.png from this. -->
+  <rect width="64" height="64" fill="url(#bg)"/>
+  <g transform="translate(32 32) scale(.72) translate(-32 -32)">
+    <g stroke="#86d8ff" stroke-linecap="round" fill="none">
+      <path d="M8 10l9 8M56 9l-10 9M5 34h11M59 30h-10M10 56l9-8M55 55l-9-8M32 4v9M30 60v-9M20 4l3 8M45 59l-3-8" stroke-width="2.2" stroke-opacity=".85"/>
+      <path d="M3 20l8 4M61 44l-8-4M14 2l4 6M50 62l-4-6" stroke-width="1.6" stroke-opacity=".5"/>
+    </g>
+    <circle cx="32" cy="32" r="15" fill="url(#glow)"/>
+    <circle cx="32" cy="32" r="4.5" fill="#fffaf0"/>
+  </g>
+</svg>

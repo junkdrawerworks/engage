@@ -58,7 +58,7 @@ npm install                   # once, for the screenshots: upng-js saves them wi
 node tools/screenshots.mjs    # redraws docs/*.png, og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png and og-warp.png (add `bridge`, `survey`, `maru`, `missions`, `tonight`, `xeno`, `contact` or `warp` for only that one's)
 node tools/build-artifact.mjs # single-file copies for the Artifact viewer, in dist/ (or in a folder you name)
 node tools/xeno-census.mjs    # after any change to how creatures are grown: counts all 169,983 and rewrites the census in js/xeno-gen.js
-node tools/make-icons.mjs     # redraws the PNG icons from icon.svg
+node tools/make-icons.mjs     # redraws the PNG icons from icon.svg, tools/icon-full-bleed.svg (iOS) and tools/icon-maskable.svg (Android, drawn inside the circle it may be cut to)
 python3 tools/build-data.py HYG_CSV D3_CELESTIAL_DATA   # rebuilds data/ and img/milkyway.png (see the script)
 ```
 
