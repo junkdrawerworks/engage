@@ -8,7 +8,7 @@ export const HOME = 'Sol';
 
 export const DESTINATIONS = [
   {
-    star: 'Sol', worlds: true, title: 'Sol', aka: 'the Sun', find: ['Earth', 'Solar System'], group: 'home',
+    star: 'Sol', worlds: true, title: 'Sol', aka: 'the Sun', find: ['Earth', 'Solar System', 'Home'], group: 'home',
     kind: 'Yellow dwarf, spectral type G2', temp: 5772, lum: 1, radius: 1,
     planets: 'Eight, and one of them is home.',
     hold: { au: 1, label: 'in Earth’s orbit' },

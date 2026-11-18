@@ -56,6 +56,23 @@ test('the names people know still work', () => {
   assert.equal(first('pleiades'), 'Alcyone');
 });
 
+test('a letter and a constellation find the numbered stars that share them', () => {
+  // The catalogue has ζ¹ and ζ² Reticuli and no plain "ζ Reticuli": the name people know finds both.
+  const set = q => new Set(find(q));
+  assert.deepEqual(set('zeta reticuli'), new Set(['ζ¹ Reticuli', 'ζ² Reticuli']));
+  assert.deepEqual(set('zeta ret'), new Set(['ζ¹ Reticuli', 'ζ² Reticuli']));
+  assert.deepEqual(set('theta orionis'), new Set(['θ¹ Orionis', 'θ² Orionis']));
+  // An exact name still comes before them, and one word alone asks for no more than it did.
+  assert.equal(first('sigma orionis'), 'σ Orionis');
+  assert.equal(fold('ς'), 'sigma');
+  assert.deepEqual(find('home star'), []);
+});
+
+test('home is Sol', () => {
+  assert.equal(first('home'), 'Sol');
+  assert.equal(first('Solar System'), 'Sol');
+});
+
 test('spacing, raised digits and short forms don’t matter', () => {
   assert.equal(first('wolf359'), 'Wolf 359');
   assert.equal(first('gj 581'), 'Gliese 581');

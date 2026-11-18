@@ -4,7 +4,7 @@
 import { DESTINATIONS } from './destinations.js';
 import { CHARTS } from './charts.js';
 
-const GREEK = { α: 'alpha', β: 'beta', γ: 'gamma', δ: 'delta', ε: 'epsilon', ζ: 'zeta', η: 'eta', θ: 'theta', ι: 'iota', κ: 'kappa', λ: 'lambda', μ: 'mu', ν: 'nu', ξ: 'xi', ο: 'omicron', π: 'pi', ρ: 'rho', σ: 'sigma', τ: 'tau', υ: 'upsilon', φ: 'phi', χ: 'chi', ψ: 'psi', ω: 'omega' };
+const GREEK = { α: 'alpha', β: 'beta', γ: 'gamma', δ: 'delta', ε: 'epsilon', ζ: 'zeta', η: 'eta', θ: 'theta', ι: 'iota', κ: 'kappa', λ: 'lambda', μ: 'mu', ν: 'nu', ξ: 'xi', ο: 'omicron', π: 'pi', ρ: 'rho', σ: 'sigma', ς: 'sigma', τ: 'tau', υ: 'upsilon', φ: 'phi', χ: 'chi', ψ: 'psi', ω: 'omega' };
 // The three-letter forms astronomers write: "eps Eri", "alp Cen".
 const SHORT = { alp: 'alpha', bet: 'beta', gam: 'gamma', del: 'delta', eps: 'epsilon', zet: 'zeta', the: 'theta', iot: 'iota', kap: 'kappa', lam: 'lambda', omi: 'omicron', sig: 'sigma', ups: 'upsilon', ome: 'omega' };
 const SUPER = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
@@ -36,7 +36,7 @@ export function buildIndex(names, constellations = []) {
     const all = [name, d?.title, d?.aka, TAGS.get(name), ...(d?.find || [])].filter(Boolean).map(fold);
     for (const p of [...all]) if (p.startsWith('the ')) all.push(p.slice(4)); // "The North Star" answers to "north star"
     const parts = [...new Set(all)];
-    return { parts, tight: parts.map(tight), known: !!(d || TAGS.has(name)) };
+    return { parts, tight: parts.map(tight), words: parts.map(p => p.split(' ')), known: !!(d || TAGS.has(name)) };
   });
   return { stars, genitive: new Map(constellations.map(([abbr, , gen]) => [fold(abbr), fold(gen)])) };
 }
@@ -57,14 +57,15 @@ export function readings(query, genitive = new Map()) {
 // The stars a query finds, best first: a name that is exactly what was typed, then one where it is whole words from
 // the start ("hip 3" is HIP 3 before HIP 37819), then the rest; within each, the stars with notes or a place on
 // Starfleet's charts first, then a match at the start of a name, then the brightest from Earth. `mag(i)` is how
-// bright star i looks from Earth.
+// bright star i looks from Earth. Last come names that hold every word typed with something between them:
+// "zeta reticuli" is both ζ¹ and ζ² Reticuli, which the catalogue writes "zeta 1 reticuli".
 export function search(index, query, mag, limit = 60) {
-  const ways = readings(query, index.genitive).map(q => [q, tight(q)]).filter(w => w[1]);
+  const ways = readings(query, index.genitive).map(q => [q, tight(q), q.split(' ')]).filter(w => w[1]);
   if (!ways.length) return [];
   const hits = [];
   index.stars.forEach((star, i) => {
     let best = 9, start = 1;
-    for (const [q, qt] of ways) {
+    for (const [q, qt, qw] of ways) {
       star.parts.forEach((p, k) => {
         const at = p.indexOf(q);
         let tier = 9;
@@ -72,6 +73,7 @@ export function search(index, query, mag, limit = 60) {
         else if (at === 0 && p[q.length] === ' ') tier = 1;
         else if (at >= 0) tier = 2;
         else if (star.tight[k].includes(qt)) tier = 3;
+        else if (qw.length > 1 && qw.every(w => star.words[k].includes(w))) tier = 4;
         if (tier < best) best = tier;
         if (at === 0) start = 0;
       });
