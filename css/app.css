@@ -134,6 +134,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .empty { color: var(--muted); padding: 16px 4px; }
 
 .stats { margin: 0 0 4px; color: var(--muted); font-size: 14px; flex: none; }
+.unsaved { flex: none; margin: 6px 0 0; padding-left: 10px; border-left: 2px solid var(--amber); color: var(--amber); font-size: 13px; }
 .entry h3 { margin: 0 0 4px; font: 600 24px/1.15 var(--display); letter-spacing: 0.02em; }
 .entry .intro-line { margin: 0 0 12px; color: var(--text); }
 .entry dl { margin: 0; }

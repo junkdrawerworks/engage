@@ -355,6 +355,39 @@ await bridgeReady();
 assert.equal(await text('#where'), 'Wolf 359');
 assert.equal(await shown('#lost'), false);
 
+// When the browser's storage is full (the other tools at junkdrawer.works share it), a new log entry can't be kept.
+// The bridge says so, on the arrival and in the log, and drops nothing to make room; once there is room, all of it
+// is kept.
+{
+  const full = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, serviceWorkers: 'block' });
+  const p = await full.newPage();
+  await p.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => { engage.jump('Sirius'); engage.closeSheets(); });
+  assert.equal(await p.locator('#arrival-unsaved').evaluate(el => el.hidden), true, 'the log says it is full when it is not');
+  const others = await p.evaluate(() => {
+    let n = 0;
+    for (let size = 1 << 20; size >= 1; size >>= 1) {
+      try { for (;;) localStorage.setItem('another-tool.' + n++, 'x'.repeat(size)); } catch { n--; }
+    }
+    return Object.keys(localStorage).filter(k => k.startsWith('another-tool.')).length;
+  });
+  await p.evaluate(() => engage.jump('Procyon'));
+  assert.equal(await p.locator('#arrival-unsaved').innerText(), 'The log is full: this entry won’t be kept.');
+  await p.evaluate(() => engage.closeSheets());
+  await p.click('#open-log');
+  assert.match(await p.locator('#log-unsaved').innerText(), /^The log is full: new entries and the ship’s position aren’t being kept\./);
+  const state = () => p.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.v1')); return { saved: s.log.map(e => e.title), inMemory: engage.state.log.map(e => e.title), others: Object.keys(localStorage).filter(k => k.startsWith('another-tool.')).length }; });
+  assert.deepEqual(await state(), { saved: ['Sirius'], inMemory: ['Procyon', 'Sirius'], others }, 'something was dropped to make room, or the unsaved entry was lost from the page');
+  // Room again: the next look at the log keeps everything, and the line goes.
+  await p.evaluate(() => { engage.closeSheets(); for (const k of Object.keys(localStorage)) if (k.startsWith('another-tool.')) localStorage.removeItem(k); });
+  await p.click('#open-log');
+  assert.equal(await p.locator('#log-unsaved').evaluate(el => el.hidden), true, 'the log still says it is full once there is room');
+  assert.deepEqual((await state()).saved, ['Procyon', 'Sirius']);
+  await full.close();
+}
+
 // At warp the readout's time keeps step with its distance. The picture of a flight starts slowly: three tenths of
 // the way through the cruise to Vega (25 ly, six days at warp 9) the ship has covered 0.05 ly, which is 19 minutes'
 // flying, not the two days it used to say; halfway through it is halfway there, three days out.

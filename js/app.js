@@ -63,9 +63,26 @@ function tidy() {
   for (const k of Object.keys(d.opts)) if (typeof state.opts[k] !== 'boolean') state.opts[k] = d.opts[k];
 }
 
+// Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
+// 'full' when the browser's storage has no room (junkdrawer.works's other tools share it), or 'blocked' when the
+// browser won't store anything at all. Nothing is ever dropped from the log to make room: the bridge says so instead
+// (see unsavedNote), and everything is kept as soon as there is room again.
+let unsaved = null;
 function save() {
   const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro } = state;
-  try { localStorage.setItem(KEY, JSON.stringify({ at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro })); } catch { /* fine */ }
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro }));
+    unsaved = null;
+  } catch (e) {
+    unsaved = e?.name === 'QuotaExceededError' || e?.code === 22 ? 'full' : 'blocked';
+  }
+  return !unsaved;
+}
+
+// The quiet line on the arrival log and the captain's log when the last save didn't work.
+function unsavedNote(id, full, blocked) {
+  $(id).hidden = !unsaved;
+  $(id).textContent = unsaved === 'full' ? full : unsaved === 'blocked' ? blocked : '';
 }
 
 const starPos = i => [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]];
@@ -569,6 +586,7 @@ function dismissIntro() {
 function showArrival(entry) {
   $('arrival-date').textContent = `Captain’s log · Stardate ${entry.stardate}`;
   $('arrival-entry').innerHTML = entryHtml(entry, true);
+  unsavedNote('arrival-unsaved', 'The log is full: this entry won’t be kept.', 'This browser isn’t letting the bridge save: this entry won’t be kept.');
   openSheet('arrival');
   $('scrim').hidden = true; // keep the view of the new star clear
   $('arrival-entry').scrollTop = 0;
@@ -599,6 +617,9 @@ function surveyLinks(i, style) {
 }
 
 function renderLog() {
+  save(); // try again: room may have been made since
+  unsavedNote('log-unsaved', 'The log is full: new entries and the ship’s position aren’t being kept. Clearing the log, in settings, makes room.',
+    'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;
   $('stats').textContent = state.log.length
     ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} traveled`
