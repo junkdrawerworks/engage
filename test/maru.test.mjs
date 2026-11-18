@@ -1,7 +1,23 @@
 // The Kobayashi Maru's rules, checked without a browser:  node --test test/maru.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, orders, evaluate, replay, tactical, transcript, CREW, MARU, WARP_HULL, ENDINGS, GRADED } from '../js/maru-sim.js';
+import { readFile } from 'node:fs/promises';
+import { newGame, act, orders, evaluate, replay, tactical, transcript, CREW, MARU, WARP_HULL, ENDINGS, GRADED, POSITION } from '../js/maru-sim.js';
+import { buildCatalog } from '../js/catalog.js';
+import { LY_PER_PC } from '../js/physics.js';
+
+// The briefing names the real star the film's position is called after, and says how far it is. The star and the
+// distance are the catalogue's: the bridge and tonight's sky find it by this name, and fly this far.
+test('the briefing’s Gamma Hydrae is the catalogue’s, at the catalogue’s distance', async () => {
+  const bin = await readFile(new URL('../data/stars.bin', import.meta.url));
+  const cat = buildCatalog(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength), JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url), 'utf8')));
+  const i = cat.byName.get(POSITION.star);
+  assert.ok(i > 0, `${POSITION.star} is not in the catalogue`);
+  assert.equal(cat.unmeasured[i], 0);
+  assert.equal(POSITION.ly, Math.round(cat.distanceFrom(i, [0, 0, 0]) * LY_PER_PC));
+  assert.match(cat.spect[i], /^G\d?\s*III/, 'the briefing calls it a yellow giant');
+});
+
 
 function play(plan, opts = {}) {
   const g = newGame({ seed: 7, ...opts });

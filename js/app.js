@@ -455,11 +455,21 @@ function updateWarp() {
   $('warp-out').textContent = w.toFixed(1).replace(/\.0$/, '');
   $('warp-speed').textContent = `${Math.round(warpSpeed(w)).toLocaleString('en-US')} × the speed of light`;
   $('warp').style.setProperty('--fill', `${(w - 1) / 8.9 * 100}%`);
-  $('open-scale').href = `${SCALE}?warp=${w}`;
   updateTrip();
 }
 
+// The warp scale opens at the helm's warp factor, and with a star chosen it races there: the link names the star and
+// gives the catalogue's distance from Earth (the races all leave from Earth). A star nobody has measured the distance
+// to is left out, and the warp scale opens as it would with nothing chosen.
+function scaleLink() {
+  const i = state.target;
+  const to = cat && i != null && i !== 0 && !cat.unmeasured[i]
+    ? `&to=${encodeURIComponent(cat.names[i])}&ly=${Number((cat.distanceFrom(i, [0, 0, 0]) * LY_PER_PC).toPrecision(4))}` : '';
+  $('open-scale').href = `${SCALE}?warp=${state.warp}${to}`;
+}
+
 function updateTrip() {
+  scaleLink();
   const el = $('trip');
   if (state.target == null) { el.textContent = ''; return; }
   const ly = lyFromShip(state.target);

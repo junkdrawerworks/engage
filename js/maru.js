@@ -1,10 +1,13 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
-import { newGame, orders, act, evaluate, replay, tactical, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
+import { newGame, orders, act, evaluate, replay, tactical, transcript, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 
 const KEY = 'engage.maru.v1';
+// Where Engage itself is. The single-file copy points this at the live site.
+const BRIDGE = './';
+const AWAY = BRIDGE.startsWith('http') ? ' target="_blank" rel="noopener"' : '';
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const still = matchMedia('(prefers-reduced-motion: reduce)');
@@ -65,6 +68,11 @@ function showBrief() {
   renderRecord();
   showScreen('brief');
 }
+
+// The briefing's one door out besides the bridge: the real star the film's position is named for, with the two
+// links a log entry has.
+$('where').innerHTML = `In the film the Maru gives her position as ${esc(POSITION.film)}. ${esc(POSITION.name)} is a real star, a yellow giant about ${POSITION.ly} light years from Earth.
+  <span class="where-links"><a href="${BRIDGE}tonight.html#star=${encodeURIComponent(POSITION.star)}"${AWAY}>In your sky tonight</a><a href="${BRIDGE}?course=${encodeURIComponent(POSITION.star)}"${AWAY}>Set course</a></span>`;
 
 function renderRecord() {
   const left = keptGame()?.game;

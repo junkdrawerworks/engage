@@ -26,7 +26,8 @@ export const GROUPS = [
 
 // The places, nearest first. Stars use the same catalogue distances as the bridge, so the helm agrees. The Solar
 // System's distances change, so `live` works them out for a date from the same orbits Long missions uses.
-// `course` is the star's name in the catalogue, for Set course on the bridge.
+// `course` is the star's name in the catalogue, for Set course on the bridge, and `sky` the name tonight's sky opens
+// a card for. `file` is the ship in js/ships.js whose file long missions has, and `fileText` what the link to it says.
 export const PLACES = [
   {
     id: 'moon', name: 'The Moon', group: 'home', color: '#d8d4cc', kind: 'moon',
@@ -53,13 +54,13 @@ export const PLACES = [
     trek: 'Jupiter Station, where Dr. Lewis Zimmerman wrote the Emergency Medical Hologram, orbits here.',
   },
   {
-    id: 'pluto', name: 'Pluto', group: 'home', color: '#cdb59a', kind: 'planet',
+    id: 'pluto', name: 'Pluto', group: 'home', color: '#cdb59a', kind: 'planet', file: 'nh', fileText: 'New Horizons in long missions',
     live: jd => fromEarth('pluto', jd),
     about: 'Nearly five light-hours away. New Horizons, the fastest probe ever launched, took nine and a half years to fly past it.',
     trek: 'In The First Duty, Wesley Crusher’s squadron crashes on a training flight near Saturn, about a quarter of the way out here.',
   },
   {
-    id: 'voyager', name: 'Voyager 1', group: 'home', color: '#6fe3a4', kind: 'probe',
+    id: 'voyager', name: 'Voyager 1', group: 'home', color: '#6fe3a4', kind: 'probe', file: 'v1', fileText: 'Her file in long missions',
     live: jd => readings('v1', jd).earthAU / AU_PER_LY,
     about: 'The farthest thing people have made, launched in 1977.',
     aboutNow: jd => voyagerLightDay(jd),
@@ -70,40 +71,40 @@ export const PLACES = [
     about: 'The comets’ home, so far out the Sun barely holds on to them. Voyager 1 won’t reach even the inside of the cloud for about 300 years.',
   },
   {
-    id: 'proxima', name: 'Proxima Centauri', group: 'near', ly: 4.23, color: '#ff9a6a', kind: 'star', course: 'Proxima Centauri',
+    id: 'proxima', name: 'Proxima Centauri', group: 'near', ly: 4.23, color: '#ff9a6a', kind: 'star', course: 'Proxima Centauri', sky: 'Proxima Centauri',
     about: 'The nearest star. Breakthrough Starshot hopes to send probes the weight of a paperclip here at a fifth of light speed, in about 20 years.',
     trek: 'Zefram Cochrane’s Phoenix first broke the warp barrier in 2063. At warp 1 she’d have reached here in just over four years.',
   },
   {
-    id: 'wolf', name: 'Wolf 359', group: 'near', ly: 7.8, color: '#ff8a5c', kind: 'star', course: 'Wolf 359',
+    id: 'wolf', name: 'Wolf 359', group: 'near', ly: 7.8, color: '#ff8a5c', kind: 'star', course: 'Wolf 359', sky: 'Wolf 359',
     about: 'A dim red dwarf, one of the closest stars to the Sun, and far too faint to see without a telescope.',
     trek: 'Where the Borg destroyed 39 Starfleet ships in 2367, with Picard as Locutus.',
   },
   {
-    id: 'vulcan', name: '40 Eridani A', group: 'near', ly: 16.26, color: '#ffc98a', kind: 'star', course: 'Keid',
+    id: 'vulcan', name: '40 Eridani A', group: 'near', ly: 16.26, color: '#ffc98a', kind: 'star', course: 'Keid', sky: 'Keid',
     about: 'An orange dwarf a little smaller than the Sun, in a triple system you can see from Earth with your eyes.',
     trek: 'Star Trek puts Vulcan in orbit round this star. At warp 9.975 Spock could be home in under a day.',
   },
   {
-    id: 'vega', name: 'Vega', group: 'near', ly: 25.04, color: '#cfe0ff', kind: 'star', course: 'Vega',
+    id: 'vega', name: 'Vega', group: 'near', ly: 25.04, color: '#cfe0ff', kind: 'star', course: 'Vega', sky: 'Vega',
     about: 'One of the brightest stars in the sky, with a wide disc of dust round it.',
     trek: 'The Vega colony is where the Enterprise was headed in The Cage, the very first pilot.',
   },
   {
-    id: 'trappist', name: 'TRAPPIST-1', group: 'near', ly: 40.67, color: '#ff7a50', kind: 'star', course: 'TRAPPIST-1',
+    id: 'trappist', name: 'TRAPPIST-1', group: 'near', ly: 40.67, color: '#ff7a50', kind: 'star', course: 'TRAPPIST-1', sky: 'TRAPPIST-1',
     about: 'A tiny red star with seven Earth-sized planets, three of them where water could be liquid.',
   },
   {
-    id: 'pleiades', name: 'The Pleiades', group: 'galaxy', ly: 403, color: '#bcd4ff', kind: 'cluster', course: 'Alcyone',
+    id: 'pleiades', name: 'The Pleiades', group: 'galaxy', ly: 403, color: '#bcd4ff', kind: 'cluster', course: 'Alcyone', sky: 'Alcyone',
     about: 'The Seven Sisters: a young cluster of hot blue stars, about 100 million years old, and easy to see on a winter night.',
   },
   {
-    id: 'betelgeuse', name: 'Betelgeuse', group: 'galaxy', ly: 498, color: '#ffa060', kind: 'star', course: 'Betelgeuse',
+    id: 'betelgeuse', name: 'Betelgeuse', group: 'galaxy', ly: 498, color: '#ffa060', kind: 'star', course: 'Betelgeuse', sky: 'Betelgeuse',
     about: 'A red supergiant in Orion that will explode as a supernova some time in the next 100,000 years.',
     trek: 'Home of the Betelgeusians, one of the races at the Federation council in The Voyage Home.',
   },
   {
-    id: 'rigel', name: 'Rigel', group: 'galaxy', ly: 863, color: '#c4d8ff', kind: 'star', course: 'Rigel',
+    id: 'rigel', name: 'Rigel', group: 'galaxy', ly: 863, color: '#c4d8ff', kind: 'star', course: 'Rigel', sky: 'Rigel',
     about: 'A blue supergiant, Orion’s foot, around 100,000 times as bright as the Sun.',
     trek: 'Rigel VII is where Captain Pike’s landing party had the deadly fight he can’t stop thinking about in The Cage.',
   },
@@ -113,7 +114,7 @@ export const PLACES = [
     trek: 'A nebula is a captain’s favourite place to hide, the way Kirk lured Khan into the Mutara Nebula.',
   },
   {
-    id: 'deneb', name: 'Deneb', group: 'galaxy', ly: 1412, color: '#e4ecff', kind: 'star', course: 'Deneb',
+    id: 'deneb', name: 'Deneb', group: 'galaxy', ly: 1412, color: '#e4ecff', kind: 'star', course: 'Deneb', sky: 'Deneb',
     about: 'A white supergiant, the tail of the Swan. Its distance is hard to measure: the catalogue says 1,400 light years, newer estimates nearer 2,600.',
     trek: 'Farpoint Station, in the very first episode of The Next Generation, is on Deneb IV.',
   },
@@ -139,6 +140,22 @@ export const PLACES = [
   },
 ];
 export const byId = new Map(PLACES.map(p => [p.id, p]));
+
+// A place of your own on the ladder: the star the helm is set for, at the catalogue's distance from Earth. The bridge
+// sends its name and that distance in the link (warp.html?warp=9&to=Vega&ly=25.04). A star that is on the ladder
+// already is that rung, and a star nobody has measured the distance to (the bridge sends none) is no place at all.
+export function customPlace(name, ly) {
+  if (typeof name !== 'string' || !name.trim() || name.length > 60) return null;
+  name = name.trim();
+  const known = PLACES.find(p => p.course === name || p.name === name);
+  if (known) return known;
+  if (!Number.isFinite(ly) || ly <= 0 || ly > 2e5) return null; // nothing in the catalogue is further than this
+  return {
+    id: 'course', name, group: 'course', ly, color: '#ffb54a', kind: 'star', course: name, sky: name, custom: true,
+    about: 'The star your helm is set for, at the catalogue’s distance from Earth. The race leaves from Earth, as every race here does, wherever your ship is holding.',
+  };
+}
+export const COURSE_GROUP = ['course', 'Your course'];
 
 function fromEarth(planet, jd) {
   const p = planetAt(planet, jd), e = earthAt(jd);

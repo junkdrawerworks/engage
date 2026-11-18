@@ -1829,8 +1829,9 @@ await page.goto(base);
 await bridgeReady();
 
 // The warp scale: reached from under the warp slider with the helm's warp factor, a race to the galactic core run to
-// the end, another place picked from the ladder, and a link back to the bridge with a course set.
-await page.evaluate(() => { const w = document.getElementById('warp'); w.value = 7.5; w.dispatchEvent(new Event('input')); });
+// the end, another place picked from the ladder, and a link back to the bridge with a course set. (With a star chosen
+// at the helm the link races there instead: see "Doors between rooms" below.)
+await page.evaluate(() => { engage.target(''); const w = document.getElementById('warp'); w.value = 7.5; w.dispatchEvent(new Event('input')); });
 await Promise.all([page.waitForNavigation(), page.click('#open-scale')]);
 await page.waitForFunction(() => window.warpScale);
 assert.equal(await page.inputValue('#custom-warp'), '7.5', 'the bridge’s warp factor did not come along');
@@ -3427,7 +3428,7 @@ await page.emulateMedia({ reducedMotion: null });
   assert.ok(sent.text.startsWith(`${star} (`) && sent.text.endsWith('find it in your sky tonight.'), `the message does not name the star: ${sent.text}`);
   await p.evaluate(() => tonight.show({ kind: 'planet', name: 'mars' }));
   assert.equal(await p.title(), 'Mars · Tonight’s sky · Engage');
-  assert.equal(await p.locator('#card-share-row').isHidden(), true, 'a planet’s card offers a link, though no link opens it');
+  assert.equal(await p.locator('#card-share').isHidden(), true, 'a planet’s card offers a link, though no link opens it');
   await p.locator('#card [data-close]').tap();
   assert.equal(await p.title(), 'Tonight’s sky · Engage');
 
@@ -3442,6 +3443,132 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.title(), 'Vega · Engage');
   await p.evaluate(() => engage.jump('Sol'));
   assert.equal(await p.title(), 'Engage');
+  await c.close();
+}
+
+// Doors between rooms. The rooms share subjects (Voyager 1 is a ship on file and a rung on the warp scale; Mars is in
+// tonight's sky, on the warp scale and the example on a survey file), and each used to lead only back to the bridge.
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  // Follows the link with these words inside `within`, and says where it led.
+  const door = (within, words) => p.locator(`${within} a`, { hasText: words });
+  const through = async (within, words) => {
+    const a = door(within, words);
+    await a.scrollIntoViewIfNeeded();
+    assert.ok((await a.boundingBox()).height >= 44, `“${words}” is under 44 px tall`);
+    const to = (await a.evaluate(el => el.href)).slice(base.length); // where it says it goes (a room may tidy its own address once open)
+    await Promise.all([p.waitForNavigation(), a.tap()]);
+    assert.ok(p.url().startsWith(base + to.split(/[?#]/)[0]), `“${words}” led to ${p.url()}`);
+    return to;
+  };
+  const scale = () => p.waitForFunction(() => window.warpScale?.trip);
+  const card = async what => {
+    await p.waitForFunction(() => window.tonight);
+    if (what) await p.evaluate(s => tonight.show(s), what);
+    await p.waitForFunction(() => !document.getElementById('card').hidden);
+    return p.locator('#card-title').innerText();
+  };
+
+  // The helm's Warp scale link races to the star chosen there. It used to open at the galactic core whatever was chosen.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#intro-go');
+  await p.evaluate(() => { engage.target('Sirius'); const w = document.getElementById('warp'); w.value = 7; w.dispatchEvent(new Event('input')); });
+  assert.match(await p.getAttribute('#open-scale', 'href'), /^warp\.html\?warp=7&to=Sirius&ly=8\.\d+$/);
+  await Promise.all([p.waitForNavigation(), p.tap('#open-scale')]);
+  await scale();
+  assert.deepEqual(await p.evaluate(() => [warpScale.place, document.querySelector('#place .eyebrow').textContent, document.querySelector('#place h2').textContent, document.getElementById('custom-warp').value]),
+    ['course', 'Your course', 'Sirius', '7'], 'the helm’s course is not the race the warp scale opened on');
+  assert.deepEqual(await p.evaluate(() => { const g = document.querySelector('#ladder .rung-group'), r = g.nextElementSibling; return [g.textContent, r.dataset.id, r.getAttribute('aria-current'), r.querySelector('b').textContent, r.querySelector('.rung-name span').textContent]; }),
+    ['Your course', 'course', 'true', 'Sirius', '8.60 light years'], 'the ladder does not start with the helm’s course');
+  assert.match(p.url(), /warp\.html\?warp=7&to=Sirius&ly=8\.\d+#course$/);
+  // Another rung, and back to the course; a reload keeps it, since the address carries it.
+  await p.locator('.rung[data-id="moon"]').tap();
+  await p.locator('.rung[data-id="course"]').tap();
+  await p.reload();
+  await scale();
+  assert.equal(await p.evaluate(() => warpScale.place), 'course');
+  // Its two doors: back to the bridge with the course set, and tonight's sky.
+  assert.equal(await through('#place .doors', 'In your sky tonight'), 'tonight.html#star=Sirius');
+  assert.equal(await card(), 'Sirius');
+  // The course is not a place to come back to: the next visit opens on the last rung picked.
+  await p.goto(base + 'warp.html');
+  await scale();
+  assert.deepEqual(await p.evaluate(() => [warpScale.place, document.querySelectorAll('.rung[data-id="course"]').length]), ['moon', 0]);
+  // A star that is on the ladder already is that rung; a star with no measured distance is left out of the link.
+  await p.goto(base);
+  await bridgeReady(p);
+  const unmeasured = await p.evaluate(() => { const cat = engage.cat(); return cat.names[cat.unmeasured.findIndex((u, i) => u && cat.byName.get(cat.names[i]) === i)]; });
+  await p.evaluate(name => engage.target(name), unmeasured);
+  assert.equal(await p.getAttribute('#open-scale', 'href'), 'warp.html?warp=7', `${unmeasured} has no measured distance, and the warp scale was sent one`);
+  await p.evaluate(() => engage.target('Keid'));
+  await Promise.all([p.waitForNavigation(), p.tap('#open-scale')]);
+  await scale();
+  assert.deepEqual(await p.evaluate(() => [warpScale.place, document.querySelectorAll('.rung[data-id="course"]').length]), ['vulcan', 0]);
+
+  // The place card's doors: Voyager 1's file, New Horizons' from Pluto, and a star in tonight's sky.
+  await p.goto(base + 'warp.html#voyager');
+  await scale();
+  assert.equal(await through('#place .doors', 'Her file in long missions'), 'missions.html#v1');
+  await p.waitForFunction(() => window.missions?.sel === 'v1');
+  // And back: her file's "at warp 9 you'd catch her" leads to the race, at warp 9. No other ship has a rung.
+  assert.equal(await through('#file', 'Race to her on the warp scale'), 'warp.html?warp=9#voyager');
+  await scale();
+  assert.deepEqual(await p.evaluate(() => [warpScale.place, document.getElementById('custom-warp').value]), ['voyager', '9']);
+  await p.evaluate(() => warpScale.select('pluto'));
+  assert.equal(await through('#place .doors', 'New Horizons in long missions'), 'missions.html#nh');
+  await p.waitForFunction(() => window.missions?.sel === 'nh');
+  assert.equal(await p.locator('#ship-race').isHidden(), true, 'New Horizons is offered a race the warp scale does not have');
+  await p.goto(base + 'warp.html#betelgeuse');
+  await scale();
+  assert.equal(await through('#place .doors', 'In your sky tonight'), 'tonight.html#star=Betelgeuse');
+  assert.equal(await card(), 'Betelgeuse');
+
+  // Tonight's cards. A star that is a rung on the warp scale leads to its race; the Moon, Mars and Jupiter to theirs
+  // at warp 9; and each world to the survey file it is the Solar System's example of.
+  assert.equal(await through('#card-doors', 'Race there on the warp scale'), 'warp.html#betelgeuse');
+  await scale();
+  assert.equal(await p.evaluate(() => warpScale.place), 'betelgeuse');
+  await p.goto(base + 'tonight.html');
+  const doors = async what => { await card(what); return p.locator('#card-doors a').evaluateAll(as => as.map(a => `${a.textContent} > ${a.getAttribute('href')}`)); };
+  assert.deepEqual(await doors({ kind: 'moon' }), ['How long at warp 9 > ./warp.html?warp=9#moon', 'Class D survey file > ./survey.html#D']);
+  assert.deepEqual(await doors({ kind: 'planet', name: 'venus' }), ['Class N survey file > ./survey.html#N']);
+  assert.deepEqual(await doors({ kind: 'planet', name: 'jupiter' }), ['How long at warp 9 > ./warp.html?warp=9#jupiter', 'Class J survey file > ./survey.html#J']);
+  assert.deepEqual(await doors({ kind: 'planet', name: 'saturn' }), ['Class J survey file > ./survey.html#J']);
+  assert.deepEqual(await doors({ kind: 'sun' }), []);
+  assert.equal(await p.locator('#card-share-row').isHidden(), true, 'the Sun’s card has an empty row under it');
+  assert.deepEqual(await doors({ kind: 'planet', name: 'mars' }), ['How long at warp 9 > ./warp.html?warp=9#mars', 'Class K survey file > ./survey.html#K']);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the card’s links push the page sideways on a phone');
+  assert.equal(await through('#card-doors', 'How long at warp 9'), 'warp.html?warp=9#mars');
+  await scale();
+  assert.equal(await p.evaluate(() => warpScale.place), 'mars');
+  await p.goBack();
+  await card({ kind: 'planet', name: 'mars' });
+  assert.equal(await through('#card-doors', 'Class K survey file'), 'survey.html#K');
+  await p.waitForFunction(() => document.querySelector('#file h2')?.textContent.startsWith('Class K'));
+
+  // The survey: a real planet with a star in the catalogue has tonight's sky beside Set course.
+  await p.evaluate(() => survey.open('M'));
+  assert.equal(await p.locator('#file .worlds li').first().locator('a').evaluateAll(as => as.map(a => a.textContent.replace(/\s*→\s*$/, '')).join(' | ')), 'Set course | In your sky tonight | Grow a creature for Proxima b');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a planet’s links push the survey sideways on a phone');
+  assert.equal(await through('#file .worlds li:first-child', 'In your sky tonight'), 'tonight.html#star=Proxima%20Centauri');
+  assert.equal(await card(), 'Proxima Centauri');
+
+  // The Kobayashi Maru's briefing names the real star the film's position is called after, with the two links a log
+  // entry has. It had no door but Bridge.
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  assert.match(await p.locator('#where').innerText(), /Gamma Hydra, Section 10\. Gamma Hydrae is a real star, a yellow giant about 134 light years from Earth\./);
+  assert.equal(decodeURIComponent(await through('#where', 'In your sky tonight')), 'tonight.html#star=γ Hydrae');
+  assert.equal(await card(), 'γ Hydrae');
+  assert.match(await p.locator('#card-sub').innerText(), /^134 ly away · in Hydra$/);
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  assert.equal(decodeURIComponent(await through('#where', 'Set course')), '?course=γ Hydrae');
+  await bridgeReady(p);
+  assert.equal(await p.locator('#target-name').innerText(), 'γ Hydrae');
   await c.close();
 }
 

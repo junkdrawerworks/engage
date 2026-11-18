@@ -3,7 +3,7 @@
 import { warpSpeed } from './physics.js';
 import {
   LANES, GROUPS, PLACES, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock,
-  formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt,
+  formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt, customPlace, COURSE_GROUP,
 } from './warp-scale.js';
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
@@ -22,6 +22,10 @@ const LIGHT_KINDS = new Set(['star', 'cluster', 'nebula', 'core', 'galaxy']);
 const saved = load();
 let place = byId.get(saved.place) || byId.get('core');
 let custom = saved.warp;
+// The star the helm is set for, when the bridge's Warp scale link named one that isn't on the ladder already: a rung
+// of its own at the top, for as long as the page is open. (The link that brought it carries it; nothing is saved.)
+let course = null;
+const find = id => (course && id === course.id ? course : byId.get(id));
 let trip = null; // the lanes' speeds and times for the place
 let race = null; // { start, clock } while the race runs; { done: true } once everyone is there
 let lastNote = '';
@@ -35,7 +39,12 @@ function load() {
   const warp = Number(s.warp);
   return { place: typeof s.place === 'string' ? s.place : null, warp: warp >= 1 && warp <= 9.99 ? warp : 9 };
 }
-function save() { keep(KEY, { place: place.id, warp: custom }); } // only where you left off: nothing is lost if it can't be kept
+// Only where you left off: nothing is lost if it can't be kept. The helm's course isn't a place to come back to
+// (the next visit has no link to say where it is), so with that chosen the last place on the ladder stays the one kept.
+function save() {
+  if (!place.custom) saved.place = place.id;
+  keep(KEY, { place: saved.place || 'core', warp: custom });
+}
 
 const warpName = w => `Warp ${w.toFixed(2).replace(/\.?0+$/, '')}`;
 const times = n => `${n < 10 ? n.toFixed(n < 1 ? 5 : 1).replace(/\.?0+$/, '') : Math.round(n).toLocaleString('en-US')} × light`;
@@ -45,7 +54,7 @@ const inText = p => p.name.replace(/^(The|Where) /, w => w.toLowerCase());
 
 // The address names the place and the warp factor now on the slider, so it can be copied, bookmarked or shared as it
 // stands (it used to repeat whatever "?warp=" the page was opened with, however far the slider had moved since).
-const query = () => `?warp=${custom}`;
+const query = () => `?warp=${custom}${course ? `&to=${encodeURIComponent(course.name)}&ly=${course.ly}` : ''}`;
 function address() {
   try { history.replaceState(null, '', `${query()}#${place.id}`); } catch { /* fine */ }
   document.title = `${place.name} · Warp scale · Engage`;
@@ -65,7 +74,7 @@ function plan() {
 
 // `quiet` is for a place or a warp factor taken from another tab: shown, and not saved again from here.
 function select(id, { scroll = false, quiet = false } = {}) {
-  const p = byId.get(id);
+  const p = find(id);
   if (!p) return;
   place = p;
   race = null;
@@ -319,7 +328,7 @@ function pct(p) {
 
 function renderPlace() {
   const p = place, ly = trip.ly;
-  const group = GROUPS.find(([id]) => id === p.group)[1];
+  const group = [...GROUPS, COURSE_GROUP].find(([id]) => id === p.group)[1];
   const left = LIGHT_KINDS.has(p.kind) ? lightLeft(ly, trip.now) : null;
   const rows = trip.lanes.map(l => {
     const year = arrivalYear(l.years, trip.now);
@@ -335,7 +344,11 @@ function renderPlace() {
     <p class="about">${esc(aboutOn(p, trip.now))}</p>
     ${p.trek ? `<p class="trek"><b>Star Trek</b> ${esc(p.trek)}</p>` : ''}
     <table class="times" id="times"><caption>Leaving Earth now</caption><tbody>${rows}</tbody></table>
-    ${p.course ? `<a class="to-file" href="${BRIDGE}?course=${encodeURIComponent(p.course)}"${AWAY}>Set course on the bridge <span aria-hidden="true">→</span></a>` : ''}
+    <p class="doors">${[
+      p.course && [`${BRIDGE}?course=${encodeURIComponent(p.course)}`, 'Set course on the bridge'],
+      p.sky && [`${BRIDGE}tonight.html#star=${encodeURIComponent(p.sky)}`, 'In your sky tonight'],
+      p.file && [`${BRIDGE}missions.html#${p.file}`, p.fileText],
+    ].filter(Boolean).map(([href, text]) => `<a class="to-file" href="${esc(href)}"${AWAY}>${esc(text)} <span aria-hidden="true">→</span></a>`).join('')}</p>
     <p class="share-row"><button class="text-button" type="button" data-share>Share this race</button></p>
   `;
   markArrived(race?.done ? Infinity : 0);
@@ -357,9 +370,9 @@ const shortTick = name => ({ 'light-second': '1 sec', 'light-minute': '1 min', '
 
 function renderLadder() {
   const now = trip.now;
-  const html = GROUPS.map(([gid, gname]) => {
+  const html = [...(course ? [COURSE_GROUP] : []), ...GROUPS].map(([gid, gname]) => {
     // The planets move about, so the Solar System's order changes: Mars is sometimes nearer than the Sun.
-    const here = PLACES.filter(p => p.group === gid).map(p => [p, distanceLy(p, now)]).sort((a, b) => a[1] - b[1]);
+    const here = [...PLACES, ...(course ? [course] : [])].filter(p => p.group === gid).map(p => [p, distanceLy(p, now)]).sort((a, b) => a[1] - b[1]);
     const rungs = here.map(([p, ly]) => {
       const at = id => formatShort(tripYears(ly, laneSpeed(LANES.find(l => l.id === id), custom, now)));
       return `<button class="rung${p.headline ? ' headline' : ''}" type="button" data-id="${p.id}" aria-current="${p === place}">
@@ -374,11 +387,13 @@ function renderLadder() {
 // ---------- Start ----------
 
 // A link cut off or mangled on its way (a stray "%" isn't an address at all) names no place: the last one stays.
+// `to` is the star the helm was set for, from the bridge's Warp scale link (see customPlace in warp-scale.js).
 const fromLink = () => {
-  const warp = Number(new URLSearchParams(location.search).get('warp'));
+  const q = new URLSearchParams(location.search);
+  const warp = Number(q.get('warp'));
   let id = '';
   try { id = decodeURIComponent(location.hash.slice(1)); } catch { /* not a place */ }
-  return { id, warp: warp >= 1 && warp <= 9.99 ? warp : null };
+  return { id, warp: warp >= 1 && warp <= 9.99 ? warp : null, to: q.has('to') ? customPlace(q.get('to'), Number(q.get('ly'))) : null };
 };
 
 $('go').addEventListener('click', engage);
@@ -394,9 +409,9 @@ watch(KEY, () => {
   if (race && !race.done) return;
   const s = load(), p = byId.get(s.place);
   if (s.warp !== custom) setCustom(s.warp, true);
-  if (p && p !== place) select(p.id, { quiet: true });
+  if (p && p !== place && !place.custom) select(p.id, { quiet: true });
 });
-addEventListener('hashchange', () => { const { id } = fromLink(); if (byId.has(id) && id !== place.id) select(id); });
+addEventListener('hashchange', () => { const { id } = fromLink(); if (find(id) && id !== place.id) select(id); });
 addEventListener('resize', () => { if (!race || race.done) draw(race ? trip.clock.seconds : 0); });
 document.fonts?.ready.then(() => { if (!race || race.done) draw(race ? trip.clock.seconds : 0); });
 
@@ -411,7 +426,11 @@ window.warpScale = {
 {
   const link = fromLink();
   if (link.warp) custom = link.warp;
-  if (byId.has(link.id)) place = byId.get(link.id);
+  // The helm's course: a rung of its own, or the rung the ladder has for that star already. The race starts there,
+  // unless the link names another place after its "#".
+  if (link.to?.custom) course = link.to;
+  if (find(link.id)) place = find(link.id);
+  else if (link.to) place = link.to;
   $('custom-warp').value = custom;
   setCustom(custom);
   select(place.id);

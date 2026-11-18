@@ -28,6 +28,9 @@
 /* 44 px tall under a thumb; the margins take back what the padding adds, so the link sits where it did. */
 .place .to-file { display: inline-block; margin: -2px 0 -6px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 16px 0; }
 .place .to-file:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* The doors out of a place: to the bridge with a course set, to tonight's sky, to a ship's file. */
+.place .doors { margin: 0; display: flex; flex-wrap: wrap; gap: 0 22px; }
+.place .doors:empty { display: none; }
 
 /* Where the place sits on the ladder: how long its light takes, a light-second to a million years */
 .scale-bar { position: relative; height: 34px; margin: 10px 4px 4px; }

@@ -162,7 +162,8 @@ function fileHtml(c) {
     ['Life', t.life],
   ];
   const worlds = c.worlds.map(w => {
-    const fly = w.star ? `<a class="fly" href="${BRIDGE}?course=${encodeURIComponent(w.star)}"${AWAY}>Set course <span aria-hidden="true">→</span></a>` : '';
+    const fly = w.star ? `<a class="fly" href="${BRIDGE}?course=${encodeURIComponent(w.star)}"${AWAY}>Set course <span aria-hidden="true">→</span></a>`
+      + `<a class="fly" href="${BRIDGE}tonight.html#star=${encodeURIComponent(w.star)}"${AWAY}>In your sky tonight <span aria-hidden="true">→</span></a>` : '';
     // Where the planet's own mass, temperature and star are on file, the lab can grow something for it and not just its class.
     const life = grows(w) ? `<a class="fly" href="${XENO}#world=${encodeURIComponent(w.name)}"${AWAY}>Grow a creature for ${esc(w.name)} <span aria-hidden="true">→</span></a>` : '';
     const tag = w.misfit ? '<span class="misfit">Doesn’t fit the readings above</span>' : '';

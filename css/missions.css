@@ -64,6 +64,7 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 /* 44 px tall under a thumb; the margins take back what the padding adds, so the link sits where it did. */
 .fly { display: inline-block; margin: -8px 0 -4px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 16px 0; }
 .fly:hover { text-decoration: underline; text-underline-offset: 3px; }
+#ship-race { margin-right: 22px; }
 .file .record { color: var(--muted); font-size: 14px; font-style: italic; }
 
 .source { max-width: 760px; margin: 18px auto 0; font-size: 12px; color: var(--dim); text-align: center; }

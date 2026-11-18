@@ -2,6 +2,10 @@
 // The test is rigged the way Starfleet Academy rigs it: whatever you do, the Maru is lost, and more cruisers keep coming.
 // What changes is how you lose, and that is what evaluate() grades.
 
+// Where the scenario is set. In Star Trek II the Maru gives her position as Gamma Hydra, Section 10. Gamma Hydrae is
+// a real star: `star` is its name in the catalogue the bridge flies by, and `ly` that catalogue's distance to the
+// nearest light year (test/maru.test.mjs holds it to the catalogue).
+export const POSITION = { film: 'Gamma Hydra, Section 10', star: 'γ Hydrae', name: 'Gamma Hydrae', ly: 134 };
 export const CREW = 430; // your ship's company
 export const MARU = 381; // the Maru: 81 crew and 300 passengers
 export const BEAM = 75; // people the transporter brings over in a turn

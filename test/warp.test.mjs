@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import { sweep } from './sweep.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { LANES, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt } from '../js/warp-scale.js';
+import { LANES, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt, customPlace, COURSE_GROUP } from '../js/warp-scale.js';
+import { SHIPS } from '../js/ships.js';
 import { warpSpeed } from '../js/physics.js';
 
 const DATE = new Date('2026-10-24T00:00:00Z');
@@ -78,6 +79,42 @@ test('Jupiter and Mars are as far as their cards say', () => {
 test('the places with Set course are stars the bridge knows', async () => {
   const names = new Set(JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url))).names);
   for (const p of PLACES.filter(p => p.course)) assert.ok(names.has(p.course), p.course);
+});
+
+// The doors out of a place card: tonight's sky opens a card for a star by its name in the catalogue, and long
+// missions opens a ship's file by its id.
+test('every door from a place leads somewhere: a star in the catalogue, a ship on file', async () => {
+  const names = new Set(JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url))).names);
+  for (const p of PLACES.filter(p => p.sky)) assert.ok(names.has(p.sky), `${p.name}: tonight's sky has no star called ${p.sky}`);
+  for (const p of PLACES.filter(p => p.file)) {
+    const ship = SHIPS.find(s => s.id === p.file);
+    assert.ok(ship, `${p.name}: long missions has no ship ${p.file}`);
+    assert.ok(p.fileText.includes(ship.name) || p.name === ship.name, `${p.name}: "${p.fileText}" does not name ${ship.name}`);
+  }
+  // The eight stars and the Pleiades have tonight's sky; Voyager 1 has her own file and Pluto has New Horizons'.
+  assert.deepEqual(PLACES.filter(p => p.sky).map(p => p.id), ['proxima', 'wolf', 'vulcan', 'vega', 'trappist', 'pleiades', 'betelgeuse', 'rigel', 'deneb']);
+  assert.deepEqual(PLACES.filter(p => p.file).map(p => [p.id, p.file]), [['pluto', 'nh'], ['voyager', 'v1']]);
+});
+
+// The helm's Warp scale link names the star chosen there and gives the catalogue's distance.
+test('the helm’s course is a place of its own, or the rung the ladder already has', () => {
+  const sirius = customPlace('Sirius', 8.6);
+  assert.deepEqual([sirius.id, sirius.name, sirius.ly, sirius.group, sirius.course, sirius.sky, sirius.custom], ['course', 'Sirius', 8.6, 'course', 'Sirius', 'Sirius', true]);
+  assert.equal(distanceLy(sirius, DATE), 8.6);
+  assert.ok(sirius.about && !byId.has(sirius.id), 'the course must not be mistaken for a place on the ladder');
+  assert.equal(formatSpan(tripYears(distanceLy(sirius), laneSpeed(lane('custom'), 9))), '2 days');
+  const x = ladderAt(sirius.ly);
+  assert.ok(x > 0 && x < 1);
+  // A star that is on the ladder already is that rung, by the catalogue's name or the ladder's.
+  assert.equal(customPlace('Vega', 25.04), byId.get('vega'));
+  assert.equal(customPlace('Keid', 16.26), byId.get('vulcan'));
+  assert.equal(customPlace('Alcyone', 403), byId.get('pleiades'));
+  assert.equal(customPlace('Vega', NaN), byId.get('vega'));
+  // No measured distance (the bridge sends none), or a link that has been cut off or made up: no place.
+  for (const [name, ly] of [['Sirius', NaN], ['Sirius', 0], ['Sirius', -4], ['Sirius', Infinity], ['Sirius', 3e6], ['', 8.6], ['   ', 8.6], [null, 8.6], ['x'.repeat(61), 8.6]]) {
+    assert.equal(customPlace(name, ly), null, `${JSON.stringify(name)} at ${ly} light years made a place`);
+  }
+  assert.equal(COURSE_GROUP[1], 'Your course');
 });
 
 test('the famous numbers come out right', () => {

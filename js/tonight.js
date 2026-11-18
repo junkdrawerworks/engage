@@ -13,6 +13,8 @@ import {
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
 import { LIVE, share } from './share.js';
+import { PLACES } from './warp-scale.js';
+import { fileForHome, label as fileLabel } from './classes.js';
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -815,7 +817,17 @@ function fillCard(s) {
   setText('card-been', been);
   $('card-been').hidden = !been;
   // A star can be sent: its link turns this sky to it and opens this card. (The planets and the Moon have no link.)
-  $('card-share-row').hidden = !linkName(s);
+  $('card-share').hidden = !linkName(s);
+  // Doors to the other rooms that know this thing: its rung on the warp scale, and for a planet or the Moon the
+  // survey file it is the Solar System's example of.
+  const rung = s.kind === 'star' ? PLACES.find(p => p.sky === cat.names[s.i])?.id : ['moon', 'mars', 'jupiter'].find(id => id === (s.kind === 'moon' ? 'moon' : s.kind === 'planet' && s.name));
+  const file = s.kind === 'moon' ? fileForHome('Moon') : s.kind === 'planet' ? fileForHome(PLANET_NAMES[s.name]) : null;
+  const doors = [
+    rung && [`${BRIDGE}warp.html${s.kind === 'star' ? '' : '?warp=9'}#${rung}`, s.kind === 'star' ? 'Race there on the warp scale' : 'How long at warp 9'],
+    file && [`${BRIDGE}survey.html#${encodeURIComponent(file.id)}`, `${fileLabel(file)} survey file`],
+  ].filter(Boolean).map(([href, text]) => `<a href="${href}"${BRIDGE.startsWith('http') ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`).join('');
+  if ($('card-doors').dataset.for !== doors) { $('card-doors').dataset.for = doors; $('card-doors').innerHTML = doors; }
+  $('card-share-row').hidden = !doors && !linkName(s);
   const tab = `${nameOf(s)} · Tonight’s sky · Engage`;
   if (document.title !== tab) document.title = tab;
 }

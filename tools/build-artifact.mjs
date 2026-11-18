@@ -125,7 +125,7 @@ console.log(`survey.html: ${(surveyOut.length / 1024).toFixed(0)} KB`);
 
 // The Kobayashi Maru, as its own single file. Links back to the bridge go to the live site.
 const maruHtml = await read('maru.html');
-const maruJs = await bundle(['audio', 'store', 'onscreen', 'maru-sim', 'maru']);
+const maruJs = await bundle(['audio', 'store', 'onscreen', 'maru-sim', 'maru'], liveBridge('maru'));
 const maruOut = `<title>Kobayashi Maru</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -167,7 +167,7 @@ console.log(`missions.html: ${(missionsOut.length / 1024).toFixed(0)} KB`);
 
 // Tonight's sky, as its own single file, with the stars inline. Links back to the bridge go to the live site.
 const tonightHtml = await read('tonight.html');
-const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'ships', 'log', 'catalog', 'wake', 'store', 'share', 'tonight'], liveBridge('tonight'));
+const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'ships', 'log', 'catalog', 'wake', 'store', 'share', 'warp-scale', 'classes', 'tonight'], liveBridge('tonight'));
 const tonightOut = `<title>Tonight’s sky</title>
 <meta name="theme-color" content="#05070d">
 <style>

@@ -3,6 +3,8 @@
 // reads in a sentence ("an ice giant"). `art` picks how js/planet-art.js paints it.
 // `typical` are the readings the survey shows, and the ranges the "cover your tracks" drill draws a world from:
 // width and mass against Earth, temperature at the surface (or the cloud tops) in kelvin, the year in Earth days.
+// `home` is the file's "In the Solar System" line, and `homes` the worlds that line gives as its examples, by name
+// (test/physics.test.mjs holds each to being named in the line).
 // `worlds` are real planets; `star` is the host's name in data/stars.json, so Engage can set course for it, and then `ly`
 // is the catalogue's distance, as the helm gives it (test/physics.test.mjs checks they agree). Where a world's `width`
 // and `mass` (against Earth's) are given, they are the NASA Exoplanet Archive's, and the test holds them to the file's
@@ -29,7 +31,7 @@ export const CLASSES = [
     typical: { width: [0.8, 1.3], mass: [0.5, 2], temp: [260, 310], year: [200, 600],
       air: 'Nitrogen and oxygen, about Earth’s pressure', water: 'Oceans over half the surface or more', life: 'Plants and animals' },
     tell: 'Breathable air, open oceans and animal life together: only Class M has all three.',
-    home: 'Earth, and nowhere else in the Solar System.',
+    home: 'Earth, and nowhere else in the Solar System.', homes: ['Earth'],
     worlds: [
       // Minimum mass 1.055 and 218 K: Suárez Mascareño et al. 2025 (A&A 700, A11). Proxima is an M5.5 V red dwarf.
       { name: 'Proxima b', star: 'Proxima Centauri', ly: 4.2, mass: 1.055, least: true, teq: 218, sun: 'red', note: 'About Earth’s mass, in the zone where water could be liquid. Nobody yet knows whether it has air at all; its star’s flares may have stripped it.' },
@@ -57,7 +59,7 @@ export const CLASSES = [
     typical: { width: [0.4, 0.7], mass: [0.1, 0.5], temp: [180, 250], year: [300, 900],
       air: 'Thin carbon dioxide, under a hundredth of Earth’s pressure', water: 'Ice at the poles and underground', life: 'None found' },
     tell: 'Small, cold, thin air and ice caps: livable only under a dome, which makes it Class K.',
-    home: 'Mars. It had rivers and lakes billions of years ago, before it lost most of its air.',
+    home: 'Mars. It had rivers and lakes billions of years ago, before it lost most of its air.', homes: ['Mars'],
     worlds: [],
   },
   {
@@ -78,7 +80,7 @@ export const CLASSES = [
     typical: { width: [0.8, 1.05], mass: [0.6, 1.1], temp: [600, 750], year: [150, 300],
       air: 'Carbon dioxide at 90 times Earth’s pressure, sulfuric acid clouds', water: 'None left', life: 'None' },
     tell: 'Earth-sized but hot enough to melt lead under thick cloud: Class N, like Venus.',
-    home: 'Venus, the hottest planet in the Solar System though Mercury is closer to the Sun.',
+    home: 'Venus, the hottest planet in the Solar System though Mercury is closer to the Sun.', homes: ['Venus'],
     worlds: [],
     science: 'Astronomers keep a list of planets in each star’s “Venus zone”, and Webb is checking some of them for thick air.',
   },
@@ -118,7 +120,7 @@ export const CLASSES = [
     typical: { width: [0.1, 0.4], mass: [0.001, 0.06], temp: [40, 400], year: [80, 90000],
       air: 'None', water: 'Perhaps ice in shadowed craters', life: 'None' },
     tell: 'Tiny, airless and covered in craters: a Class D planetoid.',
-    home: 'By these readings, Earth’s Moon and Mercury. Ceres and the smaller moons and dwarf planets are smaller still.',
+    home: 'By these readings, Earth’s Moon and Mercury. Ceres and the smaller moons and dwarf planets are smaller still.', homes: ['Moon', 'Mercury'],
     worlds: [
       { name: 'TRAPPIST-1 b', star: 'TRAPPIST-1', ly: 40.7, width: 1.12, mass: 1.37, misfit: true, note: 'A little wider than Earth and a third heavier, so far too big for a planetoid. It is here for its surface: Webb found bare rock with no thick atmosphere, about 230 °C on its day side.' },
     ],
@@ -140,7 +142,7 @@ export const CLASSES = [
     typical: { width: [8, 12], mass: [50, 600], temp: [90, 170], year: [1500, 15000],
       air: 'Hydrogen and helium, deeper than any ship could go', water: 'Deep inside, as vapour', life: 'None known' },
     tell: 'Ten times Earth’s width, cold, banded clouds and no surface: Class J, a gas giant.',
-    home: 'Jupiter and Saturn.',
+    home: 'Jupiter and Saturn.', homes: ['Jupiter', 'Saturn'],
     worlds: [
       { name: 'Ægir', star: 'Ran', ly: 10.5, note: 'About Jupiter’s mass, circling Epsilon Eridani every seven years.' },
       { name: 'Thestias', star: 'Pollux', ly: 33.8, note: 'About twice Jupiter’s mass, circling an orange giant star.' },
@@ -232,7 +234,7 @@ export const CLASSES = [
     typical: { width: [3.5, 4.5], mass: [12, 20], temp: [50, 80], year: [30000, 60000],
       air: 'Hydrogen, helium and methane', water: 'A deep slushy layer, with ammonia', life: 'None' },
     tell: 'Four times Earth’s width, blue from methane, and very cold: an ice giant.',
-    home: 'Uranus and Neptune.',
+    home: 'Uranus and Neptune.', homes: ['Uranus', 'Neptune'],
     worlds: [
       { name: 'Gliese 436 b', ly: 32, width: 4.17, mass: 22, misfit: true, note: 'Neptune’s size (about 4.2 times Earth’s width and 22 times its mass) but nothing like as cold: it circles its star every 2.6 days, at about 700 K, trailing a cloud of hydrogen behind it like a comet’s tail. Neptunes as cold and far out as ours are very hard to find round other stars, so nearly all the ones known are close in and warm.' },
     ],
@@ -240,6 +242,9 @@ export const CLASSES = [
 ];
 
 export const byId = new Map(CLASSES.map(c => [c.id, c]));
+
+// The file a world of the Solar System is an example of ('Mars', 'Moon'), for tonight's sky to link to.
+export const fileForHome = name => CLASSES.find(c => c.homes?.includes(name)) || null;
 
 // "Class M", or the plain name for the kinds Starfleet never named.
 export const label = c => (c.letter ? `Class ${c.letter}` : c.name);

@@ -118,6 +118,11 @@ function fillFile(ship) {
     course.textContent = `Set course for ${ship.bound.star} →`;
     if (BRIDGE.startsWith('http')) { course.target = '_blank'; course.rel = 'noopener'; }
   }
+  // Voyager 1 is a rung on the warp scale: the race there puts numbers beside "at warp 9 you'd catch her".
+  const race = $('ship-race');
+  race.hidden = ship.id !== 'v1';
+  race.href = `${BRIDGE}warp.html?warp=9#voyager`;
+  if (BRIDGE.startsWith('http')) { race.target = '_blank'; race.rel = 'noopener'; }
   $('ship-record').textContent = ship.record || '';
   $('ship-record').hidden = !ship.record;
   $('launched').textContent = `since launch on ${fmtDate(new Date(ship.launched + 'T12:00:00Z'), { timeZone: 'UTC' })}`;

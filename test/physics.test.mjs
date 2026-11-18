@@ -8,7 +8,7 @@ import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears
 import { THIN_LY, arrivalFirsts, chartedSaid, companions, describeKind, earthYear, homeLines, composeEntry, inTextFor, logRecords, momentFor, nearestStars, skyFrom, skyLine, starKinds, titleFor, tripLine } from '../js/log.js';
 import { ANCHORS, DESTINATIONS } from '../js/destinations.js';
 import { SHIPS, byId as shipById } from '../js/ships.js';
-import { CLASSES, quizReadings } from '../js/classes.js';
+import { CLASSES, quizReadings, fileForHome } from '../js/classes.js';
 import { rng, grow } from '../js/xeno-gen.js';
 import { CHARTS } from '../js/charts.js';
 import { sweep } from './sweep.mjs';
@@ -515,6 +515,13 @@ test('a real planet either fits its survey file or is marked as one that doesnâ€
     }
   }
   assert.ok(fits >= 2 && misfits === 4, `${fits} worlds checked against their files, ${misfits} marked as not fitting`);
+  // The worlds a file is linked to as its Solar System examples are the ones its line names; a line that begins
+  // "None" has none. Mars, Venus, Jupiter and Saturn each lead to one file from tonight's sky.
+  for (const c of CLASSES) {
+    for (const name of c.homes || []) assert.match(c.home, new RegExp(`\\b${name}\\b`), `${c.id}: ${name} is not in "${c.home}"`);
+    if (/^None\b/.test(c.home)) assert.equal(c.homes, undefined, `${c.id} has no example in the Solar System, and names one`);
+  }
+  assert.deepEqual(['Mars', 'Venus', 'Jupiter', 'Saturn', 'Mercury', 'Moon', 'Io'].map(n => fileForHome(n)?.id), ['K', 'N', 'J', 'J', 'D', 'D', undefined]);
   // The Solar System's own examples: the Moon and Mercury sit inside the planetoid file's readings, as its line says.
   const d = CLASSES.find(c => c.id === 'D').typical;
   for (const [name, width, mass] of [['the Moon', 0.2727, 0.0123], ['Mercury', 0.3829, 0.0553]]) {
