@@ -309,8 +309,10 @@ export const DESTINATIONS = [
   },
 ];
 
+// The headings in Set course. They are written from Earth: once the ship is somewhere else, the first is headed by
+// the third name here (61 Cygni is not next door from Deneb, 1,400 light years off).
 export const GROUPS = [
-  ['neighbors', 'Next door'],
+  ['neighbors', 'Next door', 'The Sun’s neighbours'],
   ['famous', 'Worth the trip'],
   ['giants', 'Long hauls'],
 ];

@@ -30,7 +30,7 @@
 
 ## How it works
 
-- **Every star is real.** About 18,000 of them, from the HYG database: everything you can see from Earth with your eyes, plus every catalogued star within 80 light years. Each is drawn at its true position and as bright as it would look from wherever the ship is.
+- **Every star is real.** About 18,000 of them, from the HYG database: everything you can see from Earth with your eyes, plus every catalogued star within 80 light years. Each is drawn at its true position and as bright as it would look from wherever the ship is. Far from home the viewscreen thins out, because a star’s faint neighbours out there aren’t in the catalogue; the log says so once the ship is more than 250 light years out.
 - **Set course.** Tap a star on the viewscreen, or choose from 32 destinations with notes (Proxima Centauri, TRAPPIST-1, Vulcan’s sun 40 Eridani, Betelgeuse…) or search the whole catalogue. Away from home the list opens with the five stars nearest the ship. The search knows where Starfleet’s charts put things too: Vulcan, Farpoint, Tellar, Rigel VII.
 - **Warp factor.** Warp 1 is light speed and warp 9 is about 1,516 times it. The helm shows how long the trip would take, next to how long light needs. The flight itself is shortened to a few seconds.
 - **Drop out of warp.** The ship holds where the star’s disc looks about two and a half degrees wide, or in the orbit of a known planet. The log covers the star, its planets, a few notes, what Starfleet’s charts put there, the brightest star in that sky and the nearest one (with a button to set course for it), how the Sun looks from there, which year of Earth’s history its light is showing, and when Earth’s first TV broadcasts arrive.

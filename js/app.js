@@ -882,10 +882,10 @@ function renderList() {
         + nearestStars(cat, starPos(state.at), 5, state.at).map(({ star }) => row(star, star === 0 ? 'The Sun · Earth orbit' : metaFor(star, false))).join('');
     }
     html += `<p class="group">Home</p>${row(0, 'The Sun · Earth orbit')}`;
-    for (const [group, title] of GROUPS) {
+    for (const [group, title, away] of GROUPS) {
       const stars = DESTINATIONS.filter(d => d.group === group).map(d => cat.byName.get(d.star)).filter(i => i !== undefined);
       stars.sort((a, b) => cat.distanceFrom(a, cam) - cat.distanceFrom(b, cam));
-      html += `<p class="group">${title}</p>` + stars.map(i => row(i, metaFor(i, false))).join('');
+      html += `<p class="group">${state.at !== 0 && away ? away : title}</p>` + stars.map(i => row(i, metaFor(i, false))).join('');
     }
   } else {
     const hits = search(starIndex(), q, magFromEarth);

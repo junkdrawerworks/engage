@@ -5,7 +5,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor, widthFor } from '../js/physics.js';
-import { companions, describeKind, homeLines, composeEntry, inTextFor, logRecords, nearestStars, skyFrom, skyLine, titleFor, tripLine } from '../js/log.js';
+import { THIN_LY, companions, describeKind, homeLines, composeEntry, inTextFor, logRecords, nearestStars, skyFrom, skyLine, titleFor, tripLine } from '../js/log.js';
 import { DESTINATIONS } from '../js/destinations.js';
 import { CLASSES, quizReadings } from '../js/classes.js';
 import { rng, grow } from '../js/xeno-gen.js';
@@ -259,8 +259,8 @@ test('the log says what is in the sky from here: the brightest star and the near
 
   // "The nearest" is only said where the catalogue has every star: the sphere out to the neighbour has to lie inside
   // 80 light years of the Sun. Deneb is 1,400 ly out, and its nearest neighbour on the charts is 96 ly from it.
-  assert.equal(sky('Deneb'), 'On the charts, the brightest star in this sky is 59 Cygni, magnitude −1.1, which is also the nearest, 96 light years away.');
-  assert.match(sky('Betelgeuse'), /^On the charts, the brightest star in this sky is Rigel, magnitude −1\.4, and the nearest is 52 Orionis, 44 light years away\.$/);
+  assert.match(sky('Deneb'), /^On the charts, the brightest star in this sky is 59 Cygni, magnitude −1\.1, which is also the nearest, 96 light years away\./);
+  assert.match(sky('Betelgeuse'), /^On the charts, the brightest star in this sky is Rigel, magnitude −1\.4, and the nearest is 52 Orionis, 44 light years away\./);
   assert.deepEqual([skyFrom(cat, star('Deneb')).brightest.sure, skyFrom(cat, star('Deneb')).nearest.sure], [false, false]);
   // 70 ly out with a neighbour 15 ly off, the brightest is sure and the nearest is not.
   let mixed = 0;
@@ -280,13 +280,37 @@ test('the log says what is in the sky from here: the brightest star and the near
     if (cat.unmeasured[i]) { assert.equal(s, null); continue; }
     const line = skyLine(cat, i, s);
     assert.match(line, /magnitude −?\d+\.\d[.,] .* \d[\d,.]* light years away\./, cat.names[i]);
-    assert.doesNotMatch(line, /NaN|undefined| 0\.0 light years|-/, cat.names[i]);
+    assert.doesNotMatch(line.replace(/\b[\w.]+-[\w.]+\b/g, ''), /NaN|undefined| 0\.0 light years|-/, cat.names[i]);
     for (const j of [s.brightest.star, s.nearest.star]) assert.ok(j !== i && !cat.unmeasured[j] && !s.companions.includes(j), cat.names[i]);
     assert.ok(s.nearest.ly >= 0.5, `${cat.names[i]}: ${line}`);
   }
   // A star whose own distance was never measured has no place to look out from.
   const lost = cat.unmeasured.findIndex(u => u);
   assert.ok(!composeEntry(cat, lost, { cam: [...cat.pos.subarray(lost * 3, lost * 3 + 3)], holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 3262, date: new Date('2026-10-08T00:00:00Z') }).sections.some(s => s[0] === 'The sky from here'));
+});
+
+test('far from home the log says the charts are thin', () => {
+  const THIN = / The charts are thin this far out\. They hold only the stars bright enough to see from Earth, so the real sky here has far more than the viewscreen shows\.$/;
+  const lyOf = i => Math.hypot(...cat.pos.subarray(i * 3, i * 3 + 3)) * 3.26156;
+  assert.equal(THIN_LY, 250);
+  // Either side of the line: the measured stars nearest to 250 light years from the Sun, inside and out.
+  let inside = 0, outside = 0;
+  for (let i = 1; i < cat.count; i++) {
+    if (cat.unmeasured[i]) continue;
+    const ly = lyOf(i);
+    if (ly <= 250 && (!inside || ly > lyOf(inside))) inside = i;
+    if (ly > 250 && (!outside || ly < lyOf(outside))) outside = i;
+  }
+  assert.ok(lyOf(inside) > 249 && lyOf(outside) < 251, `${lyOf(inside)} ${lyOf(outside)}`);
+  assert.doesNotMatch(skyLine(cat, inside), /charts are thin/);
+  assert.match(skyLine(cat, outside), THIN);
+  // Deneb, the Pleiades and Betelgeuse are out there; Arcturus, Vega and Mizar (86 ly) are not.
+  for (const name of ['Deneb', 'Alcyone', 'Betelgeuse', 'HIP 3']) assert.match(skyLine(cat, cat.byName.get(name)), THIN, name);
+  for (const name of ['Arcturus', 'Vega', 'Mizar', 'Proxima Centauri']) assert.doesNotMatch(skyLine(cat, cat.byName.get(name)), /charts are thin/, name);
+  // It is part of the entry's sky section, after what the charts do hold.
+  const i = cat.byName.get('Deneb');
+  const e = composeEntry(cat, i, { cam: at('Deneb'), holdAU: 43, warp: 9, fromTitle: 'Sol', tripLy: 1412, date: new Date('2026-10-08T00:00:00Z') });
+  assert.match(e.sections.find(s => s[0] === 'The sky from here')[1], /^On the charts, the brightest star in this sky is 59 Cygni, .* 96 light years away\. The charts are thin this far out\./);
 });
 
 test('the stars nearest the ship are listed nearest first, without the ones nobody has measured', () => {

@@ -115,6 +115,11 @@ const PERHAPS_LY = 1;
 // distances put them light years apart: the catalogue has dozens like that. Past ten, it's left as the charts have it.
 const PAIR_LY = 10;
 const stem = name => name.replace(/\s?[A-D]$/, '');
+// Past this many light years from the Sun the catalogue has almost none of a star's real neighbours, the viewscreen's
+// sky is visibly sparse, and the log says why. (Stars brighter than magnitude 6 that it can draw: 4,939 from the Sun,
+// 3,316 from the Pleiades at 400 ly, 872 from Deneb at 1,400.)
+export const THIN_LY = 250;
+
 const place = (cat, i) => cat.pos.subarray(i * 3, i * 3 + 3);
 
 // Whether stars i and j are one system, by the catalogue: listed at the same place, or near enough.
@@ -167,6 +172,7 @@ export function skyFrom(cat, i) {
     companions: mates,
     brightest: { ...brightest, sure: inside && brightest.mag < CHART_MAG + 5 * Math.log10(1 - fromSol / COMPLETE_LY) },
     nearest: { star: nearest.star, ly: nearest.d * LY_PER_PC, sure: fromSol + nearest.d * LY_PER_PC < COMPLETE_LY },
+    thin: fromSol > THIN_LY,
   };
 }
 
@@ -199,6 +205,9 @@ export function skyLine(cat, i, sky = skyFrom(cat, i)) {
       + ` The nearest${n.sure ? '' : ' star on the charts'} is ${name(n.star)}, ${away}.`;
   }
   if (n.ly < PERHAPS_LY) text += ' At that distance the two are probably one system.';
+  // Not "thousands more": that is true beside Deneb, but at the Pleiades about 1,600 are missing, and far above the
+  // galaxy's disc the real sky is thin too.
+  if (sky.thin) text += ' The charts are thin this far out. They hold only the stars bright enough to see from Earth, so the real sky here has far more than the viewscreen shows.';
   return text;
 }
 

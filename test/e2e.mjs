@@ -2846,6 +2846,8 @@ await page.emulateMedia({ reducedMotion: null });
 // The sky from here. Only the 32 stars with notes had anything to say beyond the star, home and the trip, and Set
 // course offered the same 32 wherever the ship was. Every arrival now names the brightest star in its sky and the
 // nearest one, offers a course for the nearest, and Set course opens with the five stars nearest the ship.
+// Far from home the viewscreen empties, because the catalogue holds little out there: the log and the settings say so,
+// and Set course no longer heads stars 1,400 light years away "Next door".
 {
   const near = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   await near.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
@@ -2864,8 +2866,10 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.locator('#arrival-entry dt:text-is("The sky from here") + dd').innerText(), 'The brightest star in this sky is Arcturus, magnitude −1.2. The nearest is Gliese 452.1, 3.6 light years away.');
   assert.deepEqual(await p.locator('#arrival-entry .entry-actions > *').allInnerTexts(), ['SET COURSE FOR GLIESE 452.1', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE']);
   // Next destination opens on the stars nearest the ship, nearest first, each as far as the helm will say.
+  // The headings were written from Earth: away from it, the first group of destinations is the Sun's neighbours,
+  // not "Next door".
   await p.tap('#arrival-next');
-  assert.equal((await groups())[0], 'NEAREST TO THE SHIP');
+  assert.deepEqual(await groups(), ['NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS', 'WORTH THE TRIP', 'LONG HAULS']);
   const rows = await p.locator('#list .group').first().locator('xpath=following-sibling::*').evaluateAll(els => {
     const out = [];
     for (const el of els) { if (!el.matches('.row')) break; out.push([el.querySelector('.name').firstChild.textContent, el.querySelector('.dist').textContent]); }
@@ -2895,6 +2899,18 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#arrival-next');
   assert.match((await p.locator('#list .row').first().innerText()).replace(/\s+/g, ' '), /^Gliese 244B ?companion \d+ AU White dwarf$/);
   assert.equal(await p.locator('#list .row .badge', { hasText: 'companion' }).count(), 1);
+  await p.evaluate(() => engage.closeSheets());
+  // Far out, the viewscreen has few stars on it and the log says why: HIP 3 is 1,443 light years from home, and
+  // the nearest star the charts have is 182 light years from it. Bridge settings says the same of the whole sky.
+  await p.evaluate(() => engage.jump('HIP 3'));
+  assert.equal(await p.locator('#arrival-entry dt:text-is("The sky from here") + dd').innerText(),
+    'On the charts, the brightest star in this sky is Deneb, magnitude 0.3, and the nearest is HIP 116626, 182 light years away. The charts are thin this far out. They hold only the stars bright enough to see from Earth, so the real sky here has far more than the viewscreen shows.');
+  await p.tap('#arrival-next');
+  assert.deepEqual((await groups()).slice(0, 3), ['NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS']);
+  assert.match((await p.locator('#list .row').first().innerText()).replace(/\s+/g, ' '), /^HIP 116626 182 ly /);
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-settings');
+  assert.match(await p.locator('#settings .about').innerText(), /beyond 80 light years the charts hold only the stars bright enough to see from Earth/);
   await near.close();
 }
 
