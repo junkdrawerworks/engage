@@ -8,7 +8,7 @@ import { CHARTS } from './charts.js';
 import { LY_PER_PC, apparentMag, formatLy, formatYear, stardate } from './physics.js';
 import {
   jdOf, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark,
-  phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone,
+  phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone, daylightNote,
 } from './astro.js';
 import { hold, release } from './wake.js';
 
@@ -208,14 +208,13 @@ function updateHud() {
   $('clock').textContent = clockText(sky.date, offsetMin === 0);
   $('time-out').textContent = offsetMin === 0 ? 'Now' : timeOf(sky.date);
   $('time').style.setProperty('--fill', `${offsetMin / 7.2}%`);
-  const day = sky.sunAlt > -2, twilight = !day && sky.sunAlt > -12;
+  const dark = nextDark(p.lat, p.lon, sky.date, 24);
+  const later = jdOf(new Date(+sky.date + 600000));
+  const note = daylightNote(sky.sunAlt, altAz(toLocal(frame(p.lat, p.lon, later), sunDir(later))).alt, !!dark);
   const banner = $('daylight');
-  banner.hidden = !day && !twilight;
-  if (!banner.hidden) {
-    $('daylight-text').textContent = day
-      ? 'The Sun’s up, so these stars are hidden in daylight for now. The tags show where they are.'
-      : 'Still twilight: only the brightest stars are out so far.';
-    const dark = nextDark(p.lat, p.lon, sky.date, 24);
+  banner.hidden = !note;
+  if (note) {
+    $('daylight-text').textContent = note;
     const mins = dark ? Math.ceil((dark - (testNow ?? Date.now())) / 600000) * 10 : null;
     $('go-dark').hidden = !(mins && mins <= 720);
     $('go-dark').dataset.min = mins ?? '';

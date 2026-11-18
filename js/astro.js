@@ -151,6 +151,20 @@ export function limitingMag(sky, sunAlt, moonLit = 0, moonAlt = -90) {
   return m;
 }
 
+// What the notice over the sky says while the Sun is up or not far down, or null once it's properly dark.
+// `sunAlt` is the Sun's height now, `laterAlt` ten minutes on (rising means dawn), and `getsDark` whether the sky
+// goes properly dark in the next day: near midsummer in the far north it doesn't.
+export function daylightNote(sunAlt, laterAlt, getsDark = true) {
+  const day = sunAlt > -2;
+  if (!day && sunAlt <= -12) return null;
+  if (!getsDark) {
+    return day ? 'It doesn’t get dark here tonight: the Sun never goes far below the horizon. The tags show where the stars are.'
+      : 'It doesn’t get dark here tonight: this twilight is as dark as it gets. The tags show where the stars are.';
+  }
+  if (day) return 'The Sun’s up, so these stars are hidden in daylight for now. The tags show where they are.';
+  return laterAlt > sunAlt ? 'Dawn is coming: the fainter stars are going out.' : 'Still twilight: only the brightest stars are out so far.';
+}
+
 // The next moment after `from` when the sky is properly dark (the Sun 12° down), searched in 10 minute steps.
 export function nextDark(lat, lon, from, hours = 36) {
   for (let t = 0; t <= hours * 6; t++) {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   jdOf, gmst, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, phaseMag, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark, phonePose,
-  CITIES, placeForZone, zoneLatitude,
+  CITIES, placeForZone, zoneLatitude, daylightNote,
 } from '../js/astro.js';
 import { CHARTS } from '../js/charts.js';
 
@@ -200,6 +200,25 @@ test('a place guessed from the time zone', () => {
     const offset = (Date.UTC(2026, 0, 15, 12) - new Date(new Date(Date.UTC(2026, 0, 15, 12)).toLocaleString('en-US', { timeZone: c.tz }) + ' UTC')) / -3600e3;
     assert.ok(Math.abs(offset - c.lon / 15) < 2.6, `${c.name} at ${c.lon}° keeps time ${offset} hours from Greenwich`);
   }
+});
+
+test('the notice over a sky that isn’t dark', () => {
+  const sunAt = (lat, lon, date) => altAz(toLocal(frame(lat, lon, jdOf(date)), sunDir(jdOf(date)))).alt;
+  const note = (lat, lon, iso) => {
+    const date = new Date(iso);
+    return daylightNote(sunAt(lat, lon, date), sunAt(lat, lon, new Date(+date + 600000)), !!nextDark(lat, lon, date, 24));
+  };
+  // New York, 19 November 2026: properly dark at 4am, dawn at 6:15, daylight at noon, dusk at 5:10pm.
+  assert.equal(note(40.71, -74.01, '2026-11-19T09:00:00Z'), null);
+  assert.equal(note(40.71, -74.01, '2026-11-19T11:15:00Z'), 'Dawn is coming: the fainter stars are going out.');
+  assert.match(note(40.71, -74.01, '2026-11-19T17:00:00Z'), /^The Sun’s up, so these stars are hidden in daylight for now/);
+  assert.equal(note(40.71, -74.01, '2026-11-19T22:10:00Z'), 'Still twilight: only the brightest stars are out so far.');
+  // Reykjavík at midsummer: the Sun dips under the northern horizon and the sky never goes dark.
+  assert.equal(nextDark(64.15, -21.94, new Date('2026-06-21T00:30:00Z'), 24), null);
+  assert.match(note(64.15, -21.94, '2026-06-21T01:30:00Z'), /^It doesn’t get dark here tonight: this twilight is as dark as it gets/);
+  assert.match(note(64.15, -21.94, '2026-06-21T13:00:00Z'), /^It doesn’t get dark here tonight: the Sun never goes far below the horizon/);
+  // By late August it does again.
+  assert.match(note(64.15, -21.94, '2026-08-25T13:00:00Z'), /^The Sun’s up, so these stars/);
 });
 
 test('the phone’s pose', () => {

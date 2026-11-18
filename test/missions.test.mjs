@@ -1,7 +1,7 @@
 // The long missions' numbers, checked without a browser:  node --test test/missions.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { jdOf, dateOf, readings, stateAt, earthAt, planetAt, heading, whenAbove, lastCrossing, milestones, jwstFromEarth, jwstAroundL2, trackUntil, LIGHT_DAY_AU, AU_KM } from '../js/ephemeris.js';
+import { jdOf, dateOf, readings, stateAt, earthAt, planetAt, heading, whenAbove, lastCrossing, milestones, jwstTracked, jwstSpan, jwstFromEarth, jwstAroundL2, trackUntil, LIGHT_DAY_AU, AU_KM } from '../js/ephemeris.js';
 import { SHIPS, byId, hailState, milestoneText } from '../js/ships.js';
 
 const at = iso => jdOf(new Date(iso));
@@ -116,6 +116,27 @@ test('Webb’s speed round L2 leaves out L2’s own trip round the Sun', () => {
   assert.ok(jwstAroundL2(at('2028-06-01')) < 0.005, `${jwstAroundL2(at('2028-06-01'))} km/s parked at L2`);
   // On 1 January 2027 she is on the quick side of her loop: 0.28 km/s round L2 (only 0.10 from Earth's centre).
   assert.ok(Math.abs(jwstAroundL2(at('2027-01-01')) - 0.28) < 0.02, `${jwstAroundL2(at('2027-01-01'))} km/s on 1 January 2027`);
+});
+
+test('Webb’s loop is charted for October 2026 to December 2027 and no other date', () => {
+  assert.deepEqual(jwstSpan().map(jd => dateOf(jd).toISOString().slice(0, 10)), ['2026-10-01', '2027-12-25']);
+  for (const iso of ['2026-10-01', '2026-11-19', '2027-06-01', '2027-12-25']) assert.equal(jwstTracked(at(iso)), true, iso);
+  for (const iso of ['2026-09-30', '2027-12-26', '2028-02-10', '2035-01-01']) {
+    assert.equal(jwstTracked(at(iso)), false, iso);
+    // Off the chart she is put at L2 itself, exactly 1.5 million km out: a stand-in the room must not pass off as her place.
+    assert.ok(Math.abs(Math.hypot(...jwstFromEarth(at(iso))) - 1.5e6) < 1);
+  }
+  // The round figures her file gives then are what the chart itself shows: 1.2 to 1.8 million km from Earth, and
+  // never more than 820,000 km from L2.
+  const [t0, t1] = jwstSpan();
+  let lo = Infinity, hi = 0, far = 0;
+  for (let jd = t0; jd <= t1; jd += 0.5) {
+    const w = jwstFromEarth(jd), e = earthAt(jd), r = Math.hypot(...e), d = Math.hypot(...w);
+    lo = Math.min(lo, d); hi = Math.max(hi, d);
+    far = Math.max(far, Math.hypot(...w.map((v, k) => v - e[k] / r * 1.5e6)));
+  }
+  assert.ok(lo > 1.15e6 && lo < 1.25e6 && hi > 1.7e6 && hi < 1.8e6, `Webb is ${lo} to ${hi} km from Earth`);
+  assert.ok(far > 7.5e5 && far < 8.3e5, `Webb gets ${far} km from L2`);
 });
 
 test('every ship has a file to read', () => {

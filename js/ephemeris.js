@@ -270,6 +270,9 @@ export function jwstFromEarth(jd) {
   return [0, 1, 2].map(k => 0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * s + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * s * s + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * s ** 3));
 }
 export const jwstSpan = () => [JWST_START, JWST_START + JWST_STEP * (JWST.length - 1)];
+// Whether Webb's loop is in the table for a date. Outside it her true place isn't known here: she is somewhere on
+// her loop, which in the table keeps 390,000 to 820,000 km from L2 and 1.2 to 1.75 million km from Earth.
+export const jwstTracked = jd => jd >= JWST_START && jd <= JWST_START + JWST_STEP * (JWST.length - 1);
 
 // How fast Webb goes round L2, in km/s. L2 keeps to the line from the Sun through Earth, so this watches her turning
 // with Earth (as the near-Earth map does), where L2 stands still; seen from Earth's centre alone, L2's own 0.3 km/s

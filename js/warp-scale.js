@@ -49,7 +49,7 @@ export const PLACES = [
   {
     id: 'jupiter', name: 'Jupiter', group: 'home', color: '#d9b48c', kind: 'planet',
     live: jd => fromEarth('jupiter', jd),
-    about: 'Between 35 and 52 light-minutes away. Juno took five years to get there.',
+    about: 'Between 33 and 54 light-minutes away. Juno took five years to get there.',
     trek: 'Jupiter Station, where Dr. Lewis Zimmerman wrote the Emergency Medical Hologram, orbits here.',
   },
   {
@@ -261,7 +261,7 @@ export function formatShort(years) {
   if (s < 60) return `${short(s)} s`;
   if (s < 3600) return `${short(s / 60)} min`;
   if (s < 86400) return `${short(s / 3600)} hr`;
-  if (years < 1 / 12 * 2) return `${short(s / 86400)} days`;
+  if (years < 1 / 12 * 2) { const d = short(s / 86400); return `${d} ${d === '1' ? 'day' : 'days'}`; }
   if (years < 1) return `${short(years * 12)} mo`;
   if (years < 1e6) return `${short(years)} yr`;
   if (years < 1e9) return `${short(years / 1e6)}M yr`;

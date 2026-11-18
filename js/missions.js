@@ -3,7 +3,7 @@
 import { SHIPS, byId, hailState, milestoneText } from './ships.js';
 import {
   AU_KM, LIGHT_DAY_AU, jdOf, dateOf, readings, trackUntil, planetAt, earthAt, semiMajor,
-  jwstFromEarth, jwstSpan, jwstAroundL2, moonAt, milestones,
+  jwstFromEarth, jwstSpan, jwstAroundL2, jwstTracked, moonAt, milestones,
 } from './ephemeris.js';
 import { warpSpeed, stardate, plural } from './physics.js';
 
@@ -169,20 +169,25 @@ function tick(force = false) {
   $('clock').textContent = `Stardate ${stardate(new Date(nowMs))}`;
   const ship = byId(sel);
   const r = readings(sel, jd);
-  $('sun-km').textContent = `${int(r.sunAU * AU_KM)} km`;
-  $('sun-au').textContent = `${r.sunAU.toFixed(r.sunAU < 2 ? 4 : 3)} AU`;
+  // Webb's loop round L2 is charted for October 2026 to December 2027. On any other date she is somewhere on it, so
+  // her file gives round figures for the L2 point and says so, and not a place to the kilometre.
+  const adrift = ship.near && !jwstTracked(jd);
+  const round = km => `about ${int(Math.round(km / 1e5) * 1e5)} km`;
+  $('sun-km').textContent = adrift ? round(r.sunAU * AU_KM) : `${int(r.sunAU * AU_KM)} km`;
+  $('sun-au').textContent = adrift ? `${r.sunAU.toFixed(2)} AU` : `${r.sunAU.toFixed(r.sunAU < 2 ? 4 : 3)} AU`;
   const earthKm = r.earthAU * AU_KM;
-  $('earth-km').textContent = `${int(earthKm)} km`;
-  $('earth-au').textContent = ship.near ? `${(earthKm / 384400).toFixed(2)} times as far as the Moon` : `${r.earthAU.toFixed(3)} AU`;
+  $('earth-km').textContent = adrift ? round(earthKm) : `${int(earthKm)} km`;
+  $('earth-au').textContent = adrift ? 'the L2 point. Her loop round it isn’t charted for this date: she is 1.2 to 1.8 million km out'
+    : ship.near ? `${(earthKm / 384400).toFixed(2)} times as far as the Moon` : `${r.earthAU.toFixed(3)} AU`;
   if (ship.near) {
     $('speed').textContent = `${r.speedKmS.toFixed(1)} km/s`;
-    $('speed-h').textContent = `round the Sun with Earth, and ${jwstAroundL2(jd).toFixed(2)} km/s round L2`;
+    $('speed-h').textContent = adrift ? 'round the Sun with Earth' : `round the Sun with Earth, and ${jwstAroundL2(jd).toFixed(2)} km/s round L2`;
   } else {
     $('speed').textContent = `${r.speedKmS.toFixed(2)} km/s`;
     $('speed-h').textContent = `${int(Math.round(r.speedKmS * 36) * 100)} km/h, relative to the Sun`;
   }
-  $('signal').textContent = lightTime(r.lightSeconds);
-  $('signal-note').textContent = 'one way, at the speed of light';
+  $('signal').textContent = adrift ? 'about 5 seconds' : lightTime(r.lightSeconds);
+  $('signal-note').textContent = adrift ? 'one way, at the speed of light: 4 to 6 seconds, depending where she is on her loop' : 'one way, at the speed of light';
   $('age').textContent = missionAge(new Date(ship.launched + 'T12:00:00Z'), new Date(nowMs));
   $('hail-note').textContent = hailText(ship, r, nowMs);
   const state = hailState(saved.hails[sel], r.lightSeconds * 1000, nowMs, ship.status === 'silent');
@@ -218,7 +223,7 @@ function tick(force = false) {
     const el = $('fleet').querySelector(`[data-sub="${s.id}"]`);
     if (!el) continue;
     const rs = s.id === sel ? r : readings(s.id, jd);
-    el.textContent = s.near ? `${(rs.earthAU * AU_KM / 1e6).toFixed(2)} million km` : `${rs.sunAU.toFixed(1)} AU`;
+    el.textContent = s.near ? (jwstTracked(jd) ? `${(rs.earthAU * AU_KM / 1e6).toFixed(2)} million km` : 'about 1.5 million km') : `${rs.sunAU.toFixed(1)} AU`;
   }
 }
 
@@ -390,9 +395,11 @@ function drawNear(jd, now, nowMs) {
   label('L2', lx, cy + 15, 'rgba(255, 181, 74, 0.85)', 'center', 10);
 
   // Webb's loop around L2: the next three months solid, the past three faint, each point turned to Earth's frame then.
+  // On a date the loop isn't charted for, there is no loop to draw: she is marked at L2 itself, and the note says why.
   const webb = byId('jwst');
   const [t0, t1] = jwstSpan();
-  for (const [from, to, alpha] of [[t0, t1, 0.25], [jd, jd + 90, 0.8]]) {
+  const charted = jwstTracked(jd);
+  for (const [from, to, alpha] of charted ? [[t0, t1, 0.25], [jd, jd + 90, 0.8]] : []) {
     ctx.beginPath();
     let first = true;
     for (let t = Math.max(from, t0); t <= Math.min(to, t1); t += 1) {
@@ -405,12 +412,14 @@ function drawNear(jd, now, nowMs) {
   }
   const [wx, wy] = nearXY(jwstFromEarth(jd), frame);
   const [ax, ay] = nearXY(jwstFromEarth(jd + 3), nearFrame(jd + 3));
-  marker(webb, wx, wy, Math.atan2(ay - wy, ax - wx), sel === 'jwst', now);
+  marker(webb, wx, wy, charted ? Math.atan2(ay - wy, ax - wx) : -Math.PI / 2, sel === 'jwst', now);
   shipsOnMap.push({ id: 'jwst', x: wx, y: wy });
   label('James Webb', wx + 10, wy - 12, webb.color, 'left', 12);
 
   drawHail(jd, now, nowMs, p => nearXY(p, frame), [0, 0, 0], true);
-  $('scale').textContent = 'Seen from above, turning with Earth so the Sun stays to the left. The bright line is where Webb goes in the next three months. The other ships are billions of km off the map.';
+  $('scale').textContent = charted
+    ? 'Seen from above, turning with Earth so the Sun stays to the left. The bright line is where Webb goes in the next three months. The other ships are billions of km off the map.'
+    : 'Seen from above, turning with Earth so the Sun stays to the left. Webb’s loop round L2 is charted here for October 2026 to December 2027 only, so for this date she is marked at L2 itself: she is really up to 800,000 km from it. The other ships are billions of km off the map.';
 }
 
 // A ship's name beside it, nudged up or down until it clears the names already drawn.

@@ -651,6 +651,7 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await p.goto(base + 'warp.html#voyager');
   await p.waitForFunction(() => window.warpScale);
   assert.match(await p.locator('#place .about').innerText(), /has been more than a light-day from Earth since 18 November 2026\.$/);
+  assert.equal(await p.locator('.rung[data-id="voyager"] .t.w1').innerText(), '1 day', 'light takes “1 days” to reach Voyager 1');
   await p.clock.setFixedTime(new Date('2026-11-10T15:00:00Z'));
   await p.goto(base + 'missions.html');
   await p.waitForFunction(() => window.missions && !document.getElementById('next').hidden);
@@ -659,6 +660,20 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await p.goto(base + 'warp.html#voyager');
   await p.waitForFunction(() => window.warpScale);
   assert.match(await p.locator('#place .about').innerText(), /reaches one light-day from Earth in 8 days, on 18 November 2026\.$/);
+  // Webb's loop round L2 is charted to 25 December 2027. After that her file gives round figures for L2 and says
+  // why, and not "1,500,000 km" to the kilometre and "0.00 km/s round L2".
+  await p.clock.setFixedTime(new Date('2028-02-10T15:00:00Z'));
+  await p.goto(base + 'missions.html#jwst');
+  await p.waitForFunction(() => window.missions?.view === 'earth' && document.getElementById('earth-km').textContent);
+  assert.equal(await p.locator('#earth-km').innerText(), 'about 1,500,000 km');
+  assert.match(await p.locator('#earth-au').innerText(), /isn’t charted for this date/);
+  assert.equal(await p.locator('#speed-h').innerText(), 'round the Sun with Earth');
+  assert.match(await p.locator('#scale').innerText(), /charted here for October 2026 to December 2027 only/);
+  await p.clock.setFixedTime(new Date('2027-06-01T15:00:00Z'));
+  await p.reload();
+  await p.waitForFunction(() => window.missions?.view === 'earth' && /^\d/.test(document.getElementById('earth-km').textContent));
+  assert.match(await p.locator('#earth-km').innerText(), /^1,\d{3},\d{3} km$/);
+  assert.match(await p.locator('#speed-h').innerText(), /and 0\.\d\d km\/s round L2$/);
   await day.close();
 }
 

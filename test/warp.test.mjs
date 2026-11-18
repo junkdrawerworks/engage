@@ -57,6 +57,23 @@ test('Voyager 1’s card knows which side of one light-day it is on', () => {
   for (const p of PLACES.filter(p => p !== v)) assert.equal(aboutOn(p, DATE), p.about);
 });
 
+test('Jupiter and Mars are as far as their cards say', () => {
+  // Earth to each planet, every day for thirty years, in light-minutes.
+  const range = id => {
+    let lo = Infinity, hi = 0;
+    for (let t = Date.UTC(2020, 0, 1); t < Date.UTC(2050, 0, 1); t += 864e5) {
+      const m = distanceLy(byId.get(id), new Date(t)) * 31557600 / 60;
+      lo = Math.min(lo, m); hi = Math.max(hi, m);
+    }
+    return [lo, hi];
+  };
+  const said = id => byId.get(id).about.match(/(\d+) (?:and|to) (\d+) light-minutes/).slice(1).map(Number);
+  for (const id of ['jupiter', 'mars']) {
+    const [lo, hi] = range(id), [a, b] = said(id);
+    assert.ok(Math.abs(lo - a) < 0.6 && Math.abs(hi - b) < 0.6, `${id} runs from ${lo.toFixed(1)} to ${hi.toFixed(1)} light-minutes; its card says ${a} to ${b}`);
+  }
+});
+
 test('the places with Set course are stars the bridge knows', async () => {
   const names = new Set(JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url))).names);
   for (const p of PLACES.filter(p => p.course)) assert.ok(names.has(p.course), p.course);
@@ -93,6 +110,10 @@ test('spans and distances read naturally', () => {
   assert.equal(formatSpan(4.5e10), '45 billion years');
   assert.equal(formatShort(3.95), '4 yr');
   assert.equal(formatShort(2.5e6), '2.5M yr');
+  assert.equal(formatShort(1 / 365.25), '1 day'); // light's trip to Voyager 1 from November 2026
+  assert.equal(formatShort(1.04 / 365.25), '1 day');
+  assert.equal(formatShort(1.5 / 365.25), '1.5 days');
+  assert.equal(formatShort(12 / 365.25), '12 days');
   assert.equal(formatLight(1.28 * s), '1.3 light-seconds');
   assert.equal(formatLight(26670), '26,700 light years');
   assert.equal(formatLight(2537000), '2.5 million light years');
