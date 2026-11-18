@@ -1,7 +1,7 @@
 // Tonight's sky: the real sky from where you're standing, with the stars Starfleet knows tagged on it.
 // Hold the phone up and it follows where you point it (its compass and tilt sensors); without them, drag to look.
 // Tap a tag to read it, then set course for it on the bridge.
-import { loadCatalog } from './catalog.js';
+import { loadCatalog, constellationLabels } from './catalog.js';
 import { DESTINATIONS } from './destinations.js';
 import { describeKind, inTextFor, titleFor } from './log.js';
 import { CHARTS } from './charts.js';
@@ -97,8 +97,9 @@ async function start() {
 }
 
 // The stars worth drawing (all the eye could ever see, from Earth), brightest first, and the tagged ones.
-let bright, brightMag, tags;
+let bright, brightMag, tags, figures;
 function prepareStars() {
+  figures = constellationLabels(cat); // where each constellation's name goes
   const list = [];
   for (let i = 1; i < cat.count; i++) {
     const m = earthMag(i);
@@ -190,6 +191,7 @@ function compute() {
     const p = planetSky(name, jd);
     return { name, label: PLANET_NAMES[name], local: toLocal(f, p.dir), mag: p.mag, au: p.au };
   });
+  for (const c of figures) c.local = toLocal(f, c.dir);
   for (const t of tags) {
     t.local = toLocal(f, starDir(t.i));
     t.alt = altAz(t.local).alt;
@@ -392,6 +394,7 @@ function draw() {
     label(name, q.x, q.y, 6, 'star');
   }
 
+  drawNames(ghost);
   drawSelection();
   drawPointer();
 }
@@ -477,6 +480,41 @@ function drawMoon() {
   ctx.restore();
   label('Moon', p.x, p.y, r + 6, 'planet');
   placed.push({ x: p.x, y: p.y, r: Math.max(24, r), hit: { kind: 'moon' }, rank: -12 });
+}
+
+// The constellations' names, in small spaced capitals at the middle of each figure: after everything else that is
+// labelled, so a name gives way to a tag, a planet or a star's name and never crowds one. Only for figures above the
+// horizon, only with the Sun down (fainter in twilight, as the lines are), and only on a view wide enough to take in
+// whole figures: closer in than about 40°, a name would be floating over a few stars of one.
+const NAMES_FOV = 40; // degrees
+let named = []; // the names drawn last frame, with their boxes on screen, for tests
+function drawNames(ghost) {
+  named = [];
+  if (view.fov < NAMES_FOV * DEG || sky.sunAlt > -2) return;
+  ctx.save();
+  ctx.font = `600 10px ${FONT}`;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
+  ctx.fillStyle = `rgba(150, 196, 255, ${ghost ? 0.34 : 0.6})`;
+  // A tag's ring is not a label box (a tag with no room for its words is a ring alone), so keep clear of those too.
+  const rings = placed.filter(q => q.rank <= -20).map(q => ({ x: q.x - 22, y: q.y - 22, w: 44, h: 44 }));
+  const onRing = b => rings.some(o => b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h);
+  for (const c of figures) {
+    if (c.local[2] < 0.07) continue; // 4° up
+    const p = project(c.local);
+    if (!p || p.z < 0) continue;
+    const text = c.name.toUpperCase(), w = ctx.measureText(text).width;
+    if (p.x - w / 2 < 4 || p.x + w / 2 > W - 4 || p.y < 10 || p.y > H - 10) continue;
+    // In the middle of the figure, or a line above or below it where that is taken.
+    for (const dy of [0, 15, -15]) {
+      const box = { x: p.x - w / 2 - 2, y: p.y + dy - 8, w: w + 4, h: 13 };
+      if (overlaps(box) || onRing(box)) continue;
+      labelBoxes.push(box);
+      ctx.fillText(text, p.x - w / 2, p.y + dy + 3);
+      named.push({ name: c.name, ...box });
+      break;
+    }
+  }
+  ctx.restore();
 }
 
 // Where an active meteor shower's meteors come from: a small burst, named, once the Sun is down.
@@ -662,7 +700,8 @@ function fillCard(s) {
     title = t ? t.name : titleFor(cat, s.i);
     // The catalogue has no distance for some stars: the bridge says so, and so does this card, with no year for its light.
     const unmeasured = !!cat.unmeasured[s.i];
-    sub = [t?.chart && titleFor(cat, s.i) !== title ? titleFor(cat, s.i) : '', unmeasured ? 'Distance not measured' : `${formatLy(ly)} away`].filter(Boolean).join(' · ');
+    const con = cat.constellationToward(norm(starDir(s.i)));
+    sub = [t?.chart && titleFor(cat, s.i) !== title ? titleFor(cat, s.i) : '', unmeasured ? 'Distance not measured' : `${formatLy(ly)} away`, con ? `in ${con}` : ''].filter(Boolean).join(' · ');
     line = t?.chart?.line || d?.fiction || d?.notes?.[0] || '';
     // When it would show in this sky with the Moon down, the Moon is what hides it, not the sky.
     seeIt = m <= sky.nightLim ? `You can see it ${skyIn}${night}.`
@@ -1036,6 +1075,9 @@ function hooks() {
     // The meteor shower marked on the sky, if one is: its name, where its radiant is on screen, and whether it was drawn.
     get shower() { const sh = sky.shower; return sh ? { name: sh.shower.name, alt: altAz(sh.local).alt, drawn: placed.some(q => q.hit.kind === 'shower') } : null; },
     get plan() { return plan; },
+    // The constellations named on the sky in the last frame drawn.
+    names: () => named.map(n => n.name),
+    nameBox: name => named.find(n => n.name === name) || null,
     // Open the card for anything in the sky: { kind: 'planet', name: 'venus' }, { kind: 'moon' }.
     show(s) { showCard(s); },
     // Pretend to be a phone held up: compass heading and tilt.

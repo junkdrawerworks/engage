@@ -27,7 +27,9 @@ SUP = str.maketrans('0123456789', '⁰¹²³⁴⁵⁶⁷⁸⁹')
 
 cons = json.load(open(d3 / 'constellations.json'))['features']
 CON = {f['properties']['desig']: f['properties'] for f in cons}
-CON['Ser'] = CON.get('Ser1', CON.get('Ser'))
+# Serpens is one constellation in two halves either side of Ophiuchus. d3-celestial names each half (Serpens Caput,
+# Serpens Cauda); both go under the one name here.
+CON['Ser'] = dict(CON.get('Ser1', CON.get('Ser')), name='Serpens')
 con_list = sorted(k for k in CON if k not in ('Ser1', 'Ser2'))
 con_index = {k: i for i, k in enumerate(con_list)}
 

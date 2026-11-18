@@ -8,6 +8,7 @@ import {
   riseSet, darkHours, bestTime, SHOWERS, solarLongitude, showerPeak, showersOn, showerTonight, radiantDir, tonightPlan, planLines, compassPoint,
 } from '../js/astro.js';
 import { CHARTS } from '../js/charts.js';
+import { buildCatalog, constellationLabels } from '../js/catalog.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} is not within ${tol} of ${b}`);
 const angle = (a, b) => Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / Math.hypot(...a) / Math.hypot(...b)))) * 180 / Math.PI;
@@ -443,5 +444,38 @@ test('tonight’s plan, line by line', () => {
   assert.match(lines(NY, '2027-01-03T23:00:00Z', 'America/New_York').dark, /^Dark until 6:1\d am\. Moon rises 4:5\d am\.$/);
   assert.match(lines([69.65, 18.96], '2026-12-20T12:00:00Z', 'Europe/Oslo').dark, /^Dark from 3:3\d pm to 7:4\d am\. The Moon is up all night\.$/);
   assert.equal(lines([-90, 0], '2026-06-21T00:00:00Z', 'UTC').dark.split('.')[0], 'It stays dark here all day');
+});
+
+// ---------- Constellation names ----------
+
+test('each constellation’s name has a place on its own figure', async () => {
+  const bin = await readFile(new URL('../data/stars.bin', import.meta.url));
+  const meta = JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url), 'utf8'));
+  const cat = buildCatalog(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength), meta);
+  const labels = constellationLabels(cat);
+  // All 88, once each, by the names the star cards use, each a direction inside its own boundaries.
+  assert.equal(labels.length, 88);
+  assert.deepEqual(labels.map(l => l.name).sort(), meta.constellations.map(c => c[1]).sort());
+  for (const l of labels) {
+    near(Math.hypot(...l.dir), 1, 1e-9, `${l.name}’s direction`);
+    assert.equal(cat.constellationToward(l.dir), l.name, `${l.name}’s name would be written in ${cat.constellationToward(l.dir)}`);
+  }
+  const at = name => labels.find(l => l.name === name).dir;
+  // Orion's is within 10° of the middle star of his belt (Alnilam), Crux's within 3° of the middle of the cross, and
+  // Lyra's and Leo's sit by their figures.
+  assert.ok(angle(at('Orion'), radec(5.6036, -1.2)) < 10, `Orion’s name is ${angle(at('Orion'), radec(5.6036, -1.2))}° from his belt`);
+  assert.ok(angle(at('Crux'), radec(12.45, -60)) < 3);
+  assert.ok(angle(at('Lyra'), radec(18.85, 35)) < 4);
+  assert.ok(angle(at('Leo'), radec(10.6, 18)) < 6);
+  // A winding figure's mean lands next door (Hydra's in Sextans, Eridanus's in Fornax), and Serpens, in two halves
+  // either side of Ophiuchus, averages out between them: each is moved onto a star of its own figure.
+  for (const name of ['Hydra', 'Eridanus', 'Serpens']) {
+    const star = cat.lines.flat().some(i => angle(at(name), [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]]) < 1e-4);
+    assert.ok(star, `${name}’s name is not on one of its stars`);
+  }
+  // Serpens is one constellation, whichever half a direction falls in (the data used to call both halves Serpens Cauda).
+  assert.equal(cat.constellationToward(radec(15.74, 6.4)), 'Serpens'); // Unukalhai, in the head
+  assert.equal(cat.constellationToward(radec(18.35, -2.9)), 'Serpens'); // Eta Serpentis, in the tail
+  assert.equal(cat.constellationToward(radec(18.616, 38.78)), 'Lyra');
 });
 

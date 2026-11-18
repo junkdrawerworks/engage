@@ -898,6 +898,30 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= i
   assert.match(await text('#list-note'), /are up, and would be bright enough to see from the suburbs if it got dark\./);
   await page.click('#list [data-close]');
   await page.evaluate(() => tonight.place(40.71, -74.01, 'New York', 'America/New_York'));
+  // The constellations are named, each at the middle of its figure. New York at 9 pm on 15 January 2027, looking
+  // south-east: Orion and his neighbours. Closer in than about 40° of view there are no names, in twilight they are
+  // still there, and in daylight they are gone with the stars.
+  const names = async (iso, fov) => { await reset(iso); await page.evaluate(f => tonight.look(150, 40, f), fov); await page.waitForTimeout(150); return page.evaluate(() => tonight.names()); };
+  const evening = await names('2027-01-16T02:00:00Z', 80);
+  assert.ok(evening.includes('Orion') && evening.includes('Canis Major') && evening.includes('Lepus'), `named: ${evening}`);
+  assert.equal(new Set(evening).size, evening.length, 'a constellation was named twice');
+  // A name never sits on a tag: no two labels drawn share any of the screen.
+  {
+    const boxes = await page.evaluate(() => tonight.tags());
+    const orion = await page.evaluate(() => tonight.nameBox('Orion'));
+    assert.ok(orion && orion.x >= 0 && orion.x + orion.w <= 390, `ORION is at ${JSON.stringify(orion)}`);
+    for (const t of boxes) assert.ok(orion.x >= t.x + t.w || t.x >= orion.x + orion.w || orion.y >= t.y + t.h || t.y >= orion.y + orion.h, `ORION is written over ${t.name}’s tag`);
+  }
+  assert.deepEqual(await names('2027-01-16T02:00:00Z', 30), []);
+  assert.ok((await names('2027-01-16T02:00:00Z', 45)).includes('Orion'));
+  assert.ok((await names('2027-01-15T22:25:00Z', 80)).length > 2, 'no names in twilight');
+  assert.deepEqual(await names('2027-01-15T18:00:00Z', 80), [], 'constellations named in daylight');
+  // A star's card says which constellation it is in.
+  await reset('2027-01-16T02:00:00Z');
+  await page.evaluate(() => tonight.aimAt('Rigel VII'));
+  await page.evaluate(() => tonight.show({ kind: 'star', i: tonight.state.sel.i }));
+  assert.equal(plain(await text('#card-sub')), 'Rigel · 863 ly away · in Orion');
+  await page.click('#card [data-close]');
   await reset('2026-11-19T11:15:00Z', sliderWas);
 }
 
@@ -1073,7 +1097,7 @@ await bridgeReady();
   assert.equal(await p.locator('.past').nth(1).locator('[data-share]').count(), 1);
   await p.goto(base + 'tonight.html#star=' + encodeURIComponent('ρ Cassiopeiae'));
   await p.waitForFunction(() => window.tonight && document.getElementById('card-title').textContent === 'ρ Cassiopeiae');
-  assert.equal(await p.locator('#card-sub').innerText(), 'Distance not measured');
+  assert.equal(await p.locator('#card-sub').innerText(), 'Distance not measured · in Cassiopeia');
   const rho = await p.locator('#card-facts').innerText();
   assert.match(rho, /^Yellow-white supergiant, spectral type F8Iavar\. Nobody has measured how far away it is/);
   assert.doesNotMatch(await p.locator('#card').innerText(), /3,262|BCE|left it in/, 'tonight’s sky gave an unmeasured star a distance or a year');

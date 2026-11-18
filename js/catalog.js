@@ -10,6 +10,12 @@ export async function loadCatalog() {
     fetch('data/stars.bin').then(r => r.arrayBuffer()),
     fetch('data/stars.json').then(r => r.json()),
   ]);
+  return buildCatalog(bin, meta);
+}
+
+// The catalogue from the two files' contents: data/stars.bin as an ArrayBuffer and data/stars.json parsed. (Apart
+// from loadCatalog, so a test can make one without a server.)
+export function buildCatalog(bin, meta) {
   const raw = new Float32Array(bin);
   const n = raw.length / 5;
   const pos = new Float64Array(n * 3);
@@ -81,4 +87,41 @@ function inside(ring, lon, lat) {
     if (hit) return true;
   }
   return false;
+}
+
+// Where to write each constellation's name on a sky map: one point per constellation, the mean direction of the
+// stars its lines join, as [{ name, dir }] with `dir` a unit vector in the catalogue's axes. A line belongs to the
+// constellation both its ends are in; where the ends differ (a figure can borrow a neighbour's star, as Auriga
+// borrows Elnath from Taurus), to whichever of the two its middle is in. A long, winding figure's mean can land in
+// a neighbour (Hydra's is in Sextans, and the two halves of Serpens average out in Hercules), so a point that falls
+// outside its own constellation moves to the nearest star of its own figure.
+export function constellationLabels(cat) {
+  const unit = i => { const v = [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]], l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+  const of = new Map(); // star -> constellation, looked up once each
+  const at = i => { if (!of.has(i)) of.set(i, cat.constellationToward(unit(i))); return of.get(i); };
+  const figures = new Map(); // name -> { sum, stars }
+  for (const [a, b] of cat.lines) {
+    const da = unit(a), db = unit(b);
+    let name = at(a);
+    if (name !== at(b)) {
+      const mid = da.map((v, k) => v + db[k]), l = Math.hypot(...mid) || 1;
+      const m = cat.constellationToward(mid.map(v => v / l));
+      if (m !== name && m !== at(b)) continue;
+      name = m;
+    }
+    if (!name) continue;
+    const fig = figures.get(name) || figures.set(name, { sum: [0, 0, 0], stars: [] }).get(name);
+    for (let k = 0; k < 3; k++) fig.sum[k] += da[k] + db[k];
+    if (at(a) === name) fig.stars.push(da);
+    if (at(b) === name) fig.stars.push(db);
+  }
+  return [...figures].map(([name, { sum, stars }]) => {
+    const l = Math.hypot(...sum) || 1;
+    let dir = sum.map(x => x / l);
+    if (cat.constellationToward(dir) !== name) {
+      const near = d => d[0] * dir[0] + d[1] * dir[1] + d[2] * dir[2];
+      dir = stars.reduce((best, d) => (near(d) > near(best) ? d : best));
+    }
+    return { name, dir };
+  });
 }
