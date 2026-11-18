@@ -84,7 +84,8 @@ test('spans and distances read naturally', () => {
   assert.equal(formatLight(2537000), '2.5 million light years');
   assert.equal(arrivalYear(3.95, DATE), '2031');
   assert.equal(arrivalYear(0.5, DATE), null);
-  assert.equal(lightLeft(4.23, DATE), 'in 2023');
+  assert.equal(lightLeft(4.23, DATE), 'in 2022'); // late October 2026 less 4.23 years is July 2022: the year it left in, not the nearest
+  assert.equal(lightLeft(8.6, DATE), 'in 2018');
   assert.equal(lightLeft(26670, DATE), '27,000 years ago');
   for (const p of PLACES) {
     const x = ladderAt(distanceLy(p, DATE));

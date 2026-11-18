@@ -217,7 +217,7 @@ export function arrivalYear(years, date = new Date()) {
 export function lightLeft(ly, date = new Date()) {
   if (ly < 1) return null;
   if (ly >= 3000) return `${formatSpan(ly)} ago`;
-  return `in ${formatYear(date.getUTCFullYear() + date.getUTCMonth() / 12 - ly)}`;
+  return `in ${formatYear(Math.floor(date.getUTCFullYear() + date.getUTCMonth() / 12 - ly))}`; // the calendar year it left in
 }
 
 // Where a distance sits on the ladder from a light-second to Andromeda, from 0 to 1, on a log scale.

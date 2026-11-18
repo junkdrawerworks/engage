@@ -85,9 +85,10 @@ export function homeLines(cat, cam, year = Number(stardate()), skip = -1, nomina
   } else {
     lines.push(`The Sun is too faint to see without a telescope from here (magnitude ${m.toFixed(1)}), ${where}.`);
   }
-  const seen = year - ly;
+  // The calendar year that light left in: light that set out in the middle of 2017 shows 2017, not the nearer 2018.
+  const seen = Math.floor(year - ly);
   // "Around when" means within a couple of years, or a decade for the sparser moments before 1500.
-  const anchor = ANCHORS.find(([y]) => Math.abs(y - Math.round(seen)) <= (seen < 1500 ? 10 : 2));
+  const anchor = ANCHORS.find(([y]) => Math.abs(y - seen) <= (seen < 1500 ? 10 : 2));
   lines.push(`With a big enough telescope, someone here would see Earth as it was in ${formatYear(seen)}${anchor ? `, around when ${anchor[1]}` : ''}.`);
   const tv = 1936 + ly;
   lines.push(tv <= year

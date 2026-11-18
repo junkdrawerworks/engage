@@ -73,6 +73,9 @@ test('Earth’s old light is dated from today, not from New Year', () => {
   // Sirius is 8.60 ly away. On 18 November 2026 (2026.88) its view of Earth is from early 2018; it used to say 2017.
   assert.match(home('Sirius', '2026-11-18T12:00:00Z'), /Earth as it was in 2018\./);
   assert.match(home('Sirius', '2026-02-01T12:00:00Z'), /Earth as it was in 2017[.,]/);
+  // The year is the one the light left in, not the nearest: on 1 May (2026.33) that is still 2017, three quarters gone.
+  assert.match(home('Sirius', '2026-05-01T12:00:00Z'), /Earth as it was in 2017[.,]/);
+  assert.match(home('Sirius', '2026-08-15T12:00:00Z'), /Earth as it was in 2018[.,]/);
   // The TV line turns over during the year too: 1936 + 8.60 is mid-1944 either way.
   assert.match(home('Sirius', '2026-11-18T12:00:00Z'), /first passed here around 1945\./);
   // Antares sees 1472 or so: not "around when" Columbus sailed, twenty years later.
@@ -81,10 +84,12 @@ test('Earth’s old light is dated from today, not from New Year', () => {
   assert.doesNotMatch(antares, /Columbus/);
   // An anchor is offered only within two years of it after 1500, or ten before.
   const lines = (ly, year) => homeLines(cat, [ly / 3.26156, 0, 0], year).join(' ');
-  assert.match(lines(60, 2026.5), /in 1967, around when Star Trek premiered on television/);
-  assert.doesNotMatch(lines(111.5, 2026.5), /around when/); // 1915
-  assert.match(lines(540, 2026.5), /in 1487, around when Columbus crossed the Atlantic/);
-  assert.doesNotMatch(lines(556, 2026.5), /around when/); // 1471
+  assert.match(lines(60, 2026.5), /in 1966, around when Star Trek premiered on television/);
+  assert.doesNotMatch(lines(111.2, 2026.5), /around when/); // 1915
+  assert.match(lines(540, 2026.5), /in 1486, around when Columbus crossed the Atlantic/);
+  assert.doesNotMatch(lines(556, 2026.5), /around when/); // 1470
+  // Before year 1 the count runs the other way: 2,500.2 light years back from mid-2026 is 475 BCE.
+  assert.match(lines(2500.2, 2026.5), /Earth as it was in 475 BCE/);
 });
 
 test('from far away the Sun is too faint to see', () => {
