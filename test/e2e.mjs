@@ -281,7 +281,17 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   assert.ok(when.wrapped && when.bLeft === 0 && when.clip.startsWith('inset('), `the header's dot is left dangling: ${JSON.stringify(when)}`);
 }
 // The new entry offers the star in tonight's sky, and no course for the star the ship has just reached.
-assert.deepEqual(await page.locator('#arrival-entry .entry-actions > *').evaluateAll(els => els.map(el => [el.textContent, el.getAttribute('href')])), [['In your sky tonight', 'tonight.html#star=Proxima%20Centauri']]);
+assert.deepEqual(await page.locator('#arrival-entry .entry-actions > *').evaluateAll(els => els.map(el => [el.textContent, el.getAttribute('href')])),
+  [['In your sky tonight', 'tonight.html#star=Proxima%20Centauri'], ['Share this course', null]]);
+// Share this course hands the phone's share sheet a link to the live site that sets the same course. (The sheet itself
+// can't be opened here, so it is stood in for.)
+await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
+await page.click('#arrival-entry [data-share]');
+{
+  const shared = await page.evaluate(() => window.shared);
+  assert.equal(shared.url, 'https://junkdrawer.works/engage/?course=Proxima%20Centauri');
+  assert.match(shared.text, /^Captain’s log, stardate \d{4}\.\d{3}\. We’ve dropped out of warp at Proxima Centauri, 4\.2\d ly from Sol/);
+}
 // The two buttons under the log each fit on one line.
 for (const id of ['arrival-home', 'arrival-next']) {
   const lines = await page.locator('#' + id).evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].map(b => Math.round(b.top))).size; });
@@ -817,6 +827,27 @@ await bridgeReady();
     /^FARTHEST FROM SOL Alpheratz · 97\.0 ly; LONGEST TRIP 90\.3 ly to (Alpheratz|Vega); MOST VISITED Vega · 2 visits; CHARTED DESTINATIONS 2 of 32$/);
   assert.equal(await p.locator('.past').nth(0).locator('[data-again]').count(), 0, 'the log offers a course for the star the ship is at');
   await p.locator('.past summary').nth(1).click();
+  // Share this course, from an entry: with no share sheet (a desktop browser) the link is copied and the button says
+  // so for a moment. Opened on the bridge, the link sets that course.
+  await p.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async t => { window.copied = t; } } }));
+  const shareIt = p.locator('.past').nth(1).getByRole('button', { name: 'Share this course' });
+  await shareIt.click();
+  assert.equal(await p.locator('.past').nth(1).locator('[data-share]').innerText(), 'LINK COPIED');
+  const link = await p.evaluate(() => window.copied);
+  assert.equal(link, 'https://junkdrawer.works/engage/?course=Alpheratz');
+  await p.waitForFunction(() => document.querySelector('.past:nth-of-type(2) [data-share]').textContent === 'Share this course', null, { timeout: 4000 })
+    .catch(() => assert.fail('the button went on saying Link copied'));
+  // Where nothing can be copied either (some embedded viewers), the link is shown, selected, to copy by hand.
+  await p.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('not allowed'); } } }));
+  await shareIt.click();
+  assert.deepEqual(await p.locator('.past').nth(1).locator('.share-link').evaluate(el => [el.value, el.selectionEnd - el.selectionStart, document.activeElement === el]), [link, link.length, true]);
+  await p.goto(link.replace('https://junkdrawer.works/engage/', base));
+  await bridgeReady(p);
+  assert.equal(await p.locator('#target-name').innerText(), 'Alpheratz', 'the shared link did not set the course');
+  await p.evaluate(() => engage.target('no such star')); // clear it again
+  assert.equal(await p.locator('#engage').isDisabled(), true);
+  await p.click('#open-log');
+  await p.locator('.past summary').nth(1).click();
   await p.locator('.past').nth(1).getByRole('button', { name: 'Set course again' }).click();
   assert.equal(await p.locator('#log').evaluate(el => el.hidden), true, 'Set course again left the log open');
   assert.equal(await p.locator('#target-name').innerText(), 'Alpheratz');
@@ -883,6 +914,19 @@ assert.equal(await page.locator('#jars .jar').count(), 1);
 await page.reload();
 await page.waitForFunction(() => window.xeno?.current);
 assert.deepEqual(await page.evaluate(() => [xeno.current.classId, xeno.current.seed]), ['lava-world', 7], 'the link did not bring back the same creature');
+// Send this creature hands the share sheet (stood in for here) a link to the live site that grows the same one again.
+{
+  const name = await text('#specimen h2');
+  await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
+  await page.click('#send');
+  const shared = await page.evaluate(() => window.shared);
+  assert.equal(shared.url, 'https://junkdrawer.works/engage/xeno.html#lava-world-7');
+  assert.ok(shared.text.toLowerCase().includes(name.toLowerCase()) && shared.text.includes('a lava world'), `the message does not name the creature: ${shared.text}`);
+  await page.evaluate(() => xeno.show('M', 1));
+  await page.goto(shared.url.replace('https://junkdrawer.works/engage/', base));
+  await page.waitForFunction(() => window.xeno?.current?.seed === 7);
+  assert.equal(await text('#specimen h2'), name, 'the shared link grew a different creature');
+}
 assert.equal(await page.locator('#jars .jar').count(), 1, 'the jar was not kept');
 // Letting one go can be taken back, and the count beside Keep links down to the jars.
 assert.match(await text('#kept-note'), /^1 kept in your jars/);

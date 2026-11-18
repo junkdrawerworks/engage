@@ -33,7 +33,7 @@ async function bundle(order, patch = (name, src) => src) {
 }
 const pageBody = page => page.slice(page.indexOf('<body') , page.indexOf('</body>')).replace(/^<body[^>]*>/, '').replace(/<script type="module" src="[^"]+"><\/script>/, '');
 
-const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'log', 'search', 'catalog', 'sky', 'app'];
+const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'log', 'search', 'share', 'catalog', 'sky', 'app'];
 const js = await bundle(ORDER, async (name, src) => {
   if (name !== 'app') return src;
   return src
@@ -171,7 +171,7 @@ console.log(`dist/tonight.html: ${(tonightOut.length / 1024 / 1024).toFixed(2)} 
 
 // The xenobiology lab, as its own single file. Links to the bridge and the survey go to the live site.
 const xenoHtml = await read('xeno.html');
-const xenoJs = await bundle(['classes', 'planet-art', 'xeno-gen', 'xeno-art', 'species', 'xeno'], (name, src) =>
+const xenoJs = await bundle(['classes', 'planet-art', 'xeno-gen', 'xeno-art', 'species', 'share', 'xeno'], (name, src) =>
   src.replace("const BRIDGE = './';", `const BRIDGE = '${LIVE}';`));
 const xenoOut = `<title>Xenobiology lab</title>
 <meta name="theme-color" content="#05070d">

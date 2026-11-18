@@ -4,6 +4,7 @@ import { Globe, paint } from './planet-art.js';
 import { grow, ODDS } from './xeno-gen.js';
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
+import { LIVE, share } from './share.js';
 
 const KEY = 'engage.xeno.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -221,6 +222,16 @@ buildStrip();
 $('cabinet').innerHTML = SPECIMENS.map(refHtml).join('');
 $('again').addEventListener('click', () => show(current.classId));
 $('keep').addEventListener('click', toggleKeep);
+// A link that grows the same creature again: its class and its number, as the address bar has them.
+$('send').addEventListener('click', e => {
+  const c = current;
+  if (!c) return;
+  share(e.currentTarget, {
+    title: `${c.name.common}, from Engage’s xenobiology lab`,
+    text: `Meet the ${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.cls.letter ? label(c.cls) : c.cls.inText || label(c.cls)} in Engage’s xenobiology lab.`,
+    url: `${LIVE}xeno.html#${encodeURIComponent(c.classId)}-${c.seed}`,
+  });
+});
 $('jar-undo-go').addEventListener('click', undoLetGo);
 // The address keeps naming the creature in the tank, so the link down to the jars scrolls without changing it.
 $('kept-note').addEventListener('click', e => {

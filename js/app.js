@@ -6,6 +6,7 @@ import { DESTINATIONS, GROUPS } from './destinations.js';
 import { composeEntry, describeKind, inTextFor, logRecords, notesFor, titleFor } from './log.js';
 import { filesForStar, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, pairLetters, search } from './search.js';
+import { LIVE, share } from './share.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -610,12 +611,22 @@ function entryHtml(e, heading) {
   return parts.join('');
 }
 
-// What an entry can do: set course for its star again (from the log; on arrival the ship is there), and show where
-// the star is in the real sky tonight.
+// What an entry can do: set course for its star again (from the log; on arrival the ship is there), show where
+// the star is in the real sky tonight, and send someone a link that sets the same course on their bridge.
 function entryActions(e, arrival) {
   const again = !arrival && e.star !== state.at ? `<button type="button" data-again="${e.star}">Set course again</button>` : '';
   const tonight = `<a href="${TONIGHT}#star=${encodeURIComponent(cat.names[e.star])}"${AWAY}>In your sky tonight</a>`;
-  return `<p class="entry-actions">${again}${tonight}</p>`;
+  return `<p class="entry-actions">${again}${tonight}<button type="button" data-share="${state.log.indexOf(e)}">Share this course</button></p>`;
+}
+
+function shareCourse(button) {
+  const e = state.log[Number(button.dataset.share)];
+  if (!e) return;
+  share(button, {
+    title: `Engage: set course for ${inTextFor(cat, e.star)}`,
+    text: `Captain’s log, stardate ${e.stardate}. ${e.intro}`,
+    url: `${LIVE}?course=${encodeURIComponent(cat.names[e.star])}`,
+  });
 }
 
 // Links to the planetary survey's files on this star's planets.
@@ -725,6 +736,9 @@ function bind() {
   watchKeyboard();
   $('open-log').addEventListener('click', e => { renderLog(); openSheet('log', e.currentTarget); });
   // Set course again, on an entry in the log: the sheet closes on the helm with that star chosen.
+  for (const id of ['entries', 'arrival-entry']) {
+    $(id).addEventListener('click', e => { const b = e.target.closest('[data-share]'); if (b) shareCourse(b); });
+  }
   $('entries').addEventListener('click', e => {
     const b = e.target.closest('[data-again]');
     if (!b) return;
