@@ -3746,6 +3746,30 @@ await page.emulateMedia({ reducedMotion: null });
   await c.close();
 }
 
+// Red alert is the Maru's own: a red glow behind the page, with every gauge still in its colour. It shared a class
+// name with night vision, so once the red light moved into the stylesheet every room loads, a red alert laid night
+// vision's filter over the whole simulation: the amber hull, the cyan shields and the green count of the rescued all
+// turned one red, and RED ALERT itself was red on red.
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  await p.tap('#start');
+  await p.evaluate(() => maru.give('enter'));
+  await p.waitForFunction(() => !maru.busy);
+  assert.equal(await p.locator('#alert').isVisible(), true, 'the test needs a red alert to mean anything');
+  const look = () => p.evaluate(() => ({ filter: getComputedStyle(document.body, '::after').mixBlendMode, glow: getComputedStyle(document.body).backgroundImage.includes('74, 16, 22'), cyan: getComputedStyle(document.body).getPropertyValue('--cyan').trim() }));
+  assert.deepEqual(await look(), { filter: 'normal', glow: true, cyan: '#86d8ff' }, 'a red alert put night vision’s red light over the simulation');
+  // Night vision switched on in tonight's sky is not worn here, alert or no alert.
+  await p.evaluate(() => localStorage.setItem('engage.tonight.v1', JSON.stringify({ night: true })));
+  await p.reload();
+  await p.waitForFunction(() => window.maru);
+  assert.equal((await look()).filter, 'normal');
+  await c.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

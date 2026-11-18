@@ -58,7 +58,7 @@ function keptGame() {
 
 function showScreen(name) {
   for (const s of ['brief', 'sim', 'eval']) $(s).hidden = s !== name;
-  document.body.classList.toggle('red', name === 'sim' && g && g.klingons.length > 0 && !g.over);
+  document.body.classList.toggle('red-alert', name === 'sim' && g && g.klingons.length > 0 && !g.over); // not "red": that is night vision's, in css/app.css
   scrollTo(0, 0);
   if (name === 'sim') { sizePlot(); loop(); }
 }
@@ -139,7 +139,7 @@ function update() {
   const inZone = g.where === 'zone';
   $('turn').textContent = g.over ? 'Simulation ended' : `Turn ${g.turn + 1} · ${inZone ? 'Inside the Neutral Zone' : 'Federation space'}`;
   $('alert').hidden = !(g.klingons.some(k => k.hull > 0) && !g.over);
-  document.body.classList.toggle('red', !$('alert').hidden);
+  document.body.classList.toggle('red-alert', !$('alert').hidden);
   $('hull').textContent = `${g.hull}%`;
   $('shields').textContent = `${g.shields}%`;
   $('hull-bar').style.width = `${g.hull}%`;

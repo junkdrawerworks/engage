@@ -2,7 +2,7 @@
 
 html, body.maru { height: auto; overflow: auto; overflow-x: hidden; }
 body.maru { min-height: 100%; background: radial-gradient(ellipse at 50% -10%, #2a0f14 0%, var(--bg) 55%) fixed, var(--bg); }
-body.maru.red { background: radial-gradient(ellipse at 50% -10%, #4a1016 0%, var(--bg) 60%) fixed, var(--bg); }
+body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0%, var(--bg) 60%) fixed, var(--bg); }
 .maru main { max-width: 1120px; margin: 0 auto; padding: 0 max(16px, var(--safe-r)) 0 max(16px, var(--safe-l)); }
 .maru { --red: #ff6b5e; --green: #6fe3a4; --klingon: #ff8a5c; }
 
