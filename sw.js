@@ -8,7 +8,7 @@
 // fingerprint of every file in SHELL: change any of them and test/e2e.mjs fails until FILES is changed to match (it
 // says what to), which changes this file, so every copy is made whole again at once.
 const CACHE = 'engage-v15'; // bump the number when the file list changes
-const FILES = 'e9c333fc'; // test/e2e.mjs checks this
+const FILES = 'b8c7d121'; // test/e2e.mjs checks this
 const SHELL = [
   './', 'index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'icon.svg', 'manifest.webmanifest',
   'css/app.css', 'css/survey.css', 'css/maru.css', 'css/missions.css', 'css/tonight.css', 'css/xeno.css', 'css/contact.css', 'css/warp.css', 'js/app.js', 'js/maru.js', 'js/maru-sim.js', 'js/missions.js', 'js/tonight.js', 'js/xeno.js', 'js/xeno-gen.js', 'js/xeno-art.js', 'js/species.js', 'js/contact.js', 'js/contact-sim.js', 'js/contact-art.js', 'js/warp.js', 'js/warp-scale.js', 'js/wake.js', 'js/astro.js', 'js/charts.js', 'js/ships.js', 'js/ephemeris.js', 'js/classes.js', 'js/planet-art.js', 'js/survey.js', 'js/audio.js', 'js/catalog.js', 'js/destinations.js', 'js/log.js', 'js/search.js', 'js/share.js', 'js/store.js', 'js/onscreen.js', 'js/physics.js', 'js/sky.js',
@@ -27,8 +27,8 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
-    // The other tools at junkdrawer.works/ share this address and keep their copies here too, so only clear out
-    // Engage's, by their exact name: another tool's name could start with "engage-" as well.
+    // Only Engage's own old copies are cleared, by their exact name. Engage once shared junkdrawer.works with other
+    // tools, whose copies sat beside its own (and one could have a name starting "engage-"); it keeps to that.
     .then(keys => Promise.all(keys.filter(k => k !== CACHE && /^engage-v[0-9]+$/.test(k)).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });

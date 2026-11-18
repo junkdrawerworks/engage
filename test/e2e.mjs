@@ -413,7 +413,7 @@ await page.evaluate(() => { navigator.share = async data => { window.shared = da
 await page.click('#arrival-entry [data-share]');
 {
   const shared = await page.evaluate(() => window.shared);
-  assert.equal(shared.url, 'https://junkdrawer.works/engage/?course=Proxima%20Centauri');
+  assert.equal(shared.url, 'https://engage.junkdrawer.works/?course=Proxima%20Centauri');
   assert.match(shared.text, /^Captain’s log, stardate \d{4}\.\d{3}\. We’ve dropped out of warp at Proxima Centauri, 4\.2\d ly from Sol/);
 }
 // The two buttons under the log each fit on one line.
@@ -492,7 +492,7 @@ await bridgeReady();
 assert.equal(await text('#where'), 'Wolf 359');
 assert.equal(await shown('#lost'), false);
 
-// When the browser's storage is full (the other tools at junkdrawer.works share it), a new log entry can't be kept.
+// When the browser's storage is full, a new log entry can't be kept.
 // The bridge says so, on the arrival and in the log, and drops nothing to make room; once there is room, all of it
 // is kept.
 {
@@ -1304,14 +1304,14 @@ await bridgeReady();
   await shareIt.click();
   assert.equal(await p.locator('.past').nth(1).locator('[data-share]').innerText(), 'LINK COPIED');
   const link = await p.evaluate(() => window.copied);
-  assert.equal(link, 'https://junkdrawer.works/engage/?course=Alpheratz');
+  assert.equal(link, 'https://engage.junkdrawer.works/?course=Alpheratz');
   await p.waitForFunction(() => document.querySelector('.past:nth-of-type(2) [data-share]').textContent === 'Share this course', null, { timeout: 4000 })
     .catch(() => assert.fail('the button went on saying Link copied'));
   // Where nothing can be copied either (some embedded viewers), the link is shown, selected, to copy by hand.
   await p.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('not allowed'); } } }));
   await shareIt.click();
   assert.deepEqual(await p.locator('.past').nth(1).locator('.share-link').evaluate(el => [el.value, el.selectionEnd - el.selectionStart, document.activeElement === el]), [link, link.length, true]);
-  await p.goto(link.replace('https://junkdrawer.works/engage/', base));
+  await p.goto(link.replace('https://engage.junkdrawer.works/', base));
   await bridgeReady(p);
   assert.equal(await p.locator('#target-name').innerText(), 'Alpheratz', 'the shared link did not set the course');
   await p.evaluate(() => engage.target('no such star')); // clear it again
@@ -1565,10 +1565,10 @@ assert.deepEqual(await page.evaluate(() => [xeno.current.classId, xeno.current.s
   await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
   await page.click('#send');
   const shared = await page.evaluate(() => window.shared);
-  assert.equal(shared.url, 'https://junkdrawer.works/engage/xeno.html#lava-world-7');
+  assert.equal(shared.url, 'https://engage.junkdrawer.works/xeno.html#lava-world-7');
   assert.ok(shared.text.toLowerCase().includes(name.toLowerCase()) && shared.text.includes('a lava world'), `the message does not name the creature: ${shared.text}`);
   await page.evaluate(() => xeno.show('M', 1));
-  await page.goto(shared.url.replace('https://junkdrawer.works/engage/', base));
+  await page.goto(shared.url.replace('https://engage.junkdrawer.works/', base));
   await page.waitForFunction(() => window.xeno?.current?.seed === 7);
   assert.equal(await text('#specimen h2'), name, 'the shared link grew a different creature');
 }
@@ -1711,7 +1711,7 @@ await page.waitForFunction(() => window.xeno?.current);
   await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
   await page.click('#send');
   const shared = await page.evaluate(() => window.shared);
-  assert.equal(shared.url, `https://junkdrawer.works/engage/xeno.html#world=TRAPPIST-1%20e-${first.seed}`);
+  assert.equal(shared.url, `https://engage.junkdrawer.works/xeno.html#world=TRAPPIST-1%20e-${first.seed}`);
   assert.ok(shared.text.includes('grown for TRAPPIST-1 e in'), shared.text);
   // Grow another stays with the planet; the class's own creature with the same number is a different animal, and
   // isn't the one in the jar.
@@ -1731,7 +1731,7 @@ await page.waitForFunction(() => window.xeno?.current);
   assert.equal(await text('#keep'), 'IN A JAR');
   // The shared link, opened cold, and the other planets on the file from the card.
   await page.goto(base + 'xeno.html#M-1');
-  await page.goto(shared.url.replace('https://junkdrawer.works/engage/', base));
+  await page.goto(shared.url.replace('https://engage.junkdrawer.works/', base));
   await page.waitForFunction(n => window.xeno?.current?.seed === n && !!xeno.current.world, first.seed);
   assert.deepEqual(await grown(), first, 'the shared link grew a different creature');
   await page.locator('#specimen .for-real a', { hasText: 'Proxima b' }).click();
@@ -3375,7 +3375,7 @@ await page.emulateMedia({ reducedMotion: null });
   const p = await c.newPage();
   p.on('pageerror', e => problems.push(e.message));
   await p.addInitScript(() => { navigator.share = async data => { window.shared = data; }; });
-  const LIVE = 'https://junkdrawer.works/engage/';
+  const LIVE = 'https://engage.junkdrawer.works/';
   const sharedFrom = async sel => {
     await p.evaluate(() => { window.shared = null; });
     const b = p.locator(sel);
@@ -3834,7 +3834,7 @@ await until(() => page.evaluate(async () => !!(await (await caches.match('index.
   10000, "the new release's offline copy kept the old index.html");
 release = false;
 
-// Every tool at junkdrawer.works/ shares one address, and with it one place for offline copies. When Engage's
+// Engage once shared junkdrawer.works/ with other tools, and with it one place for offline copies. When Engage's
 // service worker starts, it clears out Engage's own old copy and leaves other tools' alone, even one whose name
 // starts with Engage's. They're all made first, on a page of the site that doesn't start the service worker.
 {

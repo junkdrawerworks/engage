@@ -3,7 +3,7 @@
 // viewers), the link is shown, selected, ready to copy by hand.
 
 // Links always point at the live site, so the single-file copies share the real thing and not themselves.
-export const LIVE = 'https://junkdrawer.works/engage/';
+export const LIVE = 'https://engage.junkdrawer.works/';
 
 // `button` is the button that was pressed: it carries the "Link copied" note. Resolves to how it went:
 // 'shared', 'cancelled', 'copied' or 'shown'.

@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 let pw;
 try { pw = require('playwright'); } catch { pw = require(join(execSync('npm root -g').toString().trim(), 'playwright')); }
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const LIVE = 'https://junkdrawer.works/engage/';
+const LIVE = 'https://engage.junkdrawer.works/';
 const VIEWER = 'https://viewer.test/artifact';
 
 // Each copy, how to tell it has started, and something to open in it so the links it writes as it goes are there too.
@@ -59,7 +59,7 @@ test('the single-file copies build, start, and keep to themselves', { timeout: 3
       assert.deepEqual(asked, [], `${name}.html asked the network for something`);
       // Every link either stays on the page (#...) or goes to the live site: the viewer has no other pages.
       const links = await page.evaluate(() => [...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')));
-      const astray = [...new Set(links.filter(h => !h.startsWith('#') && !h.startsWith('https://junkdrawer.works/')))];
+      const astray = [...new Set(links.filter(h => !h.startsWith('#') && !/^https:\/\/(engage\.)?junkdrawer\.works\//.test(h)))];
       assert.deepEqual(astray, [], `${name}.html has links that go nowhere in the viewer`);
       assert.ok(links.some(h => h.startsWith(LIVE)), `${name}.html has no link to the live site`);
       await ctx.close();

@@ -14,7 +14,7 @@ const out = process.argv[2] ? resolve(process.argv[2]) : join(root, 'dist');
 const read = (f, enc = 'utf8') => readFile(join(root, f), enc);
 const b64 = async f => (await readFile(join(root, f))).toString('base64');
 
-const LIVE = 'https://junkdrawer.works/engage/';
+const LIVE = 'https://engage.junkdrawer.works/';
 const html = await read('index.html');
 let css = await read('css/app.css');
 for (const [, file] of css.matchAll(/url\(\.\.\/fonts\/([^)]+)\)/g)) {

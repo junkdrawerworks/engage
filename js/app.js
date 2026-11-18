@@ -85,7 +85,7 @@ function tidy() {
 }
 
 // Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
-// 'full' when the browser's storage has no room (junkdrawer.works's other tools share it), or 'blocked' when the
+// 'full' when the browser's storage has no room, or 'blocked' when the
 // browser won't store anything at all. Nothing is ever dropped from the log to make room: the bridge says so instead
 // (see unsavedNote), and everything is kept as soon as there is room again.
 let unsaved = null;

@@ -3,7 +3,7 @@
 // Set course link opened in a new tab while the bridge is up in another.
 
 // Keeps `value` under `key`. Returns '' when it worked, or else why it didn't: 'full' when the browser's storage has
-// no room (junkdrawer.works's other tools share it), or 'blocked' when the browser won't store anything at all.
+// no room, or 'blocked' when the browser won't store anything at all.
 export function keep(key, value) {
   try {
     const text = JSON.stringify(value);
