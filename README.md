@@ -31,9 +31,9 @@
 ## How it works
 
 - **Every star is real.** About 18,000 of them, from the HYG database: everything you can see from Earth with your eyes, plus every catalogued star within 80 light years. Each is drawn at its true position and as bright as it would look from wherever the ship is.
-- **Set course.** Tap a star on the viewscreen, or choose from 32 destinations with notes (Proxima Centauri, TRAPPIST-1, Vulcan’s sun 40 Eridani, Betelgeuse…) or search the whole catalogue.
+- **Set course.** Tap a star on the viewscreen, or choose from 32 destinations with notes (Proxima Centauri, TRAPPIST-1, Vulcan’s sun 40 Eridani, Betelgeuse…) or search the whole catalogue. The search knows where Starfleet’s charts put things too: Vulcan, Farpoint, Tellar, Rigel VII.
 - **Warp factor.** Warp 1 is light speed and warp 9 is about 1,516 times it. The helm shows how long the trip would take, next to how long light needs. The flight itself is shortened to a few seconds.
-- **Drop out of warp.** The ship holds where the star’s disc looks about two and a half degrees wide, or in the orbit of a known planet. The log covers the star, its planets, a few notes, how the Sun looks from there, which year of Earth’s history its light is showing, and when Earth’s first TV broadcasts arrive.
+- **Drop out of warp.** The ship holds where the star’s disc looks about two and a half degrees wide, or in the orbit of a known planet. The log covers the star, its planets, a few notes, what Starfleet’s charts put there, how the Sun looks from there, which year of Earth’s history its light is showing, and when Earth’s first TV broadcasts arrive.
 - **Look for the Sun.** The ☉ button turns the view toward home, marked even when it’s too faint to see.
 - **Drag to look around, pinch or scroll to zoom.** Arrow keys work too.
 - **The planetary survey** ([survey.html](https://junkdrawer.works/engage/survey.html), the ringed planet on the bridge) flips through Starfleet’s planet classes, from Class M to Demon class, next to the kinds astronomers have really found that Starfleet never named: super-Earths, sub-Neptunes, lava worlds, hot Jupiters and ice giants. Each file has typical readings, the Solar System’s examples, and real planets that fit, with **Set course** to fly there. The log links back to the files for the planets it mentions. **Cover your tracks** shows an unlogged world’s sensor readings and asks which file it would pass for.
@@ -51,7 +51,7 @@ It’s a static site: plain HTML, CSS and JavaScript, with no build step.
 
 ```sh
 npx serve .                   # or any static file server, then open the printed address
-npm test                      # checks the numbers, the Kobayashi Maru's rules, the xenobiology lab's rules, first contact's language and rules, the warp scale's numbers, the ships' positions and the sky overlay's astronomy, then flies it in Chromium through the real page (needs Playwright)
+npm test                      # checks the numbers, the star search, the Kobayashi Maru's rules, the xenobiology lab's rules, first contact's language and rules, the warp scale's numbers, the ships' positions and the sky overlay's astronomy, then flies it in Chromium through the real page (needs Playwright)
 npm install                   # once, for the screenshots: upng-js saves them with a 256-colour palette
 node tools/screenshots.mjs    # redraws docs/*.png, og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png and og-warp.png (add `bridge`, `survey`, `maru`, `missions`, `tonight`, `xeno`, `contact` or `warp` for only that one's)
 node tools/build-artifact.mjs # single-file copies for the Artifact viewer, in dist/
@@ -67,6 +67,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/sky.js`: the viewscreen in WebGL: stars, constellation lines, the Milky Way, star discs and warp streaks.
 - `js/physics.js`: warp speeds, brightness, colour and size of stars, trip times. Pure functions.
 - `js/log.js`: writes each captain’s log entry.
+- `js/search.js`: finds a star by what’s typed in Set course: its names, Starfleet’s charts, short forms. Pure functions.
 - `js/destinations.js`: the 32 stars with notes, and the moments in Earth’s history the log can mention.
 - `js/catalog.js`: loads the stars and names where a direction points in the sky.
 - `js/audio.js`: engine sounds, made with Web Audio.
