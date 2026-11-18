@@ -3,6 +3,7 @@
 import { newGame, act, debrief, fluencyOf, hint, phrase, standing, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
+import { watch } from './store.js';
 
 const KEY = 'engage.contact.v1';
 const $ = id => document.getElementById(id);
@@ -39,6 +40,11 @@ function showScreen(name) {
 }
 
 function showBrief() {
+  renderRecord();
+  showScreen('brief');
+}
+
+function renderRecord() {
   const runs = saved.runs.slice(-8).reverse();
   $('record').hidden = !runs.length;
   // The standing record, then each encounter with how its notebook did, so a contact made with nothing decoded
@@ -54,7 +60,6 @@ function showBrief() {
     return `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>
     <span class="what">The ${esc(r.people || 'unknown ship')} · ${decoded} of ${of} phrases decoded${of ? ` · ${fluencyOf(decoded, of)}` : ''}</span></li>`;
   }).join('');
-  showScreen('brief');
 }
 
 function start(seed = Date.now()) {
@@ -285,6 +290,13 @@ $('book').addEventListener('change', e => {
   if (s.value) g.tags[id] = s.value; else delete g.tags[id];
   renderLog();
   renderReply();
+});
+
+// Another tab has finished an encounter: the record here is what that tab saved, so an encounter finished here is
+// added to its list and not written over it. An encounter under way in this tab carries on untouched.
+watch(KEY, () => {
+  Object.assign(saved, load());
+  renderRecord();
 });
 
 showBrief();

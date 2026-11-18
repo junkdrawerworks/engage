@@ -1605,6 +1605,134 @@ await page.emulateMedia({ reducedMotion: null });
   await small.close();
 }
 
+// The bridge open twice. Each tab used to save the whole ship from what it read when it opened, so the first touch
+// in an older tab (one press on the warp slider) wrote over every flight made in the other since.
+{
+  const two = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await two.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+  const a = await two.newPage(), b = await two.newPage();
+  for (const p of [a, b]) { p.on('pageerror', e => problems.push(e.message)); await p.goto(base); await bridgeReady(p); }
+  const kept = p => p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).log.map(e => e.title));
+  await a.evaluate(() => window.engage.jump('Vega'));
+  assert.deepEqual(await kept(a), ['Vega']);
+  // The other tab has the flight at once: it is at Vega too, and its log has the entry.
+  await b.waitForFunction(() => window.engage.state.log.length === 1);
+  assert.equal(await b.locator('#where').innerText(), 'Vega', 'the second tab did not follow the ship');
+  await b.focus('#warp');
+  await b.keyboard.press('ArrowLeft');
+  assert.equal(await b.evaluate(() => window.engage.state.warp), 8.9);
+  assert.deepEqual(await kept(b), ['Vega'], 'a press on the warp slider in a second tab wiped the log');
+  await a.waitForFunction(() => window.engage.state.warp === 8.9);
+  // A flight in one tab while the other one flies somewhere else: both arrivals are in the log.
+  await b.evaluate(() => { window.engage.speed(6); window.engage.target('Sirius'); });
+  await b.click('#engage');
+  await b.waitForFunction(() => window.engage.trip?.phase === 'cruise');
+  await a.evaluate(() => window.engage.jump('Altair'));
+  assert.equal(await b.evaluate(() => window.engage.state.log.length), 1, 'a tab in flight took the other tab’s save before it arrived');
+  await b.waitForFunction(() => !window.engage.trip, null, { timeout: 30000 });
+  assert.deepEqual(await kept(b), ['Sirius', 'Altair', 'Vega'], 'an arrival wrote over the flight another tab made meanwhile');
+  await a.waitForFunction(() => window.engage.state.log.length === 3);
+  assert.equal(await a.locator('#where').innerText(), 'Sirius');
+  // With the log open in one tab, a flight in the other shows up in it. Each entry has its own moment of arrival.
+  await a.evaluate(() => window.engage.closeSheets());
+  await a.click('#open-log');
+  await b.evaluate(() => window.engage.jump('Procyon'));
+  await a.waitForFunction(() => document.querySelectorAll('#entries .past').length === 4);
+  const ids = await a.evaluate(() => window.engage.state.log.map(e => e.id));
+  assert.ok(ids.every(Number.isInteger) && new Set(ids).size === 4 && ids.every((x, i) => !i || x < ids[i - 1]), `log entries are not named by their time of arrival: ${ids}`);
+  // Two tabs don't answer each other for ever: once it's quiet, nothing more is written.
+  await a.waitForTimeout(300);
+  const writes = await a.evaluate(async () => { let n = 0; addEventListener('storage', () => n++); await new Promise(r => setTimeout(r, 500)); return n; });
+  assert.equal(writes, 0, 'the two tabs went on saving at each other');
+  await two.close();
+}
+
+// The lab open twice: a creature kept in each tab, and both jars are on the shelf. The second tab used to save the
+// shelf as it was when that tab opened, with its own jar added, and the first tab's were gone.
+{
+  const two = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  const a = await two.newPage(), b = await two.newPage();
+  for (const p of [a, b]) { p.on('pageerror', e => problems.push(e.message)); await p.goto(base + 'xeno.html'); await p.waitForFunction(() => window.xeno?.current); }
+  const shelf = p => p.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1') || '{}').jars?.map(j => `${j.id}-${j.seed}`) || []);
+  await a.evaluate(() => window.xeno.show('M', 11, false));
+  await a.click('#keep');
+  await a.evaluate(() => window.xeno.show('H', 12, false));
+  await a.click('#keep');
+  await b.waitForFunction(() => window.xeno.jars.length === 2);
+  assert.equal(await b.locator('#jars-n').textContent(), '2 of 40', 'the second tab did not show the jars kept in the first');
+  await b.evaluate(() => window.xeno.show('K', 7, false));
+  await b.click('#keep');
+  assert.deepEqual(await shelf(b), ['K-7', 'H-12', 'M-11'], 'a creature kept in a second tab wrote over the first tab’s jars');
+  await a.waitForFunction(() => window.xeno.jars.length === 3);
+  // One let go in the first tab stays gone when the other tab keeps another, and can still be taken back.
+  await a.click('#jars [data-drop="2"]');
+  await b.waitForFunction(() => window.xeno.jars.length === 2);
+  await b.evaluate(() => window.xeno.show('P', 3, false));
+  await b.click('#keep');
+  await a.waitForFunction(() => window.xeno.jars.length === 3);
+  assert.deepEqual(await shelf(a), ['P-3', 'K-7', 'H-12']);
+  assert.equal(await a.locator('#jar-undo').evaluate(el => el.hidden), false, 'the Undo for a jar let go went away when another tab saved');
+  await a.click('#jar-undo-go');
+  assert.deepEqual((await shelf(a)).sort(), ['H-12', 'K-7', 'M-11', 'P-3']);
+  await two.close();
+}
+
+// The other rooms' records the same way: a Kobayashi Maru run finished in each of two tabs is two runs on the record,
+// and a hail sent from one tab is still on its way after another is sent from the second.
+{
+  const two = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: 'reduce' });
+  const a = await two.newPage(), b = await two.newPage();
+  for (const p of [a, b]) { p.on('pageerror', e => problems.push(e.message)); await p.goto(base + 'maru.html'); await p.waitForFunction(() => window.maru); }
+  const run = async p => {
+    await p.click('#start');
+    await p.click('.order[data-id="leave"]');
+    await p.waitForSelector('#read-eval');
+  };
+  await run(a);
+  await b.waitForFunction(() => document.querySelectorAll('#runs li').length === 1);
+  assert.equal(await b.locator('#taken').textContent(), '1 run taken', 'the briefing in a second tab did not show the run finished in the first');
+  await run(b);
+  assert.equal(await b.evaluate(() => JSON.parse(localStorage.getItem('engage.maru.v1')).runs.length), 2, 'a run finished in a second tab wrote over the first tab’s');
+  assert.equal(await b.evaluate(() => JSON.parse(localStorage.getItem('engage.maru.v1')).taken), 2);
+  // The first tab, still on its evaluation, has both when it goes back to the briefing.
+  await a.click('#read-eval');
+  await a.click('#again');
+  assert.equal(await a.locator('#taken').textContent(), '2 runs taken');
+  for (const p of [a, b]) { await p.goto(base + 'missions.html'); await p.waitForFunction(() => window.missions); }
+  await a.click('#hail');
+  await b.waitForFunction(() => Object.keys(window.missions.hails).length === 1);
+  assert.equal(await b.locator('#hail').textContent(), 'Hail on its way', 'a hail sent from one tab is not on its way in the other');
+  await b.evaluate(() => window.missions.choose('v2'));
+  await b.click('#hail');
+  assert.deepEqual(await b.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('engage.missions.v1')).hails).sort()), ['v1', 'v2'], 'a hail from a second tab wrote over the first tab’s');
+  await two.close();
+}
+
+// Tonight's sky and the warp scale keep only where you left them, and that is kept whole too: a city picked in one
+// tab isn't put back to a guess by night vision switched on in another, and neither room goes on saving at itself.
+{
+  const two = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: 'reduce' });
+  const a = await two.newPage(), b = await two.newPage();
+  for (const p of [a, b]) { p.on('pageerror', e => problems.push(e.message)); await p.goto(base + 'tonight.html'); await p.waitForFunction(() => window.tonight); }
+  await a.click('#open-place');
+  await a.click('#cities button:has-text("Tokyo")');
+  await b.waitForFunction(() => window.tonight.state.place.name === 'Tokyo');
+  assert.match(await b.locator('#open-place').textContent(), /Tokyo/, 'the second tab did not show the city picked in the first');
+  await b.click('#night');
+  const kept = await b.evaluate(() => JSON.parse(localStorage.getItem('engage.tonight.v1')));
+  assert.deepEqual([kept.place.name, kept.night], ['Tokyo', true], 'night vision in a second tab wrote over the city picked in the first');
+  await a.waitForFunction(() => document.body.classList.contains('red'));
+  for (const p of [a, b]) { await p.goto(base + 'warp.html'); await p.waitForFunction(() => window.warpScale); }
+  await a.evaluate(() => window.warpScale.select('vulcan'));
+  await b.waitForFunction(() => window.warpScale.place === 'vulcan');
+  await b.evaluate(() => window.warpScale.setCustom(7.5));
+  await a.waitForFunction(() => document.getElementById('custom-out').textContent === '7.5');
+  assert.equal(await a.evaluate(() => localStorage.getItem('engage.warp.v1')), JSON.stringify({ place: 'vulcan', warp: 7.5 }));
+  const writes = await a.evaluate(async () => { let n = 0; addEventListener('storage', () => n++); await new Promise(r => setTimeout(r, 500)); return n; });
+  assert.equal(writes, 0, 'two tabs of the warp scale went on saving at each other');
+  await two.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];
@@ -1690,6 +1818,11 @@ server.close();
 for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
+}
+// And every script those scripts load in turn: a helper two rooms share is as easy to leave off.
+for (const f of shell.filter(f => f.startsWith('js/'))) {
+  const js = await readFile(join(root, f), 'utf8');
+  for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A long press on the installed app's icon offers four rooms. Each shortcut opens a page the offline copy keeps, stays
 // inside the app (a plain file name beside the manifest, like every other address in it), and has an icon that is kept too.

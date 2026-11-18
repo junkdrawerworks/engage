@@ -5,6 +5,7 @@ import { grow, growFor, oddsFor } from './xeno-gen.js';
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
+import { watch } from './store.js';
 
 const KEY = 'engage.xeno.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -173,7 +174,7 @@ function undoLetGo() {
   clearTimeout(gone.timer);
   const { jar, at } = gone;
   gone = null;
-  if (saved.jars.length < JAR_MAX && !saved.jars.some(j => j.id === jar.id && j.world === jar.world && j.seed === jar.seed)) saved.jars.splice(Math.min(at, saved.jars.length), 0, jar);
+  if (saved.jars.length < JAR_MAX && !saved.jars.some(j => sameJar(j, jar))) saved.jars.splice(Math.min(at, saved.jars.length), 0, jar);
   save(); renderJars(); renderKeep();
 }
 
@@ -281,6 +282,15 @@ $('jars').addEventListener('click', e => {
     put(growJar(j), true);
     $('tank').scrollIntoView({ block: 'center', behavior: still.matches ? 'auto' : 'smooth' });
   }
+});
+// The lab open in another tab has kept a creature or let one go: the shelf here is what that tab saved, so the next
+// jar kept here goes beside its jars and not over them. One this tab has just let go, and can still take back,
+// stays gone.
+const sameJar = (a, b) => a.seed === b.seed && a.id === b.id && a.world === b.world;
+watch(KEY, () => {
+  saved.jars = load().jars.filter(j => !(gone && sameJar(j, gone.jar)));
+  renderJars();
+  renderKeep();
 });
 window.addEventListener('hashchange', () => {
   const h = fromHash();

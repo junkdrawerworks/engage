@@ -1,6 +1,7 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
 import { newGame, orders, act, evaluate, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
 import { sound } from './audio.js';
+import { watch } from './store.js';
 
 const KEY = 'engage.maru.v1';
 const $ = id => document.getElementById(id);
@@ -33,6 +34,11 @@ function showScreen(name) {
 }
 
 function showBrief() {
+  renderRecord();
+  showScreen('brief');
+}
+
+function renderRecord() {
   const runs = saved.runs.slice(-8).reverse();
   $('record').hidden = !runs.length;
   $('rewrite').hidden = !runs.length;
@@ -44,7 +50,6 @@ function showBrief() {
   $('taken').textContent = `${saved.taken} ${saved.taken === 1 ? 'run' : 'runs'} taken`;
   $('runs').innerHTML = runs.map(r => `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>
     <span class="letters">${r.grades.map(x => `${esc(x.name)} ${esc(x.letter)}`).join(' · ')}</span></li>`).join('');
-  showScreen('brief');
 }
 
 function start(rewritten = false) {
@@ -539,6 +544,13 @@ $('again').addEventListener('click', showBrief);
 $('orders').addEventListener('click', e => {
   const b = e.target.closest('.order');
   if (b && !b.disabled) give(b.dataset.id);
+});
+
+// The simulator open in another tab has finished a run: the record here is what that tab saved, so a run finished
+// here is added to its runs and not written over them. A simulation under way in this tab carries on untouched.
+watch(KEY, () => {
+  Object.assign(saved, load());
+  renderRecord();
 });
 
 showBrief();

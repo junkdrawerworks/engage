@@ -7,6 +7,7 @@ import { composeEntry, describeKind, inTextFor, logRecords, notesFor, titleFor }
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, pairLetters, search } from './search.js';
 import { LIVE, share } from './share.js';
+import { keep, watch } from './store.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -43,11 +44,17 @@ function homeOffset() {
 }
 
 function load() {
+  const saved = stored();
+  if (saved) Object.assign(state, saved, { opts: { ...state.opts, ...saved.opts } });
+  tidy();
+}
+
+// What the browser is keeping, or null: nothing kept yet, no storage, or something that isn't a save.
+function stored() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (saved && typeof saved === 'object') Object.assign(state, saved, { opts: { ...state.opts, ...saved.opts } });
-  } catch { /* no storage: start fresh */ }
-  tidy();
+    return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : null;
+  } catch { return null; }
 }
 
 // If a save has been damaged somehow, keep whatever in it is still good and start the rest afresh.
@@ -75,14 +82,40 @@ function tidy() {
 let unsaved = null;
 function save() {
   const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro } = state;
-  try {
-    localStorage.setItem(KEY, JSON.stringify({ at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro }));
-    unsaved = null;
-  } catch (e) {
-    // Firefox has its own name and number for a full store.
-    unsaved = ['QuotaExceededError', 'NS_ERROR_DOM_QUOTA_REACHED'].includes(e?.name) || e?.code === 22 || e?.code === 1014 ? 'full' : 'blocked';
-  }
+  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro }) || null;
   return !unsaved;
+}
+
+// Another tab has saved: the bridge open twice, or a Set course link opened in a new tab. Each save is the whole
+// ship, so a tab that went on from what it read at the start would write over the other's flights the next time
+// anything here was touched (a nudge of the warp slider was enough). Instead this tab takes the ship, the log and
+// the settings as the other left them; only where it is looking stays its own. Nothing is saved from here, or two
+// tabs would answer each other for ever. In flight it waits: arrive() reads the log again and adds to that.
+let stale = false;
+function adopt() {
+  if (trip) { stale = true; return; }
+  if (unsaved) return; // this tab holds what the store had no room for: it keeps that
+  const { at, yaw, pitch, fov } = state;
+  load();
+  Object.assign(state, { yaw, pitch, fov });
+  if (state.at !== at) { turn = null; sky.setOrigin(starPos(state.at)); }
+  sound.on = state.opts.sound;
+  if (!sound.on) sound.stop();
+  showSettings();
+  showTarget();
+  updateHud();
+  if (state.seenIntro) $('intro').hidden = true;
+  if (!$('log').hidden) drawLog();
+  if (!$('picker').hidden) renderList();
+  dirty = true;
+}
+
+function showSettings() {
+  $('opt-lines').checked = state.opts.lines;
+  $('opt-labels').checked = state.opts.labels;
+  $('opt-sound').checked = state.opts.sound;
+  $('warp').value = state.warp;
+  updateWarp();
 }
 
 // The quiet line on the arrival log and the captain's log when the last save didn't work.
@@ -125,11 +158,7 @@ async function start() {
   sky.setOrigin(starPos(state.at));
   watchGraphics();
   $('loading').remove();
-  $('opt-lines').checked = state.opts.lines;
-  $('opt-labels').checked = state.opts.labels;
-  $('opt-sound').checked = state.opts.sound;
-  $('warp').value = state.warp;
-  updateWarp();
+  showSettings();
   setTarget(state.target, false);
   courseFromLink();
   updateHud();
@@ -137,6 +166,7 @@ async function start() {
   // the screen, and it should open at the top.
   if (!state.seenIntro) { $('intro').hidden = false; $('intro-go').focus({ preventScroll: true }); }
   bind();
+  watch(KEY, adopt);
   requestAnimationFrame(frame);
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
   window.engage = hooks();
@@ -322,6 +352,14 @@ function label(g, text, sub, x, y, color) {
 function setTarget(i, aim = true) {
   if (i === state.at || !(i >= 0 && i < cat.count)) i = null;
   state.target = i;
+  showTarget();
+  if (i != null && aim) lookAt(starPos(i));
+  save();
+}
+
+// The helm, for the destination chosen (or none).
+function showTarget() {
+  const i = state.target;
   const name = $('target-name'), sub = $('target-sub');
   if (i == null) {
     name.textContent = 'Choose a star';
@@ -329,11 +367,9 @@ function setTarget(i, aim = true) {
   } else {
     name.textContent = titleFor(cat, i);
     sub.textContent = metaFor(i);
-    if (aim) lookAt(starPos(i));
   }
   $('engage').disabled = i == null || !!trip;
   updateTrip();
-  save();
   dirty = true;
 }
 
@@ -486,7 +522,16 @@ function arrive() {
   state.yaw = h.yaw;
   state.pitch = clampPitch(h.pitch - lift());
   sky.setOrigin(T.S);
+  // Another tab saved while this one was in flight: the log is as that tab left it, and this arrival goes on top.
+  if (stale && !unsaved) {
+    const theirs = stored();
+    if (theirs) { Object.assign(state, { log: theirs.log, ly: theirs.ly }, theirs.opts && typeof theirs.opts === 'object' ? { opts: { ...state.opts, ...theirs.opts } } : {}); tidy(); }
+  }
+  stale = false;
   const entry = composeEntry(cat, T.i, { cam: camAbs(), holdAU: T.hold * AU_PER_PC, warp: T.warpFactor, fromTitle: T.fromTitle, tripLy: T.ly, nominal: T.nominal });
+  // Each entry carries the moment of arrival, in milliseconds: a date of its own, and a name no other entry has.
+  entry.id = Date.now();
+  while (state.log.some(e => e.id === entry.id)) entry.id++;
   state.log.unshift(entry);
   state.ly += T.ly;
   save();
@@ -589,7 +634,9 @@ function dismissIntro() {
   sound.blip(880);
 }
 
+let arrived = null; // the entry on the arrival sheet
 function showArrival(entry) {
+  arrived = entry;
   $('arrival-date').textContent = `Captain’s log · Stardate ${entry.stardate}`;
   $('arrival-entry').innerHTML = entryHtml(entry, true);
   unsavedNote('arrival-unsaved', 'The log is full: this entry won’t be kept.', 'This browser isn’t letting the bridge save: this entry won’t be kept.');
@@ -620,12 +667,13 @@ function entryActions(e, arrival) {
   const again = !arrival && e.star !== state.at ? `<button type="button" data-again="${e.star}">Set course again</button>` : '';
   const tonight = `<a href="${TONIGHT}#star=${encodeURIComponent(cat.names[e.star])}"${AWAY}>In your sky tonight</a>`;
   // A course for home isn't one to send: nearly everyone who opens the link is already there.
-  const send = e.star === 0 ? '' : `<button type="button" data-share="${state.log.indexOf(e)}">Share this course</button>`;
+  // (On the arrival sheet the button stands for that entry itself: the log can gain entries from another tab under it.)
+  const send = e.star === 0 ? '' : `<button type="button" data-share="${arrival ? 'arrival' : state.log.indexOf(e)}">Share this course</button>`;
   return `<p class="entry-actions">${again}${tonight}${send}</p>`;
 }
 
 function shareCourse(button) {
-  const e = state.log[Number(button.dataset.share)];
+  const e = button.dataset.share === 'arrival' ? arrived : state.log[Number(button.dataset.share)];
   if (!e) return;
   share(button, {
     title: `Engage: set course for ${inTextFor(cat, e.star)}`,
@@ -647,6 +695,10 @@ function surveyLinks(i, style) {
 
 function renderLog() {
   save(); // try again: room may have been made since
+  drawLog();
+}
+
+function drawLog() {
   unsavedNote('log-unsaved', 'The log is full: new entries and the ship’s position aren’t being kept. Clearing the log, in settings, makes room.',
     'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;
@@ -784,6 +836,7 @@ function bind() {
     b.textContent = 'Clear the log and return to Earth';
     if (trip) { // a flight under way ends here too, back at Earth
       trip = null;
+      stale = false;
       $('readout').hidden = true;
       helmAway(false);
       sound.stop();

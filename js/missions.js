@@ -6,6 +6,7 @@ import {
   jwstFromEarth, jwstSpan, jwstAroundL2, jwstTracked, moonAt, milestones,
 } from './ephemeris.js';
 import { warpSpeed, stardate, plural } from './physics.js';
+import { watch } from './store.js';
 
 const KEY = 'engage.missions.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -505,6 +506,8 @@ function frame(now) {
 
 function bind() {
   $('hail').addEventListener('click', hail);
+  // A hail sent from another tab is on its way here too, and the next one sent here won't write over it.
+  watch(KEY, () => { saved.hails = load().hails; tick(true); });
   $('view-sun').addEventListener('click', () => { setView('sun'); if (byId(sel).near) choose('v1'); });
   $('view-earth').addEventListener('click', () => { setView('earth'); if (!byId(sel).near) choose('jwst'); });
   canvas.addEventListener('click', e => {

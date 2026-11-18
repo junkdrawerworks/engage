@@ -6,6 +6,7 @@ import {
   formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt,
 } from './warp-scale.js';
 import { hold, release } from './wake.js';
+import { watch } from './store.js';
 
 const KEY = 'engage.warp.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -51,13 +52,14 @@ function plan() {
   trip = { ly, lanes, clock: raceClock(lanes.map(l => l.years)), now };
 }
 
-function select(id, { scroll = false } = {}) {
+// `quiet` is for a place or a warp factor taken from another tab: shown, and not saved again from here.
+function select(id, { scroll = false, quiet = false } = {}) {
   const p = byId.get(id);
   if (!p) return;
   place = p;
   race = null;
   plan();
-  save();
+  if (!quiet) save();
   try { history.replaceState(null, '', `${location.search}#${id}`); } catch { /* fine */ }
   renderPlace();
   renderLadder();
@@ -67,7 +69,7 @@ function select(id, { scroll = false } = {}) {
   if (scroll) document.querySelector('.race').scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
 }
 
-function setCustom(w) {
+function setCustom(w, quiet = false) {
   custom = Math.min(Math.max(Math.round(w * 100) / 100, 1), 9.99);
   $('custom-warp').value = custom;
   $('custom-out').textContent = custom.toFixed(2).replace(/\.?0+$/, '');
@@ -75,7 +77,7 @@ function setCustom(w) {
   $('custom-warp').style.setProperty('--fill', `${(custom - 1) / 8.99 * 100}%`);
   race = null;
   plan();
-  save();
+  if (!quiet) save();
   renderPlace();
   setButton();
   note(startNote());
@@ -362,6 +364,14 @@ $('custom-warp').addEventListener('input', e => setCustom(Number(e.target.value)
 $('ladder').addEventListener('click', e => {
   const b = e.target.closest('[data-id]');
   if (b) select(b.dataset.id, { scroll: true });
+});
+// The warp scale open in another tab: the place and the warp factor last chosen there are the ones kept, so this tab
+// shows them too, unless a race is running here.
+watch(KEY, () => {
+  if (race && !race.done) return;
+  const s = load(), p = byId.get(s.place);
+  if (s.warp !== custom) setCustom(s.warp, true);
+  if (p && p !== place) select(p.id, { quiet: true });
 });
 addEventListener('hashchange', () => { const { id } = fromLink(); if (byId.has(id) && id !== place.id) select(id); });
 addEventListener('resize', () => { if (!race || race.done) draw(race ? trip.clock.seconds : 0); });

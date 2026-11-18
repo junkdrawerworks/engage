@@ -11,6 +11,7 @@ import {
   phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone, daylightNote, tonightPlan, planLines, showersOn, radiantDir,
 } from './astro.js';
 import { hold, release } from './wake.js';
+import { watch } from './store.js';
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -988,6 +989,16 @@ function bind() {
     saved.night = !saved.night; save();
     document.body.classList.toggle('red', saved.night);
     $('night').setAttribute('aria-pressed', String(saved.night));
+  });
+  // Tonight's sky open in another tab: the place, the kind of sky and night vision chosen there are the ones kept,
+  // so this tab shows them too, and a city picked there isn't written over by a guess from here.
+  watch(KEY, () => {
+    Object.assign(saved, load());
+    if (!saved.place || saved.place.how === 'guess') saved.place = guessPlace();
+    document.body.classList.toggle('red', saved.night);
+    $('night').setAttribute('aria-pressed', String(saved.night));
+    compute();
+    renderPlaces();
   });
   $('scrim').addEventListener('click', closeSheets);
   for (const b of document.querySelectorAll('[data-close]')) b.addEventListener('click', closeSheets);

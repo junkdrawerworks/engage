@@ -70,6 +70,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/log.js`: writes each captain’s log entry.
 - `js/wake.js`: keeps the screen awake while the phone is pointed at the sky, or a warp-scale race runs.
 - `js/share.js`: shares a link to a creature or a course: the phone’s share sheet, or else the link copied.
+- `js/store.js`: saves a room’s record, says when the browser wouldn’t keep it, and notices when another tab has saved, so the same room open twice keeps one record.
 - `js/search.js`: finds a star by what’s typed in Set course: its names, Starfleet’s charts, short forms. Pure functions.
 - `js/destinations.js`: the 32 stars with notes, and the moments in Earth’s history the log can mention.
 - `js/catalog.js`: loads the stars, names where a direction points in the sky, and works out where each constellation’s name goes on its figure.

@@ -1,6 +1,7 @@
 // The planetary survey: flip through the planet classes, or match an unlogged world to the file it would pass for.
 import { CLASSES, byId, label, quizReadings, grows } from './classes.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
+import { watch } from './store.js';
 
 const KEY = 'engage.survey.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -287,6 +288,9 @@ function hint(c) {
 function midSentence(s) {
   return /^(Earth|Jupiter|Neptune)\b/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
 }
+
+// The quiz played in another tab: the streak and the best here are what that tab saved.
+watch(KEY, () => { Object.assign(saved, load()); renderScore(); });
 
 function renderScore() {
   $('score').textContent = saved.seen
