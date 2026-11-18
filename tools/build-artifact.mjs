@@ -39,6 +39,7 @@ const js = await bundle(ORDER, async (name, src) => {
   return src
     .replace("img.src = 'img/milkyway.png';", `img.src = 'data:image/png;base64,${await b64('img/milkyway.png')}';`)
     .replace("const SURVEY = 'survey.html';", `const SURVEY = '${LIVE}survey.html';`)
+    .replace("const TONIGHT = 'tonight.html';", `const TONIGHT = '${LIVE}tonight.html';`)
     .replace("$('open-scale').href = `warp.html", "$('open-scale').href = `" + LIVE + 'warp.html');
 });
 const data = {

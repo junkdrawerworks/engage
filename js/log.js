@@ -135,6 +135,28 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
   return { star: i, title, stardate: stardate(date), intro, sections, ly: tripLy || 0 };
 }
 
+// The records the captain's log can show, worked out from the entries themselves (newest first, as the log keeps
+// them): nothing more is stored. `lyFromSol(star)` is how far a star is from the Sun in light years, or null when
+// its distance was never measured; `charted` lists the stars with notes, the destinations in Set course.
+// Each record is null until the log has one to show. A trip to or from a star with no measured distance is only as
+// long as the charts' guess, so it holds no record; the most-visited star needs a second visit.
+export function logRecords(log, { lyFromSol, charted }) {
+  let farthest = null, longest = null, most = null;
+  const visits = new Map();
+  log.forEach((e, k) => {
+    const far = e.star === 0 ? null : lyFromSol(e.star);
+    if (far !== null && (!farthest || far > farthest.ly)) farthest = { title: e.title, ly: far };
+    const from = log[k + 1]?.star ?? 0;
+    if (e.ly > 0 && far !== null && (from === 0 || lyFromSol(from) !== null) && (!longest || e.ly > longest.ly)) longest = { title: e.title, ly: e.ly };
+    const v = visits.get(e.star) || { title: e.title, n: 0 };
+    v.n++;
+    visits.set(e.star, v);
+  });
+  // Of two stars visited as often, the one visited most recently: a Map keeps its keys in the order they first came.
+  for (const v of visits.values()) if (v.n > 1 && (!most || v.n > most.n)) most = v;
+  return { farthest, longest, most, charted: { n: charted.filter(i => visits.has(i)).length, of: charted.length } };
+}
+
 function ordinal(n) {
   const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);

@@ -5,7 +5,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral } from '../js/physics.js';
-import { describeKind, homeLines, composeEntry, inTextFor, titleFor, tripLine } from '../js/log.js';
+import { describeKind, homeLines, composeEntry, inTextFor, logRecords, titleFor, tripLine } from '../js/log.js';
 import { DESTINATIONS } from '../js/destinations.js';
 import { CLASSES } from '../js/classes.js';
 import { CHARTS } from '../js/charts.js';
@@ -257,4 +257,31 @@ test('survey files are complete', () => {
     for (const k of ['name', 'short', 'art', 'real', 'about', 'tell', 'home']) assert.ok(c[k], `${c.id} has no ${k}`);
     for (const k of ['width', 'mass', 'temp']) assert.ok(c.typical[k][0] < c.typical[k][1], `${c.id}: ${k} range is backwards`);
   }
+});
+
+test('the log’s records are worked out from its entries', () => {
+  // Stars by number: 1 is 4 ly out, 2 is 25 ly, 3 is 1,400 ly, 4 has no measured distance (the charts put it at 3,262).
+  const far = { 1: 4, 2: 25, 3: 1400, 4: null };
+  const opts = { lyFromSol: i => far[i], charted: [1, 2, 9] };
+  assert.deepEqual(logRecords([], opts), { farthest: null, longest: null, most: null, charted: { n: 0, of: 3 } });
+  // Newest first, as the bridge keeps it: Sol -> 1 -> 2 -> 1 -> 3 -> 4 -> 2 -> home.
+  const log = [
+    { star: 0, title: 'Sol', ly: 25 },
+    { star: 2, title: 'Vega', ly: 3250 },
+    { star: 4, title: 'HIP 4', ly: 4600 },
+    { star: 3, title: 'Deneb', ly: 1398 },
+    { star: 1, title: 'Proxima Centauri', ly: 27 },
+    { star: 2, title: 'Vega', ly: 27 },
+    { star: 1, title: 'Proxima Centauri', ly: 4 },
+  ];
+  const r = logRecords(log, opts);
+  assert.deepEqual(r.farthest, { title: 'Deneb', ly: 1400 }, 'a star with no measured distance is not the farthest from Sol');
+  assert.deepEqual(r.longest, { title: 'Deneb', ly: 1398 }, 'a trip to or from a star with no measured distance holds no record');
+  assert.deepEqual(r.most, { title: 'Vega', n: 2 }, 'of two stars visited twice, the one visited last');
+  assert.deepEqual(r.charted, { n: 2, of: 3 });
+  // One visit each is no record for most visited, and going home is not far from Sol.
+  const short = logRecords([{ star: 0, title: 'Sol', ly: 4 }, { star: 1, title: 'Proxima Centauri', ly: 4 }], opts);
+  assert.equal(short.most, null);
+  assert.deepEqual(short.farthest, { title: 'Proxima Centauri', ly: 4 });
+  assert.equal(log.length, 7, 'the log itself was changed');
 });

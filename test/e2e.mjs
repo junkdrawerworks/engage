@@ -280,6 +280,8 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   assert.equal(when.dot, '"·"');
   assert.ok(when.wrapped && when.bLeft === 0 && when.clip.startsWith('inset('), `the header's dot is left dangling: ${JSON.stringify(when)}`);
 }
+// The new entry offers the star in tonight's sky, and no course for the star the ship has just reached.
+assert.deepEqual(await page.locator('#arrival-entry .entry-actions > *').evaluateAll(els => els.map(el => [el.textContent, el.getAttribute('href')])), [['In your sky tonight', 'tonight.html#star=Proxima%20Centauri']]);
 // The two buttons under the log each fit on one line.
 for (const id of ['arrival-home', 'arrival-next']) {
   const lines = await page.locator('#' + id).evaluate(el => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].map(b => Math.round(b.top))).size; });
@@ -295,6 +297,7 @@ assert.ok(Math.abs(sun[1] - 60.8 * Math.PI / 180) < 0.1, 'the view did not turn 
 // The log keeps the trip, and so does a reload.
 await page.click('#open-log');
 assert.match(await text('#stats'), /1 star visited · 4\.2\d ly traveled/);
+assert.match((await text('#records')).replace(/\s+/g, ' '), /^FARTHEST FROM SOL Proxima Centauri · 4\.2\d ly LONGEST TRIP 4\.2\d ly to Proxima Centauri CHARTED DESTINATIONS 2 of 32$/);
 // An entry opened from the log says its first line once, not in the heading and again underneath.
 await page.locator('.past summary').first().click();
 {
@@ -805,9 +808,24 @@ await bridgeReady();
   await bridgeReady(p);
   await p.click('#intro-go');
   await p.evaluate(() => { for (const name of ['Vega', 'Alpheratz', 'Vega']) { engage.jump(name); engage.closeSheets(); } });
+  const stardate = await p.evaluate(() => engage.state.log[0].stardate);
+  // The log's records are worked out from its entries, and an entry can be acted on: set course for its star again
+  // (not for the star the ship is at), or see where it is in the real sky tonight.
+  await p.click('#open-log');
+  // (Vega to Alpheratz and back are the same 90.3 ly, so either may hold the longest trip.)
+  assert.match((await p.locator('#records div').allInnerTexts()).map(t => t.replace(/\s+/g, ' ')).join('; '),
+    /^FARTHEST FROM SOL Alpheratz · 97\.0 ly; LONGEST TRIP 90\.3 ly to (Alpheratz|Vega); MOST VISITED Vega · 2 visits; CHARTED DESTINATIONS 2 of 32$/);
+  assert.equal(await p.locator('.past').nth(0).locator('[data-again]').count(), 0, 'the log offers a course for the star the ship is at');
+  await p.locator('.past summary').nth(1).click();
+  await p.locator('.past').nth(1).getByRole('button', { name: 'Set course again' }).click();
+  assert.equal(await p.locator('#log').evaluate(el => el.hidden), true, 'Set course again left the log open');
+  assert.equal(await p.locator('#target-name').innerText(), 'Alpheratz');
+  assert.equal(await p.locator('#engage').isDisabled(), false);
+  await p.click('#open-log');
+  await p.locator('.past summary').nth(0).click();
   const bridgeSave = await p.evaluate(() => localStorage.getItem('engage.v1'));
-  const stardate = JSON.parse(bridgeSave).log[0].stardate;
-  await p.goto(base + 'tonight.html#star=Vega');
+  await Promise.all([p.waitForNavigation(), p.locator('.past').nth(0).getByRole('link', { name: 'In your sky tonight' }).click()]);
+  assert.equal(new URL(p.url()).pathname + new URL(p.url()).hash, '/tonight.html#star=Vega');
   await p.waitForFunction(() => window.tonight);
   assert.equal(await p.locator('#card').evaluate(el => el.hidden), false, 'a link to a star did not open its card');
   assert.equal(await p.locator('#card-title').innerText(), 'Vega colony');
@@ -834,7 +852,7 @@ await bridgeReady();
   await p.click('#open-list');
   assert.match(await p.locator('#list-note').innerText(), /You’ve flown to 2 of the stars listed here\.$/);
   assert.equal(await p.locator('#systems .s-been').count(), 2);
-  assert.equal(await p.evaluate(() => localStorage.getItem('engage.v1')), bridgeSave, 'tonight’s sky wrote to the bridge’s save');
+  assert.ok(await p.evaluate(() => localStorage.getItem('engage.v1')) === bridgeSave, 'tonight’s sky wrote to the bridge’s save');
   await been.close();
 }
 

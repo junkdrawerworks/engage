@@ -3,7 +3,7 @@ import { loadCatalog } from './catalog.js';
 import { Sky } from './sky.js';
 import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
-import { composeEntry, describeKind, inTextFor, notesFor, titleFor } from './log.js';
+import { composeEntry, describeKind, inTextFor, logRecords, notesFor, titleFor } from './log.js';
 import { filesForStar, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, pairLetters, search } from './search.js';
 import {
@@ -14,6 +14,8 @@ const KEY = 'engage.v1';
 // The planetary survey page. The single-file copy points this at the live site.
 const SURVEY = 'survey.html';
 const AWAY = SURVEY.startsWith('http') ? ' target="_blank" rel="noopener"' : '';
+// Tonight's sky, likewise.
+const TONIGHT = 'tonight.html';
 const $ = id => document.getElementById(id);
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 const DEG = Math.PI / 180;
@@ -604,8 +606,16 @@ function entryHtml(e, heading) {
     parts.push(`<dd class="${label ? (label === 'Looking home' ? 'home' : '') : 'note'}"${style}>${esc(text)}</dd>`);
     if (label === 'Planets') parts.push(surveyLinks(e.star, style));
   }
-  parts.push('</dl>');
+  parts.push('</dl>', entryActions(e, heading));
   return parts.join('');
+}
+
+// What an entry can do: set course for its star again (from the log; on arrival the ship is there), and show where
+// the star is in the real sky tonight.
+function entryActions(e, arrival) {
+  const again = !arrival && e.star !== state.at ? `<button type="button" data-again="${e.star}">Set course again</button>` : '';
+  const tonight = `<a href="${TONIGHT}#star=${encodeURIComponent(cat.names[e.star])}"${AWAY}>In your sky tonight</a>`;
+  return `<p class="entry-actions">${again}${tonight}</p>`;
 }
 
 // Links to the planetary survey's files on this star's planets.
@@ -624,11 +634,27 @@ function renderLog() {
   $('stats').textContent = state.log.length
     ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} traveled`
     : 'Nothing logged yet. Choose a star and engage.';
-  $('entries').innerHTML = state.log.map(e => `
+  $('entries').innerHTML = recordsHtml() + state.log.map(e => `
     <details class="past">
       <summary><b>${esc(e.title)}</b><span class="sd">${esc(e.stardate)}</span><span>${esc(e.intro)}</span></summary>
       <div class="entry">${entryHtml(e, false)}</div>
     </details>`).join('');
+}
+
+// The log's records, at the head of the entries (they scroll away with them, so a phone on its side keeps room for
+// the log itself): all worked out from the entries, so there is nothing more to keep.
+let chartedStars = null;
+function recordsHtml() {
+  if (!state.log.length) return '';
+  chartedStars ||= DESTINATIONS.filter(d => d.star !== 'Sol').map(d => cat.byName.get(d.star)).filter(i => i !== undefined);
+  const r = logRecords(state.log, { lyFromSol: i => (cat.unmeasured[i] ? null : Math.hypot(...starPos(i)) * LY_PER_PC), charted: chartedStars });
+  const rows = [
+    r.farthest && ['Farthest from Sol', `${r.farthest.title} · ${formatLy(r.farthest.ly)}`],
+    r.longest && ['Longest trip', `${formatLy(r.longest.ly)} to ${r.longest.title}`],
+    r.most && ['Most visited', `${r.most.title} · ${r.most.n} visits`],
+    ['Charted destinations', `${r.charted.n + 1} of ${r.charted.of + 1}`], // Sol is one of them, and the ship set out from there
+  ].filter(Boolean);
+  return `<dl class="records" id="records">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
 }
 
 let searchIndex = null, letters = null;
@@ -698,6 +724,14 @@ function bind() {
   });
   watchKeyboard();
   $('open-log').addEventListener('click', e => { renderLog(); openSheet('log', e.currentTarget); });
+  // Set course again, on an entry in the log: the sheet closes on the helm with that star chosen.
+  $('entries').addEventListener('click', e => {
+    const b = e.target.closest('[data-again]');
+    if (!b) return;
+    sound.blip(990);
+    closeSheets();
+    setTarget(Number(b.dataset.again));
+  });
   $('open-settings').addEventListener('click', e => openSheet('settings', e.currentTarget));
   $('look-home').addEventListener('click', lookHome);
   $('arrival-home').addEventListener('click', lookHome);
