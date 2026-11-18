@@ -66,6 +66,7 @@ let lastEval = null;
 
 function showScreen(name) {
   for (const s of ['brief', 'sim', 'eval']) $(s).hidden = s !== name;
+  if (name !== 'sim') document.body.classList.remove('talking');
   scrollTo(0, 0);
   if (name === 'sim') { sizeScreen(); loop(); }
 }
@@ -130,8 +131,20 @@ function resume() {
   renderLog();
   update();
   const last = g.log.filter(l => l.who === 'them').pop();
-  if (last) $('subtitle').innerHTML = `${last.ids.length ? `<p class="said">${last.ids.map(id => `“${esc(phrase(g, id))}”`).join(' ')}</p>` : ''}<p class="act">${esc(last.act)}</p>`;
+  if (last) subtitle(last);
 }
+
+// Their words under the viewscreen, and in one line over the reply where a phone keeps it at the foot of the screen.
+function subtitle(l) {
+  const words = l.ids.map(id => `“${phrase(g, id)}”`).join(' ');
+  $('subtitle').innerHTML = `${l.ids.length ? `<p class="said">${esc(words)}</p>` : ''}<p class="act">${esc(l.act)}</p>`;
+  setText($('dock-said'), words);
+}
+
+// A phone keeps the reply at the foot of the screen while an encounter is on; the page's own foot is kept clear of
+// it by its height.
+const dockSize = new ResizeObserver(() => document.body.style.setProperty('--dock-h', `${$('dock').offsetHeight}px`));
+dockSize.observe($('dock'));
 
 // The encounter's screen, cleared for a game just begun or one picked up.
 function open() {
@@ -144,6 +157,7 @@ function open() {
   $('comms').innerHTML = '';
   $('book').innerHTML = '';
   $('subtitle').innerHTML = '';
+  $('dock-said').textContent = '';
   showScreen('sim');
   // With a keyboard, the encounter starts where the first thing to do is: listening again.
   $('listen').focus({ preventScroll: true });
@@ -194,7 +208,7 @@ function sayPatience() {
 
 // Their captain says a line: subtitles, a moving mouth and a few tones.
 function speak(l) {
-  $('subtitle').innerHTML = `${l.ids.length ? `<p class="said">${l.ids.map(id => `“${esc(phrase(g, id))}”`).join(' ')}</p>` : ''}<p class="act">${esc(l.act)}</p>`;
+  subtitle(l);
   speakingUntil = performance.now() + (still.matches ? 0 : 500 * Math.max(1, l.ids.length));
   l.ids.forEach((id, i) => setTimeout(() => sound.blip(420 + ((id.charCodeAt(0) * 37 + id.length * 11) % 400)), i * 260));
 }
@@ -232,6 +246,7 @@ function update() {
   $('patience').setAttribute('aria-label', `Their patience: ${g.patience} of ${PATIENCE}`);
   describeScreen();
   $('who-tag').textContent = over ? (g.over === 'contact' ? `The ${g.lang.people}` : 'Channel closed') : 'Unknown vessel';
+  document.body.classList.toggle('talking', !over && !$('sim').hidden);
   document.querySelector('.side').classList.toggle('busy', busy);
   $('shields').textContent = g.shields ? 'Lower shields' : 'Raise shields';
   $('shields').setAttribute('aria-pressed', String(g.shields));

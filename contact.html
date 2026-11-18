@@ -68,13 +68,16 @@
 
       <div class="side">
         <div class="reply card-ish">
-          <div class="reply-head">
-            <p class="eyebrow">Your reply</p>
-            <button class="text-button" id="clear" type="button" hidden>Clear</button>
+          <div class="dock" id="dock">
+            <p class="dock-said" id="dock-said" aria-hidden="true"></p>
+            <div class="reply-head">
+              <p class="eyebrow">Your reply</p>
+              <button class="text-button" id="clear" type="button" hidden>Clear</button>
+            </div>
+            <ol class="reply-list" id="reply"></ol>
+            <p class="reply-empty" id="reply-empty">Tap phrases in the notebook to answer in their words, up to three.</p>
+            <button class="primary" id="send" type="button" disabled>Send</button>
           </div>
-          <ol class="reply-list" id="reply"></ol>
-          <p class="reply-empty" id="reply-empty">Tap phrases in the notebook to answer in their words, up to three.</p>
-          <button class="primary" id="send" type="button" disabled>Send</button>
           <div class="acts">
             <button class="secondary" id="listen" type="button">Listen again</button>
             <button class="secondary" id="standard" type="button">Speak Standard</button>

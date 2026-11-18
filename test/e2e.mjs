@@ -2042,6 +2042,27 @@ assert.equal(await page.locator('#reply li').count(), 1);
 await page.click('#send');
 await settled();
 assert.equal(await page.evaluate(() => contact.game.beat), 1, 'saying hello back did not move it on');
+// On a phone the reply and Send stay at the foot of the screen while it lasts, with their latest words above them:
+// scrolled to the end of the notebook, a phrase can be tapped and sent without scrolling back up.
+{
+  await page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+  const last = page.locator('#book .ph-add:not([aria-disabled])').last();
+  await last.click();
+  const at = await page.evaluate(() => {
+    const send = document.getElementById('send').getBoundingClientRect(), dock = document.getElementById('dock');
+    const foot = document.querySelector('.jd-foot').getBoundingClientRect();
+    return { fixed: getComputedStyle(dock).position, inView: send.top >= 0 && send.bottom <= innerHeight, footClear: foot.bottom - parseFloat(getComputedStyle(document.querySelector('.jd-foot')).paddingBottom) <= dock.getBoundingClientRect().top + 1, said: document.getElementById('dock-said').textContent, chips: document.querySelectorAll('#reply li').length };
+  });
+  const words = await page.evaluate(() => contact.game.log.filter(l => l.who === 'them').at(-1).ids.map(id => `“${contact.game.lang.phrases[id]}”`).join(' '));
+  assert.deepEqual(at, { fixed: 'fixed', inView: true, footClear: true, said: words, chips: 1 }, 'the reply is not kept at the foot of a phone screen');
+  await page.click('#reply button[data-i="0"]');
+  // On a wide screen it stays in the page, beside the viewscreen.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('dock')).position), 'static');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.waitForFunction(n => window.contact.draws > n + 2, await page.evaluate(() => window.contact.draws));
+}
 const screenLit = await page.evaluate(() => {
   const c = document.getElementById('screen'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
   const seen = new Set(); for (let i = 0; i < d.length; i += 40) seen.add((d[i] >> 4) * 256 + (d[i + 1] >> 4) * 16 + (d[i + 2] >> 4));
@@ -2054,6 +2075,7 @@ for (let n = 0; n < 20 && !(await page.evaluate(() => contact.game.over)); n++) 
 }
 assert.equal(await page.evaluate(() => contact.game.over), 'contact');
 assert.equal(await text('#send'), 'READ THE DEBRIEF');
+assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('dock')).position), 'static', 'the bar stayed at the foot after it ended');
 await page.click('#send');
 assert.equal(await text('#eval-title'), 'First contact');
 assert.match(await text('#eval-score'), /^1\/1[0-9]/, 'the one right guess is not counted');
