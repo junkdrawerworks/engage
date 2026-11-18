@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor, widthFor } from '../js/physics.js';
+import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, roughLy, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor, widthFor } from '../js/physics.js';
 import { THIN_LY, arrivalFirsts, chartedSaid, companions, describeKind, earthYear, homeLines, composeEntry, inTextFor, logRecords, momentFor, nearestStars, skyFrom, skyLine, starKinds, titleFor, tripLine } from '../js/log.js';
 import { ANCHORS, DESTINATIONS } from '../js/destinations.js';
 import { SHIPS, byId as shipById } from '../js/ships.js';
@@ -628,4 +628,11 @@ test('an arrival says what it did to the records', () => {
   assert.deepEqual(arrivalFirsts(Array.from({ length: 10 }, () => e(1, 4)), opts), ['Tenth visit']);
   assert.deepEqual(arrivalFirsts(Array.from({ length: 11 }, () => e(1, 4)), opts), ['11th visit']);
   assert.deepEqual(arrivalFirsts(Array.from({ length: 22 }, () => e(1, 4)), opts), ['22nd visit']);
+});
+
+test('a distance in a sentence is rounded the way people say it', () => {
+  assert.equal(roughLy(4.2465), '4.2 light years');
+  assert.equal(roughLy(9.96), '10 light years');
+  assert.equal(roughLy(25.04), '25 light years');
+  assert.equal(roughLy(1412.6), '1,413 light years');
 });

@@ -222,10 +222,12 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .intro-card h2 { margin: 4px 0 10px; font: 600 40px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; }
 .intro-card p { color: #cdd5e3; margin: 0 0 12px; }
 .intro-card .primary { width: 100%; margin-top: 6px; }
+/* A link that brought a course with it says so, first thing. */
+.intro-card .course-line { margin: 0 0 8px; padding: 6px 12px; border-left: 3px solid var(--amber); border-radius: 0 12px 12px 0; background: rgba(255, 181, 74, 0.08); color: var(--text); }
 /* The rooms off the bridge, on the welcome card and in Bridge settings: each a link with its button's picture. */
 .rooms { list-style: none; margin: 0 0 12px; padding: 0; }
 .rooms li + li { border-top: 1px solid var(--line); }
-.rooms a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 5px 2px; color: var(--text); text-decoration: none; }
+.rooms a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 2px; color: var(--text); text-decoration: none; }
 .rooms a:hover b { color: var(--cyan); }
 .room-icon { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; }
 .room-icon svg { width: 18px; height: 18px; }

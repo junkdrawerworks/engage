@@ -107,6 +107,29 @@ assert.ok(await page.locator('#engage').isDisabled(), 'engage works with no dest
   await fresh.close();
 }
 
+// A friend who opens a shared course on a first visit sees the welcome card, with the course out of sight behind it:
+// the card says first what the link did. Without a course, it doesn't; nor for a star with no measured distance a
+// distance.
+{
+  const friend = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await friend.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + '?course=Vega');
+  await bridgeReady(p);
+  assert.equal(await p.locator('#intro-course').innerText(), 'A course is laid in for Vega, 25 light years out. Take the helm and engage.');
+  await p.tap('#intro-go');
+  assert.equal(await p.locator('#target-name').innerText(), 'Vega');
+  await p.evaluate(() => localStorage.clear());
+  await p.goto(base + '?course=Alcyone');
+  await bridgeReady(p);
+  assert.equal(await p.locator('#intro-course').innerText(), 'A course is laid in for the Pleiades, 403 light years out. Take the helm and engage.');
+  await p.evaluate(() => localStorage.clear());
+  await p.goto(base);
+  await bridgeReady(p);
+  assert.equal(await p.locator('#intro-course').isHidden(), true, 'the welcome card speaks of a course no link brought');
+  await friend.close();
+}
+
 // On a small phone, or any phone turned on its side, the welcome card is taller than the screen, so it scrolls and
 // Take the helm can still be reached. It opens at the top all the same, though Take the helm has the focus.
 for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }]) {

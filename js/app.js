@@ -10,7 +10,7 @@ import { LIVE, share } from './share.js';
 import { current, keep, watch } from './store.js';
 import { roomList } from './rooms.js';
 import {
-  AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, stardate, tripYears, warpSpeed,
+  AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
 
 const KEY = 'engage.v1';
@@ -219,7 +219,10 @@ async function start() {
   returnTo(coursed);
   // Take the helm takes focus without being scrolled to: on a small phone, or one on its side, the card is taller than
   // the screen, and it should open at the top.
-  if (!state.seenIntro) { $('intro').hidden = false; behind(); $('intro-go').focus({ preventScroll: true }); }
+  if (!state.seenIntro) {
+    if (coursed) courseLine();
+    $('intro').hidden = false; behind(); $('intro-go').focus({ preventScroll: true });
+  }
   bind();
   watch(KEY, adopt);
   // Night vision switched in tonight's sky, in another tab or on the page before this one (Back can bring this
@@ -254,6 +257,16 @@ function courseFromLink() {
   $('search').value = name.trim().slice(0, 60);
   renderList();
   openSheet('picker', $('choose'));
+}
+
+// A friend who opens a shared course on a first visit sees the welcome card over the helm, with the course hidden
+// behind it: the card says first what the link did.
+function courseLine() {
+  const i = state.target;
+  if (i == null || i === state.at) return;
+  const far = nominal(i) ? '' : `, ${roughLy(lyFromShip(i))} out`;
+  $('intro-course').textContent = `A course is laid in for ${inTextFor(cat, i)}${far}. Take the helm and engage.`;
+  $('intro-course').hidden = false;
 }
 
 // ---------- Drawing ----------

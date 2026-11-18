@@ -124,6 +124,12 @@ export function formatLy(ly) {
   return `${Math.round(ly).toLocaleString('en-US')} ly`;
 }
 
+// A distance as it is said in a sentence: "4.2 light years", "25 light years", "1,400 light years".
+export function roughLy(ly) {
+  if (ly < 9.95) return `${ly.toFixed(1)} light years`;
+  return `${Math.round(ly).toLocaleString('en-US')} light years`;
+}
+
 export function formatYear(year) {
   const y = Math.round(year);
   if (y <= 0) return `${(1 - y).toLocaleString('en-US')} BCE`;
