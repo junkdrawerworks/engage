@@ -964,6 +964,11 @@ assert.equal(await text('#eval-title'), 'The lifeboat');
 assert.equal(await page.locator('.grade').count(), 4);
 // A grade below an A says what cost it: never firing is the best thing about this run's restraint, and still a B.
 assert.equal(await page.locator('.grade', { hasText: 'Restraint' }).locator('.w').innerText(), 'You never fired a shot, but you broke the treaty to be there.');
+// Judgment never goes above a B, and a B says so; no other grade does.
+{
+  const judgment = await page.evaluate(() => maru.evaluate().grades.find(x => x.name === 'Judgment').letter);
+  assert.deepEqual(await page.locator('.grade .ceil').evaluateAll(els => els.map(el => [el.closest('.grade').querySelector('.n').textContent, el.textContent])), judgment === 'B' ? [['Judgment', 'The best this simulation allows']] : []);
+}
 await page.click('#again');
 assert.match(await text('#runs'), /The lifeboat/);
 // The record on the briefing: the endings as a collection (the ones not seen yet stay unnamed), the best grades and the runs taken.

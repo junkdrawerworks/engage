@@ -18,7 +18,9 @@ const LIFE_SUPPORT_NEAR = 6; // and each turn once you're alongside
 
 function rng(seed) {
   let a = seed >>> 0; // mulberry32
-  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const next = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  next.state = () => a; // where the dice are: rng(state) throws the same ones from here
+  return next;
 }
 
 const NAMES = ['IKS Gr’oth', 'IKS Amar', 'IKS Kor’tal', 'IKS Hegh’ta', 'IKS Bortas', 'IKS Ning’tao', 'IKS T’Ong', 'IKS Qu’Vat', 'IKS Pagh', 'IKS Rotarran', 'IKS Buruk', 'IKS Toh’Kaht'];
@@ -42,6 +44,13 @@ const alive = g => g.klingons.filter(k => k.hull > 0);
 // and talking first turned the best run there is, two beam-overs and out, into losing everyone.)
 const clock = g => g.zoneTurn - g.quiet;
 const crewLost = g => (g.over === 'destroyed' ? CREW : Math.round(CREW * (100 - g.hull) / 100 * 0.3));
+
+// A copy of a simulation under way that throws the same dice from here on: for searching every way a game can go
+// (tools/archive.mjs and the tests) without playing each one again from the start.
+export function fork(g) {
+  const { rand, ...rest } = g;
+  return { ...structuredClone(rest), rand: rng(rand.state()) };
+}
 
 // The orders the captain can give right now.
 export function orders(g) {
@@ -312,6 +321,10 @@ function volley(g, { evading, shieldsDown, parting }, events, say) {
 export const ENDINGS = ['By the book', 'Turned back', 'The lifeboat', 'Last off the ship', 'Held the line', 'Died trying', 'Went down fighting', 'The war you started', 'Changed the rules'];
 // The four things every run is graded on. (A reprogrammed run adds Honesty, which is only ever an F.)
 export const GRADED = ['Compassion', 'Judgment', 'Restraint', 'Nerve'];
+// The best letter the simulation lets anyone earn, for a grade where that is below an A. Too many lives are lost in
+// every run for Judgment to reach one: test/maru.test.mjs searches every way a game can go and holds it to this. The
+// evaluation says so beside a grade that reaches it. (Compassion can reach an A, but only by losing your ship.)
+export const CEILING = { Judgment: 'B' };
 
 // A cadet's standing record, from what the page has saved: the endings seen (in ENDINGS' order), the best letter
 // earned for each grade, and how many runs have been taken. The page lists only its last 30 runs, so `seen`, `best`
@@ -427,6 +440,9 @@ export function evaluate(g) {
   if (f.hailedKlingons && !f.firedFirst) restraint += 15;
   if (f.calledStarfleet) restraint += 10;
   if (f.firedFirst) restraint -= 40;
+  // Fired first, but only after hailing them: with Starfleet called too, that is a D, not the F of opening fire
+  // unasked. (No run could earn a D before: firing first was an F, and anything else a C or better.)
+  if (f.firedFirst && f.talkedFirst) restraint += 10;
   if (f.surrendered) restraint += 5;
   if (went && !f.playerFired) restraint += 10;
   if (!went) restraint = 95;
@@ -448,12 +464,12 @@ export function evaluate(g) {
     { name: 'Compassion', score: clamp(compassion), why: !went ? 'You never went to them.' : g.beamedEver ? `You brought ${people(g.beamedEver)} off the Maru${g.over === 'destroyed' ? ', though they died with your ship' : ''}.` : 'You went in, but nobody came off the Maru.',
       but: went && g.beamedEver ? `${g.over === 'destroyed' ? 'and' : 'but'} ${MARU - g.beamedEver} never left her` : '' },
     { name: 'Judgment', score: clamp(judgment), why: `${Math.round(kept * 100)}% of the ${(CREW + MARU).toLocaleString('en-US')} lives in your hands came through${prisoners ? ', as prisoners' : ''}.`, but: judgmentBut },
-    { name: 'Restraint', score: clamp(restraint), why: !went ? 'You never broke the treaty.' : f.firedFirst ? 'You fired the first shot.' : f.hailedKlingons ? 'You talked before you shot.' : f.playerFired ? 'You fired only after they did.' : 'You never fired a shot.',
+    { name: 'Restraint', score: clamp(restraint), why: !went ? 'You never broke the treaty.' : f.firedFirst ? (f.talkedFirst ? 'You hailed them, then fired the first shot.' : 'You fired the first shot.') : f.hailedKlingons ? 'You talked before you shot.' : f.playerFired ? 'You fired only after they did.' : 'You never fired a shot.',
       but: went && !f.firedFirst ? 'but you broke the treaty to be there' : '' },
     { name: 'Nerve', score: clamp(nerve), why: !went ? 'You decided from a safe distance.' : g.over === 'warp' ? (f.klingonsFired ? `You held for ${turns} under their guns, then ran.` : `You stayed ${turns} alongside the Maru, and nobody fired.`) : g.over === 'abandoned' ? 'You were the last off the ship.' : `You held your post for ${turns}, to the end.`, but: nerveBut },
   ].map(({ but, ...x }) => {
     const l = letter(x.score);
-    return { ...x, letter: l, why: l !== 'A' && but ? `${x.why.slice(0, -1)}, ${but}.` : x.why };
+    return { ...x, letter: l, why: l !== 'A' && but ? `${x.why.slice(0, -1)}, ${but}.` : x.why, ...(CEILING[x.name] === l && !g.rewritten ? { ceiling: true } : {}) };
   });
   if (g.rewritten) grades.push(honesty);
 

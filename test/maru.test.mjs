@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { newGame, act, orders, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, CREW, MARU, WARP_HULL, ENDINGS, GRADED, POSITION } from '../js/maru-sim.js';
+import { newGame, act, orders, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, fork, CREW, MARU, WARP_HULL, ENDINGS, GRADED, CEILING, POSITION } from '../js/maru-sim.js';
 import { buildCatalog } from '../js/catalog.js';
 import { LY_PER_PC } from '../js/physics.js';
 
@@ -132,6 +132,53 @@ test('hailing the Klingons first costs nothing: the turn they hold fire is not o
     act(before, 'hail');
     assert.deepEqual([before.hull, before.shields, before.sent, before.maru.hull], [hull, shields, sent, maru], `hail after ${wait} turns: they did something`);
   }
+});
+
+// Restraint's D. Firing first was an F and anything else a C or better, so no run could earn one. Firing first after
+// hailing them, with Starfleet called, is a D now; firing first unasked is still the F of starting a war.
+test('firing first after hailing them and calling Starfleet is a D, not an F', () => {
+  const restraint = plan => gradeOf(evaluate(keepGoing(play(plan))), 'Restraint');
+  assert.deepEqual({ ...restraint(['starfleet', 'enter', 'hail', 'phasers']) }, { name: 'Restraint', score: 40, letter: 'D', why: 'You hailed them, then fired the first shot.' });
+  assert.equal(restraint(['enter', 'hail', 'phasers']).letter, 'F', 'without calling Starfleet');
+  assert.equal(restraint(['starfleet', 'enter', 'phasers']).letter, 'F', 'without hailing them');
+  assert.equal(restraint(['starfleet', 'enter', 'phasers', 'hail']).letter, 'F', 'hailing after the shot');
+  assert.equal(evaluate(keepGoing(play(['starfleet', 'enter', 'phasers']))).title, 'The war you started');
+});
+
+// Every way one simulation can go, from the first order to the last (about 70,000 positions, five seconds). Nobody
+// brings more than 150 home at warp, Judgment never reaches an A (the evaluation says "The best this simulation
+// allows" at its B), Compassion's A is only ever earned by losing the ship, and every letter of Restraint, D now
+// included, can be earned.
+test('a search of every way a simulation can go: 150 home at most, and Judgment tops out at B', () => {
+  const seen = new Set();
+  const out = { home: 0, letters: Object.fromEntries(GRADED.map(n => [n, new Set()])), ceilings: 0, compassionA: new Set() };
+  const walk = g => {
+    if (g.over) {
+      const e = evaluate(g);
+      if (g.over === 'warp') out.home = Math.max(out.home, g.aboard);
+      for (const x of e.grades) {
+        out.letters[x.name].add(x.letter);
+        assert.equal(!!x.ceiling, CEILING[x.name] === x.letter, `${x.name} ${x.letter}: ceiling ${x.ceiling}`);
+        if (x.ceiling) out.ceilings++;
+      }
+      if (gradeOf(e, 'Compassion').letter === 'A') out.compassionA.add(g.over);
+      return;
+    }
+    const { rand, ...rest } = g;
+    const key = JSON.stringify(rest) + rand.state();
+    if (seen.has(key)) return;
+    seen.add(key);
+    for (const o of orders(g)) if (!o.done) { const c = fork(g); act(c, o.id); walk(c); }
+  };
+  walk(newGame({ seed: 7 }));
+  assert.equal(out.home, 150);
+  assert.deepEqual(Object.fromEntries(GRADED.map(n => [n, [...out.letters[n]].sort().join('')])), { Compassion: 'ABCDF', Judgment: 'BCDF', Restraint: 'ABCDF', Nerve: 'ABCDF' });
+  assert.ok(out.ceilings > 0);
+  assert.deepEqual([...out.compassionA], ['destroyed']);
+  // A fork throws the same dice as the game it was taken from.
+  const g = play(['enter', 'beam']), c = fork(g);
+  for (const id of ['beam', 'evade', 'phasers']) { act(g, id); act(c, id); }
+  assert.deepEqual({ ...c, rand: 0 }, { ...g, rand: 0 });
 });
 
 test('surrender is always refused', () => {
