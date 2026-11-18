@@ -596,7 +596,7 @@ let searchIndex = null, letters = null;
 // shows the charts' name as a badge beside the star's instead.
 function metaFor(i, charts = true) {
   const n = notesFor(cat, i);
-  const kind = shortKind(n ? n.kind : describeKind(cat.spect[i], cat.temp[i]));
+  const kind = shortKind(n ? n.kind : describeKind(cat.spect[i], cat.temp[i], cat.absmag[i]));
   return [n?.aka, charts && chartTag(cat.names[i]), kind].filter(Boolean).join(' · ');
 }
 

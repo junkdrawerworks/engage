@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU } from '../js/physics.js';
+import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral } from '../js/physics.js';
 import { describeKind, homeLines, composeEntry, inTextFor, titleFor, tripLine } from '../js/log.js';
 import { DESTINATIONS } from '../js/destinations.js';
 import { CLASSES } from '../js/classes.js';
@@ -79,6 +79,74 @@ test('star kinds are described in words', () => {
   assert.equal(describeKind('B8Ia', 12000), 'Blue-white supergiant, spectral type B8Ia');
   assert.equal(describeKind('DA2', 20000), 'White dwarf, spectral type DA2');
   assert.equal(describeKind('', 5800), 'Yellow dwarf');
+});
+
+test('spectral types are read whole', () => {
+  assert.deepEqual(spectral('K2III'), { letter: 'K', lum: 'III', special: null });
+  // The longest class wins: Iab is not Ia, III is not II, and what trails it is detail.
+  assert.equal(spectral('K7Iab:').lum, 'Iab');
+  assert.equal(spectral('B0.5Iavar').lum, 'Ia');
+  assert.equal(spectral('K4IIIb').lum, 'III');
+  assert.equal(spectral('K3IIIvar').lum, 'III');
+  assert.equal(spectral('A2Vn').lum, 'V');
+  assert.equal(spectral('F5IV/V').lum, 'IV');
+  assert.equal(spectral('G8/K0III').lum, 'III');
+  assert.equal(spectral('G0Ia0:').lum, 'Ia0');
+  assert.equal(spectral('M5e-M9e').lum, null);
+  // Only the first star of a pair.
+  assert.deepEqual(spectral('WC8 + O9I'), { letter: null, lum: null, special: 'wolf-rayet' });
+  assert.equal(spectral('M3IIIa+...').lum, 'III');
+  // The Gliese catalogue's lower-case classes and old prefixes.
+  assert.deepEqual(spectral('m'), { letter: 'M', lum: null, special: null });
+  assert.equal(spectral('k-m').letter, 'K');
+  assert.deepEqual(spectral('dM4.5e'), { letter: 'M', lum: 'V', special: null });
+  assert.deepEqual(spectral('sdM1'), { letter: 'M', lum: null, special: 'subdwarf' });
+  assert.equal(spectral('DA2').special, 'white dwarf');
+  assert.equal(spectral('DXP9').special, 'white dwarf');
+  for (const s of ['C7Iab', 'N5', 'CH', 'Cp', 'C5II', 'CIb...']) assert.equal(spectral(s).special, 'carbon', s);
+  assert.equal(spectral('WN...').special, 'wolf-rayet');
+  assert.equal(spectral('pec').letter, null);
+  assert.equal(spectral('').letter, null);
+});
+
+test('stars the log has no notes on are still called what they are', () => {
+  const kind = name => { const i = cat.byName.get(name); return describeKind(cat.spect[i], cat.temp[i], cat.absmag[i]).split(',')[0]; };
+  assert.equal(kind('Mira'), 'Red giant'); // "M5e-M9e" has no luminosity class; it was a red dwarf
+  assert.equal(kind('La Superba'), 'Carbon star'); // C7Iab
+  assert.equal(kind('Saiph'), 'Blue-white supergiant'); // B0.5Iavar
+  assert.equal(kind('ρ Cassiopeiae'), 'Yellow-white supergiant'); // F8Iavar
+  assert.equal(kind('HIP 1486'), 'Orange supergiant'); // K7Iab:
+  assert.equal(kind('Bubup'), 'Wolf-Rayet star'); // WN...
+  assert.equal(kind('Gliese 3094B'), 'Red dwarf'); // m
+  assert.equal(kind('Gliese 581'), 'Red dwarf'); // M5, and faint
+  assert.equal(describeKind('K4IIIb', 4200, -0.3), 'Orange giant, spectral type K4IIIb');
+  assert.equal(describeKind('K7Iab:', 4000, -5), 'Orange supergiant, spectral type K7Iab:');
+  assert.equal(describeKind('G0Ia0', 5500, -8), 'Yellow hypergiant, spectral type G0Ia0');
+  assert.equal(describeKind('dM4', 3200, 12), 'Red dwarf, spectral type dM4'); // it was a white dwarf
+  assert.equal(describeKind('S5.3', 3000, -1), 'Red giant, spectral type S5.3');
+  assert.equal(describeKind('m', 3000, 11), 'Red dwarf, spectral type m');
+  assert.equal(describeKind('M', 3000, -0.5), 'Red giant, spectral type M');
+  assert.equal(describeKind('G5', 5600, 5), 'Yellow dwarf, spectral type G5');
+  assert.equal(describeKind('G0', 5900, 2.4), 'Yellow subgiant, spectral type G0');
+  assert.equal(describeKind('Se', 4000, 8.8), 'Orange star, spectral type Se');
+  assert.equal(describeKind('pec', 5500, -3.8), 'Yellow star, spectral type pec'); // Eta Carinae is no giant
+  assert.equal(describeKind('', 4000, 0.5), 'Orange giant');
+  assert.equal(describeKind('', 3200, 12), 'Red dwarf');
+  assert.equal(describeKind('WN', 40000, -5), 'Wolf-Rayet star, spectral type WN');
+  // No star typed as a giant or supergiant comes out a dwarf or a plain star.
+  for (let i = 1; i < cat.count; i++) {
+    const s = cat.spect[i] || '';
+    if (/^[OBAFGKM][0-9.]*I(I|II|a|b|ab)?(?![IV])/.test(s)) assert.match(describeKind(s, cat.temp[i], cat.absmag[i]), /giant/, `${cat.names[i]}: ${s}`);
+  }
+});
+
+test('a worked-out width or brightness keeps two figures once it is in the hundreds', () => {
+  const star = name => { const i = cat.byName.get(name); return composeEntry(cat, i, { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 10, date: new Date('2026-10-08T00:00:00Z') }).sections[0][1]; };
+  for (const name of ['Alnilam', 'Saiph', 'La Superba']) {
+    for (const n of star(name).match(/[\d,]+(?= times)/g)) assert.match(n, /^\d\d?(,?0)*$/, `${name}: ${n} times`);
+  }
+  // Measured values on the stars with notes are said as given.
+  assert.match(star('Deneb'), /203 times the Sun’s width, and 196,000 times the Sun’s brightness/);
 });
 
 test('a log entry covers the star, home and the trip', () => {

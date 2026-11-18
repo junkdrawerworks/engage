@@ -1,7 +1,7 @@
 // Writes the captain's log entry for an arrival: the star, its planets and notes, how home looks from here,
 // and how the trip compares with light and with Voyager 1.
 import {
-  LY_PER_PC, apparentMag, formatDuration, formatLy, formatYear, stardate, tripYears, voyagerYears, SUN_ABSMAG,
+  LY_PER_PC, apparentMag, formatDuration, formatLy, formatYear, spectral, stardate, tripYears, voyagerYears, SUN_ABSMAG,
 } from './physics.js';
 import { ANCHORS, DESTINATIONS } from './destinations.js';
 import { chartFor } from './charts.js';
@@ -14,32 +14,42 @@ export const titleFor = (cat, i) => notesFor(cat, i)?.title || cat.names[i];
 // The title in the middle of a sentence: "at the Pleiades", where a heading or a list says "The Pleiades".
 export const inTextFor = (cat, i) => notesFor(cat, i)?.inText || titleFor(cat, i);
 
-// "Orange giant, spectral type K2III", from the catalogue's spectral type, or from the colour if it has none.
-export function describeKind(spect, temp) {
-  const s = (spect || '').trim();
-  if (/^(D|wd)/i.test(s)) return `White dwarf, spectral type ${s}`;
-  let letter = (s.match(/[OBAFGKM]/) || [])[0];
-  if (!letter) letter = temp > 30000 ? 'O' : temp > 10000 ? 'B' : temp > 7500 ? 'A' : temp > 6000 ? 'F' : temp > 5200 ? 'G' : temp > 3700 ? 'K' : 'M';
-  const lc = (s.match(/(Ia|Ib|III|II|IV|V|I)(?![a-z])/) || [])[1];
-  const sub = /^sd/.test(s);
-  let size;
-  if (sub) size = 'subdwarf';
-  else if (lc === 'III') size = 'giant';
-  else if (lc === 'II') size = 'bright giant';
-  else if (lc && lc.startsWith('I') && lc !== 'IV') size = 'supergiant';
-  else if (lc === 'IV') size = 'subgiant';
-  else size = 'GKM'.includes(letter) ? 'dwarf' : 'star';
-  const what = `${COLOUR[letter]} ${size}`;
-  return s ? `${what}, spectral type ${s}` : what;
-}
+const SIZE = { Ia0: 'hypergiant', Iab: 'supergiant', Ia: 'supergiant', Ib: 'supergiant', I: 'supergiant', II: 'bright giant', III: 'giant', IV: 'subgiant' };
 
-function ratio(x, what) {
+// "Orange giant, spectral type K2III", from the catalogue's spectral type, or from the colour if it has none.
+// `absmag` is how bright the star really is, where that is known: a yellow, orange or red star whose type doesn't
+// say giant or dwarf (Mira's "M5e-M9e") is a giant if it is as bright as one, and a dwarf if it's as faint as one.
+// Without it, such a star is called a dwarf, as nearly all of them are.
+export function describeKind(spect, temp, absmag) {
+  const s = (spect || '').trim();
+  const type = s ? `, spectral type ${s}` : '';
+  const { letter: read, lum, special } = spectral(s);
+  if (special === 'white dwarf') return `White dwarf${type}`;
+  if (special === 'wolf-rayet') return `Wolf-Rayet star${type}`;
+  if (special === 'carbon') return `Carbon star${type}`;
+  if (special === 'S' && absmag < GIANT_ABSMAG) return `Red giant${type}`;
+  const letter = read || (temp > 30000 ? 'O' : temp > 10000 ? 'B' : temp > 7500 ? 'A' : temp > 6000 ? 'F' : temp > 5200 ? 'G' : temp > 3700 ? 'K' : 'M');
+  let size;
+  if (special === 'subdwarf') size = 'subdwarf';
+  else if (SIZE[lum]) size = SIZE[lum];
+  else if (!'GKM'.includes(letter) || (s && !read)) size = 'star'; // a type that names no class ("pec") says nothing of size
+  else size = lum ? 'dwarf' : absmag < GIANT_ABSMAG ? 'giant' : absmag < DWARF_ABSMAG ? 'subgiant' : 'dwarf';
+  return `${COLOUR[letter]} ${size}${type}`;
+}
+// Yellow, orange and red giants are brighter than about absolute magnitude +2 (a K0 giant is about +0.7). The
+// brightest dwarfs of those colours, the early G stars, are about +4.4, and orange and red dwarfs are fainter than
+// +5.5. A star in between has left the dwarfs but isn't a giant yet.
+const GIANT_ABSMAG = 2, DWARF_ABSMAG = 3.5;
+
+// "5.2 times the Sun's width". With `rough`, for a figure worked out from the catalogue rather than measured, a big
+// number keeps only two figures: 24,000 times, not 24,445.
+function ratio(x, what, rough = false) {
   if (x < 0.995) {
     const pct = x * 100;
     return `${pct < 1 ? pct.toPrecision(2) : Math.round(pct)}% of the Sun’s ${what}`;
   }
   if (x < 1.05) return `about the Sun’s ${what}`;
-  const r = x < 10 ? x.toFixed(1).replace(/\.0$/, '') : Math.round(x).toLocaleString('en-US');
+  const r = x < 10 ? x.toFixed(1).replace(/\.0$/, '') : (rough && x >= 100 ? Number(x.toPrecision(2)) : Math.round(x)).toLocaleString('en-US');
   return `${r} times the Sun’s ${what}`;
 }
 
@@ -89,12 +99,12 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, dat
     ? `Back home, ${hold}.`
     : `We’ve dropped out of warp at ${inTextFor(cat, i)}, ${formatLy(fromSol)} from Sol, and are ${hold}.`;
   const sections = [];
-  const kind = notes?.kind || describeKind(cat.spect[i], cat.temp[i]);
+  const kind = notes?.kind || describeKind(cat.spect[i], cat.temp[i], cat.absmag[i]);
   const approx = notes ? '' : 'about ';
   const temp = `${(Math.round(cat.temp[i] / 10) * 10).toLocaleString('en-US')} K at the surface`;
   sections.push(['The star', i === 0
     ? `${kind}. ${temp}.`
-    : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width')}, and ${approx}${ratio(cat.lum[i], 'brightness').replace(/^about /, '')}.`]);
+    : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width', !notes)}, and ${approx}${ratio(cat.lum[i], 'brightness', !notes).replace(/^about /, '')}.`]);
   if (notes?.planets) sections.push(['Planets', notes.planets]);
   for (const n of notes?.notes || []) sections.push(['', n]);
   if (notes?.fiction) sections.push(['In fiction', notes.fiction]);

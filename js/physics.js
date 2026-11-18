@@ -50,6 +50,29 @@ export function physical(absmag, bv) {
   return { temp: t, lum, radius };
 }
 
+// Reads a catalogue spectral type. `letter` is the class (O B A F G K M, or null), `lum` the luminosity class as
+// written (Ia0, Iab, Ia, Ib, II, III, IV, V, or null), and `special` says when it's one of the kinds the letters
+// don't cover: 'white dwarf' (DA2), 'wolf-rayet' (WN5), 'carbon' (C7Iab, N5, R), 'S' (S5.3, a cool giant's type) or
+// 'subdwarf' (sdM1). Only the first star of a pair is read ("WC8 + O9I"), and the Gliese catalogue's lower-case
+// classes ("m", "k-m") and its old prefixes ("dM4" for a dwarf, "gK0" for a giant) are understood.
+export function spectral(spect) {
+  let s = String(spect || '').trim().split('+')[0].trim();
+  if (/^D(?![a-z])/.test(s) || /^wd/i.test(s)) return { letter: null, lum: null, special: 'white dwarf' };
+  if (/^W[NCOR]?(?![a-z])/.test(s)) return { letter: null, lum: null, special: 'wolf-rayet' };
+  if (/^[CNR](?![a-z])|^CH|^Cp/.test(s)) return { letter: null, lum: null, special: 'carbon' };
+  if (/^S(?![a-z])|^Se/.test(s)) return { letter: null, lum: null, special: 'S' };
+  let special = null, lum = null;
+  if (/^sd/.test(s)) { special = 'subdwarf'; s = s.slice(2); }
+  else if (/^d[OBAFGKM]/.test(s)) { lum = 'V'; s = s.slice(1); }
+  else if (/^g[OBAFGKM]/.test(s)) { lum = 'III'; s = s.slice(1); }
+  const at = /^[OBAFGKM]/i.test(s) ? 0 : s.search(/[OBAFGKM]/);
+  if (at < 0) return { letter: null, lum: null, special };
+  const letter = s[at].toUpperCase();
+  // Longest first, so Iab isn't read as Ia, or III as II. What follows a class (a, b, var, n, e, :) is detail.
+  lum = (s.slice(at + 1).match(/Ia0|Iab|Ia|Ib|III|II|IV|V|I/) || [])[0] || lum;
+  return { letter, lum, special };
+}
+
 // Star colour as the eye sees it: blackbody-ish, washed toward white (Tanner Helland's fit).
 export function starColor(t) {
   const k = t / 100;
