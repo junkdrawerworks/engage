@@ -144,11 +144,13 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
 export function logRecords(log, { lyFromSol, charted }) {
   let farthest = null, longest = null, most = null;
   const visits = new Map();
+  const measured = star => star === 0 || lyFromSol(star) !== null;
   log.forEach((e, k) => {
     const far = e.star === 0 ? null : lyFromSol(e.star);
     if (far !== null && (!farthest || far > farthest.ly)) farthest = { title: e.title, ly: far };
     const from = log[k + 1]?.star ?? 0;
-    if (e.ly > 0 && far !== null && (from === 0 || lyFromSol(from) !== null) && (!longest || e.ly > longest.ly)) longest = { title: e.title, ly: e.ly };
+    // The way home counts as a trip like any other: Sol's place is known.
+    if (e.ly > 0 && measured(e.star) && measured(from) && (!longest || e.ly > longest.ly)) longest = { title: e.title, ly: e.ly };
     const v = visits.get(e.star) || { title: e.title, n: 0 };
     v.n++;
     visits.set(e.star, v);

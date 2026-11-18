@@ -901,7 +901,12 @@ await bridgeReady();
   // card say so, with no "3,262 ly away" and no year for its light. Mira's type names no size, and she is a giant.
   await p.goto(base);
   await bridgeReady(p);
-  await p.evaluate(() => { for (const name of ['ρ Cassiopeiae', 'Mira']) { engage.jump(name); engage.closeSheets(); } });
+  await p.evaluate(() => { for (const name of ['ρ Cassiopeiae', 'Mira', 'Sol']) { engage.jump(name); engage.closeSheets(); } });
+  // The entry for coming home has no course to share (a link home sets nothing on a bridge that is already there).
+  await p.click('#open-log');
+  await p.locator('.past').first().locator('summary').click();
+  assert.deepEqual(await p.locator('.past').first().locator('.entry-actions > *').evaluateAll(els => els.map(el => el.textContent)), ['In your sky tonight']);
+  assert.equal(await p.locator('.past').nth(1).locator('[data-share]').count(), 1);
   await p.goto(base + 'tonight.html#star=' + encodeURIComponent('ρ Cassiopeiae'));
   await p.waitForFunction(() => window.tonight && document.getElementById('card-title').textContent === 'ρ Cassiopeiae');
   assert.equal(await p.locator('#card-sub').innerText(), 'Distance not measured');

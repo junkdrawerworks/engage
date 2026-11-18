@@ -289,4 +289,9 @@ test('the log’s records are worked out from its entries', () => {
   assert.equal(short.most, null);
   assert.deepEqual(short.farthest, { title: 'Proxima Centauri', ly: 4 });
   assert.equal(log.length, 7, 'the log itself was changed');
+  // The way home is a trip like any other, and can be the longest.
+  const back = logRecords([{ star: 0, title: 'Sol', ly: 1400 }, { star: 3, title: 'Deneb', ly: 1396 }, { star: 1, title: 'Proxima Centauri', ly: 4 }], opts);
+  assert.deepEqual(back.longest, { title: 'Sol', ly: 1400 }, 'the trip home holds no record');
+  // But not from a star with no measured distance.
+  assert.deepEqual(logRecords([{ star: 0, title: 'Sol', ly: 3262 }, { star: 4, title: 'HIP 4', ly: 3262 }], opts).longest, null);
 });

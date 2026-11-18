@@ -616,7 +616,9 @@ function entryHtml(e, heading) {
 function entryActions(e, arrival) {
   const again = !arrival && e.star !== state.at ? `<button type="button" data-again="${e.star}">Set course again</button>` : '';
   const tonight = `<a href="${TONIGHT}#star=${encodeURIComponent(cat.names[e.star])}"${AWAY}>In your sky tonight</a>`;
-  return `<p class="entry-actions">${again}${tonight}<button type="button" data-share="${state.log.indexOf(e)}">Share this course</button></p>`;
+  // A course for home isn't one to send: nearly everyone who opens the link is already there.
+  const send = e.star === 0 ? '' : `<button type="button" data-share="${state.log.indexOf(e)}">Share this course</button>`;
+  return `<p class="entry-actions">${again}${tonight}${send}</p>`;
 }
 
 function shareCourse(button) {
