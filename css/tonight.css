@@ -55,6 +55,9 @@
 /* The words scroll when the card is taller than the room it has (a phone on its side); Set course stays in view under them. */
 .card-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px; }
 .card .fly { display: grid; place-items: center; text-decoration: none; flex: none; }
+/* In the button's place when the ship is already at this star. */
+.card .here { flex: none; margin: 0; min-height: 48px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; color: var(--text); }
+.card .here a { padding: 12px 0; color: var(--cyan); text-underline-offset: 3px; white-space: nowrap; }
 body.carded .controls { visibility: hidden; }
 
 /* The list of systems, under tonight's plan: when it's dark, the best time to look, and any meteor shower */

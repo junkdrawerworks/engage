@@ -1122,7 +1122,11 @@ await bridgeReady();
   assert.equal(await p.locator('#card').evaluate(el => el.hidden), false, 'a link to a star did not open its card');
   assert.equal(await p.locator('#card-title').innerText(), 'Vega colony');
   assert.equal(await p.locator('#card-been').innerText(), `You’ve dropped out of warp here twice, the last on stardate ${stardate}.`);
-  assert.match(await p.locator('#card-course').innerText(), /^Set course for Vega again$/i);
+  // The ship is holding at Vega, so the card offers no course for it (the bridge would open with nothing chosen):
+  // it says where the ship is, with a way back.
+  assert.equal(await p.locator('#card-course').evaluate(el => el.hidden), true, 'the card offers a course for the star the ship is at');
+  assert.equal((await p.locator('#card-here').innerText()).replace(/\s+/g, ' '), 'The ship is holding here now. Back to the bridge');
+  assert.equal(await p.locator('#card-here a').evaluate(a => a.pathname), '/');
   assert.equal(await p.evaluate(() => tonight.state.sel.kind), 'star');
   await p.evaluate(() => { tonight.place(40.71, -74.01, 'New York', 'America/New_York'); tonight.at('2026-10-11T00:30:00Z'); tonight.aimAt('Vega'); });
   await p.waitForTimeout(200);
@@ -1135,16 +1139,30 @@ await bridgeReady();
   assert.equal(await p.locator('#card-been').innerText(), `You dropped out of warp here on stardate ${stardate}.`);
   await p.waitForTimeout(1100); // the view turns to it
   assert.ok((await p.evaluate(() => tonight.tags())).some(t => t.name === 'Alpheratz' && t.been), 'a logged star with no notes has no tag');
+  // A star in the log that the ship has left again offers the course again. The name is the card's heading, not
+  // in the button, where it ran to two lines on a phone; a screen reader still hears which star.
+  assert.equal(await p.locator('#card-here').evaluate(el => el.hidden), true);
+  assert.match(await p.locator('#card-course').innerText(), /^Set course again$/i);
+  assert.deepEqual(await p.locator('#card-course').evaluate(a => [a.getAttribute('aria-label'), a.search, a.getBoundingClientRect().height]), ['Set course again for Alpheratz', '?course=Alpheratz', 48]);
   // A star the ship hasn't been to says nothing about it, and offers a first course.
   await p.evaluate(() => { location.hash = '#star=Deneb'; });
   await p.waitForFunction(() => document.getElementById('card-title').textContent === 'Farpoint');
   assert.equal(await p.locator('#card-been').evaluate(el => el.hidden), true);
-  assert.match(await p.locator('#card-course').innerText(), /^Set course for Deneb$/i);
+  assert.match(await p.locator('#card-course').innerText(), /^Set course$/i);
+  assert.equal(await p.locator('#card-course').getAttribute('aria-label'), 'Set course for Deneb');
   await p.click('#card .close');
   await p.click('#open-list');
   assert.match(await p.locator('#list-note').innerText(), /You’ve flown to 2 of the stars listed here\.$/);
   assert.equal(await p.locator('#systems .s-been').count(), 2);
   assert.ok(await p.evaluate(() => localStorage.getItem('engage.v1')) === bridgeSave, 'tonight’s sky wrote to the bridge’s save');
+  // A course link for the star the ship is at (an old card, the survey, a shared link) can't set a course. The helm
+  // says why, and doesn't open as if the link had done nothing.
+  await p.goto(base + '?course=Vega');
+  await bridgeReady(p);
+  assert.deepEqual([await p.locator('#target-name').innerText(), await p.locator('#target-sub').innerText()], ['Choose another star', 'You’re holding at Vega.']);
+  assert.equal(await p.locator('#engage').isDisabled(), true);
+  await p.evaluate(() => engage.target('Deneb'));
+  assert.equal(await p.locator('#target-name').innerText(), 'Deneb');
 
   // A logged star is described here as the bridge describes it. ρ Cassiopeiae has no measured distance: its tag and
   // card say so, with no "3,262 ly away" and no year for its light. Mira's type names no size, and she is a giant.

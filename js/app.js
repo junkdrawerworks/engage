@@ -181,7 +181,16 @@ function courseFromLink() {
   if (name == null) return;
   history.replaceState(null, '', location.pathname + location.hash);
   const i = cat.byName.get(name) ?? named(starIndex(), name, magFromEarth);
-  if (i !== undefined) { setTarget(i); return; }
+  if (i !== undefined) {
+    setTarget(i);
+    // A course for the star the ship is holding at is no course, and the helm would open as if the link had done
+    // nothing (tonight's sky, the survey, the warp scale, long missions and shared links all send these). It says why.
+    if (i === state.at && !trip) {
+      $('target-name').textContent = 'Choose another star';
+      $('target-sub').textContent = i === 0 ? 'You’re holding in Earth orbit.' : `You’re holding at ${inTextFor(cat, i)}.`;
+    }
+    return;
+  }
   if (!name.trim()) return;
   $('search').value = name.trim().slice(0, 60);
   renderList();

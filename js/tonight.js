@@ -23,6 +23,7 @@ const PLANET_NAMES = { mercury: 'Mercury', venus: 'Venus', mars: 'Mars', jupiter
 
 const saved = load();
 const visits = loadVisits(); // star index -> { stardate, n }: where the bridge's log says the ship has been
+let shipAt = loadAt();       // the star the ship is holding at now, read again each time a card opens
 let cat, ctx, canvas;
 let sky = null;          // everything worked out for the current place and moment
 let view = { az: 180, alt: 35, fov: 80 * DEG };
@@ -64,6 +65,12 @@ function loadVisits() {
     else seen.set(e.star, { stardate: /^\d{4}\.\d{1,3}$/.test(e.stardate) ? e.stardate : '', n: 1 });
   }
   return seen;
+}
+// Where the bridge's save says the ship is holding: a star's index, or null when it's at home or there's no save.
+function loadAt() {
+  let at = null;
+  try { at = JSON.parse(localStorage.getItem('engage.v1') || 'null')?.at; } catch { /* no save */ }
+  return Number.isInteger(at) && at > 0 ? at : null;
 }
 function save() {
   const { place, sky: s, trim, night } = saved;
@@ -711,6 +718,7 @@ function nameOf(s) {
 // ---------- The card ----------
 
 function showCard(s) {
+  shipAt = loadAt(); // the bridge may have flown on in another tab, or before Back brought this page up again
   fillCard(s);
   $('card-body').scrollTop = 0;
   openSheet('card');
@@ -724,8 +732,12 @@ function fillCard(s) {
   const local = selLocal(s);
   const pos = altAz(local);
   const look = whereToLook(pos);
+  // A course for the star the ship is holding at is no course: the bridge would open with nothing chosen. There the
+  // card says where the ship is, with a way back.
+  const here = s.kind === 'star' && s.i === shipAt;
   const course = $('card-course');
-  course.hidden = s.kind !== 'star';
+  course.hidden = s.kind !== 'star' || here;
+  $('card-here').hidden = !here;
   let kind, title, sub = '', line = '', facts = '', seeIt = '', been = '';
   const skyIn = SKIES[saved.sky].inText;
   const night = sky.sunAlt > -12 ? ' once it’s dark' : '';
@@ -755,7 +767,9 @@ function fillCard(s) {
     facts = unmeasured ? `${what}. Nobody has measured how far away it is, so there’s no saying how old its light is.`
       : `${what}. The light reaching you tonight left it ${ly < 5000 ? `in ${formatYear(left)}` : `about ${formatLy(ly).replace(' ly', '')} years ago`}.`;
     course.href = `${BRIDGE}?course=${encodeURIComponent(cat.names[s.i])}`;
-    setText('card-course', `Set course for ${inTextFor(cat, s.i)}${v ? ' again' : ''}`);
+    // The star's name is the card's heading; with it in the button too, the words ran to two lines on a phone.
+    setText('card-course', v ? 'Set course again' : 'Set course');
+    course.setAttribute('aria-label', `Set course${v ? ' again' : ''} for ${inTextFor(cat, s.i)}`);
     if (BRIDGE.startsWith('http')) { course.target = '_blank'; course.rel = 'noopener'; }
   } else if (s.kind === 'planet') {
     const p = sky.planets.find(x => x.name === s.name);
