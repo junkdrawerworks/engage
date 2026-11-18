@@ -1,6 +1,7 @@
 // First contact: the page. The rules and the language are in contact-sim.js and the viewscreen in contact-art.js;
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
 import { LIVE, share } from './share.js';
+import { oneSwitch } from './switch.js';
 import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
@@ -303,7 +304,7 @@ function renderBook() {
       li.dataset.id = id;
       if (some) li.className = 'new';
       li.innerHTML = `<button class="ph-add" type="button"><span class="t">“${esc(phrase(g, id))}”</span><span class="plus"></span></button>
-        <select aria-label="What “${esc(phrase(g, id))}” means">${OPTIONS}</select><span class="ph-n"></span>`;
+        <select aria-label="What “${esc(phrase(g, id))}” means" data-stay>${OPTIONS}</select><span class="ph-n"></span>`;
       book.append(li);
     }
     // A phrase that can't be said just now is marked so and stays where the keyboard can rest on it: a button
@@ -516,6 +517,25 @@ function loop() {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('sim').hidden) loop(); });
 
+// ---------- One-switch play ----------
+
+// The choices a single press can pick, screen by screen (see switch.js): Send when there is a reply, the phrases that
+// can be said, the four buttons, Clear, then the notebook's meanings (each press moves one on to the next).
+const visible = (...ids) => ids.map(id => $(id));
+const sw = oneSwitch({
+  key: 'engage.oneswitch',
+  items() {
+    if (!$('brief').hidden) return visible('resume', 'start', 'one-switch');
+    if (!$('eval').hidden) return visible('again', 'to-bridge', 'share-run');
+    if (busy || !g) return [];
+    if (g.over) return visible('send');
+    if (watching) return visible('skip');
+    return [...(reply.length ? [$('send')] : []), ...$('book').querySelectorAll('.ph-add:not([aria-disabled])'), ...visible('listen', 'standard', 'shields', 'leave', 'clear'), ...$('book').querySelectorAll('select')];
+  },
+});
+$('one-switch').checked = sw.on;
+$('one-switch').addEventListener('change', e => sw.set(e.target.checked));
+
 // ---------- Wiring ----------
 
 $('start').addEventListener('click', () => start());
@@ -581,10 +601,11 @@ watch(KEY, () => {
 }
 const shared = openedRun();
 if (shared) watchEncounter(shared); else showBrief();
+sw.set(sw.on);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.contact = {
   get game() { return g; }, get busy() { return busy; }, get draws() { return draws; },
-  start, resume, send, act: doAct, showEval, watch: watchEncounter, skip: skipWatched, get watching() { return watching; },
+  start, resume, send, act: doAct, showEval, oneSwitch: sw, watch: watchEncounter, skip: skipWatched, get watching() { return watching; },
   // Puts phrases in the reply by meaning, as if tapped in the notebook.
   pick(...ids) { for (const id of ids) if (g.heard.includes(id) && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id); update(); keepGame(); },
   hint: () => hint(g),

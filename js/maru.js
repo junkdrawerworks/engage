@@ -1,6 +1,7 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
 import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, archiveLine, dailySeed, today, shareLine, encodeRun, decodeRun, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
 import { LIVE, share } from './share.js';
+import { oneSwitch } from './switch.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -733,6 +734,24 @@ function loop() {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('sim').hidden) loop(); });
 
+// ---------- One-switch play ----------
+
+// The choices a single press can pick, screen by screen (see switch.js): the whole test and the evaluation need one button.
+const visible = (...ids) => ids.map(id => $(id));
+const sw = oneSwitch({
+  key: 'engage.oneswitch',
+  items() {
+    if (!$('brief').hidden) return visible('resume', 'start', 'daily-start', 'daily-share', 'rewrite', 'one-switch');
+    if (!$('eval').hidden) return visible('again', 'to-bridge', 'share-run');
+    if (busy || !g) return [];
+    if (g.over) return visible('read-eval');
+    if (watching) return visible('skip');
+    return [...$('orders').querySelectorAll('.order:not([aria-disabled])')];
+  },
+});
+$('one-switch').checked = sw.on;
+$('one-switch').addEventListener('change', e => sw.set(e.target.checked));
+
 // ---------- Wiring ----------
 
 $('start').addEventListener('click', () => start(false));
@@ -780,5 +799,6 @@ watch(KEY, () => {
 }
 const shared = openedRun();
 if (shared) watchRun(shared); else showBrief();
+sw.set(sw.on);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.maru = { get game() { return g; }, start, resume, give, watch: watchRun, skip: skipWatched, get watching() { return watching; }, get given() { return given.slice(); }, daily: () => $('daily-start').click(), get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU, get draws() { return draws; } };
+window.maru = { get game() { return g; }, start, resume, give, watch: watchRun, skip: skipWatched, get watching() { return watching; }, get given() { return given.slice(); }, daily: () => $('daily-start').click(), oneSwitch: sw, get busy() { return busy; }, evaluate: () => evaluate(g), CREW, MARU, get draws() { return draws; } };

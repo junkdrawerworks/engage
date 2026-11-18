@@ -1036,10 +1036,57 @@ assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.g
   await q.click('#again');
   assert.deepEqual(await q.evaluate(() => [maru.game.seed, maru.game.turn, location.hash, !!maru.watching]), [dailySeed(day), 0, '', false]);
   // A link that isn't a run opens the briefing as usual.
+  await q.goto('about:blank');
   await q.goto(base + 'maru.html#run=1.7.zz');
   await q.waitForFunction(() => window.maru);
   assert.equal(await q.locator('#brief').isVisible(), true);
   await friend.close();
+}
+// One-switch play: with the toggle on the briefing, a highlight steps through the choices and one key or one tap
+// anywhere picks the highlighted one, for the whole test and the evaluation. The setting is remembered, and first
+// contact can be played the same way, a meaning in the notebook stepped on by each press.
+{
+  const one = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await one.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  await p.tap('#one-switch');
+  await p.evaluate(() => { maru.oneSwitch.interval = 250; });
+  const pickWhen = async (sel, how = 'key') => {
+    await p.waitForFunction(s => document.querySelector('.scan')?.matches(s) && document.activeElement === document.querySelector('.scan'), sel, { timeout: 30000 });
+    if (how === 'key') await p.keyboard.press('Space'); else await p.tap('.jd-foot');
+  };
+  await pickWhen('#start');
+  for (const id of ['enter', 'beam', 'beam', 'warp']) await pickWhen(`.order[data-id="${id}"]`, id === 'beam' ? 'tap' : 'key');
+  await pickWhen('#read-eval');
+  assert.equal(await p.locator('#eval-title').innerText(), 'The lifeboat');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.maru.v1')).runs.length), 1);
+  await pickWhen('#again');
+  assert.equal(await p.locator('#brief').isVisible(), true);
+  // A tap on the footer's links did not follow them.
+  assert.match(p.url(), /maru\.html$/);
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  assert.deepEqual(await p.evaluate(() => [document.getElementById('one-switch').checked, contact.oneSwitch.on]), [true, true], 'one-switch play was not remembered');
+  await p.evaluate(() => { contact.oneSwitch.interval = 250; });
+  await pickWhen('#start');
+  await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await pickWhen('#book li[data-id="meet"] select');
+  assert.equal(await p.evaluate(() => contact.game.tags.meet), 'meet', 'a press on a meaning did not step it on');
+  // The highlight waits on it for the next press, then moves on.
+  assert.equal(await p.evaluate(() => document.querySelector('.scan')?.closest('li')?.dataset.id), 'meet');
+  await pickWhen('#book li[data-id="meet"] .ph-add');
+  await pickWhen('#send');
+  await p.waitForFunction(() => !contact.busy && contact.game.beat === 1, null, { timeout: 20000 });
+  // Turning it off is one of the choices on the briefing.
+  await p.evaluate(() => contact.act('leave'));
+  await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await pickWhen('#send');
+  await pickWhen('#again');
+  await pickWhen('#one-switch');
+  assert.equal(await p.evaluate(() => [contact.oneSwitch.on, localStorage.getItem('engage.oneswitch')].join()), 'false,off');
+  await one.close();
 }
 // Going to warp out of the Neutral Zone is heard as the ship goes, not a second later. The Maru used the bridge's
 // jump sound for a one-second trip, and that sound's hold point, set a second in, came before its swell in time:

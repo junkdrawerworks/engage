@@ -21,6 +21,12 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 .card .eyebrow { color: var(--red); }
 
 /* Briefing */
+/* One-switch play (js/switch.js): the toggle on the briefing, and the highlight on the choice a press would pick. */
+.brief .one-switch { margin-top: 10px; border: 0; padding: 8px 0 0; align-items: flex-start; }
+.brief .one-switch input { margin-top: 2px; }
+.brief .one-switch span { font-size: 13px; line-height: 1.4; color: var(--muted); }
+.brief .one-switch b { display: block; font-size: 14px; font-weight: 600; color: var(--text); }
+.one-switch-on .scan, html.one-switch .scan { outline: 3px solid var(--amber) !important; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(255, 181, 74, 0.25) !important; }
 #brief:not([hidden]) { display: grid; gap: 12px; max-width: 640px; margin: 6px auto 0; }
 .brief .how { color: var(--muted); }
 /* The examiners' line for a cadet who has been here before. */
