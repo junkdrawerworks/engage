@@ -53,7 +53,7 @@ export function orders(g) {
     { id: 'phasers', label: 'Fire phasers', sub: near ? 'At the weakest cruiser' : 'No targets', done: !near },
     { id: 'torpedoes', label: 'Torpedo spread', sub: g.torpedoes ? `Two at a time, ${g.torpedoes} left` : 'None left', done: !g.torpedoes || !near },
     { id: 'hail', label: 'Hail the Klingons', sub: g.flags.playerFired ? 'After you fired on them' : g.flags.hailedKlingons ? 'They answered once' : 'Talk before shooting' },
-    { id: 'evade', label: 'Evasive maneuvers', sub: 'Halves the damage this turn' },
+    { id: 'evade', label: 'Evasive manoeuvres', sub: 'Halves the damage this turn' },
     { id: 'warp', label: 'Go to warp', sub: g.flags.warpDown ? 'Warp drive is offline' : g.aboard ? `Leave with the ${g.aboard} you have aboard` : 'Leave the Maru behind', done: g.flags.warpDown },
     { id: 'surrender', label: 'Offer surrender', sub: g.flags.surrendered ? (g.rewritten ? 'They want no prisoners' : 'They refused') : 'Ask them to take prisoners', done: g.flags.surrendered },
   ];
@@ -115,7 +115,7 @@ export function act(g, id) {
       say('Starfleet Command', 'The Maru is inside the Neutral Zone. Entering it violates the treaty with the Klingon Empire. Proceed at your discretion.');
     } else if (id === 'scan') {
       g.flags.scanned = true;
-      say('Science officer', 'One freighter, adrift, ten thousand kilometers inside the zone. Nothing else on sensors. A cloaked ship wouldn’t show either.');
+      say('Science officer', 'One freighter, adrift, ten thousand kilometres inside the zone. Nothing else on sensors. A cloaked ship wouldn’t show either.');
     } else if (id === 'leave') {
       g.over = 'stayed';
       g.maru.gone = true; g.maru.lostTurn = g.turn;

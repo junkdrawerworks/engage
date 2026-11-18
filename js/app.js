@@ -817,7 +817,7 @@ function drawLog() {
     'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;
   $('stats').textContent = state.log.length
-    ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} traveled`
+    ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} travelled`
     : 'Nothing logged yet. Choose a star and engage.';
   $('entries').innerHTML = recordsHtml() + state.log.map(e => `
     <details class="past">

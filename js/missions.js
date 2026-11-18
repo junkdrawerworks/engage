@@ -44,12 +44,12 @@ function save() {
 
 const int = x => Math.round(x).toLocaleString('en-US');
 const fmtDate = (d, opts = {}) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', ...opts });
+// A moment, one way throughout the hail card: "today at 11:56 pm", or the day then the month, "19 Nov at 1:51 am",
+// as the ship's file and the captain's log write dates. (It used to give a weekday for the next few days, a date for
+// the rest and capitals for the hour, all three in one sentence.) The space before "am" doesn't break.
 const fmtWhen = d => {
-  const sameDay = d.toDateString() === new Date().toDateString();
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  if (sameDay) return `today at ${time}`;
-  const days = (d - Date.now()) / 864e5;
-  if (days > 0 && days < 6) return `${d.toLocaleDateString('en-US', { weekday: 'long' })} at ${time}`;
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(/\s/, '\u202f');
+  if (d.toDateString() === new Date().toDateString()) return `today at ${time}`;
   return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${time}`;
 };
 function lightTime(sec) {

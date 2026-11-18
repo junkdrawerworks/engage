@@ -80,7 +80,7 @@ function renderRecord() {
   $('endings').innerHTML = ENDINGS.map(t => (seen.has(t) ? `<li class="seen">${esc(t)}</li>` : '<li><span aria-hidden="true">—</span><span class="sr">Not seen yet</span></li>')).join('');
   $('best').innerHTML = GRADED.map(name => `<span class="${saved.best[name] || 'none'}"><b>${saved.best[name] || '–'}</b>${name}</span>`).join('');
   $('taken').textContent = `${saved.taken} ${saved.taken === 1 ? 'run' : 'runs'} taken`;
-  $('runs').innerHTML = runs.map(r => `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>
+  $('runs').innerHTML = runs.map(r => `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</span>
     <span class="letters">${r.grades.map(x => `${esc(x.name)} ${esc(x.letter)}`).join(' · ')}</span></li>`).join('');
 }
 

@@ -384,7 +384,7 @@ assert.ok(Math.abs(sun[1] - 60.8 * Math.PI / 180) < 0.1, 'the view did not turn 
 
 // The log keeps the trip, and so does a reload.
 await page.click('#open-log');
-assert.match(await text('#stats'), /1 star visited · 4\.2\d ly traveled/);
+assert.match(await text('#stats'), /1 star visited · 4\.2\d ly travelled/);
 assert.match((await text('#records')).replace(/\s+/g, ' '), /^FARTHEST FROM SOL Proxima Centauri · 4\.2\d ly LONGEST TRIP 4\.2\d ly to Proxima Centauri CHARTED DESTINATIONS 2 of 32$/);
 // An entry opened from the log says its first line once, not in the heading and again underneath.
 await page.locator('.past summary').first().click();
@@ -683,6 +683,9 @@ assert.equal(await page.locator('.ship-tab').count(), 6);
 assert.equal(await text('#hail'), 'HAIL HER');
 await page.click('#hail');
 assert.match(await text('#hail-note'), /of the way there/);
+// The card writes a moment one way: "today at 11:56 pm", or the day and then the month, "19 Nov at 1:51 am".
+const WHEN = '(today|\\d{1,2} [A-Z][a-z]{2}) at \\d{1,2}:\\d\\d\\u202f[ap]m';
+assert.match(await text('#hail-note'), new RegExp(`^Your hail, sent today at \\d{1,2}:\\d\\d\\u202f[ap]m, is .* It reaches her ${WHEN}\\.`));
 // A hail in flight is not replaced by tapping again: the button says it is on its way and the time it left stays.
 assert.equal(await text('#hail'), 'HAIL ON ITS WAY');
 const hailed = await page.evaluate(() => JSON.parse(localStorage.getItem('engage.missions.v1')).hails.v1);
@@ -698,6 +701,10 @@ await page.click('#hail');
 assert.ok(Math.abs(await page.evaluate(() => Date.now() - missions.hails.v1) - 30 * 3600e3) < 5000, 'a tap wiped a hail whose answer was still due');
 await page.evaluate(() => { missions.hails.v1 = Date.now() - 60 * 3600e3; });
 await page.waitForFunction(() => document.getElementById('hail').textContent === 'Hail her again');
+// Sent two and a half days ago: every moment in the card is a day and a month (it used to name a weekday for some,
+// a date for others, with the hour in capitals).
+assert.match(await text('#hail-note'), new RegExp(`^Your hail, sent \\d{1,2} [A-Z][a-z]{2} at \\d{1,2}:\\d\\d\\u202f[ap]m, reached her ${WHEN}, and an answer could have been back ${WHEN}\\.`));
+assert.doesNotMatch(await text('#hail-note'), /[A-Z][a-z]+day at|[AP]M/);
 await page.click('#hail');
 assert.ok(await page.evaluate(() => Date.now() - JSON.parse(localStorage.getItem('engage.missions.v1')).hails.v1) < 5000, 'a new hail could not be sent after the answer was due');
 assert.equal(await text('#hail'), 'HAIL ON ITS WAY');
@@ -1331,6 +1338,8 @@ await bridgeReady();
   assert.equal((await p.locator('#best').innerText()).replace(/\s+/g, ' '), 'C COMPASSION B JUDGMENT A RESTRAINT B NERVE');
   assert.equal(await p.locator('#taken').innerText(), '2 RUNS TAKEN');
   assert.equal(await p.locator('#runs li').count(), 2);
+  // Each run's date is the day and then the month, as the captain's log writes dates, whatever the browser's own way.
+  for (const when of await p.locator('#runs .when').allInnerTexts()) assert.match(when, /^\d{1,2} [A-Z][a-z]{2}$/, `a run is dated “${when}”`);
   // The next run is added to them, and the old runs are saved back as they were.
   await p.click('#start');
   await p.click('.order[data-id="leave"]');
@@ -1355,7 +1364,7 @@ await bridgeReady();
   await p.goto(base);
   await bridgeReady(p);
   await p.click('#open-log');
-  assert.match(await p.locator('#stats').innerText(), /^2 stars visited · 8\.50 ly traveled$/);
+  assert.match(await p.locator('#stats').innerText(), /^2 stars visited · 8\.50 ly travelled$/);
   assert.equal(await p.locator('.past').count(), 2);
   assert.equal(await p.locator('.past [data-again]').count(), 1, 'an old entry has no Set course again');
   assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 32$/);
@@ -1721,6 +1730,7 @@ assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.g
 await page.reload();
 await page.waitForFunction(() => window.contact);
 assert.equal(await page.locator('#runs li').count(), 2, 'the record was not kept');
+for (const when of await page.locator('#runs .when').allInnerTexts()) assert.match(when, /^\d{1,2} [A-Z][a-z]{2}$/, `an encounter is dated “${when}”`);
 await page.goto(base);
 await bridgeReady();
 

@@ -47,7 +47,7 @@ const IMAGES = {
 export const DANGERS = {
   storm: {
     name: 'the ion storm',
-    pic: 'a wall of blue lightning, light-years long, rolling toward you',
+    pic: 'a wall of blue lightning, light years long, rolling toward you',
     sensor: 'an ion storm front',
     gift: 'With them, your shields could shrug off the lightning.',
     gap: 'A dark lane opens in the storm.',

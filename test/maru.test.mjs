@@ -26,6 +26,7 @@ test('staying out keeps your crew and loses the Maru', () => {
 test('crossing the line brings three cruisers, and they hold fire for one hail', () => {
   const g = play(['enter']);
   assert.equal(g.klingons.length, 3);
+  assert.equal(orders(g).find(o => o.id === 'evade').label, 'Evasive manoeuvres'); // spelt as the rest of Engage spells
   act(g, 'hail');
   assert.equal(g.hull, 100, 'they fired through the hail');
   act(g, 'hail');

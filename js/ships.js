@@ -17,7 +17,7 @@ export const SHIPS = [
       ['2012-08-25', 'Crossed the heliopause at 121.6 AU, the first ship to reach interstellar space.'],
       ['2024-04-20', 'Making sense again after five months of gibberish, fixed from 22 light-hours away by moving code around a failed memory chip.'],
     ],
-    bound: { star: 'Gliese 445', text: 'She’s heading out of the Solar System toward Ophiuchus. In about 40,000 years she’ll pass 1.6 light-years from the red dwarf Gliese 445.' },
+    bound: { star: 'Gliese 445', text: 'She’s heading out of the Solar System toward Ophiuchus. In about 40,000 years she’ll pass 1.6 light years from the red dwarf Gliese 445.' },
     record: 'Carries the Golden Record: sounds and pictures of Earth, and music from Bach to Chuck Berry.',
   },
   {
@@ -35,7 +35,7 @@ export const SHIPS = [
       ['2018-11-05', 'Crossed the heliopause at 119 AU into interstellar space.'],
       ['2023-08-04', 'A wrong command had tilted her antenna 2 degrees off Earth. Canberra shouted a fix at full power, and she turned back.'],
     ],
-    bound: { star: 'Ross 248', text: 'She’s heading toward Pavo, the Peacock. In about 40,000 years she’ll pass 1.7 light-years from the red dwarf Ross 248, and in 296,000 years, 4.3 light-years from Sirius.' },
+    bound: { star: 'Ross 248', text: 'She’s heading toward Pavo, the Peacock. In about 40,000 years she’ll pass 1.7 light years from the red dwarf Ross 248, and in 296,000 years, 4.3 light years from Sirius.' },
     record: 'Carries the other copy of the Golden Record.',
   },
   {
@@ -80,7 +80,7 @@ export const SHIPS = [
       ['1983-06-13', 'Crossed Neptune’s orbit, the first ship to pass beyond the planets.'],
       ['2003-01-23', 'Last signal heard.'],
     ],
-    bound: { star: 'Aldebaran', text: 'She’s heading for Aldebaran, the red eye of Taurus, 65 light-years away. At her speed that’s about 2 million years.' },
+    bound: { star: 'Aldebaran', text: 'She’s heading for Aldebaran, the red eye of Taurus, 65 light years away. At her speed that’s about 2 million years.' },
     record: 'Carries the Pioneer plaque: a map to the Sun and a drawing of two people.',
   },
   {

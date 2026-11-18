@@ -96,7 +96,7 @@ function renderRecord() {
   ].map(([n, label, word]) => `<span><b>${n}</b>${esc(label)}${word ? `<i>${esc(word)}</i>` : ''}</span>`).join('');
   $('runs').innerHTML = runs.map(r => {
     const decoded = Number(r.decoded) || 0, of = Number(r.of) || 0;
-    return `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>
+    return `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</span>
     <span class="what">The ${esc(r.people || 'unknown ship')} · ${decoded} of ${of} phrases decoded${of ? ` · ${fluencyOf(decoded, of)}` : ''}</span></li>`;
   }).join('');
 }
