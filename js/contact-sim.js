@@ -5,6 +5,8 @@
 // The encounter is the same shape every time: they greet you, warn you of a danger, ask you to cross it with them,
 // give you a way through, tell you when to wait and when to go. You answer with their own phrases.
 
+import { ARCHIVE } from './archive.js';
+
 export const PATIENCE = 5; // misunderstandings they'll sit through before they give up
 export const MAX_REPLY = 3; // phrases in one reply
 
@@ -438,6 +440,17 @@ export function debrief(g) {
   const fluency = fluencyOf(decoded, rows.length);
   const transcript = g.log.filter(l => l.ids).map(l => ({ who: l.who, said: l.ids.map(id => L.phrases[id]), meant: l.ids.map(id => (id === 'story' ? 'A new story: the day you met' : MEANING[id])) }));
   return { title, summary, outcome: g.over, people: L.people, captain: L.captain, story: g.over === 'contact' ? L.phrases.story : null, rows, decoded, of: rows.length, fluency, transcript, misses: g.misses, turns: g.turn };
+}
+
+// How rare an encounter's ending is, from the examiners' archive (js/archive.js, written by tools/archive.mjs): how
+// often an encounter ends this way when every line is answered with phrases picked at random. Nothing for an ending
+// the archive never saw (weapons and breaking off are never picked at random).
+export function archiveLine(d) {
+  const { trials, endings } = ARCHIVE.contact;
+  const n = endings[d.outcome];
+  if (!n || !trials) return '';
+  const share = n / trials;
+  return `${share >= 0.5 ? `About ${Math.round(share * 10)} in 10 end` : `About 1 in ${Math.round(1 / share)} ends`} this way, of ${trials.toLocaleString('en-US')} encounters answered with phrases picked at random.`;
 }
 
 // How well a notebook did, from how many of the phrases heard were guessed right.

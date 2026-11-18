@@ -125,7 +125,7 @@ console.log(`survey.html: ${(surveyOut.length / 1024).toFixed(0)} KB`);
 
 // The Kobayashi Maru, as its own single file. Links back to the bridge go to the live site.
 const maruHtml = await read('maru.html');
-const maruJs = await bundle(['audio', 'store', 'onscreen', 'maru-sim', 'maru'], liveBridge('maru'));
+const maruJs = await bundle(['audio', 'store', 'onscreen', 'archive', 'maru-sim', 'maru'], liveBridge('maru'));
 const maruOut = `<title>Kobayashi Maru</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -207,7 +207,7 @@ console.log(`xeno.html: ${(xenoOut.length / 1024).toFixed(0)} KB`);
 
 // First contact, as its own single file. Links back to the bridge go to the live site.
 const contactHtml = await read('contact.html');
-const contactJs = await bundle(['audio', 'store', 'onscreen', 'contact-sim', 'contact-art', 'contact']);
+const contactJs = await bundle(['audio', 'store', 'onscreen', 'archive', 'contact-sim', 'contact-art', 'contact']);
 const contactOut = `<title>First contact</title>
 <meta name="theme-color" content="#05070d">
 <style>

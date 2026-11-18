@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { newGame, act, orders, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, fork, CREW, MARU, WARP_HULL, ENDINGS, GRADED, CEILING, POSITION } from '../js/maru-sim.js';
 import { buildCatalog } from '../js/catalog.js';
+import { ARCHIVE } from '../js/archive.js';
 import { LY_PER_PC } from '../js/physics.js';
 
 // The briefing names the real star the film's position is called after, and says how far it is. The star and the
@@ -172,6 +173,7 @@ test('a search of every way a simulation can go: 150 home at most, and Judgment 
   };
   walk(newGame({ seed: 7 }));
   assert.equal(out.home, 150);
+  assert.equal(out.home, ARCHIVE.maru.mostHome);
   assert.deepEqual(Object.fromEntries(GRADED.map(n => [n, [...out.letters[n]].sort().join('')])), { Compassion: 'ABCDF', Judgment: 'BCDF', Restraint: 'ABCDF', Nerve: 'ABCDF' });
   assert.ok(out.ceilings > 0);
   assert.deepEqual([...out.compassionA], ['destroyed']);

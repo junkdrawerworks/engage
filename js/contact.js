@@ -1,6 +1,6 @@
 // First contact: the page. The rules and the language are in contact-sim.js and the viewscreen in contact-art.js;
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
-import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -375,6 +375,10 @@ function showEval() {
   $('eval-score').innerHTML = `<span class="n">${e.decoded}/${e.of}</span><b>${esc(e.fluency)}</b><span>${esc(note)}</span>`;
   // The score arrives a moment after the verdict, as the Maru's grades do.
   $('eval-score').style.animation = still.matches ? '' : 'rise .5s .25s both';
+  // How rare this ending is, from encounters answered with phrases picked at random.
+  const rare = archiveLine(e);
+  $('eval-archive').hidden = !rare;
+  $('eval-archive').innerHTML = rare ? `<b>Examiners’ archive</b> ${esc(rare)}` : '';
   $('dict').innerHTML = e.rows.map(r => `<li class="${r.right ? 'right' : r.guess ? 'wrong' : 'blank'}"><span class="mark" aria-hidden="true">${r.right ? '✓' : r.guess ? '✗' : '–'}</span>
     <span class="t">“${esc(r.text)}”</span>
     <span class="m">meant <b>${esc(r.meaning)}</b>${r.guess && !r.right ? `, you guessed ${esc(MEANING[r.guess])}` : ''}${!r.guess ? ', no guess' : ''}</span></li>`).join('');

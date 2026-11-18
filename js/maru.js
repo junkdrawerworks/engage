@@ -1,5 +1,5 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
-import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
+import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, archiveLine, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -250,6 +250,10 @@ function showEval() {
   const e = lastEval || evaluate(g);
   $('eval-title').textContent = e.title;
   $('eval-summary').textContent = e.summary;
+  // How rare this ending is, from the simulator's own trials with orders given at random.
+  const rare = archiveLine(g, e);
+  $('eval-archive').hidden = !rare;
+  $('eval-archive').innerHTML = rare ? `<b>Examiners’ archive</b> ${esc(rare)}` : '';
   // Said when it is made, not left for the briefing's record card: a first sight of this ending, and any grade that
   // beat the best on record. (The endings not seen yet stay unnamed: only the count goes up.)
   $('eval-firsts').hidden = !firsts?.newEnding;

@@ -107,6 +107,9 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 /* What this run added to the record: a new ending under the title, "best yet" on a grade that beat the record. */
 .evaluation .firsts { margin: -4px 0 10px; font: 600 12px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--green); }
 .grade .best-yet { margin-left: 6px; padding: 2px 6px; border-radius: 999px; border: 1px solid currentColor; font-size: 9px; letter-spacing: 0.1em; color: var(--green); white-space: nowrap; }
+/* How rare the ending is, from the archive of trials run with orders at random (js/archive.js). */
+.evaluation .archive { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.evaluation .archive b { display: block; font: 600 10px/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 .evaluation h3 { margin: 18px 0 6px; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .grades { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 4px; }
 .grade { display: grid; grid-template-columns: auto 1fr; gap: 0 12px; align-items: center; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }

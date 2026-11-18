@@ -1,4 +1,5 @@
 // The Kobayashi Maru, as rules: no drawing and no page, so it can be tested on its own.
+import { ARCHIVE } from './archive.js';
 // The test is rigged the way Starfleet Academy rigs it: whatever you do, the Maru is lost, and more cruisers keep coming.
 // What changes is how you lose, and that is what evaluate() grades.
 
@@ -362,6 +363,18 @@ export const moral = e => (e.outcome === 'rewritten'
   ? 'The Kobayashi Maru had no winning answer until you wrote one in. The examiners still haven’t seen how you face losing.'
   : 'The Kobayashi Maru has no winning answer. It shows the examiners how you face one.');
 
+// How rare a run's ending is, from the examiners' archive (js/archive.js, written by tools/archive.mjs): how often the
+// simulator ends this way when it is given orders at random. Said as a share of trials, never as a judgment of the
+// run. The reprogrammed simulator is not the one in the archive, so its runs get nothing; nor does an ending the
+// archive never saw.
+const often = share => (share >= 0.5 ? `About ${Math.round(share * 10)} in 10 end` : `About 1 in ${Math.round(1 / share)} ends`);
+export function archiveLine(g, e) {
+  const { trials, endings } = ARCHIVE.maru;
+  const n = endings[e.title];
+  if (g.rewritten || !n || !trials) return '';
+  return `${often(n / trials)} this way, of ${trials.toLocaleString('en-US')} trials the simulator ran with orders given at random.`;
+}
+
 // One line at the head of the briefing for a cadet who has been here before, from the standing record (transcript()).
 // A first attempt gets none: the briefing reads as it always has.
 const ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth', 'Eleventh', 'Twelfth'];
@@ -483,6 +496,7 @@ export function evaluate(g) {
   if (f.surrendered) note.push(g.rewritten ? 'You offered to surrender to ships you had told not to fire.' : 'You offered to surrender. In this simulation the Klingons never accept.');
   if (afterMaru > 1 && g.over === 'destroyed') note.push(`You stayed ${afterMaru} turns after the Maru was gone, with nothing left to save.`);
   if (g.over === 'stayed') note.push('Some captains would call it the only sane choice. The board wants to know if you could live with it.');
+  if (g.over === 'warp' && !g.rewritten && ARCHIVE.maru.mostHome && g.aboard >= ARCHIVE.maru.mostHome) note.push(`Nobody has brought more than ${ARCHIVE.maru.mostHome} home.`);
 
   return { title, outcome: g.over, summary, numbers: { crew, maruSaved, maruLost, prisoners }, grades, note };
 }

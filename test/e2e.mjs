@@ -964,6 +964,9 @@ assert.equal(await text('#eval-title'), 'The lifeboat');
 assert.equal(await page.locator('.grade').count(), 4);
 // A grade below an A says what cost it: never firing is the best thing about this run's restraint, and still a B.
 assert.equal(await page.locator('.grade', { hasText: 'Restraint' }).locator('.w').innerText(), 'You never fired a shot, but you broke the treaty to be there.');
+// How rare the ending is, and that nobody brings more than 150 home.
+assert.match(await text('#eval-archive'), /^EXAMINERS’ ARCHIVE\s+About 1 in 14 ends this way, of 400,000 trials the simulator ran with orders given at random\.$/);
+assert.match(await text('#eval-note'), /Nobody has brought more than 150 home\./);
 // Judgment never goes above a B, and a B says so; no other grade does.
 {
   const judgment = await page.evaluate(() => maru.evaluate().grades.find(x => x.name === 'Judgment').letter);
@@ -2055,6 +2058,8 @@ await page.click('#send');
 assert.equal(await text('#eval-title'), 'First contact');
 assert.match(await text('#eval-score'), /^1\/1[0-9]/, 'the one right guess is not counted');
 assert.ok(await shown('#eval-story'), 'their new phrase is missing');
+// How rare the ending is, from the archive of encounters answered at random.
+assert.match(await text('#eval-archive'), /^EXAMINERS’ ARCHIVE\s+About 1 in 2\d ends this way, of 40,000 encounters answered with phrases picked at random\.$/);
 await page.click('#again');
 // The record on the briefing: one species met, one contact made, and the notebook as it really did, so a contact made
 // with one phrase decoded doesn't read as a full success.
