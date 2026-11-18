@@ -1,5 +1,5 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
-import { newGame, orders, act, evaluate, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
+import { newGame, orders, act, evaluate, tactical, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 
@@ -72,6 +72,8 @@ function start(rewritten = false) {
     : 'Distress call on the emergency channel: the Kobayashi Maru, inside the Neutral Zone.', tone: 'bad' }]);
   showScreen('sim');
   update();
+  // With a keyboard, the simulation starts at the orders.
+  $('orders').querySelector('.order')?.focus({ preventScroll: true });
 }
 
 // ---------- Turns ----------
@@ -90,15 +92,38 @@ function update() {
   $('maru-left').textContent = g.maru.gone ? 'Lost' : `${g.maru.aboard}`;
   $('rescued').textContent = `${g.aboard}`;
 
+  canvas.setAttribute('aria-label', tactical(g));
+
+  // The orders are brought up to date where they stand: the same buttons, with new words. They used to be built
+  // again from nothing every turn, which threw the keyboard's place out of the list (back to the top of the page
+  // for a screen reader) after every order. An order that can't be given just now is marked so and stays where the
+  // keyboard can rest on it. When the list itself changes (crossing into the zone, Abandon ship appearing, the
+  // end), the place goes to the same order if it is still there, or else the first that can be given.
   const box = $('orders');
   box.classList.remove('busy');
+  const here = box.contains(document.activeElement) ? document.activeElement.dataset.id || '' : null;
   if (g.over) {
+    if ($('read-eval')) return;
+    box.dataset.ids = '';
     box.innerHTML = '<button class="primary" id="read-eval" type="button">Read your evaluation</button>';
     $('read-eval').addEventListener('click', showEval);
+    if (here !== null) $('read-eval').focus({ preventScroll: true });
     return;
   }
-  box.innerHTML = orders(g).map(o => `<button class="order${o.primary ? ' primary-order' : ''}${o.danger ? ' danger' : ''}" type="button" data-id="${o.id}"${o.done ? ' disabled' : ''}>
-    <b>${esc(o.label)}</b><span>${esc(o.sub)}</span></button>`).join('');
+  const list = orders(g), ids = list.map(o => o.id).join(' ');
+  const rebuilt = box.dataset.ids !== ids;
+  if (rebuilt) {
+    box.dataset.ids = ids;
+    box.innerHTML = list.map(o => `<button class="order" type="button" data-id="${o.id}"><b></b><span></span></button>`).join('');
+  }
+  list.forEach((o, i) => {
+    const b = box.children[i];
+    b.className = `order${o.primary ? ' primary-order' : ''}${o.danger ? ' danger' : ''}`;
+    if (o.done) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+    if (b.firstChild.textContent !== o.label) b.firstChild.textContent = o.label;
+    if (b.lastChild.textContent !== o.sub) b.lastChild.textContent = o.sub;
+  });
+  if (rebuilt && here !== null) (box.querySelector(`.order[data-id="${here}"]`) || box.querySelector('.order:not([aria-disabled])'))?.focus({ preventScroll: true });
 }
 
 function give(id) {
@@ -162,6 +187,7 @@ function showEval() {
   $('grades').innerHTML = e.grades.map(x => `<div class="grade ${x.letter}"><span class="l">${x.letter}</span><span class="n">${esc(x.name)}</span><span class="w">${esc(x.why)}</span></div>`).join('');
   $('eval-note').innerHTML = e.note.map(n => `<p>${esc(n)}</p>`).join('');
   showScreen('eval');
+  $('eval-title').focus({ preventScroll: true }); // read from the verdict down
 }
 
 // ---------- The tactical display ----------
@@ -550,10 +576,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 
 $('start').addEventListener('click', () => start(false));
 $('rewrite').addEventListener('click', () => start(true));
-$('again').addEventListener('click', showBrief);
+$('again').addEventListener('click', () => { showBrief(); $('start').focus({ preventScroll: true }); });
 $('orders').addEventListener('click', e => {
   const b = e.target.closest('.order');
-  if (b && !b.disabled) give(b.dataset.id);
+  if (b && b.getAttribute('aria-disabled') !== 'true') give(b.dataset.id);
 });
 
 // The simulator open in another tab has finished a run: the record here is what that tab saved, so a run finished

@@ -2161,6 +2161,139 @@ await page.emulateMedia({ reducedMotion: null });
   await dark.close();
 }
 
+// A sheet that is up is a dialog: Tab stays inside it, and what is behind it is out of reach of a keyboard and a
+// screen reader. Tab used to walk out of Bridge settings to the round buttons under the scrim, and out of the
+// welcome card to the whole bridge behind it. Putting a sheet away (Escape, its close button, the scrim) gives the
+// bridge back, and the keyboard's place with it. The arrival's log entry is not a dialog: the bridge stays usable.
+{
+  const keys = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const p = await keys.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  const inside = () => p.evaluate(() => { const a = document.activeElement; return a?.closest('.sheet, .intro')?.id || (a === document.body ? 'the page' : a.id || a.tagName); });
+  const shut = () => p.evaluate(() => document.getElementById('bridge').inert);
+  const tabs = async (n, key = 'Tab') => { const seen = new Set(); for (let i = 0; i < n; i++) { await p.keyboard.press(key); seen.add(await inside()); } return [...seen]; };
+  assert.deepEqual(await p.locator('#intro').evaluate(el => [el.getAttribute('role'), el.getAttribute('aria-modal')]), ['dialog', 'true']);
+  assert.equal(await shut(), true, 'the bridge can be reached behind the welcome card');
+  assert.deepEqual(await tabs(12), ['intro'], 'Tab walked out of the welcome card');
+  await p.focus('#intro-go');
+  await p.keyboard.press('Enter');
+  assert.equal(await inside(), 'choose', 'Take the helm left the keyboard nowhere');
+  assert.equal(await shut(), false);
+  for (const [button, sheet] of [['open-settings', 'settings'], ['open-log', 'log'], ['choose', 'picker']]) {
+    await p.focus(`#${button}`);
+    await p.keyboard.press('Enter');
+    assert.deepEqual(await p.locator(`#${sheet}`).evaluate(el => [el.getAttribute('role'), el.getAttribute('aria-modal')]), ['dialog', 'true']);
+    assert.equal(await shut(), true, `the bridge can be reached behind ${sheet}`);
+    assert.deepEqual(await tabs(12), [sheet], `Tab walked out of ${sheet}`);
+    assert.deepEqual(await tabs(5, 'Shift+Tab'), [sheet], `Shift+Tab walked out of ${sheet}`);
+    await p.keyboard.press('Escape');
+    assert.deepEqual([await shut(), await inside()], [false, button], `Escape did not give the bridge back from ${sheet}`);
+    await p.keyboard.press('Enter');
+    await p.locator(`#${sheet} .close`).click();
+    assert.deepEqual([await shut(), await inside()], [false, button], `the close button did not give the bridge back from ${sheet}`);
+    await p.keyboard.press('Enter');
+    await p.mouse.click(640, 30); // the scrim, above the sheet
+    assert.deepEqual([await shut(), await inside()], [false, button], `the scrim did not give the bridge back from ${sheet}`);
+  }
+  // Picking a star from Set course gives the bridge back too, and so does Set course again from the log.
+  await p.focus('#choose');
+  await p.keyboard.press('Enter');
+  await p.keyboard.type('vega');
+  await p.keyboard.press('Enter');
+  assert.deepEqual([await shut(), await inside()], [false, 'choose']);
+  await p.evaluate(() => window.engage.jump('Vega'));
+  assert.equal(await shut(), false, 'the bridge is out of reach behind the arrival’s log entry');
+  assert.ok((await tabs(8)).some(where => where !== 'arrival'), 'Tab is shut inside the arrival’s log entry');
+  await p.evaluate(() => { window.engage.closeSheets(); window.engage.jump('Sirius'); window.engage.closeSheets(); });
+  await p.focus('#open-log');
+  await p.keyboard.press('Enter');
+  await p.locator('#entries summary').nth(1).click();
+  await p.locator('#entries [data-again]').click();
+  assert.equal(await shut(), false, 'Set course again left the bridge out of reach');
+  assert.equal(await p.locator('#target-name').innerText(), 'Vega');
+  // Tonight's sky: its list and Where you are are dialogs too; the card for a star is not.
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  const sky = () => p.evaluate(() => document.getElementById('scope').inert);
+  for (const [button, sheet] of [['open-list', 'list'], ['open-place', 'places']]) {
+    await p.focus(`#${button}`);
+    await p.keyboard.press('Enter');
+    assert.deepEqual(await p.locator(`#${sheet}`).evaluate(el => [el.getAttribute('role'), el.getAttribute('aria-modal')]), ['dialog', 'true']);
+    assert.equal(await sky(), true, `the sky can be reached behind ${sheet}`);
+    assert.deepEqual(await tabs(12), [sheet], `Tab walked out of ${sheet}`);
+    await p.keyboard.press('Escape');
+    assert.deepEqual([await sky(), await inside()], [false, button]);
+  }
+  await p.evaluate(() => window.tonight.show({ kind: 'moon' }));
+  assert.equal(await sky(), false, 'the sky is out of reach behind a card');
+  await keys.close();
+}
+
+// The Kobayashi Maru by keyboard. The orders used to be built again every turn, so the keyboard's place fell out of
+// the list after each one; nothing took it on Take command or at the end; and the cruisers' strength, which Fire
+// phasers depends on, was only in the picture.
+{
+  const keys = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+  const p = await keys.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  const at = () => p.evaluate(() => { const a = document.activeElement; return !a || a === document.body ? 'the page' : a.dataset.id || a.id || a.tagName; });
+  const settled = () => p.waitForFunction(() => !window.maru.busy);
+  const order = async id => { await p.focus(`.order[data-id="${id}"]`); await p.keyboard.press('Enter'); await settled(); };
+  await p.focus('#start');
+  await p.keyboard.press('Enter');
+  assert.equal(await at(), 'enter', 'Take command left the keyboard nowhere');
+  assert.equal(await p.getByRole('group', { name: 'Ship status' }).count(), 1);
+  assert.equal(await p.getByRole('img', { name: /^Tactical display\. Your ship is holding in Federation space, at the edge of the Neutral Zone\. The Kobayashi Maru is adrift inside the zone, 381 aboard\.$/ }).count(), 1, 'the tactical display doesn’t say what it shows');
+  // An order that has been answered is marked so, stays where it is, and keeps the keyboard.
+  await p.evaluate(() => { document.querySelector('.order[data-id="hail-maru"]').kept = true; });
+  await order('hail-maru');
+  assert.equal(await at(), 'hail-maru', 'the keyboard’s place fell out of the orders');
+  assert.deepEqual(await p.evaluate(() => { const b = document.activeElement; return [b.kept, b.getAttribute('aria-disabled'), b.lastChild.textContent]; }), [true, 'true', 'Already answered'], 'the orders were built again');
+  const turn = await p.evaluate(() => window.maru.game.turn);
+  await p.keyboard.press('Enter');
+  assert.equal(await p.evaluate(() => window.maru.game.turn), turn, 'an order already answered was given again');
+  // Crossing the line changes every order: the keyboard goes to the first that can be given.
+  await order('enter');
+  assert.equal(await at(), 'beam');
+  assert.equal(await p.getByRole('img', { name: /alongside the Maru, hull \d+ percent, shields \d+ percent\. The Kobayashi Maru is adrift, \d+ aboard\. Three Klingon cruisers, at 100, 100 and 100 percent\.$/ }).count(), 1);
+  await order('phasers');
+  assert.equal(await at(), 'phasers');
+  assert.doesNotMatch(await p.locator('#plot').getAttribute('aria-label'), /at 100, 100 and 100 percent/, 'the display’s words did not keep up with the turn');
+  // To the end with the keyboard alone: after every order the keyboard is somewhere.
+  for (let n = 0; n < 40 && !(await p.evaluate(() => window.maru.game.over)); n++) {
+    const id = await p.evaluate(() => ['beam', 'evade'].find(x => document.querySelector(`.order[data-id="${x}"]:not([aria-disabled])`)));
+    await order(id);
+    assert.notEqual(await at(), 'the page', `the keyboard’s place was lost after ${id}`);
+  }
+  assert.equal(await at(), 'read-eval', 'the end of the simulation left the keyboard nowhere');
+  await p.keyboard.press('Enter');
+  assert.equal(await at(), 'eval-title');
+  await p.focus('#again');
+  await p.keyboard.press('Enter');
+  assert.equal(await at(), 'start');
+  // Long missions: Hail her is answered in words a screen reader reads, once.
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions);
+  await p.focus('#hail');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.locator('#hail-said').getAttribute('role'), 'status');
+  assert.match(await p.locator('#hail-said').textContent(), /^Your hail, sent today at .* is 0\.000% of the way there\./);
+  // The numbers tick over ten times a second, and so does a hail's progress: none of it is in a part of the page that
+  // is read out as it changes.
+  const chatter = await p.evaluate(() => new Promise(done => {
+    let changes = 0;
+    const watch = new MutationObserver(list => { changes += list.length; });
+    for (const el of document.querySelectorAll('[aria-live]:not([aria-live="off"]), [role="status"], [role="log"], [role="alert"]')) watch.observe(el, { subtree: true, childList: true, characterData: true });
+    setTimeout(() => { watch.disconnect(); done(changes); }, 1500);
+  }));
+  assert.equal(chatter, 0, 'screen readers would read out the ticking numbers');
+  await keys.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

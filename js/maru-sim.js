@@ -61,6 +61,24 @@ export function orders(g) {
   return list;
 }
 
+// The tactical display in words, for someone who can't see it: where your ship is, how many are still aboard the
+// Maru, and how strong each cruiser still is (Fire phasers goes for the weakest, and only the picture showed which).
+const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
+export function tactical(g) {
+  const ship = g.over === 'destroyed' || g.over === 'abandoned' ? 'Your ship is gone.'
+    : g.over === 'warp' ? 'Your ship has gone to warp.'
+    : g.where === 'outside' ? 'Your ship is holding in Federation space, at the edge of the Neutral Zone.'
+    : `Your ship is inside the Neutral Zone, alongside the Maru, hull ${g.hull} percent, shields ${g.shields} percent.`;
+  const maru = g.maru.gone ? 'The Kobayashi Maru is lost.'
+    : `The Kobayashi Maru is adrift${g.where === 'outside' ? ' inside the zone' : ''}, ${g.maru.aboard} aboard.`;
+  const up = alive(g), down = g.klingons.length - up.length;
+  const strengths = up.map(k => k.hull);
+  const list = strengths.length > 1 ? `${strengths.slice(0, -1).join(', ')} and ${strengths[strengths.length - 1]}` : `${strengths[0]}`;
+  const cruisers = !g.klingons.length ? ''
+    : ` ${COUNT[up.length] || up.length} Klingon cruiser${up.length === 1 ? '' : 's'}${up.length ? `, at ${list} percent` : ' left'}${down ? `; ${down} destroyed` : ''}.`;
+  return `Tactical display. ${ship} ${maru}${cruisers}`;
+}
+
 // Gives one order and plays out the turn. Returns what happened, for the page to draw and log.
 export function act(g, id) {
   const o = orders(g).find(x => x.id === id);

@@ -59,13 +59,13 @@
 
     <section id="sim" hidden aria-label="Simulation">
       <div class="plot-wrap">
-        <canvas id="plot" aria-label="Tactical display"></canvas>
+        <canvas id="plot" role="img" aria-label="Tactical display"></canvas>
         <p class="turn" id="turn"></p>
         <p class="alert" id="alert" hidden>Red alert</p>
         <p class="caption" id="caption" aria-hidden="true"></p>
       </div>
       <div class="side">
-        <div class="status" id="status">
+        <div class="status" id="status" role="group" aria-label="Ship status">
           <div class="gauge"><span class="g-k">Hull</span><span class="g-v" id="hull"></span><span class="bar"><i id="hull-bar"></i></span></div>
           <div class="gauge"><span class="g-k">Shields</span><span class="g-v" id="shields"></span><span class="bar"><i id="shields-bar"></i></span></div>
           <div class="gauge"><span class="g-k">Aboard the Maru</span><span class="g-v" id="maru-left"></span></div>
@@ -79,7 +79,7 @@
     <section id="eval" hidden aria-label="Evaluation">
       <div class="card evaluation">
         <p class="eyebrow">Starfleet Academy · Evaluation</p>
-        <h2 id="eval-title"></h2>
+        <h2 id="eval-title" tabindex="-1"></h2>
         <p class="summary" id="eval-summary"></p>
         <div class="grades" id="grades"></div>
         <h3>Examiner’s notes</h3>

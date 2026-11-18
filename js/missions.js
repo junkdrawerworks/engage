@@ -142,6 +142,10 @@ function hail() {
   }
   pulses.push({ id: sel, t: performance.now() });
   tick(true);
+  // What the hail did, read out once. The note under the button is not itself read as it changes: while a hail is
+  // on its way, its "0.004% of the way there" moves on every second, for hours.
+  const said = $('hail-note').textContent;
+  $('hail-said').textContent = $('hail-said').textContent === said ? `${said}\u00a0` : said;
 }
 
 function hailLabel(ship, state) {

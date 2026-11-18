@@ -300,6 +300,7 @@ function showEval() {
   $('transcript').innerHTML = e.transcript.map(t => `<li class="${t.who}"><span class="who">${t.who === 'them' ? 'Their captain' : 'You'}</span>
     <span class="meant">${esc(t.meant.join('. '))}.</span><br><span class="said">${t.said.map(s => `“${esc(s)}”`).join(' ')}</span></li>`).join('');
   showScreen('eval');
+  $('eval-title').focus({ preventScroll: true }); // read from the verdict down
 }
 
 // ---------- The viewscreen ----------
@@ -353,7 +354,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 // ---------- Wiring ----------
 
 $('start').addEventListener('click', () => start());
-$('again').addEventListener('click', showBrief);
+$('again').addEventListener('click', () => { showBrief(); $('start').focus({ preventScroll: true }); });
 $('send').addEventListener('click', () => (g && g.over ? showEval() : send()));
 // Clear goes away with the reply it cleared, and a phrase taken out takes its button with it: the keyboard's place
 // goes to what is left of the reply, or back to the notebook.

@@ -1,7 +1,7 @@
 // The Kobayashi Maru's rules, checked without a browser:  node --test test/maru.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, orders, evaluate, transcript, CREW, MARU, WARP_HULL, ENDINGS, GRADED } from '../js/maru-sim.js';
+import { newGame, act, orders, evaluate, tactical, transcript, CREW, MARU, WARP_HULL, ENDINGS, GRADED } from '../js/maru-sim.js';
 
 function play(plan, opts = {}) {
   const g = newGame({ seed: 7, ...opts });
@@ -284,4 +284,33 @@ test('a grade below an A says what cost it, and the letters are the ones they al
       if (x.letter === 'A') assert.doesNotMatch(x.why, /, (but|and you|sooner|before you|after offering)/, x.why);
     }
   }
+});
+
+test('the tactical display is described in words, turn by turn', () => {
+  const g = newGame({ seed: 7 });
+  assert.equal(tactical(g), 'Tactical display. Your ship is holding in Federation space, at the edge of the Neutral Zone. The Kobayashi Maru is adrift inside the zone, 381 aboard.');
+  act(g, 'hail-maru');
+  assert.match(tactical(g), /369 aboard\.$/, 'the people lost while waiting are not counted');
+  act(g, 'enter');
+  assert.equal(tactical(g), 'Tactical display. Your ship is inside the Neutral Zone, alongside the Maru, hull 100 percent, shields 100 percent. The Kobayashi Maru is adrift, 369 aboard. Three Klingon cruisers, at 100, 100 and 100 percent.');
+  // Fire phasers goes for the weakest cruiser: the description is how to know which that is, and when one is gone.
+  act(g, 'phasers');
+  const hulls = g.klingons.map(k => k.hull);
+  assert.ok(tactical(g).includes(`Three Klingon cruisers, at ${hulls[0]}, ${hulls[1]} and ${hulls[2]} percent.`), tactical(g));
+  assert.ok(tactical(g).includes(`hull ${g.hull} percent, shields ${g.shields} percent`));
+  while (!g.over && g.kills < 1) act(g, 'phasers');
+  if (!g.over) {
+    const up = g.klingons.filter(k => k.hull > 0);
+    assert.match(tactical(g), new RegExp(` Klingon cruisers?, at [0-9, and]+ percent; ${g.kills} destroyed\\.$`), tactical(g));
+    assert.equal((tactical(g).match(/at ([0-9, and]+) percent;/)[1].match(/\d+/g) || []).length, up.length);
+  }
+  // Every ending reads as a sentence, with no blanks in it.
+  for (const plan of [['leave'], ['enter', 'warp'], ['enter', 'beam', 'beam', 'beam', 'beam', 'beam', 'beam', 'warp']]) {
+    const end = play(plan);
+    assert.doesNotMatch(tactical(end), /undefined|NaN|null| {2}/, tactical(end));
+    assert.match(tactical(end), /The Kobayashi Maru is (lost|adrift)/);
+  }
+  const fought = keepGoing(play(['enter']));
+  assert.equal(fought.over, 'destroyed');
+  assert.match(tactical(fought), /^Tactical display\. Your ship is gone\. The Kobayashi Maru is lost\. /);
 });

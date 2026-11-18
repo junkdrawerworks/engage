@@ -889,6 +889,7 @@ function openSheet(id, from = null) {
   $('scrim').hidden = id === 'card'; // the card leaves the sky usable behind it
   document.body.classList.toggle('carded', id === 'card');
   if (from) { opener = from; $(id).querySelector('.close').focus({ preventScroll: true }); }
+  behind();
 }
 function closeSheets() {
   const open = SHEETS.some(s => !$(s).hidden);
@@ -897,8 +898,24 @@ function closeSheets() {
   document.body.classList.remove('carded');
   sel = null;
   dirty = true;
+  behind(); // before focus goes back: nothing behind a sheet can take it while the sheet is up
   if (open && opener?.isConnected && opener.getClientRects().length) opener.focus({ preventScroll: true });
   opener = null;
+}
+
+// The list and Where you are have to be answered or put away, so the sky and its buttons behind them are out of
+// reach of a keyboard and a screen reader too, and Tab goes round inside the sheet. The card is not like that: the
+// sky stays usable behind it.
+const MODAL = ['list', 'places'];
+function behind() { $('scope').inert = MODAL.some(id => !$(id).hidden); }
+function keepTab(e) {
+  const box = MODAL.map($).find(el => !el.hidden);
+  if (!box) return;
+  const stops = [...box.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled)')].filter(el => el.getClientRects().length);
+  if (!stops.length) return;
+  const at = document.activeElement, first = stops[0], last = stops[stops.length - 1];
+  const to = !box.contains(at) ? (e.shiftKey ? last : first) : e.shiftKey && at === first ? last : !e.shiftKey && at === last ? first : null;
+  if (to) { e.preventDefault(); to.focus(); }
 }
 
 // ---------- Sensors ----------
@@ -1018,6 +1035,7 @@ function bind() {
   $('scrim').addEventListener('click', closeSheets);
   for (const b of document.querySelectorAll('[data-close]')) b.addEventListener('click', closeSheets);
   document.addEventListener('keydown', e => {
+    if (e.key === 'Tab') keepTab(e);
     if (e.key === 'Escape') closeSheets();
     if (e.target.tagName === 'INPUT' || sensing) return;
     const step = view.fov / DEG / 12;

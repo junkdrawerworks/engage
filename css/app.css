@@ -45,7 +45,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .where { min-width: 0; }
 .where h1 { margin: 2px 0 0; font: 600 22px/1.15 var(--display); letter-spacing: 0.02em; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8); }
 /* Headings that take the keyboard's place only so a screen reader reads on from them: no ring. */
-.where h1:focus, .entry h3:focus { outline: none; }
+[tabindex="-1"]:focus { outline: none; }
 /* The stardate, a dot, and how far from home. The dot belongs to the second and hangs in the gap before it; when the
    second wraps to a line of its own, the dot is left of the edge, and clipped away rather than left dangling. (Only
    the left edge clips: on the narrowest phones these lines run on past the name's column, under the buttons.) */

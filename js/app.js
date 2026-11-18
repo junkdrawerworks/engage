@@ -104,7 +104,7 @@ function adopt() {
   showSettings();
   showTarget();
   updateHud();
-  if (state.seenIntro) $('intro').hidden = true;
+  if (state.seenIntro && !$('intro').hidden) { $('intro').hidden = true; behind(); }
   if (!$('log').hidden) drawLog();
   if (!$('picker').hidden) renderList();
   dirty = true;
@@ -164,7 +164,7 @@ async function start() {
   updateHud();
   // Take the helm takes focus without being scrolled to: on a small phone, or one on its side, the card is taller than
   // the screen, and it should open at the top.
-  if (!state.seenIntro) { $('intro').hidden = false; $('intro-go').focus({ preventScroll: true }); }
+  if (!state.seenIntro) { $('intro').hidden = false; behind(); $('intro-go').focus({ preventScroll: true }); }
   bind();
   watch(KEY, adopt);
   requestAnimationFrame(frame);
@@ -662,6 +662,9 @@ function lookHome() {
 // ---------- Sheets ----------
 
 const SHEETS = ['picker', 'log', 'settings', 'arrival'];
+// The sheets that have to be answered or put away before anything else: Set course, the log and the settings. The
+// arrival's log entry is not one of them: the new star is there to be looked at, and tapped around, behind it.
+const MODAL = ['picker', 'log', 'settings'];
 const touchy = matchMedia('(pointer: coarse)').matches;
 let opener = null; // the button that opened the sheet that's up, to hand focus back to when it closes
 
@@ -673,14 +676,35 @@ function openSheet(id, from = null) {
   $('scrim').hidden = false;
   opener = from;
   if (from) (id === 'picker' && !touchy ? $('search') : $(id).querySelector('.close')).focus({ preventScroll: true });
+  behind();
 }
 
 function closeSheets() {
   const open = SHEETS.some(id => !$(id).hidden);
   for (const id of SHEETS) $(id).hidden = true;
   $('scrim').hidden = true;
+  behind(); // before focus goes back: nothing behind a sheet can take it while the sheet is up
   if (open && opener?.isConnected && !opener.disabled && opener.getClientRects().length) opener.focus({ preventScroll: true });
   opener = null;
+}
+
+// What is behind a sheet that is up, or behind the welcome card, is out of reach of a keyboard and a screen reader
+// as well as of a finger: Tab used to walk out of Bridge settings to the round buttons under the scrim.
+function behind() {
+  const card = !$('intro').hidden;
+  $('bridge').inert = card || MODAL.some(id => !$(id).hidden);
+  for (const id of SHEETS) $(id).inert = card;
+}
+
+// Tab goes round inside the sheet or the card that is up, and not out to the browser and back in somewhere else.
+function keepTab(e) {
+  const box = !$('intro').hidden ? $('intro') : MODAL.map($).find(el => !el.hidden);
+  if (!box) return;
+  const stops = [...box.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), summary')].filter(el => el.getClientRects().length);
+  if (!stops.length) return;
+  const at = document.activeElement, first = stops[0], last = stops[stops.length - 1];
+  const to = !box.contains(at) ? (e.shiftKey ? last : first) : e.shiftKey && at === first ? last : !e.shiftKey && at === last ? first : null;
+  if (to) { e.preventDefault(); to.focus(); }
 }
 
 function dismissIntro() {
@@ -688,6 +712,11 @@ function dismissIntro() {
   state.seenIntro = true;
   save();
   sound.blip(880);
+  behind();
+  // The card's button has gone, so the keyboard's place goes to the first thing to do: choosing a destination (or
+  // the search field, when a link that named no star has opened Set course under the card).
+  const next = MODAL.map($).find(el => !el.hidden);
+  (next ? (next.id === 'picker' && !touchy ? $('search') : next.querySelector('.close')) : $('choose')).focus({ preventScroll: true });
 }
 
 let arrived = null; // the entry on the arrival sheet
@@ -916,7 +945,8 @@ function bind() {
     say('Log cleared. Back in Earth orbit.');
   });
   addEventListener('keydown', e => {
-    if (e.key === 'Escape') { if (!$('intro').hidden) dismissIntro(); closeSheets(); }
+    if (e.key === 'Tab') keepTab(e);
+    if (e.key === 'Escape') { if (!$('intro').hidden) dismissIntro(); else closeSheets(); }
     if (e.target.closest('input, button') || trip) return;
     const step = state.fov * 0.08;
     const moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
