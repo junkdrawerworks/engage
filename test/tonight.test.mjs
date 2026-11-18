@@ -185,7 +185,7 @@ test('a place guessed from the time zone', () => {
     ['Africa/Kinshasa', 1, -10, 10], ['Africa/Accra', 0, -10, 10], ['America/Caracas', -4, 0, 15], ['America/Panama', -5, 0, 15], ['America/La_Paz', -4, -20, -5],
     ['Asia/Makassar', 8, -10, 5], ['Pacific/Fiji', 12, -20, 0], ['Indian/Maldives', 5, -10, 10], ['America/Montevideo', -3, -40, -25], ['America/Cordoba', -3, -40, -25],
     ['Australia/Hobart', 10, -45, -30], ['Africa/Maputo', 2, -30, -20], ['Africa/Casablanca', 0, 28, 36], ['America/Halifax', -4, 35, 50], ['America/Winnipeg', -6, 35, 50],
-    ['Asia/Tashkent', 5, 30, 45], ['Europe/Oslo', 1, 45, 60], ['Asia/Kathmandu', 5.75, 20, 30], ['Asia/Katmandu', 5.75, 20, 30], ['UTC', 0, 35, 45], ['', 0, 35, 45],
+    ['Asia/Tashkent', 5, 30, 45], ['Europe/Oslo', 1, 45, 60], ['America/St_Johns', -3.5, 35, 50], ['America/St_Lucia', -4, 0, 15], ['America/St_Kitts', -4, 0, 15], ['Asia/Kathmandu', 5.75, 20, 30], ['Asia/Katmandu', 5.75, 20, 30], ['UTC', 0, 35, 45], ['', 0, 35, 45],
   ]) {
     const p = guess(tz, hours);
     assert.equal(p.name, 'your time zone', tz);

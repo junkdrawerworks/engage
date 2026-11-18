@@ -395,7 +395,7 @@ const ZONE_LATITUDES = [
   [/^Africa\/(Johannesburg|Maseru|Mbabane|Gaborone|Windhoek|Maputo|Harare|Bulawayo)$/, -25],
   [/^Africa\/(Cairo|Tripoli|Tunis|Algiers|Casablanca|El_Aaiun|Ceuta)$/, 32],
   [/^America\/(La_Paz|Manaus|Cuiaba|Campo_Grande|Porto_Velho|Rio_Branco|Belem|Fortaleza|Recife|Maceio|Bahia|Araguaina|Santarem|Noronha)$/, -10],
-  [/^America\/(Bogota|Lima|Guayaquil|Caracas|Boa_Vista|Cayenne|Paramaribo|Guyana|Panama|Costa_Rica|Managua|Tegucigalpa|El_Salvador|Guatemala|Belize|Cancun|Merida|Jamaica|Havana|Port-au-Prince|Santo_Domingo|Puerto_Rico|Port_of_Spain|Barbados|Martinique|Guadeloupe|Curacao|Aruba|St_|Grenada|Antigua|Dominica|Anguilla|Montserrat|Tortola|Cayman|Nassau)/, 10],
+  [/^America\/(Bogota|Lima|Guayaquil|Caracas|Boa_Vista|Cayenne|Paramaribo|Guyana|Panama|Costa_Rica|Managua|Tegucigalpa|El_Salvador|Guatemala|Belize|Cancun|Merida|Jamaica|Havana|Port-au-Prince|Santo_Domingo|Puerto_Rico|Port_of_Spain|Barbados|Martinique|Guadeloupe|Curacao|Aruba|St_(Kitts|Lucia|Thomas|Vincent|Barthelemy)|Grenada|Antigua|Dominica|Anguilla|Montserrat|Tortola|Cayman|Nassau)/, 10],
   [/^Asia\/(Pontianak|Makassar|Ujung_Pandang|Jayapura|Dili|Brunei|Kuching)$|^Pacific\/|^Indian\//, -5],
   [/^Asia\/(Phnom_Penh|Vientiane|Yangon|Colombo|Aden|Macau)$/, 15],
   [/^Asia\/(Kathmandu|Thimphu|Muscat|Qatar|Bahrain|Kuwait)$/, 26],
