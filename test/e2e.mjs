@@ -3283,7 +3283,9 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#open-settings');
   assert.equal(await p.locator('#opt-night').isChecked(), true);
   // The sheet's heading and its close button stay put while the settings under them scroll.
+  // (Measured once the sheet has finished sliding up: on a busy machine the first reading used to catch it 8 px low.)
   const head = () => p.locator('#settings .close').evaluate(el => Math.round(el.getBoundingClientRect().top));
+  await p.locator('#settings').evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))));
   const before = await head();
   await p.locator('#settings .sheet-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
   assert.equal(await head(), before, 'the settings’ close button scrolled away');
