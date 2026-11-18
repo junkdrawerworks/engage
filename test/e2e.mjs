@@ -190,6 +190,24 @@ await page.waitForTimeout(200);
   await plain.close();
 }
 
+// The search knows where Starfleet's charts put things, and the row says why it matched. Names the charts don't
+// place find nothing, and two stars with one name are told apart.
+await page.click('#choose');
+{
+  const rows = async q => { await page.fill('#search', q); return page.locator('#list .row').evaluateAll(els => els.map(el => [el.querySelector('.name').firstChild.textContent, el.querySelector('.meta').textContent, el.querySelector('.chart')?.textContent])); };
+  assert.deepEqual((await rows('vulcan'))[0], ['40 Eridani', 'Keid · Orange dwarf', 'Vulcan'], 'searching for Vulcan does not find 40 Eridani');
+  assert.equal((await rows('Farpoint'))[0][0], 'Deneb');
+  assert.equal((await rows('eps eri'))[0][0], 'Epsilon Eridani');
+  assert.equal((await rows('hip 3'))[0][0], 'HIP 3', 'an exact name is not the first hit');
+  assert.deepEqual((await rows('61 cygni')).map(r => r[0]), ['61 Cygni A', '61 Cygni B']);
+  assert.deepEqual(await rows('andoria'), []);
+  assert.equal(await text('#list .empty'), 'No star by that name in the catalogue.');
+  await rows('vulcan');
+}
+await page.locator('#list .row').first().click();
+assert.equal(await text('#target-name'), '40 Eridani');
+assert.equal(await text('#target-sub'), 'Keid · Vulcan · Orange dwarf', 'the helm does not say why Vulcan found 40 Eridani');
+
 // Picking from the list, and searching.
 await page.click('#choose');
 await page.fill('#search', 'proxima');

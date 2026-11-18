@@ -33,7 +33,7 @@ async function bundle(order, patch = (name, src) => src) {
 }
 const pageBody = page => page.slice(page.indexOf('<body') , page.indexOf('</body>')).replace(/^<body[^>]*>/, '').replace(/<script type="module" src="[^"]+"><\/script>/, '');
 
-const ORDER = ['physics', 'destinations', 'classes', 'audio', 'log', 'catalog', 'sky', 'app'];
+const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'log', 'search', 'catalog', 'sky', 'app'];
 const js = await bundle(ORDER, async (name, src) => {
   if (name !== 'app') return src;
   return src

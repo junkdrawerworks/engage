@@ -117,6 +117,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .row:hover { background: rgba(255, 255, 255, 0.03); }
 .row .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row .name .badge { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.row .name .chart { font: 600 10px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); margin-left: 8px; }
 .row .dist { font: 500 14px/1 var(--display); color: var(--cyan); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .row .meta { grid-column: 1 / -1; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row.here .dist { color: var(--amber); }

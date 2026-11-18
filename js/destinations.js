@@ -1,13 +1,14 @@
 // The stars with notes in the captain's log. `star` is the name in data/stars.json; everything else is what the
 // log says on arrival. Temperatures in kelvin, brightness (all light, not just visible) and width against the Sun.
 // `inText` is the title as it reads in the middle of a sentence, where that differs ("at the Pleiades").
+// `find` lists other names people know it by, for the search in Set course; they aren't shown.
 // Any other star can be visited too: the log then works out what it can from the catalogue.
 
 export const HOME = 'Sol';
 
 export const DESTINATIONS = [
   {
-    star: 'Sol', worlds: true, title: 'Sol', aka: 'the Sun', group: 'home',
+    star: 'Sol', worlds: true, title: 'Sol', aka: 'the Sun', find: ['Earth', 'Solar System'], group: 'home',
     kind: 'Yellow dwarf, spectral type G2', temp: 5772, lum: 1, radius: 1,
     planets: 'Eight, and one of them is home.',
     hold: { au: 1, label: 'in Earth’s orbit' },
@@ -28,7 +29,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Rigil Kentaurus', title: 'Alpha Centauri', aka: 'Rigil Kentaurus and Toliman', group: 'neighbors',
+    star: 'Rigil Kentaurus', title: 'Alpha Centauri', aka: 'Rigil Kentaurus and Toliman', find: ['Toliman'], group: 'neighbors',
     kind: 'Two Sun-like stars, spectral types G2 and K1', temp: 5790, lum: 1.52, radius: 1.22,
     planets: 'None confirmed. In 2025 the James Webb Space Telescope spotted a possible giant planet around A, which still needs confirming.',
     notes: [
@@ -50,7 +51,7 @@ export const DESTINATIONS = [
     fiction: 'The target of Project Daedalus, a 1970s study of an uncrewed starship.',
   },
   {
-    star: 'Wolf 359', title: 'Wolf 359', group: 'neighbors',
+    star: 'Wolf 359', title: 'Wolf 359', find: ['The Borg'], group: 'neighbors',
     kind: 'Red dwarf, spectral type M6', temp: 2800, lum: 0.0014, radius: 0.16,
     planets: 'None confirmed.',
     notes: [
@@ -68,7 +69,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Sirius', title: 'Sirius', aka: 'The Dog Star', group: 'neighbors',
+    star: 'Sirius', title: 'Sirius', aka: 'The Dog Star', find: ['Alpha Canis Majoris'], group: 'neighbors',
     kind: 'White star, spectral type A1, with a white dwarf companion', temp: 9940, lum: 25.4, radius: 1.71,
     planets: 'None known.',
     notes: [
@@ -88,7 +89,7 @@ export const DESTINATIONS = [
     fiction: 'The home of the Babylon 5 space station.',
   },
   {
-    star: 'Procyon', title: 'Procyon', group: 'neighbors',
+    star: 'Procyon', title: 'Procyon', find: ['Alpha Canis Minoris'], group: 'neighbors',
     kind: 'Yellow-white star, spectral type F5, with a white dwarf companion', temp: 6530, lum: 6.9, radius: 2.05,
     planets: 'None known.',
     notes: [
@@ -152,7 +153,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Keid', title: '40 Eridani', aka: 'Keid', group: 'famous',
+    star: 'Keid', title: '40 Eridani', aka: 'Keid', find: ['Omicron 2 Eridani'], group: 'famous',
     kind: 'Orange dwarf, spectral type K0, with two companions', temp: 5126, lum: 0.46, radius: 0.81,
     planets: 'A planet claimed in 2018 turned out to be the star’s own activity.',
     notes: [
@@ -161,7 +162,7 @@ export const DESTINATIONS = [
     fiction: 'Vulcan’s sun. Gene Roddenberry and three astronomers named it in a 1991 letter to Sky & Telescope.',
   },
   {
-    star: 'Altair', title: 'Altair', group: 'famous',
+    star: 'Altair', title: 'Altair', find: ['Alpha Aquilae'], group: 'famous',
     kind: 'White star, spectral type A7', temp: 7700, lum: 10.6, radius: 1.8,
     planets: 'None known.',
     notes: [
@@ -171,7 +172,7 @@ export const DESTINATIONS = [
     fiction: 'The sun of Altair IV in Forbidden Planet.',
   },
   {
-    star: 'Vega', title: 'Vega', group: 'famous',
+    star: 'Vega', title: 'Vega', find: ['Alpha Lyrae'], group: 'famous',
     kind: 'White star, spectral type A0', temp: 9600, lum: 40, radius: 2.4,
     planets: 'None confirmed, though a wide disc of dust surrounds it.',
     notes: [
@@ -181,7 +182,7 @@ export const DESTINATIONS = [
     fiction: 'The source of the message in Contact.',
   },
   {
-    star: 'Fomalhaut', title: 'Fomalhaut', group: 'famous',
+    star: 'Fomalhaut', title: 'Fomalhaut', find: ['Alpha Piscis Austrini'], group: 'famous',
     kind: 'White star, spectral type A3', temp: 8590, lum: 16.6, radius: 1.84,
     planets: '“Fomalhaut b”, photographed in 2008, turned out to be a spreading cloud of dust from a collision.',
     notes: [
@@ -209,7 +210,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Pollux', worlds: true, title: 'Pollux', group: 'famous',
+    star: 'Pollux', worlds: true, title: 'Pollux', find: ['Beta Geminorum'], group: 'famous',
     kind: 'Orange giant, spectral type K0', temp: 4586, lum: 43, radius: 9.1,
     planets: 'One giant planet, Thestias, about twice Jupiter’s mass.',
     notes: [
@@ -217,7 +218,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Arcturus', title: 'Arcturus', group: 'famous',
+    star: 'Arcturus', title: 'Arcturus', find: ['Alpha Bootis'], group: 'famous',
     kind: 'Orange giant, spectral type K1.5', temp: 4286, lum: 170, radius: 25.4,
     planets: 'None known.',
     notes: [
@@ -227,7 +228,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Capella', title: 'Capella', group: 'famous',
+    star: 'Capella', title: 'Capella', find: ['Alpha Aurigae'], group: 'famous',
     kind: 'Two yellow giants, spectral types G8 and G0', temp: 4970, lum: 79, radius: 11.9,
     planets: 'None known.',
     notes: [
@@ -235,7 +236,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Aldebaran', title: 'Aldebaran', group: 'giants',
+    star: 'Aldebaran', title: 'Aldebaran', find: ['Alpha Tauri'], group: 'giants',
     kind: 'Orange giant, spectral type K5', temp: 3900, lum: 439, radius: 44,
     planets: 'One possible giant planet.',
     notes: [
@@ -244,7 +245,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Polaris', title: 'Polaris', aka: 'The North Star', group: 'giants',
+    star: 'Polaris', title: 'Polaris', aka: 'The North Star', find: ['Pole Star', 'Alpha Ursae Minoris'], group: 'giants',
     kind: 'Yellow supergiant, spectral type F7', temp: 6015, lum: 1260, radius: 37.5,
     planets: 'None known.',
     notes: [
@@ -254,7 +255,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Alcyone', title: 'The Pleiades', inText: 'the Pleiades', aka: 'Alcyone', group: 'giants',
+    star: 'Alcyone', title: 'The Pleiades', inText: 'the Pleiades', aka: 'Alcyone', find: ['Seven Sisters', 'M45', 'Subaru', 'Eta Tauri'], group: 'giants',
     kind: 'Blue giant, spectral type B7, the brightest of the Seven Sisters', temp: 12750, lum: 2400, radius: 9.3,
     planets: 'None known.',
     notes: [
@@ -263,7 +264,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Betelgeuse', title: 'Betelgeuse', group: 'giants',
+    star: 'Betelgeuse', title: 'Betelgeuse', find: ['Alpha Orionis'], group: 'giants',
     kind: 'Red supergiant, spectral type M2', temp: 3600, lum: 100000, radius: 760,
     planets: 'None known. In 2025 astronomers reported a small companion star tucked close to it.',
     notes: [
@@ -273,7 +274,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Rigel', title: 'Rigel', group: 'giants',
+    star: 'Rigel', title: 'Rigel', find: ['Beta Orionis'], group: 'giants',
     kind: 'Blue supergiant, spectral type B8', temp: 12100, lum: 120000, radius: 79,
     planets: 'None known.',
     notes: [
@@ -282,7 +283,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Antares', title: 'Antares', group: 'giants',
+    star: 'Antares', title: 'Antares', find: ['Alpha Scorpii'], group: 'giants',
     kind: 'Red supergiant, spectral type M1', temp: 3660, lum: 75900, radius: 680,
     planets: 'None known.',
     notes: [
@@ -291,7 +292,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Canopus', title: 'Canopus', group: 'giants',
+    star: 'Canopus', title: 'Canopus', find: ['Alpha Carinae'], group: 'giants',
     kind: 'White giant, spectral type A9', temp: 7350, lum: 10700, radius: 71,
     planets: 'None known.',
     notes: [
@@ -300,7 +301,7 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Deneb', title: 'Deneb', group: 'giants',
+    star: 'Deneb', title: 'Deneb', find: ['Alpha Cygni'], group: 'giants',
     kind: 'White supergiant, spectral type A2', temp: 8525, lum: 196000, radius: 203,
     planets: 'None known.',
     notes: [

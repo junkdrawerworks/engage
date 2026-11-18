@@ -5,6 +5,7 @@ import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { composeEntry, describeKind, inTextFor, notesFor, titleFor } from './log.js';
 import { filesForStar, label as classLabel } from './classes.js';
+import { buildIndex, chartTag, pairLetters, search } from './search.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -17,7 +18,6 @@ const $ = id => document.getElementById(id);
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 const DEG = Math.PI / 180;
 const START_YAW = 83 * DEG, START_PITCH = 3 * DEG; // facing Orion, with the Sun behind
-const GREEK = { α: 'alpha', β: 'beta', γ: 'gamma', δ: 'delta', ε: 'epsilon', ζ: 'zeta', η: 'eta', θ: 'theta', ι: 'iota', κ: 'kappa', λ: 'lambda', μ: 'mu', ν: 'nu', ξ: 'xi', ο: 'omicron', π: 'pi', ρ: 'rho', σ: 'sigma', τ: 'tau', υ: 'upsilon', φ: 'phi', χ: 'chi', ψ: 'psi', ω: 'omega' };
 
 let cat, sky;
 let trip = null, turn = null, dirty = true, last = performance.now();
@@ -297,9 +297,8 @@ function setTarget(i, aim = true) {
     name.textContent = 'Choose a star';
     sub.textContent = 'Tap a star on the viewscreen, or pick from the list';
   } else {
-    const n = notesFor(cat, i);
     name.textContent = titleFor(cat, i);
-    sub.textContent = n ? (n.aka ? `${n.aka} · ${shortKind(n.kind)}` : shortKind(n.kind)) : shortKind(describeKind(cat.spect[i], cat.temp[i]));
+    sub.textContent = metaFor(i);
     if (aim) lookAt(starPos(i));
   }
   $('engage').disabled = i == null || !!trip;
@@ -592,26 +591,31 @@ function renderLog() {
     </details>`).join('');
 }
 
-const fold = s => s.toLowerCase().replace(/[α-ω]/g, c => GREEK[c] + ' ').normalize('NFD').replace(/[̀-ͯ’']/g, '').replace(/\s+/g, ' ').trim();
-let searchIndex = null;
+let searchIndex = null, letters = null;
+// The line under a star's name: what else it's called, where Starfleet's charts put it, its kind. A row of the list
+// shows the charts' name as a badge beside the star's instead.
+function metaFor(i, charts = true) {
+  const n = notesFor(cat, i);
+  const kind = shortKind(n ? n.kind : describeKind(cat.spect[i], cat.temp[i]));
+  return [n?.aka, charts && chartTag(cat.names[i]), kind].filter(Boolean).join(' · ');
+}
 
 function renderList() {
-  const q = fold($('search').value);
+  const q = $('search').value.trim();
   const cam = camAbs();
   const visited = new Set(state.log.map(e => e.star));
+  letters ||= pairLetters(cat.names, cat.absmag);
   const row = (i, meta) => {
     const n = notesFor(cat, i);
     const badges = [n?.worlds ? 'planets' : '', visited.has(i) ? 'visited' : ''].filter(Boolean).join(' · ');
     const here = i === state.at;
+    // Two stars with one name (the pair of 61 Cygni) are told apart by a letter, here in the list only.
+    const title = titleFor(cat, i) + (letters.has(i) ? ` ${letters.get(i)}` : '');
+    const tag = chartTag(cat.names[i]);
     return `<button class="row${here ? ' here' : ''}" type="button" data-star="${i}" ${here ? 'disabled' : ''}>
-      <span class="name">${esc(titleFor(cat, i))}${badges ? `<span class="badge">${badges}</span>` : ''}</span>
+      <span class="name">${esc(title)}${tag ? `<span class="badge chart">${esc(tag)}</span>` : ''}${badges ? `<span class="badge">${badges}</span>` : ''}</span>
       <span class="dist">${here ? 'You’re here' : formatLy(cat.distanceFrom(i, cam) * LY_PER_PC)}</span>
       <span class="meta">${esc(meta)}</span></button>`;
-  };
-  const metaFor = i => {
-    const n = notesFor(cat, i);
-    if (n) return n.aka ? `${n.aka} · ${shortKind(n.kind)}` : shortKind(n.kind);
-    return shortKind(describeKind(cat.spect[i], cat.temp[i]));
   };
   let html = '';
   if (!q) {
@@ -619,25 +623,12 @@ function renderList() {
     for (const [group, title] of GROUPS) {
       const stars = DESTINATIONS.filter(d => d.group === group).map(d => cat.byName.get(d.star)).filter(i => i !== undefined);
       stars.sort((a, b) => cat.distanceFrom(a, cam) - cat.distanceFrom(b, cam));
-      html += `<p class="group">${title}</p>` + stars.map(i => row(i, metaFor(i))).join('');
+      html += `<p class="group">${title}</p>` + stars.map(i => row(i, metaFor(i, false))).join('');
     }
   } else {
-    if (!searchIndex) {
-      searchIndex = cat.names.map((n, i) => {
-        const d = notesFor(cat, i);
-        return fold([n, d?.title, d?.aka].filter(Boolean).join(' | '));
-      });
-    }
-    const hits = [];
-    for (let i = 0; i < cat.count; i++) {
-      const at = searchIndex[i].indexOf(q);
-      if (at < 0) continue;
-      const curated = notesFor(cat, i) ? 0 : 1;
-      const m = apparentMag(cat.absmag[i], Math.max(Math.hypot(...starPos(i)), 1e-6));
-      hits.push([curated, at === 0 ? 0 : 1, m, i]);
-    }
-    hits.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
-    html = hits.length ? hits.slice(0, 60).map(h => row(h[3], metaFor(h[3]))).join('') : '<p class="empty">No star by that name in the catalogue.</p>';
+    searchIndex ||= buildIndex(cat.names, cat.constellations);
+    const hits = search(searchIndex, q, i => apparentMag(cat.absmag[i], Math.max(Math.hypot(...starPos(i)), 1e-6)));
+    html = hits.length ? hits.map(i => row(i, metaFor(i, false))).join('') : '<p class="empty">No star by that name in the catalogue.</p>';
   }
   $('list').innerHTML = html;
 }
