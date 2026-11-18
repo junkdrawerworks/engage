@@ -809,8 +809,9 @@ function watchKeyboard() {
   const vv = window.visualViewport;
   if (!vv) return;
   const set = () => {
-    const covered = vv.scale > 1.05 ? 0 : document.documentElement.clientHeight - vv.height - vv.offsetTop;
-    document.documentElement.style.setProperty('--kb', `${covered > 60 ? Math.round(covered) : 0}px`);
+    // The window's height follows the browser's own bars as they come and go; a keyboard is what's left over.
+    const covered = vv.scale > 1.05 ? 0 : innerHeight - vv.height - vv.offsetTop;
+    document.documentElement.style.setProperty('--kb', `${covered > 80 ? Math.round(covered) : 0}px`);
   };
   vv.addEventListener('resize', set);
   vv.addEventListener('scroll', set);
