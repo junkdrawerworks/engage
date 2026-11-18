@@ -338,6 +338,24 @@ await bridgeReady();
 assert.equal(await text('#where'), 'Wolf 359');
 assert.equal(await shown('#lost'), false);
 
+// At warp the readout's time keeps step with its distance. The picture of a flight starts slowly: three tenths of
+// the way through the cruise to Vega (25 ly, six days at warp 9) the ship has covered 0.05 ly, which is 19 minutes'
+// flying, not the two days it used to say; halfway through it is halfway there, three days out.
+{
+  const flight = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, serviceWorkers: 'block' });
+  for (const [t, left, time] of [[0.3, /^25\.0 ly to go$/, /^[1-3][0-9] minutes elapsed$/], [0.5, /^12\.5 ly to go$/, /^3 days elapsed$/]]) {
+    const p = await flight.newPage();
+    await p.addInitScript(() => localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })));
+    await p.goto(base);
+    await bridgeReady(p);
+    await p.evaluate(t => engage.freeze('Vega', t), t);
+    assert.match(await p.locator('#readout-left').innerText(), left);
+    assert.match(await p.locator('#readout-time').innerText(), time, `at ${t} of the cruise the time does not match the distance`);
+    await p.close();
+  }
+  await flight.close();
+}
+
 // Clearing the log mid-flight takes the ship straight home: the flight ends there too.
 await page.evaluate(() => { engage.speed(1); engage.target('Deneb'); });
 await page.click('#engage');

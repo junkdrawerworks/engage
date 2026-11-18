@@ -1,5 +1,5 @@
 // Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact or warp)
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact or warp; bridge for the bridge's four phone pictures)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -50,7 +50,7 @@ async function open(viewport, deviceScaleFactor) {
 }
 
 // Phone screenshots for the README.
-if (!only) {
+if (!only || only === 'bridge') {
   const page = await open({ width: 390, height: 844 }, 2);
   await page.evaluate(() => engage.target('Proxima Centauri'));
   await page.waitForTimeout(1400);

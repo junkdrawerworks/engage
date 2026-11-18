@@ -7,7 +7,7 @@
 <p align="center">
   <img src="docs/phone-helm.png" alt="The bridge in Earth's orbit, looking toward Crux and the Centaurus stars, with Proxima Centauri chosen as the destination: 4.23 light years away, 1 day at warp 9" width="250">
   &nbsp;
-  <img src="docs/phone-warp.png" alt="At warp 9 toward Proxima Centauri: blue streaks rush past the Milky Way, and the readout says 3.91 light years to go and 10 hours elapsed" width="250">
+  <img src="docs/phone-warp.png" alt="At warp 9 toward Proxima Centauri: blue streaks rush past the Milky Way, and the readout says 3.91 light years to go and 2 hours elapsed" width="250">
   &nbsp;
   <img src="docs/phone-log.png" alt="Arrived at Proxima Centauri: a red sun above the captain's log, which describes the star and its planets" width="250">
   &nbsp;
@@ -53,7 +53,7 @@ It’s a static site: plain HTML, CSS and JavaScript, with no build step.
 npx serve .                   # or any static file server, then open the printed address
 npm test                      # checks the numbers, the Kobayashi Maru's rules, the xenobiology lab's rules, first contact's language and rules, the warp scale's numbers, the ships' positions and the sky overlay's astronomy, then flies it in Chromium through the real page (needs Playwright)
 npm install                   # once, for the screenshots: upng-js saves them with a 256-colour palette
-node tools/screenshots.mjs    # redraws docs/*.png, og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png and og-warp.png (add `survey`, `maru`, `missions`, `tonight`, `xeno`, `contact` or `warp` for only that one's)
+node tools/screenshots.mjs    # redraws docs/*.png, og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png and og-warp.png (add `bridge`, `survey`, `maru`, `missions`, `tonight`, `xeno`, `contact` or `warp` for only that one's)
 node tools/build-artifact.mjs # single-file copies for the Artifact viewer, in dist/
 node tools/make-icons.mjs     # redraws the PNG icons from icon.svg
 python3 tools/build-data.py HYG_CSV D3_CELESTIAL_DATA   # rebuilds data/ and img/milkyway.png (see the script)

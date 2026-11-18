@@ -407,7 +407,7 @@ function fly(now) {
     T.warp = 1;
     T.streak = 46 + 90 * Math.pow(Math.sin(Math.PI * t), 0.6);
     if (t >= 0.5 && !T.rebased) { T.rebased = true; sky.setOrigin(T.S); }
-    readout(t, dist);
+    readout(dist);
   } else if (s < T.align + T.spool + T.cruise + T.drop) {
     const k = (s - T.align - T.spool - T.cruise) / T.drop;
     if (T.phase !== 'drop') {
@@ -422,7 +422,7 @@ function fly(now) {
     T.streak = 46 * (1 - k);
     // Settle the view so the star sits above the log on a phone.
     state.pitch = T.pitch1 - lift() * ease(k);
-    readout(1, dist);
+    readout(dist);
   } else {
     arrive();
     return;
@@ -430,12 +430,14 @@ function fly(now) {
   T.cam = T.from.map((v, k) => v + T.dir[k] * dist);
 }
 
-function readout(t, dist) {
+// What the flight says as it goes. The time is the time the real trip would have taken to come this far, so it
+// keeps step with the distance: the picture of the flight starts slowly and covers most of the way in the middle.
+function readout(dist) {
   const T = trip;
   $('readout').hidden = false;
   $('readout-warp').textContent = `Warp ${T.warpFactor.toFixed(1).replace(/\.0$/, '')}`;
   $('readout-left').textContent = `${formatLy(Math.max(T.D + T.hold - dist, T.hold) * LY_PER_PC)} to go`;
-  $('readout-time').textContent = `${formatDuration(T.years * t)} elapsed`;
+  $('readout-time').textContent = `${formatDuration(T.years * (T.D > 0 ? dist / T.D : 1))} elapsed`;
   updateHud();
 }
 
