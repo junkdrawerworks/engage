@@ -431,7 +431,7 @@ assert.ok(Math.abs(sun[1] - 60.8 * Math.PI / 180) < 0.1, 'the view did not turn 
 // The log keeps the trip, and so does a reload.
 await page.click('#open-log');
 assert.match(await text('#stats'), /1 star visited · 4\.2\d ly travelled/);
-assert.match((await text('#records')).replace(/\s+/g, ' '), /^FARTHEST FROM SOL Proxima Centauri · 4\.2\d ly LONGEST TRIP 4\.2\d ly to Proxima Centauri CHARTED DESTINATIONS 2 of 32$/);
+assert.match((await text('#records')).replace(/\s+/g, ' '), /^FARTHEST FROM SOL Proxima Centauri · 4\.2\d ly LONGEST TRIP 4\.2\d ly to Proxima Centauri CHARTED DESTINATIONS 2 of 32 KINDS OF STAR 1 of 7 OBAFGKM$/);
 // An entry opened from the log says its first line once, not in the heading and again underneath.
 await page.locator('.past summary').first().click();
 {
@@ -1294,7 +1294,7 @@ await bridgeReady();
   await p.click('#open-log');
   // (Vega to Alpheratz and back are the same 90.3 ly, so either may hold the longest trip.)
   assert.match((await p.locator('#records div').allInnerTexts()).map(t => t.replace(/\s+/g, ' ')).join('; '),
-    /^FARTHEST FROM SOL Alpheratz · 97\.0 ly; LONGEST TRIP 90\.3 ly to (Alpheratz|Vega); MOST VISITED Vega · 2 visits; CHARTED DESTINATIONS 2 of 32$/);
+    /^FARTHEST FROM SOL Alpheratz · 97\.0 ly; LONGEST TRIP 90\.3 ly to (Alpheratz|Vega); MOST VISITED Vega · 2 visits; CHARTED DESTINATIONS 2 of 32; KINDS OF STAR 2 of 7 OBAFGKM$/);
   assert.equal(await p.locator('.past').nth(0).locator('[data-again]').count(), 0, 'the log offers a course for the star the ship is at');
   await p.locator('.past summary').nth(1).click();
   // Share this course, from an entry: with no share sheet (a desktop browser) the link is copied and the button says
@@ -1461,7 +1461,7 @@ await bridgeReady();
   assert.match(await p.locator('#stats').innerText(), /^2 stars visited · 8\.50 ly travelled$/);
   assert.equal(await p.locator('.past').count(), 2);
   assert.equal(await p.locator('.past [data-again]').count(), 1, 'an old entry has no Set course again');
-  assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 32$/);
+  assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 32 KINDS OF STAR \d of 7 OBAFGKM( Rare kinds: [\w, -]+)?$/);
   const after = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')));
   assert.deepEqual(after.log, bridge.log, 'the old log was changed');
   assert.deepEqual([after.warp, after.ly, after.opts], [bridge.warp, bridge.ly, bridge.opts]);
@@ -3188,6 +3188,46 @@ await page.emulateMedia({ reducedMotion: null });
     if (await f.evaluate(() => 'onpagereveal' in window)) assert.equal(await f.evaluate(() => sessionStorage.getItem('fades')), fades ? 'nyyyy' : 'nnnnn', `with reduced motion ${reducedMotion}`);
     await fade.close();
   }
+}
+
+// The log's records say what kinds of star the ship has been to: the seven classes, lit as each is visited, and the
+// rare kinds once one is seen. After 200 flights the records named one star and two distances, and nothing of the
+// 122 stars visited. It is worked out from the entries and the catalogue: nothing more is saved.
+{
+  const kinds = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await kinds.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await kinds.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  const row = () => p.locator('#records .kinds').evaluate(el => ({
+    text: el.innerText.replace(/\s+/g, ' '), lit: [...el.querySelectorAll('.letters b.on')].map(b => b.textContent).join(''), all: el.querySelector('.letters').textContent,
+    said: el.querySelector('.letters').getAttribute('aria-label'),
+    wide: el.getBoundingClientRect().width > 0.9 * el.parentElement.getBoundingClientRect().width - 30,
+  }));
+  // Nothing logged, no records at all.
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#records').count(), 0);
+  await p.evaluate(() => engage.closeSheets());
+  // Vega is a white star, class A.
+  await p.evaluate(() => { engage.jump('Vega'); engage.closeSheets(); });
+  await p.tap('#open-log');
+  assert.deepEqual(await row(), { text: 'KINDS OF STAR 1 of 7 OBAFGKM', lit: 'A', all: 'OBAFGKM', said: 'Visited: A. Not yet: O, B, F, G, K, M.', wide: true });
+  await p.evaluate(() => engage.closeSheets());
+  // Betelgeuse is class M, and a red supergiant: the second line appears with the first rare kind.
+  await p.evaluate(() => { engage.jump('Betelgeuse'); engage.closeSheets(); });
+  await p.tap('#open-log');
+  assert.deepEqual(await row(), { text: 'KINDS OF STAR 2 of 7 OBAFGKM Rare kinds: red supergiant', lit: 'AM', all: 'OBAFGKM', said: 'Visited: A, M. Not yet: O, B, F, G, K.', wide: true });
+  // The lit letters are told from the rest by more than hue: brighter, and heavier.
+  const [on, off] = await p.evaluate(() => ['.letters b.on', '.letters b:not(.on)'].map(sel => { const c = getComputedStyle(document.querySelector(sel)); return [c.color, c.fontWeight]; }));
+  assert.ok(on[0] !== off[0] && Number(on[1]) > Number(off[1]), `${on} / ${off}`);
+  await p.evaluate(() => engage.closeSheets());
+  // Sirius B is a white dwarf, which has no letter of the seven; home is class G.
+  await p.evaluate(() => { for (const name of ['Gliese 244B', 'Sol']) { engage.jump(name); engage.closeSheets(); } });
+  await p.tap('#open-log');
+  assert.deepEqual([(await row()).text, (await row()).lit], ['KINDS OF STAR 3 of 7 OBAFGKM Rare kinds: red supergiant, white dwarf', 'AGM']);
+  assert.ok(!/kinds|rare/i.test(await p.evaluate(() => localStorage.getItem('engage.v1'))), 'the kinds of star were saved with the log');
+  await kinds.close();
 }
 
 // A tab that was asleep while another saved (a phone does that to tabs, and doesn't always tell them afterwards)

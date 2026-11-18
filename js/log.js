@@ -301,6 +301,27 @@ export function logRecords(log, { lyFromSol, charted }) {
   return { farthest, longest, most, charted: { n: charted.filter(i => visits.has(i)).length, of: charted.length } };
 }
 
+// The kinds of star the log has been to, from the stars in its entries and the catalogue's spectral types: nothing
+// more is stored. `spectOf(star)` is a star's type as the catalogue writes it ("M2Ib", "DA2", "" for none).
+// `letters` is the seven classes in order, each with whether one has been visited; `n` of `of` is the count; `rare`
+// lists the kinds the letters don't tell apart, once one has been seen, by the names the log itself uses for them:
+// a red supergiant (class M, luminosity class I), a white dwarf, a carbon star, a Wolf-Rayet star. A white dwarf or
+// a carbon star has no letter of the seven, and a star with no type on the charts counts for nothing.
+const CLASSES = 'OBAFGKM';
+const RARE = ['red supergiant', 'white dwarf', 'carbon star', 'Wolf-Rayet star'];
+export function starKinds(log, spectOf) {
+  const seen = new Set(), rare = new Set();
+  for (const star of new Set(log.map(e => e.star))) {
+    const { letter, lum, special } = spectral(spectOf(star));
+    if (letter) seen.add(letter);
+    if (special === 'white dwarf') rare.add('white dwarf');
+    else if (special === 'carbon') rare.add('carbon star');
+    else if (special === 'wolf-rayet') rare.add('Wolf-Rayet star');
+    else if (letter === 'M' && ['supergiant', 'hypergiant'].includes(SIZE[lum])) rare.add('red supergiant');
+  }
+  return { letters: [...CLASSES].map(l => [l, seen.has(l)]), n: seen.size, of: CLASSES.length, rare: RARE.filter(k => rare.has(k)) };
+}
+
 // The count of charted destinations as the log says it: Sol is one of them, and the ship set out from there. The
 // record row and the arrival's line both say it through here, so the two can't disagree.
 export const chartedSaid = c => ({ n: c.n + 1, of: c.of + 1 });

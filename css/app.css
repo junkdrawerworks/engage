@@ -147,6 +147,12 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .records { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.02); }
 .records dt { font: 600 10px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 .records dd { margin: 2px 0 0; font-size: 14px; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+/* Kinds of star, across the foot of the records: the seven classes, each lit once a star of it has been visited. */
+.records .kinds { grid-column: 1 / -1; }
+.records .letters { margin-left: 8px; font: 500 14px/1 var(--display); letter-spacing: 0.3em; }
+.records .letters b { font-weight: 500; color: var(--dim); }
+.records .letters b.on { font-weight: 600; color: var(--amber); }
+.records .rare { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
 /* Words for a screen reader only: there to be read, not seen. */
 .sr { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .unsaved { flex: none; margin: 6px 0 0; padding-left: 10px; border-left: 2px solid var(--amber); color: var(--amber); font-size: 13px; }

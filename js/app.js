@@ -3,7 +3,7 @@ import { loadCatalog } from './catalog.js';
 import { Sky } from './sky.js';
 import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
-import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, titleFor } from './log.js';
+import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, starKinds, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { LIVE, share } from './share.js';
@@ -936,7 +936,17 @@ function recordsHtml() {
     r.most && ['Most visited', `${r.most.title} · ${r.most.n} visits`],
     ['Charted destinations', `${charted.n} of ${charted.of}`],
   ].filter(Boolean);
-  return `<dl class="records" id="records">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+  return `<dl class="records" id="records">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}${kindsHtml()}</dl>`;
+}
+
+// One more record, across the foot of the others: which of the seven classes of star the log has been to, the
+// letters lit as they are visited, and under them the rare kinds once one has been seen.
+function kindsHtml() {
+  const k = starKinds(state.log, i => cat.spect[i]);
+  const said = `Visited: ${k.letters.filter(l => l[1]).map(l => l[0]).join(', ') || 'none'}. Not yet: ${k.letters.filter(l => !l[1]).map(l => l[0]).join(', ') || 'none'}.`;
+  return `<div class="kinds"><dt>Kinds of star</dt><dd>${k.n} of ${k.of} `
+    + `<span class="letters" role="img" aria-label="${said}">${k.letters.map(([l, on]) => `<b${on ? ' class="on"' : ''}>${l}</b>`).join('')}</span>`
+    + `${k.rare.length ? `<span class="rare">Rare kinds: ${esc(k.rare.join(', '))}</span>` : ''}</dd></div>`;
 }
 
 let searchIndex = null, letters = null;

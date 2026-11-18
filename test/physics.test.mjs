@@ -5,7 +5,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor, widthFor } from '../js/physics.js';
-import { THIN_LY, arrivalFirsts, chartedSaid, companions, describeKind, earthYear, homeLines, composeEntry, inTextFor, logRecords, momentFor, nearestStars, skyFrom, skyLine, titleFor, tripLine } from '../js/log.js';
+import { THIN_LY, arrivalFirsts, chartedSaid, companions, describeKind, earthYear, homeLines, composeEntry, inTextFor, logRecords, momentFor, nearestStars, skyFrom, skyLine, starKinds, titleFor, tripLine } from '../js/log.js';
 import { ANCHORS, DESTINATIONS } from '../js/destinations.js';
 import { SHIPS, byId as shipById } from '../js/ships.js';
 import { CLASSES, quizReadings } from '../js/classes.js';
@@ -552,6 +552,36 @@ test('the log’s records are worked out from its entries', () => {
   assert.deepEqual(back.longest, { title: 'Sol', ly: 1400 }, 'the trip home holds no record');
   // But not from a star with no measured distance.
   assert.deepEqual(logRecords([{ star: 0, title: 'Sol', ly: 3262 }, { star: 4, title: 'HIP 4', ly: 3262 }], opts).longest, null);
+});
+
+test('the log counts the kinds of star it has been to', () => {
+  const kinds = names => starKinds(names.map(n => ({ star: cat.byName.get(n) })), i => cat.spect[i]);
+  const lit = k => k.letters.filter(l => l[1]).map(l => l[0]).join('');
+  // Nothing visited: seven letters, none lit, no rare kinds.
+  assert.deepEqual(starKinds([], i => cat.spect[i]), { letters: [...'OBAFGKM'].map(l => [l, false]), n: 0, of: 7, rare: [] });
+  // Vega is class A; Betelgeuse is class M, and a red supergiant.
+  const two = kinds(['Vega', 'Betelgeuse']);
+  assert.deepEqual([lit(two), two.n, two.of, two.rare], ['AM', 2, 7, ['red supergiant']]);
+  // The same star twice counts once, and a red dwarf is no red supergiant.
+  assert.deepEqual([lit(kinds(['Vega', 'Vega', 'Proxima Centauri'])), kinds(['Vega', 'Vega', 'Proxima Centauri']).rare], ['AM', []]);
+  // All seven, by one star of each: Naos O, Rigel B, Vega A, Procyon F, the Sun G, Arcturus K, Proxima M.
+  const all = kinds(['Naos', 'Rigel', 'Vega', 'Procyon', 'Sol', 'Arcturus', 'Proxima Centauri']);
+  assert.deepEqual([lit(all), all.n, all.rare], ['OBAFGKM', 7, []]);
+  // The rare kinds, in one order whatever order they were visited in. A white dwarf (Sirius B), a carbon star (La
+  // Superba) and a Wolf-Rayet star (Gamma 2 Velorum) have no letter of the seven.
+  const rare = kinds(['γ² Velorum', 'La Superba', 'Gliese 244B', 'Antares']);
+  assert.deepEqual(rare.rare, ['red supergiant', 'white dwarf', 'carbon star', 'Wolf-Rayet star']);
+  assert.deepEqual([lit(rare), rare.n], ['M', 1]);
+  // They are the kinds the log calls by those names.
+  for (const [name, said] of [['Gliese 244B', /^White dwarf/], ['La Superba', /^Carbon star/], ['γ² Velorum', /^Wolf-Rayet star/]]) {
+    const i = cat.byName.get(name);
+    assert.match(describeKind(cat.spect[i], cat.temp[i], cat.absmag[i]), said, name);
+  }
+  assert.match(describeKind('M2Ib', 3500, -5), /^Red supergiant/);
+  // A blue or a yellow supergiant is not a red one, and a star with no type on the charts counts for nothing.
+  assert.deepEqual(kinds(['Rigel', 'Deneb', 'Canopus']).rare, []);
+  assert.deepEqual(starKinds([{ star: 1 }], () => ''), { letters: [...'OBAFGKM'].map(l => [l, false]), n: 0, of: 7, rare: [] });
+  assert.deepEqual(starKinds([{ star: 1 }], () => undefined).n, 0);
 });
 
 test('an arrival says what it did to the records', () => {
