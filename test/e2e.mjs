@@ -958,6 +958,34 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
   await dawn.close();
 }
 
+// On a phone on its side the card's words scroll and Set course stays on the screen. The card used to run past the
+// bottom edge there, with the button cut off or out of reach altogether. Every card in the list, at two sizes; the
+// list itself scrolls as a whole on a screen that short, so every row of it can be reached under tonight's plan.
+for (const viewport of [{ width: 844, height: 390 }, { width: 568, height: 320 }]) {
+  const side = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'America/New_York' });
+  const p = await side.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  await p.evaluate(() => { tonight.place(40.71, -74.01, 'New York', 'America/New_York'); tonight.at('2026-11-18T08:20:00Z'); });
+  await p.click('#open-list');
+  const rows = await p.locator('#systems .system').count();
+  assert.ok(rows > 25, `only ${rows} systems in tonight's list`);
+  for (let k = 0; k < rows; k++) {
+    if (k) await p.click('#open-list');
+    await p.locator('#systems .system').nth(k).click();
+    await p.locator('#card').evaluate(el => Promise.all(el.getAnimations().map(a => a.finished)));
+    const card = await p.evaluate(() => {
+      const b = document.getElementById('card-course').getBoundingClientRect(), c = document.getElementById('card').getBoundingClientRect();
+      return { title: document.getElementById('card-title').textContent, top: c.top, button: b.bottom, height: b.height };
+    });
+    assert.ok(card.height >= 44 && card.button <= viewport.height + 0.5, `${card.title}'s Set course ends at ${card.button} on a ${viewport.width}×${viewport.height} screen`);
+    assert.ok(card.top >= 0, `${card.title}'s card starts above a ${viewport.width}×${viewport.height} screen`);
+    await p.click('#card [data-close]');
+  }
+  await side.close();
+}
+
 // The place button, the only way into "Where you are", is a full-size tap target, and a guessed place and the time
 // both fit on a phone.
 {

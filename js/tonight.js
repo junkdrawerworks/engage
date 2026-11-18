@@ -712,6 +712,7 @@ function nameOf(s) {
 
 function showCard(s) {
   fillCard(s);
+  $('card-body').scrollTop = 0;
   openSheet('card');
   frameAboveCard();
   dirty = true;

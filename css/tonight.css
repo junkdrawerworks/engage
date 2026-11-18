@@ -52,6 +52,8 @@
 .card .facts { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
 .card .been { margin: 0 0 12px; padding-left: 20px; position: relative; color: var(--amber); font-size: 14px; }
 .card .been::before { content: ''; position: absolute; left: 2px; top: 3px; width: 11px; height: 13px; background: currentColor; clip-path: polygon(50% 0, 100% 100%, 50% 76%, 0 100%); }
+/* The words scroll when the card is taller than the room it has (a phone on its side); Set course stays in view under them. */
+.card-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px; }
 .card .fly { display: grid; place-items: center; text-decoration: none; flex: none; }
 body.carded .controls { visibility: hidden; }
 
@@ -107,4 +109,17 @@ body.red .card .look { border-left-color: #fff; background: rgba(255, 255, 255, 
   /* The clock gets a line of its own, so a long place name and the time both fit. */
   .place #clock { display: block; overflow: hidden; text-overflow: ellipsis; }
   .place #clock::before { content: none; }
+}
+
+/* On a phone on its side, tonight's plan would leave the list under it half a row: there the sheet scrolls as a whole,
+   plan and all, under its heading. */
+@media (max-height: 500px) {
+  #list { overflow-y: auto; overscroll-behavior: contain; }
+  #list .sheet-head { position: sticky; top: -6px; z-index: 1; background: var(--panel-solid); }
+  #list .systems { flex: none; overflow: visible; }
+}
+
+/* As a side panel the card is only as tall as its words, and never taller than the screen has room for. */
+@media (min-width: 760px) {
+  .sheet.card { top: auto; max-height: calc(100vh - 104px - var(--safe-t)); max-height: calc(100dvh - 104px - var(--safe-t)); }
 }
