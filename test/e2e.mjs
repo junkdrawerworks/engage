@@ -635,6 +635,42 @@ assert.equal(await text('#endings-n'), '2 OF 9');
 assert.equal(await text('#taken'), '2 RUNS TAKEN');
 assert.match((await text('#best')).replace(/\s+/g, ' '), /^A COMPASSION A JUDGMENT A RESTRAINT [A-F] NERVE$/, 'the best grades did not take the better run’s');
 assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.maru.v1')); return [s.runs.length, s.seen, s.taken]; }), [2, ['The lifeboat', 'Changed the rules'], 2]);
+// Going to warp out of the Neutral Zone is heard as the ship goes, not a second later. The Maru used the bridge's
+// jump sound for a one-second trip, and that sound's hold point, set a second in, came before its swell in time:
+// silence for the first second, then the rush cutting in over the explosion. The Maru's own warp-out is rendered
+// here by the page's own code into a recording (no loudspeaker, and nobody listening): there is sound in the first
+// 300 ms, the most of it as the ship streaks off at 0.6 to 0.7 s, and none after a second and a half. The jump
+// sound, asked for a short trip, swells from the start too.
+{
+  const studio = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await studio.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.addInitScript(() => {
+    window.AudioContext = class extends OfflineAudioContext {
+      constructor() { super(1, 44100 * 5, 44100); window.recording = this; }
+      resume() { return Promise.resolve(); }
+    };
+  });
+  await p.goto(base + 'maru.html');
+  // How loud each tenth of a second is (root mean square), for the first three seconds.
+  const loudness = call => p.evaluate(async call => {
+    window.recording = null;
+    const { sound } = await import(`./js/audio.js?take=${Math.random()}`);
+    sound[call[0]](...call.slice(1));
+    const d = (await window.recording.startRendering()).getChannelData(0), out = [];
+    for (let i = 0; i < 30; i++) { let sum = 0; for (let k = i * 4410; k < (i + 1) * 4410; k++) sum += d[k] * d[k]; out.push(Math.sqrt(sum / 4410)); }
+    return out;
+  }, call);
+  const out = await loudness(['warpOut']);
+  assert.ok(Math.min(...out.slice(0, 3)) > 0.005, `the Maru’s warp-out is silent at the start: ${out.slice(0, 3).map(v => v.toFixed(4))}`);
+  assert.ok(out.indexOf(Math.max(...out)) >= 5 && out.indexOf(Math.max(...out)) <= 7, `the warp-out is loudest at ${out.indexOf(Math.max(...out)) / 10} s, not as the ship goes`);
+  assert.ok(Math.max(...out.slice(15)) < 0.0005, 'the warp-out is still sounding after a second and a half');
+  const short = await loudness(['engage', 1]);
+  assert.ok(short[7] > 0.001 && short[9] > short[7] && short[11] > short[9], `the jump sound for a short trip does not swell from the start: ${short.slice(5, 12).map(v => v.toFixed(4))}`);
+  assert.match(await readFile(join(root, 'js/maru.js'), 'utf8'), /sound\.warpOut\(\)/, 'the Maru does not use its own warp-out');
+  await studio.close();
+}
+
 // Long missions: reached from the bridge, the ships on file, a hail sent, and a course set for where one is bound.
 await page.goto(base);
 await bridgeReady();

@@ -44,6 +44,9 @@ export const sound = {
     if (!this.on || !ensure()) return;
     ctx.resume();
     const t = ctx.currentTime;
+    // The rush swells and settles over its first 2.6 seconds, and the hold that follows can't start before that: a
+    // hold point set earlier would come first in time, keep the sound at nothing until then, and cut in with a click.
+    seconds = Math.max(seconds, 2.6);
     const n = noise(seconds + 3), bp = ctx.createBiquadFilter(), ng = ctx.createGain();
     bp.type = 'bandpass';
     bp.Q.value = 1.2;
@@ -79,6 +82,45 @@ export const sound = {
     lp.connect(og).connect(master);
     for (const x of [o, o2]) { x.start(t); x.stop(t + seconds + 1.3); }
     hum = { o, o2, og, ng };
+  },
+
+  // Going to warp and away at once, for the Kobayashi Maru: the jump's rising rush and low swell with no trip to hum
+  // through. It rises for the 0.7 seconds the ship takes to streak off the screen and is gone half a second later.
+  warpOut() {
+    if (!this.on || !ensure()) return;
+    ctx.resume();
+    const t = ctx.currentTime;
+    const n = noise(1.4), bp = ctx.createBiquadFilter(), ng = ctx.createGain();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(180, t);
+    bp.frequency.exponentialRampToValueAtTime(2600, t + 0.7);
+    bp.frequency.exponentialRampToValueAtTime(520, t + 1.2);
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.exponentialRampToValueAtTime(0.08, t + 0.06);
+    ng.gain.exponentialRampToValueAtTime(0.5, t + 0.7);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 1.25);
+    n.connect(bp).connect(ng).connect(master);
+    n.start(t);
+    n.stop(t + 1.3);
+
+    const o = ctx.createOscillator(), o2 = ctx.createOscillator(), og = ctx.createGain(), lp = ctx.createBiquadFilter();
+    o.type = 'sawtooth';
+    o2.type = 'sine';
+    o.frequency.setValueAtTime(42, t);
+    o.frequency.exponentialRampToValueAtTime(66, t + 0.7);
+    o2.frequency.setValueAtTime(84, t);
+    o2.frequency.exponentialRampToValueAtTime(132, t + 0.7);
+    lp.type = 'lowpass';
+    lp.frequency.value = 260;
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(0.06, t + 0.06);
+    og.gain.exponentialRampToValueAtTime(0.22, t + 0.65);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+    o.connect(lp);
+    o2.connect(lp);
+    lp.connect(og).connect(master);
+    for (const x of [o, o2]) { x.start(t); x.stop(t + 1.25); }
   },
 
   // Dropping out of warp: a falling whoosh.

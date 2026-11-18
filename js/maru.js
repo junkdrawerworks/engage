@@ -374,7 +374,7 @@ const scene = {
       } else if (e.type === 'warp') {
         this.ship.warp = at0(t);
         this.fx.push({ type: 'flash', t0: at0(t + 650), dur: 500 });
-        later(t, () => sound.engage(1));
+        later(t, () => sound.warpOut());
         t += 1300;
         if (g.maru.gone && !this.maru.gone && !g.rewritten) {
           this.maru.gone = at0(t);
