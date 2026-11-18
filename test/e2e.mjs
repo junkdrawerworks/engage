@@ -1352,6 +1352,19 @@ for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'ton
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
+// A long press on the installed app's icon offers four rooms. Each shortcut opens a page the offline copy keeps, stays
+// inside the app (a plain file name beside the manifest, like every other address in it), and has an icon that is kept too.
+{
+  const manifest = JSON.parse(await readFile(join(root, 'manifest.webmanifest'), 'utf8'));
+  assert.deepEqual(manifest.shortcuts.map(s => s.url), ['tonight.html', 'maru.html', 'contact.html', 'missions.html']);
+  assert.deepEqual([manifest.start_url, manifest.scope], ['./', './']);
+  for (const s of manifest.shortcuts) {
+    assert.ok(shell.includes(s.url) && ROOMS.includes(s.url), `the shortcut to ${s.name} opens ${s.url}, which is not a room the offline copy keeps`);
+    assert.ok(s.name && s.short_name.length <= 12 && s.description, `the shortcut to ${s.url} is missing a name or a description`);
+    assert.match(await readFile(join(root, s.url), 'utf8'), new RegExp(`<title>${s.name} · Engage</title>`), `the shortcut called ${s.name} opens a page with another title`);
+    for (const i of s.icons) assert.ok(shell.includes(i.src) && i.sizes === '192x192', `${s.name}'s icon ${i.src} is not kept for offline`);
+  }
+}
 const all = createHash('sha1');
 for (const f of shell) all.update(createHash('sha1').update(await readFile(join(root, f.endsWith('/') ? f + 'index.html' : f))).digest());
 const files = all.digest('hex').slice(0, 8);

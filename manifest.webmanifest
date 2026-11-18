@@ -7,6 +7,36 @@
   "display": "standalone",
   "background_color": "#05070d",
   "theme_color": "#05070d",
+  "shortcuts": [
+    {
+      "name": "Tonight’s sky",
+      "short_name": "Sky",
+      "description": "Point your phone up and see which stars Starfleet knows",
+      "url": "tonight.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Kobayashi Maru",
+      "short_name": "Maru",
+      "description": "The Academy’s no-win test",
+      "url": "maru.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "First contact",
+      "short_name": "Contact",
+      "description": "Answer an unknown ship in its own language",
+      "url": "contact.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Long missions",
+      "short_name": "Missions",
+      "description": "Where the Voyagers and other real ships are now",
+      "url": "missions.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
   "icons": [
     {
       "src": "icon.svg",
