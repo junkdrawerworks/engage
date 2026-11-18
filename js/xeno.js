@@ -1,7 +1,7 @@
 // The xenobiology lab: pick a planet class, grow a creature for it, read how the world shaped it, and keep the ones you like.
 import { CLASSES, byId, label, grows, worldByName } from './classes.js';
 import { Globe, paint } from './planet-art.js';
-import { grow, growFor, oddsFor } from './xeno-gen.js';
+import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText } from './xeno-gen.js';
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
@@ -47,7 +47,7 @@ function save() {
   return !unsaved;
 }
 
-const newSeed = () => 1 + Math.floor(Math.random() * 9999);
+const newSeed = () => 1 + Math.floor(Math.random() * LAB_SEEDS);
 
 // ---------- Growing ----------
 
@@ -85,11 +85,14 @@ function cardHtml(c) {
   const plantOnly = c.classId === 'L';
   // The real planets on this class's file that the lab has readings for, other than the one in the tank.
   const real = c.cls.worlds.filter(w => grows(w) && w !== c.world);
+  // How rare it is among its class's 9,999 specimens, when it is; and its record, if it holds one.
+  const rarity = rarityFor(c);
   return `
     <p class="eyebrow">${c.world ? `Grown for ${esc(c.world.name)}, ${esc(lyText(c.world.ly))} light years away` : `Specimen grown for ${esc(label(c.cls))}${c.cls.letter ? ` · ${esc(c.cls.name)}` : ''}`}</p>
     <h2>${esc(c.name.common)}</h2>
     <p class="latin">${esc(c.name.genus)} ${esc(c.name.species)}</p>
     <p class="odds"><b>${ODDS_HEAD[c.odds]}.</b> ${esc(oddsFor(c).replace(/^[^.]+\. /, ''))}</p>
+    ${rarity ? `<p class="rarity">${esc(rarity).replace(/^(One of a kind|Uncommon|Lab record):/, '<b>$1:</b>').replace(/ (Lab record):/, ' <b>$1:</b>')}</p>` : ''}
     ${plantOnly ? '<p class="aside">Class L worlds have plant life and no animals, so the lab grew a plant.</p>' : ''}
     <ul class="notes">${c.notes.map(n => `<li><h3>${esc(n.label)}</h3><p>${esc(n.text)}</p></li>`).join('')}</ul>
     ${real.length ? `<p class="for-real">Or grow one for ${c.world ? 'another' : 'a'} real planet on this file: ${real.map(w => `<a href="#world=${encodeURIComponent(w.name)}">${esc(w.name)}</a>`).join(', ')}.</p>` : ''}
@@ -139,6 +142,21 @@ function renderRefs(id) {
     ? `Life from Star Trek and from Earth that helps explain ${label(c)}.`
     : `Nothing on file for ${label(c)} yet.`;
   $('refs').innerHTML = list.map(refHtml).join('');
+}
+
+// ---------- Lab records ----------
+
+// The record-holders among everything the lab can grow, each a link that grows it. What a record measures is read
+// off the creature itself, so the shelf can't disagree with the tank.
+function renderRecords() {
+  const n = x => x.toLocaleString('en-US');
+  $('records-sub').textContent = `The lab can grow ${n(CLASSES.length * LAB_SEEDS)} creatures: ${n(LAB_SEEDS)} for each of its ${CLASSES.length} kinds of world. These hold the records among them.`;
+  $('records').innerHTML = RECORDS.map(r => {
+    const c = grow(r.cls, r.seed);
+    const what = { largest: `${sizeText(c.body.size)} across`, smallest: `${sizeText(c.body.size)} long`, gravity: `lives at ${gText(c.env.g)}`,
+      walker: `${sizeText(c.body.size)} tall, at ${gText(c.env.g)}`, wings: `${sizeText(c.body.size)} from tip to tip`, lone: `the only ${label(c.cls)} specimen that flies` }[r.id];
+    return `<li><a href="#${encodeURIComponent(r.cls)}-${r.seed}"><b>${esc(r.title)}</b><span class="rec-name">${esc(c.name.common)}</span><span class="rec-what">${esc(label(c.cls))} · ${esc(what)}</span></a></li>`;
+  }).join('');
 }
 
 // ---------- Jars ----------
@@ -268,6 +286,9 @@ const open = (h, animate = true) => (h.world ? showWorld(h.world, h.seed, animat
 
 buildStrip();
 $('cabinet').innerHTML = SPECIMENS.map(refHtml).join('');
+renderRecords();
+// A record's link grows it in the tank, which may be a long way up the page.
+$('records').addEventListener('click', e => { if (e.target.closest('a')) $('tank').scrollIntoView({ block: 'center', behavior: still.matches ? 'auto' : 'smooth' }); });
 $('again').addEventListener('click', () => (current.world ? showWorld(current.world.name) : show(current.classId)));
 $('keep').addEventListener('click', toggleKeep);
 // A link that grows the same creature again: its class and its number, as the address bar has them.

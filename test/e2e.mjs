@@ -3698,6 +3698,54 @@ await page.emulateMedia({ reducedMotion: null });
   await c.close();
 }
 
+// The lab says how rare a specimen is among its class's 9,999, and keeps a shelf of the record-holders among all
+// 169,983 creatures it can grow. Nobody would find Class H's one flyer by tapping Grow another: the chance is 1 in
+// 9,999 a go. (The counts are a table in js/xeno-gen.js; test/xeno.test.mjs grows every creature and holds it to them.)
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await c.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const rarity = () => p.locator('#specimen .rarity').evaluateAll(els => els.map(el => [el.textContent, el.previousElementSibling.className]));
+  await p.goto(base + 'xeno.html#H-1218');
+  await p.waitForFunction(() => window.xeno?.current?.seed === 1218);
+  assert.deepEqual(await rarity(), [['One of a kind: the only Class H specimen that flies.', 'odds']], 'the lone desert flyer’s card does not say so under its odds');
+  // The first Class M specimen that flies, and the first that doesn't.
+  const [flies, walks] = await p.evaluate(async () => {
+    const { grow } = await import('./js/xeno-gen.js');
+    const first = ok => { for (let s = 1; s <= 9999; s++) if (ok(grow('M', s))) return s; };
+    return [first(x => x.body.plan === 'flyer'), first(x => x.body.plan === 'walker')];
+  });
+  await p.evaluate(s => xeno.show('M', s, false), flies);
+  assert.deepEqual(await rarity(), [['Uncommon: 171 of Class M’s 9,999 specimens fly.', 'odds']]);
+  await p.evaluate(s => xeno.show('M', s, false), walks);
+  assert.deepEqual(await rarity(), [], 'a common body plan was given a rarity line');
+  // A creature grown for a real planet is outside the census, even with a record-holder's number.
+  await p.evaluate(() => xeno.showWorld('Proxima b', 1218, false));
+  assert.deepEqual(await rarity(), []);
+
+  // The shelf: six records, each a link that grows its holder in the tank, whose card then says the record.
+  assert.equal(await p.locator('#records-sub').innerText(), 'The lab can grow 169,983 creatures: 9,999 for each of its 17 kinds of world. These hold the records among them.');
+  assert.deepEqual(await p.locator('#records li b').allTextContents(), ['Largest', 'Smallest', 'Strongest gravity', 'Tallest walker', 'Widest wings', 'One of a kind']);
+  assert.deepEqual(await p.locator('#records .rec-what').allTextContents(), ['Class J · 1 km across', 'Class D · 0.5 mm long', 'Class T · lives at 25 g', 'Class K · 4.9 m tall, at 0.56 g', 'Class Y · 6.6 m from tip to tip', 'Class H · the only Class H specimen that flies']);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the records shelf pushes the lab sideways on a phone');
+  for (const [k, id, said] of [[0, 'J-9258', /^Lab record: the largest of everything/], [1, 'D-8022', /^Lab record: the smallest of everything/], [2, 'T-578', /stronger gravity/],
+    [3, 'K-8371', /^Lab record: the tallest of everything the lab can grow that walks/], [4, 'Y-9622', /widest wings/], [5, 'H-1218', /^One of a kind/]]) {
+    const link = p.locator('#records li a').nth(k);
+    await link.scrollIntoViewIfNeeded();
+    assert.ok((await link.boundingBox()).height >= 44, `the ${id} record is under 44 px tall`);
+    const name = await link.locator('.rec-name').innerText();
+    await link.tap();
+    await p.waitForFunction(want => `${xeno.current.classId}-${xeno.current.seed}` === want, id);
+    assert.equal(await p.locator('#specimen h2').innerText(), name, `the shelf and the tank disagree about ${id}`);
+    assert.match((await rarity()).map(r => r[0]).join(' '), said);
+    assert.ok(p.url().endsWith(`#${id}`));
+    // The tank is brought back on screen: the shelf is a long way down the page.
+    await p.waitForFunction(() => { const r = document.getElementById('tank').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }, null, { timeout: 5000 })
+      .catch(() => assert.fail(`${id} was grown out of sight`));
+  }
+  await c.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

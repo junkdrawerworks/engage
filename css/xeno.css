@@ -49,6 +49,17 @@
 .ref-home { margin: 2px 0 4px; font-size: 13px; color: var(--cyan); }
 .ref-list p { margin: 0; font-size: 14px; color: #cdd5e3; }
 .cabinet { margin-top: 12px; }
+/* The specimen's rarity among its class's 9,999, under the odds. */
+.specimen .rarity { margin: 0 0 8px; padding: 0 10px 0 13px; font-size: 14px; color: #cdd5e3; }
+.specimen .rarity b { font: 600 11px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: #6fe3a4; margin-right: 2px; }
+/* Lab records: six links, each to the specimen that holds one. */
+.lab-records { margin-top: 22px; }
+.rec-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rec-list a { display: grid; gap: 2px; align-content: start; height: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, 0.02); color: inherit; text-decoration: none; }
+.rec-list a:hover { border-color: #6fe3a4; }
+.rec-list b { font: 600 11px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: #6fe3a4; }
+.rec-name { font: 600 15px/1.25 var(--display); letter-spacing: 0.02em; }
+.rec-what { font-size: 13px; color: var(--muted); }
 .cabinet summary { cursor: pointer; padding: 10px 0; font: 600 13px/1.2 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .cabinet summary:hover { color: var(--text); }
 

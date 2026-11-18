@@ -37,6 +37,95 @@ export const ODDS = {
   wild: 'Pure speculation. Nothing on Earth could survive here, so the lab is guessing at a different chemistry.',
 };
 
+// ---------- The census ----------
+
+// The lab only ever rolls specimen numbers 1 to 9,999, so each class has exactly that many creatures, and they can
+// all be counted. CENSUS is how many of each class's have each body plan. Growing every one takes a second or two,
+// which is no way to open a page on a phone, so the table is kept here: tools/xeno-census.mjs grows them all and
+// writes it, and test/xeno.test.mjs grows them all again and fails if a rule has changed since (it says to run the
+// tool). Creatures grown for a real planet are outside the census.
+export const SEEDS = 9999;
+// census:start (written by tools/xeno-census.mjs)
+export const CENSUS = {
+  M: { swimmer: 2536, walker: 7292, flyer: 171 },
+  L: { plant: 9999 },
+  K: { burrower: 6662, walker: 3337 },
+  H: { burrower: 3318, walker: 6680, flyer: 1 },
+  N: { floater: 9999 },
+  O: { swimmer: 7428, walker: 2034, flyer: 537 },
+  P: { walker: 3265, swimmer: 6734 },
+  D: { crawler: 9999 },
+  Y: { crawler: 4932, flyer: 4602, walker: 465 },
+  J: { floater: 9999 },
+  T: { floater: 9999 },
+  R: { swimmer: 9999 },
+  'super-earth': { swimmer: 3317, walker: 4954, flyer: 1728 },
+  'sub-neptune': { swimmer: 9999 },
+  'lava-world': { crawler: 9999 },
+  'hot-jupiter': { floater: 9999 },
+  'ice-giant': { swimmer: 9999 },
+};
+// census:end
+
+// The record-holders on the lab's shelf, by class and specimen number. `id` is the record takeCensus() works out;
+// the test holds each to being the one specimen that holds it.
+export const RECORDS = [
+  { id: 'largest', cls: 'J', seed: 9258, title: 'Largest', card: 'the largest of everything the lab can grow' },
+  { id: 'smallest', cls: 'D', seed: 8022, title: 'Smallest', card: 'the smallest of everything the lab can grow' },
+  { id: 'gravity', cls: 'T', seed: 578, title: 'Strongest gravity', card: 'nothing the lab can grow lives under stronger gravity' },
+  { id: 'walker', cls: 'K', seed: 8371, title: 'Tallest walker', card: 'the tallest of everything the lab can grow that walks' },
+  { id: 'wings', cls: 'Y', seed: 9622, title: 'Widest wings', card: 'the widest wings of everything the lab can grow' },
+  { id: 'lone', cls: 'H', seed: 1218, title: 'One of a kind', card: '' },
+];
+export const recordFor = c => (c.world ? null : RECORDS.find(r => r.cls === c.classId && r.seed === c.seed) || null);
+
+// Every creature the lab can roll, grown and counted: the table above, and who holds each record with how many
+// share it. For the tool and the test; the page never calls it.
+export function takeCensus() {
+  const counts = {}, holders = {};
+  const rules = {
+    largest: [() => true, c => c.body.size],
+    smallest: [() => true, c => -c.body.size],
+    gravity: [() => true, c => c.env.g],
+    walker: [c => c.body.plan === 'walker', c => c.body.size],
+    wings: [c => c.body.plan === 'flyer', c => c.body.size],
+  };
+  const first = {}; // the first specimen of each plan in each class, for a plan only one specimen has
+  for (const cls of Object.keys(WORLDS)) {
+    counts[cls] = {};
+    for (let seed = 1; seed <= SEEDS; seed++) {
+      const c = grow(cls, seed), plan = c.body.plan;
+      counts[cls][plan] = (counts[cls][plan] || 0) + 1;
+      first[`${cls}/${plan}`] ??= seed;
+      for (const [id, [counted, score]] of Object.entries(rules)) {
+        if (!counted(c)) continue;
+        const v = score(c), h = holders[id];
+        if (!h || v > h.value) holders[id] = { cls, seed, value: v, shared: 1 };
+        else if (v === h.value) h.shared++;
+      }
+    }
+  }
+  // The specimens that are the only one of their plan in their class.
+  const lone = Object.entries(counts).flatMap(([cls, plans]) => Object.entries(plans).filter(([, n]) => n === 1).map(([plan]) => ({ cls, seed: first[`${cls}/${plan}`], plan })));
+  if (lone.length) holders.lone = { ...lone[0], shared: lone.length };
+  return { counts, holders, total: Object.keys(WORLDS).length * SEEDS };
+}
+
+// How rare a specimen is among its class's 9,999, said on its card: nothing for the common plans, a line for a plan
+// fewer than one in ten of its class has, and another for the one specimen of a plan. A record-holder says its record.
+const DOES = { walker: ['walks', 'walk'], flyer: ['flies', 'fly'], swimmer: ['swims', 'swim'], burrower: ['burrows', 'burrow'], crawler: ['crawls', 'crawl'], floater: ['floats', 'float'], plant: ['is a plant', 'are plants'] };
+export function rarityFor(c, census = CENSUS) {
+  if (c.world) return '';
+  const lines = [];
+  const n = census[c.classId]?.[c.body.plan], [one, many] = DOES[c.body.plan] || [];
+  const kind = c.cls.letter ? label(c.cls) : c.cls.name.toLowerCase();
+  if (n === 1 && one) lines.push(`One of a kind: the only ${kind} specimen that ${one}.`);
+  else if (n > 1 && n < SEEDS / 10 && many) lines.push(`Uncommon: ${n.toLocaleString('en-US')} of ${c.cls.letter ? `${kind}’s` : `the ${kind}’s`} ${SEEDS.toLocaleString('en-US')} specimens ${many}.`);
+  const record = recordFor(c);
+  if (record?.card) lines.push(`Lab record: ${record.card}.`);
+  return lines.join(' ');
+}
+
 // How seriously to take one creature: the line for its world, worded for what was grown. One grown for a real planet
 // that is only a candidate for its file (nobody knows yet that Proxima b is Class M) says that first.
 export function oddsFor(c) {

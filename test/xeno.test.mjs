@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS } from '../js/xeno-gen.js';
+import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS, SEEDS as LAB_SEEDS, CENSUS, RECORDS, takeCensus, rarityFor, recordFor, sizeText, gText } from '../js/xeno-gen.js';
 import { CLASSES, byId, LAB_WORLDS, grows, worldByName } from '../js/classes.js';
 import { widthFor } from '../js/physics.js';
 import { SPECIMENS, specimensFor } from '../js/species.js';
@@ -317,3 +317,56 @@ test('a real planet is found by its name however the link spells it', () => {
   assert.equal(worldByName(undefined), null);
 });
 
+// The census. The lab rolls specimen numbers 1 to 9,999 for each class, so every creature it can grow can be counted:
+// 169,983 of them. The specimen card's rarity line and the Lab records shelf are read from a table and a list in
+// js/xeno-gen.js, and this grows every creature again (about two seconds) and holds both to what it finds. If a rule
+// about how creatures are grown has changed, it fails here: run `node tools/xeno-census.mjs`, which rewrites the
+// table and prints who holds each record now, then set RECORDS to match.
+test('the census and the lab’s records are what growing every creature gives', () => {
+  const { counts, holders, total } = takeCensus();
+  assert.equal(total, 169983);
+  assert.equal(LAB_SEEDS, 9999);
+  assert.deepEqual(CENSUS, counts, 'the creatures have changed since the census was taken: run `node tools/xeno-census.mjs`');
+  for (const [cls, plans] of Object.entries(counts)) assert.equal(Object.values(plans).reduce((a, b) => a + b, 0), 9999, cls);
+  // Every record on the shelf is held by the specimen it names, and by that one alone.
+  assert.deepEqual(RECORDS.map(r => r.id).sort(), Object.keys(holders).sort(), 'the shelf and the census disagree about which records there are');
+  for (const r of RECORDS) {
+    const h = holders[r.id];
+    assert.deepEqual([h.cls, h.seed, h.shared], [r.cls, r.seed, 1], `“${r.title}” has changed hands: run \`node tools/xeno-census.mjs\` and set RECORDS in js/xeno-gen.js to what it prints`);
+    assert.equal(recordFor(grow(r.cls, r.seed)), r);
+  }
+  // The numbers the README and this round's notes quote, as they are at this commit.
+  assert.deepEqual([counts.H.flyer, counts.M.flyer, counts.Y.walker, counts.O.flyer], [1, 171, 465, 537]);
+  const of = id => { const r = RECORDS.find(x => x.id === id); return grow(r.cls, r.seed); };
+  assert.deepEqual([sizeText(of('largest').body.size), sizeText(of('smallest').body.size), gText(of('gravity').env.g), sizeText(of('walker').body.size), gText(of('walker').env.g), sizeText(of('wings').body.size)],
+    ['1 km', '0.5 mm', '25 g', '4.9 m', '0.56 g', '6.6 m']);
+  assert.deepEqual([of('largest').body.plan, of('smallest').body.plan, of('walker').body.plan, of('wings').body.plan, of('lone').body.plan], ['floater', 'crawler', 'walker', 'flyer', 'flyer']);
+});
+
+test('a specimen’s card says how rare it is in its class, and nothing when it is not', () => {
+  const flyer = (cls, n = 1) => { let seen = 0; for (let s = 1; s <= 9999; s++) { const c = grow(cls, s); if (c.body.plan === 'flyer' && ++seen === n) return c; } };
+  assert.equal(rarityFor(grow('H', 1218)), 'One of a kind: the only Class H specimen that flies.');
+  assert.equal(rarityFor(flyer('M')), 'Uncommon: 171 of Class M’s 9,999 specimens fly.');
+  assert.equal(rarityFor(flyer('O')), 'Uncommon: 537 of Class O’s 9,999 specimens fly.');
+  const walkerY = Array.from({ length: 9999 }, (_, i) => grow('Y', i + 1)).find(c => c.body.plan === 'walker');
+  assert.equal(rarityFor(walkerY), 'Uncommon: 465 of Class Y’s 9,999 specimens walk.');
+  // A plan a tenth or more of its class has, or the only plan its class has, is not worth a line.
+  assert.equal(rarityFor(flyer('super-earth')), '');
+  assert.equal(rarityFor(grow('L', 4)), '');
+  assert.equal(rarityFor(grow('M', 1)), '');
+  // The record-holders say their record; the lone desert flyer's record is its rarity, said once.
+  assert.equal(rarityFor(grow('J', 9258)), 'Lab record: the largest of everything the lab can grow.');
+  assert.equal(rarityFor(grow('K', 8371)), 'Lab record: the tallest of everything the lab can grow that walks.');
+  assert.equal(rarityFor(grow('Y', 9622)), 'Lab record: the widest wings of everything the lab can grow.');
+  for (const r of RECORDS) assert.ok(rarityFor(grow(r.cls, r.seed)), `${r.title} says nothing on its card`);
+  // Across every class and a spread of seeds: a line is one of the three kinds, and names the creature's own class.
+  for (const c of all) {
+    const line = rarityFor(c);
+    if (line) assert.match(line, /^(One of a kind: the only .+ specimen that \w+( a plant)?\.|Uncommon: [\d,]+ of .+’s 9,999 specimens \w+\.|Lab record: .+\.)( Lab record: .+\.)?$/, line);
+  }
+  // A creature grown for a real planet is outside the census, whatever its number.
+  for (const { world } of LAB_WORLDS) for (const seed of [1218, 9258, 8022, 7]) assert.equal(rarityFor(growFor(world.name, seed)), '', `${world.name}-${seed}`);
+  // With a census in which a plan were the only one of its kind among an unnamed class, the words still read.
+  assert.equal(rarityFor(flyer('super-earth'), { 'super-earth': { flyer: 1 } }), 'One of a kind: the only super-earth specimen that flies.');
+  assert.equal(rarityFor(flyer('super-earth'), { 'super-earth': { flyer: 40 } }), 'Uncommon: 40 of the super-earth’s 9,999 specimens fly.');
+});
