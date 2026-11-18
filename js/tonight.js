@@ -8,7 +8,7 @@ import { CHARTS } from './charts.js';
 import { LY_PER_PC, apparentMag, formatLy, formatYear, stardate } from './physics.js';
 import {
   jdOf, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark,
-  phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone, daylightNote,
+  phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone, daylightNote, tonightPlan, planLines, showersOn, radiantDir,
 } from './astro.js';
 import { hold, release } from './wake.js';
 
@@ -29,7 +29,7 @@ let pose = null;         // where the phone is pointing, smoothed
 let sensing = false, gotReading = false;
 let compassOffset = null; // iPhones give alpha from wherever they started, and the compass separately
 let offsetMin = 0;       // minutes ahead of now
-let sel = null;          // { kind: 'star', i } | { kind: 'planet', name } | { kind: 'moon' } | { kind: 'sun' }
+let sel = null;          // { kind: 'star', i } | { kind: 'planet', name } | { kind: 'moon' } | { kind: 'sun' } | { kind: 'shower' }
 let dirty = true, aimAnim = null, testNow = null;
 let placed = [];         // where things were drawn last frame, for taps: { x, y, r, hit }
 
@@ -195,7 +195,11 @@ function compute() {
     t.alt = altAz(t.local).alt;
     t.seen = t.mag <= nightLim;
   }
-  sky = { date, f, sun, sunAlt, moon, moonL, moonAlt, lim, nightLim, local, lines, planets };
+  // A meteor shower that is active on this date here, and where its meteors streak away from.
+  const shower = showersOn(date, tzOf())[0] || null;
+  if (shower) shower.local = toLocal(f, radiantDir(shower.shower));
+  else if (sel?.kind === 'shower') closeSheets(); // the slider has run on past its last night
+  sky = { date, f, sun, sunAlt, moon, moonL, moonAlt, lim, nightLim, local, lines, planets, shower };
   updateHud();
   if (!$('list').hidden) renderList();
   if (!$('card').hidden && sel) fillCard(sel); // keeps the card up to date without turning the view back to it
@@ -223,6 +227,7 @@ function updateHud() {
 }
 
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const dayOf = (d, tz = tzOf()) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: tz });
 const timeOf = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tzOf() }).toLowerCase().replace(' ', ' ');
 const clockText = (d, now) => `${now ? 'now, ' : ''}${d.toLocaleDateString('en-US', { weekday: 'short', timeZone: tzOf() })} ${timeOf(d)}`; // the dot before it is in the CSS
 function tzOf() {
@@ -377,6 +382,7 @@ function draw() {
 
   // The tags: Starfleet's names, then Engage's other destinations.
   for (const t of tags) drawTag(t);
+  drawRadiant();
 
   // Bright stars' own names, small, where there's room.
   for (const q of placed) {
@@ -473,6 +479,28 @@ function drawMoon() {
   placed.push({ x: p.x, y: p.y, r: Math.max(24, r), hit: { kind: 'moon' }, rank: -12 });
 }
 
+// Where an active meteor shower's meteors come from: a small burst, named, once the Sun is down.
+function drawRadiant() {
+  const sh = sky.shower;
+  if (!sh || sh.local[2] < 0.02 || sky.sunAlt > -2) return;
+  const p = project(sh.local);
+  if (!p || p.z < 0 || p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) return;
+  const a = sky.sunAlt > -12 ? 0.5 : 0.9;
+  ctx.save();
+  ctx.strokeStyle = `rgba(190, 255, 214, ${a})`;
+  ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let k = 0; k < 8; k++) {
+    const t = k * Math.PI / 4 + 0.2, long = k % 2 === 0;
+    ctx.moveTo(p.x + Math.cos(t) * 5, p.y + Math.sin(t) * 5);
+    ctx.lineTo(p.x + Math.cos(t) * (long ? 13 : 9), p.y + Math.sin(t) * (long ? 13 : 9));
+  }
+  ctx.stroke();
+  ctx.restore();
+  label(sh.shower.name, p.x, p.y, 17, 'shower');
+  placed.push({ x: p.x, y: p.y, r: 22, hit: { kind: 'shower' }, rank: -4 });
+}
+
 const FONT = "'Chakra Petch', 'Avenir Next Condensed', 'Arial Narrow', sans-serif";
 let labelBoxes = [], reservedBoxes = 0; // the first few are the page's own: the header, the controls and the daylight notice
 function label(text, x, y, gap, style) {
@@ -481,7 +509,7 @@ function label(text, x, y, gap, style) {
   const box = { x: x + gap, y: y - 8, w, h: 14 };
   if (overlaps(box)) return;
   labelBoxes.push(box);
-  ctx.fillStyle = style === 'planet' ? '#ffd28a' : 'rgba(200, 210, 230, 0.62)';
+  ctx.fillStyle = style === 'planet' ? '#ffd28a' : style === 'shower' ? 'rgba(190, 255, 214, 0.9)' : 'rgba(200, 210, 230, 0.62)';
   ctx.fillText(text, x + gap, y + 4);
 }
 const overlaps = b => labelBoxes.some(o => b.x < o.x + o.w + 4 && o.x < b.x + b.w + 4 && b.y < o.y + o.h && o.y < b.y + b.h);
@@ -558,6 +586,7 @@ function selLocal(s = sel) {
   if (s.kind === 'star') return toLocal(sky.f, starDir(s.i));
   if (s.kind === 'planet') return sky.planets.find(p => p.name === s.name).local;
   if (s.kind === 'moon') return sky.moonL;
+  if (s.kind === 'shower') return sky.shower.local;
   return sky.sun;
 }
 
@@ -595,6 +624,7 @@ function drawPointer() {
 function nameOf(s) {
   if (s.kind === 'star') { const t = tags.find(x => x.i === s.i); return t ? t.name : titleFor(cat, s.i); }
   if (s.kind === 'planet') return PLANET_NAMES[s.name];
+  if (s.kind === 'shower') return sky.shower.shower.name;
   return s.kind === 'moon' ? 'The Moon' : 'The Sun';
 }
 
@@ -658,6 +688,13 @@ function fillCard(s) {
     sub = `${Math.round(sky.moon.lit * 100)}% lit · ${Math.round(sky.moon.km).toLocaleString('en-US')} km away`;
     line = sky.moon.lit > 0.6 ? 'A bright moon washes out the faintest stars, so fewer of the tags are visible tonight.' : 'A thin moon leaves the sky dark for the faint stars.';
     facts = 'Its light takes 1.3 seconds to reach you.';
+  } else if (s.kind === 'shower') {
+    const { shower: sh, peak } = sky.shower;
+    const md = ([m, d]) => dayOf(new Date(Date.UTC(2026, m - 1, d, 12)), 'UTC');
+    kind = 'Meteor shower'; title = sh.name;
+    sub = `Active ${md(sh.from)} to ${md(sh.to)} · ${peak < sky.date ? 'peaked' : 'peak'} ${dayOf(peak)}`;
+    line = 'Its meteors can cross any part of the sky, but they all streak away from this point, the radiant. The higher it stands, the more of them you see.';
+    facts = `Up to ${sh.zhr} an hour at the peak, under a dark sky with this point overhead. Dates and rates are the International Meteor Organization’s.`;
   } else {
     kind = 'Sol'; title = 'The Sun'; sub = '8 light minutes away';
     line = 'Home. Don’t look straight at it.';
@@ -687,12 +724,36 @@ function frameAboveCard() {
 
 // ---------- The list ----------
 
+// Tonight's plan, at the head of the list: worked out from this moment, not from where the time slider is, since its
+// button is what moves the slider. The best time counts ten-minute steps from now, as the slider does.
+let plan = null;
+function renderPlan() {
+  const { lat, lon } = saved.place;
+  const now = new Date(testNow ?? Date.now());
+  const stars = tags.filter(t => t.chart).map(t => ({ name: t.name, dir: starDir(t.i), mag: t.mag }));
+  plan = tonightPlan(lat, lon, now, stars, saved.sky, tzOf());
+  const lines = planLines(plan, { time: timeOf, day: d => dayOf(d), skyIn: SKIES[saved.sky].inText });
+  setText('plan-dark', lines.dark);
+  $('plan-best').hidden = !lines.best;
+  setText('plan-best-text', lines.best || '');
+  // The slider reaches twelve hours ahead; a best time further off than that is named with no button.
+  const go = $('plan-go'), min = plan.best?.up.length ? plan.best.minutes : null;
+  go.hidden = min === null || min > 720 || min === offsetMin;
+  if (!go.hidden) setText('plan-go', min === 0 ? 'Show now' : `Show ${timeOf(plan.best.date)}`);
+  $('plan-shower').hidden = !lines.shower;
+  setText('plan-shower', lines.shower || '');
+}
+
 function renderList() {
+  renderPlan();
   const rows = tags.map(t => ({ t, state: t.alt < 0 ? 2 : t.seen ? 0 : 1 }))
     .sort((a, b) => a.state - b.state || (b.t.chart ? 1 : 0) - (a.t.chart ? 1 : 0) || b.t.alt - a.t.alt);
   const up = rows.filter(r => r.state === 0 && r.t.chart).length;
   const charted = tags.filter(t => t.chart).length;
-  $('list-note').textContent = `${up} of Starfleet’s ${charted} charted stars ${up === 1 ? 'is' : 'are'} up and bright enough to see ${SKIES[saved.sky].inText}${sky.sunAlt > -12 ? ' once it’s dark' : ''}.${visits.size ? ` You’ve flown to ${visits.size} of the stars listed here.` : ''}`;
+  // (Where it doesn't get dark tonight, "once it's dark" would promise something the plan above has just ruled out.)
+  const seen = sky.sunAlt <= -12 ? `up and bright enough to see ${SKIES[saved.sky].inText}`
+    : plan.night ? `up and bright enough to see ${SKIES[saved.sky].inText} once it’s dark` : `up, and would be bright enough to see ${SKIES[saved.sky].inText} if it got dark`;
+  $('list-note').textContent = `${up} of Starfleet’s ${charted} charted stars ${up === 1 ? 'is' : 'are'} ${seen}.${visits.size ? ` You’ve flown to ${visits.size} of the stars listed here.` : ''}`;
   const box = $('systems');
   box.replaceChildren(...rows.map(({ t, state }) => {
     const b = document.createElement('button');
@@ -873,6 +934,14 @@ function bind() {
     $('time').value = offsetMin;
     compute();
   });
+  // The plan's button: the slider goes to the best time, and the list gets out of the way of the sky.
+  $('plan-go').addEventListener('click', () => {
+    if (!plan?.best) return;
+    offsetMin = Math.min(720, plan.best.minutes);
+    $('time').value = offsetMin;
+    closeSheets();
+    compute();
+  });
   $('open-place').addEventListener('click', e => openSheet('places', e.currentTarget));
   $('open-list').addEventListener('click', e => { renderList(); openSheet('list', e.currentTarget); });
   $('locate').addEventListener('click', locate);
@@ -964,6 +1033,9 @@ function hooks() {
     // The tags drawn last frame, with their boxes on screen.
     tags: () => placed.filter(q => q.box).map(q => ({ name: nameOf(q.hit), been: !!q.been, ...q.box })),
     tag(name) { const t = tags.find(x => x.name === name); return t && { alt: t.alt, seen: t.seen, mag: t.mag }; },
+    // The meteor shower marked on the sky, if one is: its name, where its radiant is on screen, and whether it was drawn.
+    get shower() { const sh = sky.shower; return sh ? { name: sh.shower.name, alt: altAz(sh.local).alt, drawn: placed.some(q => q.hit.kind === 'shower') } : null; },
+    get plan() { return plan; },
     // Open the card for anything in the sky: { kind: 'planet', name: 'venus' }, { kind: 'moon' }.
     show(s) { showCard(s); },
     // Pretend to be a phone held up: compass heading and tilt.

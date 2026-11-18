@@ -841,6 +841,65 @@ await page.evaluate(() => { tonight.at('2026-11-19T11:15:00Z'); tonight.show({ k
 assert.match(await text('#card-line'), /^It shines at magnitude −4\.[89], brighter than any star/);
 await page.click('#card [data-close]');
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'tonight’s sky scrolls sideways on a phone');
+// Tonight's plan, at the head of the list. New York at 6:30 pm on 18 November 2026: dark already, the Moon sets at
+// one, the Leonids are a day past their peak, and the most Starfleet stars are well up at 9:40. Its button moves
+// the time slider there and gets the list out of the way.
+{
+  const reset = (iso, min = 0) => page.evaluate(([t, m]) => { const s = document.getElementById('time'); s.value = m; s.dispatchEvent(new Event('input')); tonight.at(t); }, [iso, min]);
+  const sliderWas = await page.evaluate(() => tonight.state.offsetMin);
+  // (The page writes a time with a narrow space before "pm" that doesn't break; here an ordinary one will do.)
+  const plain = t => t.replace(/\s+/g, ' ').trim();
+  const lines = async () => (await page.evaluate(() => [...document.querySelectorAll('#plan > p')].filter(p => !p.hidden).map(p => p.firstChild.textContent))).map(plain);
+  await reset('2026-11-18T23:30:00Z');
+  await page.click('#open-list');
+  assert.deepEqual(await lines(), [
+    'Dark until 5:44 am. Moon sets 1:00 am.',
+    'Best at 9:40 pm: Vega colony, Capella IV and 4 more are up.',
+    'The Leonids are active tonight (peaked 17 Nov): look east after 11:00 pm. Up to 15 an hour at the peak, under a dark sky.',
+  ]);
+  assert.equal(plain(await text('#plan-go')), 'Show 9:40 pm');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the plan makes the list scroll sideways');
+  await page.click('#plan-go');
+  assert.deepEqual(await page.evaluate(() => [document.getElementById('time').value, tonight.state.offsetMin, document.getElementById('list').hidden]),
+    ['190', 190, true], 'the plan’s button did not move the time slider to the best time');
+  assert.equal(plain(await page.evaluate(() => document.getElementById('time-out').textContent)), '9:40 pm');
+  assert.match(plain(await text('#clock')), /9:40 pm/);
+  // At that moment six of them really are well up, and with the slider there the button has nothing left to do.
+  assert.equal(await page.evaluate(() => ['Vega colony', 'Capella IV', 'Farpoint', 'Altair VI', 'Aldebaran whiskey', 'Pollux IV', 'Rigel VII', 'Vulcan'].filter(n => { const t = tonight.tag(n); return t.seen && t.alt > 15; }).length), 6);
+  await page.click('#open-list');
+  assert.equal(await shown('#plan-go'), false);
+  await page.click('#list [data-close]');
+  // From nine in the morning the best time is more than the slider's twelve hours off: it is named, with no button.
+  await reset('2026-11-18T14:00:00Z');
+  await page.click('#open-list');
+  assert.deepEqual((await lines()).slice(0, 2), ['Dark from 5:38 pm to 5:44 am. Moon sets 1:00 am.', 'Best at 9:40 pm: Vega colony, Capella IV and 4 more are up.']);
+  assert.equal(await shown('#plan-go'), false);
+  await page.click('#list [data-close]');
+  // The Leonids' radiant is marked on the sky once it is up and the Sun is down, and its card says what it is.
+  await reset('2026-11-19T07:00:00Z');
+  await page.evaluate(() => tonight.look(95, 30, 80));
+  await page.waitForFunction(() => tonight.shower?.drawn);
+  assert.equal(await page.evaluate(() => tonight.shower.name), 'Leonids');
+  await page.evaluate(() => tonight.show({ kind: 'shower' }));
+  assert.deepEqual([await text('#card-kind'), await text('#card-title'), await text('#card-sub')], ['METEOR SHOWER', 'Leonids', 'Active 6 Nov to 30 Nov · peaked 17 Nov']);
+  assert.equal(await shown('#card-course'), false);
+  await page.click('#card [data-close]');
+  await reset('2026-11-18T23:30:00Z'); // 6:30 pm: Leo hasn't risen
+  await page.waitForTimeout(100);
+  assert.deepEqual(await page.evaluate(() => [tonight.shower.name, tonight.shower.alt < 0, tonight.shower.drawn]), ['Leonids', true, false]);
+  await reset('2026-10-01T04:00:00Z'); // no shower on
+  assert.equal(await page.evaluate(() => tonight.shower), null);
+  // Reykjavík in June: one line, no button, and the note under it doesn't promise a dark that isn't coming.
+  await page.evaluate(() => tonight.place(64.15, -21.94, 'Reykjavík', 'Atlantic/Reykjavik'));
+  await reset('2026-06-20T22:00:00Z');
+  await page.click('#open-list');
+  assert.deepEqual(await lines(), ['It doesn’t get dark here tonight: the Sun never goes far below the horizon.']);
+  assert.equal(await shown('#plan-go'), false);
+  assert.match(await text('#list-note'), /are up, and would be bright enough to see from the suburbs if it got dark\./);
+  await page.click('#list [data-close]');
+  await page.evaluate(() => tonight.place(40.71, -74.01, 'New York', 'America/New_York'));
+  await reset('2026-11-19T11:15:00Z', sliderWas);
+}
 
 // The place button, the only way into "Where you are", is a full-size tap target, and a guessed place and the time
 // both fit on a phone.

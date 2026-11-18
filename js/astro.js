@@ -175,6 +175,175 @@ export function nextDark(lat, lon, from, hours = 36) {
   return null;
 }
 
+// ---------- Tonight's plan ----------
+
+// When something next rises and next sets, for a place, looking `hours` ahead of `from` (a Date). `dirFn(jd)` is its
+// direction at a moment, in the catalogue's axes: sunDir, a star's fixed direction, or the Moon's from where you
+// stand. `h0` is the height that counts as the horizon, in degrees: −0.833 for the Sun's or Moon's upper edge (34′ of
+// refraction at the horizon and a 16′ half-width, as almanacs take it), −12 for the end of dusk. Found by stepping
+// five minutes at a time and halving the step that crosses. Returns { rise, set, always }: each a Date or null, and
+// when it does neither in that time, `always` says where it stays: 'up' (up all night) or 'down' (never rises).
+export function riseSet(dirFn, lat, lon, from, { h0 = -0.833, hours = 24 } = {}) {
+  const STEP = 300000;
+  const height = t => { const jd = jdOf(t); return altAz(toLocal(frame(lat, lon, jd), dirFn(jd))).alt - h0; };
+  const cross = (t0, t1, rising) => {
+    for (let k = 0; k < 20; k++) { const m = (t0 + t1) / 2; if ((height(m) > 0) === rising) t1 = m; else t0 = m; }
+    return new Date(Math.round(t1 / 1000) * 1000);
+  };
+  const start = +from, end = start + hours * 3600000;
+  let rise = null, set = null, last = height(start);
+  for (let t = start; t < end && !(rise && set); t += STEP) {
+    const next = Math.min(t + STEP, end), h = height(next);
+    if (last <= 0 && h > 0) rise ||= cross(t, next, true);
+    else if (last > 0 && h <= 0) set ||= cross(t, next, false);
+    last = h;
+  }
+  return { rise, set, always: rise || set ? null : last > 0 ? 'up' : 'down' };
+}
+
+// The coming night: when the sky is properly dark (the Sun 12° down, as nextDark has it). { start, end, now }: `now`
+// when it is dark already, and then `start` is `from`; `end` is null where it stays dark a whole day. Null when it
+// doesn't get dark at all in the next day, as near midsummer in the far north.
+export function darkHours(lat, lon, from) {
+  const dusk = { h0: -12 };
+  const jd = jdOf(from);
+  if (altAz(toLocal(frame(lat, lon, jd), sunDir(jd))).alt < -12) return { start: new Date(+from), end: riseSet(sunDir, lat, lon, from, dusk).rise, now: true };
+  const start = riseSet(sunDir, lat, lon, from, dusk).set;
+  return start ? { start, end: riseSet(sunDir, lat, lon, new Date(+start + 60000), dusk).rise, now: false } : null;
+}
+
+// The best moment of the coming night to look for a list of stars ([{ name, dir, mag }], `dir` in the catalogue's
+// axes): the first moment in the dark when the most of them are more than 15° up and bright enough for this kind of
+// sky with the Moon where it is then. Moments are tried every `step` minutes counted from `from`, so a time slider
+// that counts the same way can be set to it exactly. { date, minutes, up, night }: `minutes` after `from`, `up` the
+// stars on show then, brightest first (none, if none ever is). Null when it doesn't get dark.
+const WELL_UP = 15; // degrees
+export function bestTime(lat, lon, from, stars, skyKind, { step = 10, night = darkHours(lat, lon, from) } = {}) {
+  if (!night) return null;
+  const last = Math.min(night.end ? +night.end : Infinity, +from + 24 * 3600000);
+  let best = null;
+  for (let k = Math.ceil((night.start - from) / (step * 60000)); +from + k * step * 60000 <= last; k++) {
+    const date = new Date(+from + k * step * 60000), jd = jdOf(date), f = frame(lat, lon, jd);
+    const moon = moonSky(jd, { lat, lon });
+    const lim = limitingMag(skyKind, altAz(toLocal(f, sunDir(jd))).alt, moon.lit, altAz(toLocal(f, moon.dir)).alt);
+    const up = stars.filter(s => s.mag <= lim && altAz(toLocal(f, s.dir)).alt > WELL_UP);
+    if (!best || up.length > best.up.length) best = { date, minutes: k * step, up };
+  }
+  if (!best) return null; // the dark is over before the next moment to try
+  return { ...best, up: [...best.up].sort((a, b) => a.mag - b.mag), night };
+}
+
+// The year's main meteor showers, from the International Meteor Organization's 2026 Meteor Shower Calendar (ed.
+// J. Rendtel, IMO INFO(3-25)), Table 5, "Working List of Visual Meteor Showers": the dates it is active between
+// ([month, day]), the Sun's longitude at its peak in degrees (equinox of 2000: the Earth meets the stream at the same
+// point of its orbit every year, so the date of the peak is worked out from this for any year), the point in the sky
+// its meteors streak away from (the radiant: right ascension and declination in degrees), and its zenithal hourly
+// rate: how many an hour one person would count at the peak under a dark sky with the radiant overhead.
+export const SHOWERS = [
+  { name: 'Quadrantids', from: [12, 28], to: [1, 12], sun: 283.15, ra: 230, dec: 49, zhr: 80 },
+  { name: 'Lyrids', from: [4, 14], to: [4, 30], sun: 32.32, ra: 271, dec: 34, zhr: 18 },
+  { name: 'Eta Aquariids', from: [4, 19], to: [5, 28], sun: 45.5, ra: 338, dec: -1, zhr: 50 },
+  { name: 'Perseids', from: [7, 17], to: [8, 24], sun: 140.0, ra: 48, dec: 58, zhr: 100 },
+  { name: 'Orionids', from: [10, 2], to: [11, 7], sun: 208, ra: 95, dec: 16, zhr: 20 },
+  { name: 'Leonids', from: [11, 6], to: [11, 30], sun: 235.27, ra: 152, dec: 22, zhr: 15 },
+  { name: 'Geminids', from: [12, 4], to: [12, 20], sun: 262.2, ra: 112, dec: 33, zhr: 150 },
+  { name: 'Ursids', from: [12, 17], to: [12, 26], sun: 270.7, ra: 217, dec: 76, zhr: 10 },
+];
+
+// The Sun's longitude along the ecliptic of 2000, in degrees: how far round its orbit the Earth is.
+export function solarLongitude(jd) {
+  const e = earthAt(jd);
+  return ((Math.atan2(-e[1], -e[0]) / DEG) + 360) % 360;
+}
+// The moment of a shower's peak nearest to `near` (a Date): when the Sun reaches the shower's longitude.
+export function showerPeak(shower, near) {
+  let jd = jdOf(near);
+  for (let k = 0; k < 4; k++) jd += ((((shower.sun - solarLongitude(jd)) % 360) + 540) % 360 - 180) / 0.98565; // degrees a day
+  return new Date(Math.round((jd - 2440587.5) * 1440) * 60000);
+}
+export const radiantDir = s => [Math.cos(s.dec * DEG) * Math.cos(s.ra * DEG), Math.cos(s.dec * DEG) * Math.sin(s.ra * DEG), Math.sin(s.dec * DEG)];
+
+// The month and day at a place: [11, 17]. `tz` is its time zone's name; without one, the device's own.
+function monthDay(date, tz) {
+  let parts;
+  try { parts = new Intl.DateTimeFormat('en-US', { timeZone: tz || undefined, month: 'numeric', day: 'numeric' }).formatToParts(date); }
+  catch { parts = new Intl.DateTimeFormat('en-US', { month: 'numeric', day: 'numeric' }).formatToParts(date); }
+  return [Number(parts.find(p => p.type === 'month').value), Number(parts.find(p => p.type === 'day').value)];
+}
+// The showers active on the local date of a moment, the one nearest its peak first: [{ shower, peak }].
+export function showersOn(date, tz) {
+  const [m, d] = monthDay(date, tz), day = m * 100 + d;
+  return SHOWERS.filter(s => {
+    const a = s.from[0] * 100 + s.from[1], b = s.to[0] * 100 + s.to[1];
+    return a <= b ? day >= a && day <= b : day >= a || day <= b; // the Quadrantids run over New Year
+  }).map(shower => ({ shower, peak: showerPeak(shower, date) }))
+    .sort((x, y) => Math.abs(x.peak - date) - Math.abs(y.peak - date));
+}
+
+// The shower to watch in the coming night, if one is active and its radiant is above the horizon while it's dark:
+// { shower, peak, tonight, from, rises, high, az }. `tonight` when the peak is within half a day of the middle of the
+// night; `from` the first dark moment the radiant is up, and `rises` when that is later than the dark's start; `high`
+// when it stands highest in the dark; `az` the bearing to look along (the radiant's as it climbs past 20°, or at its
+// highest if it never gets there).
+export function showerTonight(lat, lon, night, tz) {
+  if (!night) return null;
+  const end = night.end ? +night.end : +night.start + 12 * 3600000;
+  for (const { shower, peak } of showersOn(night.start, tz)) {
+    const dir = radiantDir(shower);
+    let from = null, high = null, top = -90, look = null;
+    for (let t = +night.start; t <= end; t += 600000) {
+      const { alt, az } = altAz(toLocal(frame(lat, lon, jdOf(t)), dir));
+      if (alt > 0 && from === null) from = t;
+      if (alt > top) { top = alt; high = t; if (look === null || alt < 20) look = az; }
+    }
+    if (from === null) continue;
+    return { shower, peak, tonight: Math.abs(peak - (+night.start + end) / 2) < 12 * 3600000, from: new Date(from), rises: from > +night.start, high: new Date(high), az: look };
+  }
+  return null;
+}
+
+// Tonight's plan for a place, from `from` (now): the dark hours, what the Moon does in them, the best moment for the
+// stars Starfleet charts, and any meteor shower. `stars` are those stars ([{ name, dir, mag }]).
+export function tonightPlan(lat, lon, from, stars, skyKind, tz) {
+  const night = darkHours(lat, lon, from);
+  if (!night) return { night: null, moon: null, best: null, shower: null };
+  const hours = Math.max(1 / 6, ((night.end ? +night.end : +night.start + 12 * 3600000) - night.start) / 3600000);
+  const moonDir = jd => moonSky(jd, { lat, lon }).dir;
+  const m = riseSet(moonDir, lat, lon, night.start, { hours });
+  const jd = jdOf(night.start);
+  const upAtStart = altAz(toLocal(frame(lat, lon, jd), moonDir(jd))).alt > -0.833;
+  const moon = upAtStart ? (m.set ? { does: 'sets', at: m.set } : { does: 'up' }) : (m.rise ? { does: 'rises', at: m.rise } : { does: 'down' });
+  return { night, moon, best: bestTime(lat, lon, from, stars, skyKind, { night }), shower: showerTonight(lat, lon, night, tz) };
+}
+
+// The plan in three plain lines for the head of the list. `time` writes a Date as a clock time at the place
+// ("9:40 pm") and `day` as a date ("17 Nov"); `skyIn` is the kind of sky in a sentence ("from the suburbs").
+// { dark, best, shower }: `best` and `shower` are null when there is nothing to say.
+export function planLines(plan, { time, day, skyIn }) {
+  const { night, moon, best, shower } = plan;
+  if (!night) return { dark: 'It doesn’t get dark here tonight: the Sun never goes far below the horizon.', best: null, shower: null };
+  let dark = night.now ? (night.end ? `Dark until ${time(night.end)}.` : 'It stays dark here all day.')
+    : night.end ? `Dark from ${time(night.start)} to ${time(night.end)}.` : `Dark from ${time(night.start)}.`;
+  dark += moon.does === 'sets' ? ` Moon sets ${time(moon.at)}.` : moon.does === 'rises' ? ` Moon rises ${time(moon.at)}.` : moon.does === 'up' ? ' The Moon is up all night.' : ' No Moon tonight.';
+  let bestLine = null;
+  if (best) {
+    const names = best.up.map(s => s.name), n = names.length;
+    const who = n === 0 ? '' : n === 1 ? `${names[0]} is up` : n === 2 ? `${names[0]} and ${names[1]} are up` : n === 3 ? `${names[0]}, ${names[1]} and ${names[2]} are up` : `${names[0]}, ${names[1]} and ${n - 2} more are up`;
+    bestLine = n === 0 ? `None of Starfleet’s stars gets high and bright enough to see ${skyIn} tonight.`
+      : `Best ${best.minutes === 0 ? 'right now' : `at ${time(best.date)}`}: ${who}.`;
+  }
+  let showerLine = null;
+  if (shower) {
+    const s = shower.shower, dir = compassPoint(shower.az);
+    const look = shower.rises ? `look ${dir} after ${time(shower.from)}`
+      : night.end && night.end - shower.high < 30 * 60000 ? `look ${dir}, best in the hours before dawn`
+      : `look ${dir} ${night.now ? 'from now on' : 'once it’s dark'}`;
+    showerLine = shower.tonight ? `The ${s.name} peak tonight: ${look}. Up to ${s.zhr} an hour under a dark sky.`
+      : `The ${s.name} are active tonight (${shower.peak < night.start ? 'peaked' : 'peak'} ${day(shower.peak)}): ${look}. Up to ${s.zhr} an hour at the peak, under a dark sky.`;
+  }
+  return { dark, best: bestLine, shower: showerLine };
+}
+
 // ---------- Where you might be ----------
 
 // Cities to pick from when the phone can't say where it is, and for guessing from the time zone: the first city listed

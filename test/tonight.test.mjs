@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import {
   jdOf, gmst, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, phaseMag, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark, phonePose,
   CITIES, placeForZone, zoneLatitude, daylightNote,
+  riseSet, darkHours, bestTime, SHOWERS, solarLongitude, showerPeak, showersOn, showerTonight, radiantDir, tonightPlan, planLines, compassPoint,
 } from '../js/astro.js';
 import { CHARTS } from '../js/charts.js';
 
@@ -244,3 +245,203 @@ test('every chart names a star in the catalogue', async () => {
   const { names } = JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url)));
   for (const c of CHARTS) assert.ok(names.includes(c.star), `${c.star} is not in the catalogue`);
 });
+
+// ---------- Tonight's plan ----------
+
+const NY = [40.71, -74.01], SYD = [-33.87, 151.21], REY = [64.15, -21.94];
+const mins = (a, iso) => Math.abs(a - new Date(iso)) / 60000;
+const moonFrom = (lat, lon) => jd => moonSky(jd, { lat, lon }).dir;
+
+test('sunrise and sunset, to within three minutes', () => {
+  // astropy 8.0.3 (its built-in ephemeris), the Sun's centre 0.833° below a flat horizon, as almanacs take sunrise:
+  // for each place, the first rise and set after the moment given.
+  for (const [what, [lat, lon], from, rise, set] of [
+    ['New York in November', NY, '2026-11-18T05:00:00Z', '2026-11-18T11:46:27Z', '2026-11-18T21:35:39Z'],
+    ['New York at midsummer', NY, '2026-06-21T05:00:00Z', '2026-06-21T09:25:03Z', '2026-06-22T00:30:44Z'],
+    ['Sydney in November', SYD, '2026-11-17T13:00:00Z', '2026-11-17T18:41:59Z', '2026-11-18T08:38:55Z'],
+    ['Sydney at midwinter', SYD, '2026-06-20T14:00:00Z', '2026-06-20T20:59:57Z', '2026-06-21T06:53:48Z'],
+    ['Reykjavík at midsummer', REY, '2026-06-20T12:00:00Z', '2026-06-21T02:55:06Z', '2026-06-21T00:03:50Z'],
+    ['Reykjavík at midwinter', REY, '2026-12-21T00:00:00Z', '2026-12-21T11:22:24Z', '2026-12-21T15:29:17Z'],
+    ['Reykjavík at the equinox', REY, '2026-03-20T00:00:00Z', '2026-03-20T07:28:37Z', '2026-03-20T19:43:23Z'],
+  ]) {
+    const got = riseSet(sunDir, lat, lon, new Date(from));
+    assert.ok(mins(got.rise, rise) <= 3, `sunrise, ${what}: ${got.rise.toISOString()} against ${rise}`);
+    assert.ok(mins(got.set, set) <= 3, `sunset, ${what}: ${got.set.toISOString()} against ${set}`);
+    assert.equal(got.always, null);
+  }
+});
+
+test('the end of dusk, the start of dawn, and the Moon’s rising and setting', () => {
+  // astropy again: the Sun 12° down, and the Moon's centre 0.833° down as seen from the place itself.
+  const dusk = { h0: -12 };
+  for (const [what, [lat, lon], from, dawn, dark] of [
+    ['New York', NY, '2026-11-18T05:00:00Z', '2026-11-18T10:43:35Z', '2026-11-18T22:38:30Z'],
+    ['Sydney', SYD, '2026-11-17T13:00:00Z', '2026-11-17T17:40:49Z', '2026-11-18T09:40:15Z'],
+    ['Reykjavík at midwinter', REY, '2026-12-21T00:00:00Z', '2026-12-21T08:53:53Z', '2026-12-21T17:57:48Z'],
+  ]) {
+    const got = riseSet(sunDir, lat, lon, new Date(from), dusk);
+    assert.ok(mins(got.rise, dawn) <= 3 && mins(got.set, dark) <= 3, `${what}: dawn ${got.rise.toISOString()}, dark ${got.set.toISOString()}`);
+  }
+  for (const [what, [lat, lon], from, rise, set] of [
+    ['New York', NY, '2026-06-21T05:00:00Z', '2026-06-21T16:49:28Z', '2026-06-22T04:50:39Z'],
+    ['Sydney', SYD, '2026-06-20T14:00:00Z', '2026-06-21T01:24:56Z', '2026-06-21T13:38:55Z'],
+    ['Reykjavík', REY, '2026-03-20T00:00:00Z', '2026-03-20T07:13:41Z', '2026-03-20T22:58:13Z'],
+  ]) {
+    const got = riseSet(moonFrom(lat, lon), lat, lon, new Date(from));
+    assert.ok(mins(got.rise, rise) <= 4 && mins(got.set, set) <= 4, `the Moon from ${what}: rises ${got.rise.toISOString()}, sets ${got.set.toISOString()}`);
+  }
+});
+
+test('what never rises, what never sets, and a search that crosses midnight', () => {
+  const from = new Date('2026-11-18T23:00:00Z');
+  // From New York the pole star never sets and the Southern Cross never rises.
+  assert.deepEqual(riseSet(() => radec(2.53, 89.26), ...NY, from), { rise: null, set: null, always: 'up' });
+  assert.deepEqual(riseSet(() => radec(12.45, -60), ...NY, from), { rise: null, set: null, always: 'down' });
+  // The midnight Sun in Tromsø, and its midwinter with no sunrise; at the poles themselves, six months of each.
+  assert.equal(riseSet(sunDir, 69.65, 18.96, new Date('2026-06-21T00:00:00Z')).always, 'up');
+  assert.equal(riseSet(sunDir, 69.65, 18.96, new Date('2026-12-21T00:00:00Z')).always, 'down');
+  assert.equal(riseSet(sunDir, 90, 0, new Date('2026-06-21T00:00:00Z')).always, 'up');
+  assert.equal(riseSet(sunDir, -90, 0, new Date('2026-06-21T00:00:00Z')).always, 'down');
+  // Asked at 11 pm, the next sunrise is tomorrow's and so is the next sunset, and each is found once.
+  const late = riseSet(sunDir, ...NY, new Date('2026-11-19T04:00:00Z'));
+  assert.ok(mins(late.rise, '2026-11-19T11:47:30Z') <= 4 && mins(late.set, '2026-11-19T21:35:00Z') <= 4, JSON.stringify(late));
+  assert.ok(late.rise < late.set);
+  // A shorter search finds only what happens in it.
+  assert.deepEqual(riseSet(sunDir, ...NY, new Date('2026-11-19T04:00:00Z'), { hours: 3 }), { rise: null, set: null, always: 'down' });
+});
+
+test('the coming night', () => {
+  // By day: tonight's dusk to tomorrow's dawn. In the dark: from now to dawn. (New York, 18 November 2026.)
+  const day = darkHours(...NY, new Date('2026-11-18T14:00:00Z'));
+  assert.ok(mins(day.start, '2026-11-18T22:38:30Z') <= 3 && mins(day.end, '2026-11-19T10:44:40Z') <= 4 && !day.now, JSON.stringify(day));
+  const night = darkHours(...NY, new Date('2026-11-19T02:00:00Z'));
+  assert.ok(night.now && +night.start === +new Date('2026-11-19T02:00:00Z') && mins(night.end, '2026-11-19T10:44:40Z') <= 4, JSON.stringify(night));
+  // In twilight after sunset it is tonight's; in twilight before sunrise, the next evening's.
+  assert.ok(mins(darkHours(...NY, new Date('2026-11-18T22:00:00Z')).start, '2026-11-18T22:38:30Z') <= 3);
+  assert.ok(mins(darkHours(...NY, new Date('2026-11-18T11:00:00Z')).start, '2026-11-18T22:38:30Z') <= 3);
+  // Reykjavík in June never gets dark; Tromsø in December gets light enough to end the dark for a few hours at noon;
+  // at the south pole in June it is dark all day and the night has no end to give.
+  assert.equal(darkHours(...REY, new Date('2026-06-20T22:00:00Z')), null);
+  const tromso = darkHours(69.65, 18.96, new Date('2026-12-20T12:00:00Z'));
+  assert.ok(tromso && !tromso.now && tromso.end > tromso.start && (tromso.end - tromso.start) / 3600000 > 14);
+  assert.deepEqual(darkHours(-90, 0, new Date('2026-06-21T00:00:00Z')), { start: new Date('2026-06-21T00:00:00Z'), end: null, now: true });
+});
+
+test('the best time to look', () => {
+  // Three stars from New York on 18 November 2026: Vega and Deneb are up at dusk and sinking, Sirius rises late.
+  const stars = [{ name: 'Sirius', dir: radec(6.752, -16.72), mag: -1.46 }, { name: 'Vega', dir: radec(18.616, 38.78), mag: 0.03 }, { name: 'Deneb', dir: radec(20.69, 45.28), mag: 1.25 }];
+  const from = new Date('2026-11-18T14:00:00Z'); // 9 am
+  const best = bestTime(...NY, from, stars, 'suburb');
+  // The first ten-minute mark after dusk (5:38 pm), counted from `from`.
+  assert.equal(best.minutes, 520);
+  assert.equal(+best.date, +from + 520 * 60000);
+  assert.deepEqual(best.up.map(s => s.name), ['Vega', 'Deneb']);
+  // What it reports up really is: over 15° and the Sun 12° down.
+  const f = frame(...NY, jdOf(best.date));
+  for (const s of best.up) assert.ok(altAz(toLocal(f, s.dir)).alt > 15);
+  assert.ok(altAz(toLocal(f, sunDir(jdOf(best.date)))).alt < -12);
+  // In the dark already, with those two still up, the best time is now.
+  assert.equal(bestTime(...NY, new Date('2026-11-18T23:00:00Z'), stars, 'suburb').minutes, 0);
+  // After midnight Vega and Deneb have gone down and only Sirius is well up: the count can't be beaten, so it's now.
+  const small = bestTime(...NY, new Date('2026-11-19T07:00:00Z'), stars, 'suburb');
+  assert.deepEqual([small.minutes, small.up.map(s => s.name)], [0, ['Sirius']]);
+  // A star too faint for the sky is never counted, so with only that one there is nothing to wait for.
+  const none = bestTime(...NY, from, [{ name: 'Faint', dir: radec(18.616, 38.78), mag: 5.5 }], 'city');
+  assert.deepEqual([none.up, none.minutes], [[], 520]);
+  // With a night that crosses midnight the best moment can be after it: Sirius alone, from 9 am.
+  const sirius = bestTime(...NY, from, [stars[0]], 'suburb');
+  assert.ok(sirius.date > new Date('2026-11-19T03:30:00Z') && sirius.date < new Date('2026-11-19T10:44:00Z'), sirius.date.toISOString());
+  assert.equal(sirius.minutes % 10, 0);
+  // No dark, no best time.
+  assert.equal(bestTime(...REY, new Date('2026-06-20T22:00:00Z'), stars, 'suburb'), null);
+});
+
+test('the meteor showers are the IMO calendar’s', () => {
+  // International Meteor Organization, 2026 Meteor Shower Calendar, Table 5.
+  assert.deepEqual(SHOWERS.map(s => [s.name, s.from, s.to, s.sun, s.ra, s.dec, s.zhr]), [
+    ['Quadrantids', [12, 28], [1, 12], 283.15, 230, 49, 80],
+    ['Lyrids', [4, 14], [4, 30], 32.32, 271, 34, 18],
+    ['Eta Aquariids', [4, 19], [5, 28], 45.5, 338, -1, 50],
+    ['Perseids', [7, 17], [8, 24], 140.0, 48, 58, 100],
+    ['Orionids', [10, 2], [11, 7], 208, 95, 16, 20],
+    ['Leonids', [11, 6], [11, 30], 235.27, 152, 22, 15],
+    ['Geminids', [12, 4], [12, 20], 262.2, 112, 33, 150],
+    ['Ursids', [12, 17], [12, 26], 270.7, 217, 76, 10],
+  ]);
+  // The peaks worked out from the Sun's longitude land on the moments the calendar's text gives for 2026.
+  const peak = (name, near) => showerPeak(SHOWERS.find(s => s.name === name), new Date(near));
+  for (const [name, near, when] of [
+    ['Lyrids', '2026-04-15', '2026-04-22T19:40:00Z'], ['Perseids', '2026-08-01', '2026-08-13T03:00:00Z'], ['Leonids', '2026-11-25', '2026-11-17T23:45:00Z'],
+    ['Geminids', '2026-12-05', '2026-12-14T14:00:00Z'], ['Ursids', '2026-12-18', '2026-12-22T22:00:00Z'],
+  ]) assert.ok(mins(peak(name, near), when) <= 65, `${name}: ${peak(name, near).toISOString()} against ${when}`);
+  // Each lands on the day the calendar's table gives (in UT), for the year asked about.
+  for (const [name, near, day] of [['Quadrantids', '2026-01-01', '2026-01-03'], ['Eta Aquariids', '2026-05-01', '2026-05-06'], ['Orionids', '2026-10-10', '2026-10-21'], ['Quadrantids', '2026-12-30', '2027-01-04']]) {
+    assert.equal(peak(name, near).toISOString().slice(0, 10), day, name);
+  }
+  // At the March equinox of 2026 the Sun is at 0° on the equinox of that date, which has slipped back 0.37° since 2000.
+  near(solarLongitude(jdOf(new Date('2026-03-20T14:46:00Z'))), 359.63, 0.05, 'the Sun’s longitude at the 2026 March equinox, against the equinox of 2000');
+});
+
+test('which shower is on', () => {
+  const on = (iso, tz) => showersOn(new Date(iso), tz).map(x => x.shower.name);
+  assert.deepEqual(on('2026-11-18T23:00:00Z', 'America/New_York'), ['Leonids']);
+  assert.deepEqual(on('2026-10-01T12:00:00Z', 'America/New_York'), []);
+  // The local date decides: the Leonids start on 6 November, which Sydney reaches while New York is still on the 5th.
+  assert.deepEqual(on('2026-11-05T20:00:00Z', 'Australia/Sydney'), ['Leonids', 'Orionids']);
+  assert.deepEqual(on('2026-11-05T20:00:00Z', 'America/New_York'), ['Orionids']);
+  // Two at once: the one nearer its peak comes first. Over New Year the Quadrantids are on both sides of it.
+  assert.deepEqual(on('2026-12-19T12:00:00Z', 'Europe/London'), ['Ursids', 'Geminids']);
+  assert.deepEqual(on('2026-12-31T12:00:00Z', 'Europe/London'), ['Quadrantids']);
+  assert.deepEqual(on('2027-01-02T12:00:00Z', 'Europe/London'), ['Quadrantids']);
+  assert.deepEqual(on('2026-12-31T12:00:00Z', 'No/Such_Zone').length, 1); // an unknown zone falls back to the device's
+  near(angle(radiantDir({ ra: 152, dec: 22 }), radec(152 / 15, 22)), 0, 1e-9, 'the Leonids’ radiant');
+});
+
+test('tonight’s plan, line by line', () => {
+  const fmt = tz => ({
+    time: d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz }).toLowerCase(),
+    day: d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: tz }),
+    skyIn: 'from the suburbs',
+  });
+  const stars = [{ name: 'Rigel VII', dir: radec(5.242, -8.2), mag: 0.18 }, { name: 'Vega colony', dir: radec(18.616, 38.78), mag: 0.03 }, { name: 'Farpoint', dir: radec(20.69, 45.28), mag: 1.25 }, { name: 'Capella IV', dir: radec(5.278, 46), mag: 0.08 }];
+  const lines = (place, iso, tz, list = stars, sky = 'suburb') => planLines(tonightPlan(...place, new Date(iso), list, sky, tz), fmt(tz));
+  // New York on the evening of 18 November 2026, the day after the Leonids' peak, the Moon a day past first quarter.
+  assert.deepEqual(lines(NY, '2026-11-18T14:00:00Z', 'America/New_York'), {
+    dark: 'Dark from 5:38 pm to 5:44 am. Moon sets 1:00 am.',
+    best: 'Best at 9:20 pm: Vega colony, Capella IV and 2 more are up.',
+    shower: 'The Leonids are active tonight (peaked 17 Nov): look east after 10:58 pm. Up to 15 an hour at the peak, under a dark sky.',
+  });
+  const dark = lines(NY, '2026-11-19T02:20:00Z', 'America/New_York');
+  assert.equal(dark.dark, 'Dark until 5:44 am. Moon sets 1:00 am.');
+  assert.equal(dark.best, 'Best right now: Vega colony, Capella IV and 2 more are up.');
+  assert.equal(lines(NY, '2026-11-19T02:20:00Z', 'America/New_York', stars.slice(1)).best.replace(/^Best [^:]+/, 'Best'), 'Best: Vega colony, Capella IV and Farpoint are up.');
+  assert.equal(lines(NY, '2026-11-19T02:20:00Z', 'America/New_York', stars.slice(2)).best.replace(/^Best [^:]+/, 'Best'), 'Best: Capella IV and Farpoint are up.');
+  // Sydney the same evening: the peak fell on the 18th there, and Leo rises in the small hours.
+  const syd = lines(SYD, '2026-11-18T08:30:00Z', 'Australia/Sydney');
+  assert.match(syd.dark, /^Dark from 8:40 pm to 4:40 am\. Moon sets 2:0\d am\.$/);
+  assert.match(syd.shower, /^The Leonids are active tonight \(peaked 18 Nov\): look north-east after 2:\d\d am\. /);
+  assert.equal(lines(SYD, '2026-11-18T08:30:00Z', 'Australia/Sydney', [stars[2]]).best, 'None of Starfleet’s stars gets high and bright enough to see from the suburbs tonight.');
+  assert.equal(lines(SYD, '2026-11-18T08:30:00Z', 'Australia/Sydney', [stars[0]]).best.replace(/\d+:\d\d [ap]m/, 'T'), 'Best at T: Rigel VII is up.');
+  // Reykjavík in June: one line, in the words the notice over the sky uses, and no best time or shower to offer.
+  assert.deepEqual(lines(REY, '2026-06-20T22:00:00Z', 'Atlantic/Reykjavik'), { dark: 'It doesn’t get dark here tonight: the Sun never goes far below the horizon.', best: null, shower: null });
+  assert.ok(daylightNote(5, 4, false).startsWith('It doesn’t get dark here tonight: the Sun never goes far below the horizon.'));
+  // The night of a peak, and the nights before it; a radiant that is up at dusk; one that climbs until dawn.
+  const gem = lines(NY, '2026-12-13T22:00:00Z', 'America/New_York');
+  assert.match(gem.shower, /^The Geminids peak tonight: look (north-east|east) after \d+:\d\d pm\. Up to 150 an hour under a dark sky\.$/);
+  assert.match(gem.dark, /Moon sets 8:4\d pm\.$/);
+  assert.match(lines(NY, '2026-12-14T02:00:00Z', 'America/New_York').dark, /^Dark until 6:06 am\. No Moon tonight\.$/);
+  assert.match(lines(NY, '2026-12-10T22:00:00Z', 'America/New_York').shower, /^The Geminids are active tonight \(peak 14 Dec\): /);
+  assert.equal(lines(NY, '2026-08-13T01:00:00Z', 'America/New_York').shower, 'The Perseids peak tonight: look north-east, best in the hours before dawn. Up to 100 an hour under a dark sky.');
+  assert.match(lines(REY, '2026-12-20T22:00:00Z', 'Atlantic/Reykjavik').shower, /^The Ursids are active tonight \(peak 22 Dec\): look north/);
+  // No shower in early October in the north once the radiant's out of reach... and none where its radiant never rises:
+  // the Ursids, 14° from the pole star, from Sydney.
+  assert.equal(lines(NY, '2026-10-01T14:00:00Z', 'America/New_York').shower, null);
+  assert.equal(lines(SYD, '2026-12-22T08:30:00Z', 'Australia/Sydney').shower, null);
+  assert.equal(showerTonight(...SYD, darkHours(...SYD, new Date('2026-12-22T08:30:00Z')), 'Australia/Sydney'), null);
+  assert.equal(compassPoint(showerTonight(...NY, darkHours(...NY, new Date('2026-11-18T14:00:00Z')), 'America/New_York').az), 'east');
+  // The Moon in every state: rising in the night, up all through it, and down all through it.
+  assert.match(lines(NY, '2027-01-03T23:00:00Z', 'America/New_York').dark, /^Dark until 6:1\d am\. Moon rises 4:5\d am\.$/);
+  assert.match(lines([69.65, 18.96], '2026-12-20T12:00:00Z', 'Europe/Oslo').dark, /^Dark from 3:3\d pm to 7:4\d am\. The Moon is up all night\.$/);
+  assert.equal(lines([-90, 0], '2026-06-21T00:00:00Z', 'UTC').dark.split('.')[0], 'It stays dark here all day');
+});
+
