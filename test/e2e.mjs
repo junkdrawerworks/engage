@@ -2009,6 +2009,55 @@ await page.emulateMedia({ reducedMotion: null });
   await keys.close();
 }
 
+// A flight on the bridge, by keyboard and for a screen reader. Nothing used to be read out: Engage switched itself
+// off and left the keyboard on the page, and the log entry slid up unannounced. One line that is read as it changes
+// now says the course, the arrival, a star tapped and the log cleared, and the keyboard's place moves with them.
+{
+  const keys = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await keys.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+  const p = await keys.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => window.engage.speed(8));
+  const at = () => p.evaluate(() => { const a = document.activeElement; return !a || a === document.body ? 'the page' : a.id || `${a.closest('.sheet')?.id || ''} ${a.tagName.toLowerCase()}`.trim(); });
+  const said = () => p.locator('#say').evaluate(el => el.textContent.trim());
+  assert.equal(await p.locator('#say').getAttribute('role'), 'status');
+  assert.equal(await said(), '');
+  await p.focus('#choose');
+  await p.keyboard.press('Enter');
+  await p.keyboard.type('sirius');
+  await p.keyboard.press('Enter');
+  assert.equal(await at(), 'choose');
+  await p.focus('#engage');
+  await p.keyboard.press('Enter');
+  assert.equal(await said(), 'Course laid in for Sirius, warp 9. 8.60 light years, about 2 days.');
+  assert.equal(await at(), 'where', 'Engage left the keyboard nowhere');
+  // The count of light years to go changes every frame: it is not read out.
+  assert.equal(await p.evaluate(() => ['readout', 'status', 'where'].some(id => document.getElementById(id).closest('[aria-live], [role="status"], [role="log"], [role="alert"]'))), false, 'the flight’s readout is read out at every frame');
+  await p.waitForFunction(() => !window.engage.trip, null, { timeout: 30000 });
+  assert.equal(await said(), 'Dropped out of warp at Sirius.');
+  assert.equal(await at(), 'arrival h3', 'the log entry did not take the keyboard’s place at its heading');
+  assert.equal(await p.evaluate(() => document.activeElement.textContent), 'Sirius');
+  await p.keyboard.press('Escape');
+  assert.equal(await at(), 'choose', 'putting the entry away did not hand the keyboard to the destination');
+  // A star tapped on the viewscreen is said too, with how far it is.
+  await p.evaluate(() => window.engage.lookAtStar('Procyon'));
+  await p.waitForTimeout(300);
+  const star = await p.evaluate(() => window.engage.project('Procyon'));
+  await p.mouse.click(star.x, star.y);
+  assert.match(await said(), /^Destination: Procyon, 5\.\d\d light years\.$/);
+  // Clearing the log says so, and the keyboard goes back to the button that opened the settings.
+  await p.focus('#open-settings');
+  await p.keyboard.press('Enter');
+  await p.focus('#clear-log');
+  await p.keyboard.press('Enter');
+  await p.keyboard.press('Enter');
+  assert.equal(await said(), 'Log cleared. Back in Earth orbit.');
+  assert.equal(await at(), 'open-settings');
+  await keys.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

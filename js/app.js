@@ -415,6 +415,19 @@ function updateHud() {
   $('when').innerHTML = `<span>${sd}</span> <span>${fromSol < 0.001 ? 'Home' : far}</span>`; // the dot between them is drawn by the stylesheet
 }
 
+// ---------- Saying what happens ----------
+
+// The flight is a picture: the stars streak, the header changes, and a log entry slides up at the end. A screen
+// reader was told none of it. say() puts one line where it is read out, once, as things happen: a course engaged, an
+// arrival, a star tapped on the viewscreen, the log cleared. (The readout that counts down the light years changes
+// every frame and is never read out.)
+function say(text) {
+  const el = $('say');
+  el.textContent = el.textContent === text ? `${text}\u00a0` : text; // the same line twice is still said twice
+}
+const lySaid = ly => formatLy(ly).replace(/ ly$/, ' light years');
+const warpSaid = w => w.toFixed(1).replace(/\.0$/, '');
+
 // ---------- Flight ----------
 
 function engage() {
@@ -444,6 +457,10 @@ function engage() {
   closeSheets();
   sound.blip(660);
   updateHud();
+  say(`Course laid in for ${inTextFor(cat, i)}, warp ${warpSaid(state.warp)}. ${trip.nominal ? 'Distance not measured.' : `${lySaid(ly)}, about ${formatDuration(trip.years)}.`}`);
+  // Engage has just been switched off and the helm put away: the keyboard's place goes to the header, which now
+  // says where the ship is bound, and not to nowhere.
+  $('where').focus({ preventScroll: true });
 }
 
 // During a flight the helm slides off the bottom of the screen. It's out of reach of a keyboard and a screen reader
@@ -546,6 +563,7 @@ function arrive() {
   helmAway(false);
   setTarget(null, false);
   updateHud();
+  say(T.i === 0 ? 'Dropped out of warp in Earth orbit.' : `Dropped out of warp at ${inTextFor(cat, T.i)}.`);
   showArrival(entry);
   dirty = true;
 }
@@ -650,6 +668,12 @@ function showArrival(entry) {
   openSheet('arrival');
   $('scrim').hidden = true; // keep the view of the new star clear
   $('arrival-entry').scrollTop = 0;
+  // The entry takes the keyboard's place at its heading, so it is read from the top; when it is put away, the place
+  // goes to the destination button, for the next course.
+  opener = $('choose');
+  const heading = $('arrival-entry').querySelector('h3');
+  heading.tabIndex = -1;
+  heading.focus({ preventScroll: true });
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -857,6 +881,7 @@ function bind() {
     updateHud();
     closeSheets();
     save();
+    say('Log cleared. Back in Earth orbit.');
   });
   addEventListener('keydown', e => {
     if (e.key === 'Escape') { if (!$('intro').hidden) dismissIntro(); closeSheets(); }
@@ -909,7 +934,11 @@ function bind() {
     if (drag && !drag.moved && !trip && pts.size === 0) {
       const r = view.getBoundingClientRect();
       const i = sky.pick(e.clientX - r.left, e.clientY - r.top, 6.5 + Math.max(0, Math.log2(60 * DEG / state.fov)));
-      if (i > 0 || (i === 0 && state.at !== 0)) { sound.blip(990); setTarget(i, false); }
+      if (i > 0 || (i === 0 && state.at !== 0)) {
+        sound.blip(990);
+        setTarget(i, false);
+        if (state.target === i) say(`Destination: ${titleFor(cat, i)}, ${nominal(i) ? 'distance not measured' : lySaid(lyFromShip(i))}.`);
+      }
     }
     if (drag?.moved) save();
     drag = null;

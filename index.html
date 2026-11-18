@@ -30,7 +30,7 @@
     <header class="hud">
       <div class="where">
         <p class="eyebrow" id="status">Holding</p>
-        <h1 id="where">Earth orbit</h1>
+        <h1 id="where" tabindex="-1">Earth orbit</h1>
         <p class="sub" id="when"></p>
       </div>
       <div class="hud-buttons">
@@ -175,6 +175,7 @@
   </section>
 
   <p class="loading" id="loading">Charting 18,000 stars…</p>
+  <p class="sr" id="say" role="status"></p>
 
   <div class="lost" id="lost" role="alert" hidden>
     <p>The viewscreen lost its graphics. Your position and log are saved.</p>
