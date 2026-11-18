@@ -321,3 +321,34 @@ export function whenAbove(f, level, from, years = 40) {
   }
   return null;
 }
+
+// The last time before `from` that f(jd) passed `level` going up, searched a day at a time back over `backDays`, or
+// null if it didn't in that time (or is below the level now).
+export function lastCrossing(f, level, from, backDays = 60) {
+  if (f(from) < level) return null;
+  for (let jd = from - 1; jd > from - backDays - 1; jd -= 1) {
+    if (f(jd) >= level) continue;
+    let lo = jd, hi = jd + 1;
+    for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (f(mid) >= level) hi = mid; else lo = mid; }
+    return hi;
+  }
+  return null;
+}
+
+// A ship's round-number moments either side of a date: the next one coming, and the latest light-day mark it passed
+// in the last 60 days. One light-day is counted twice, from Earth (how long a hail takes) and from the Sun (the ring
+// on the map); the rest are every 10 AU from the Sun. Each is { jd, kind: 'earth-day' | 'sun-day' | 'au', au }.
+export function milestones(id, jd) {
+  const fromEarth = t => readings(id, t).earthAU, fromSun = t => readings(id, t).sunAU;
+  const ten = Math.floor(fromSun(jd) / 10) * 10 + 10;
+  const ahead = [
+    { kind: 'earth-day', au: LIGHT_DAY_AU, jd: whenAbove(fromEarth, LIGHT_DAY_AU, jd, 30) },
+    { kind: 'sun-day', au: LIGHT_DAY_AU, jd: whenAbove(fromSun, LIGHT_DAY_AU, jd, 30) },
+    { kind: 'au', au: ten, jd: whenAbove(fromSun, ten, jd, 30) },
+  ].filter(m => m.jd).sort((a, b) => a.jd - b.jd);
+  const behind = [
+    { kind: 'earth-day', au: LIGHT_DAY_AU, jd: lastCrossing(fromEarth, LIGHT_DAY_AU, jd) },
+    { kind: 'sun-day', au: LIGHT_DAY_AU, jd: lastCrossing(fromSun, LIGHT_DAY_AU, jd) },
+  ].filter(m => m.jd).sort((a, b) => b.jd - a.jd);
+  return { next: ahead[0] || null, passed: behind[0] || null };
+}

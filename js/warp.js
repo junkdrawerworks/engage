@@ -2,7 +2,7 @@
 // light speed and Voyager 1's real speed, on a clock that speeds up as they go.
 import { warpSpeed } from './physics.js';
 import {
-  LANES, GROUPS, PLACES, byId, distanceLy, laneSpeed, tripYears, raceClock,
+  LANES, GROUPS, PLACES, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock,
   formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt,
 } from './warp-scale.js';
 import { hold, release } from './wake.js';
@@ -319,7 +319,7 @@ function renderPlace() {
     <h2>${esc(p.name)}</h2>
     <p class="dist">${esc(formatLight(ly))} from Earth${p.live ? ' today' : ''}${left ? ` · the light you see left ${esc(left)}` : ''}</p>
     <div class="scale-bar" aria-hidden="true">${ticks}<span class="mark" style="left:${(Math.min(Math.max(ladderAt(ly), 0), 1) * 100).toFixed(2)}%;--c:${p.color}"></span></div>
-    <p class="about">${esc(p.about)}</p>
+    <p class="about">${esc(aboutOn(p, trip.now))}</p>
     ${p.trek ? `<p class="trek"><b>Star Trek</b> ${esc(p.trek)}</p>` : ''}
     <table class="times" id="times"><caption>Leaving Earth now</caption><tbody>${rows}</tbody></table>
     ${p.course ? `<a class="to-file" href="${BRIDGE}?course=${encodeURIComponent(p.course)}"${AWAY}>Set course on the bridge <span aria-hidden="true">→</span></a>` : ''}

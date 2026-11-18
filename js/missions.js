@@ -1,9 +1,9 @@
 // Long missions: where the Voyagers, New Horizons, Webb and the Pioneers are right now, on a map and in numbers,
 // with a hail you can send and watch crawl out to them at the speed of light.
-import { SHIPS, byId, hailState } from './ships.js';
+import { SHIPS, byId, hailState, milestoneText } from './ships.js';
 import {
   AU_KM, LIGHT_DAY_AU, jdOf, dateOf, readings, trackUntil, planetAt, earthAt, semiMajor,
-  jwstFromEarth, jwstSpan, jwstAroundL2, moonAt, whenAbove,
+  jwstFromEarth, jwstSpan, jwstAroundL2, moonAt, milestones,
 } from './ephemeris.js';
 import { warpSpeed, stardate, plural } from './physics.js';
 
@@ -18,7 +18,7 @@ const saved = load();
 let sel = byId(location.hash.slice(1)) ? location.hash.slice(1) : 'v1';
 let view = byId(sel).near ? 'earth' : 'sun';
 let lastText = 0;
-let next = null; // the selected ship's next milestone: { jd, text }
+let marks = null; // the selected ship's milestones: the next one, and a light-day mark just passed (see ephemeris.js)
 
 function load() {
   let s = null;
@@ -108,21 +108,14 @@ function fillFile(ship) {
   $('ship-record').textContent = ship.record || '';
   $('ship-record').hidden = !ship.record;
   $('launched').textContent = `since launch on ${fmtDate(new Date(ship.launched + 'T12:00:00Z'), { timeZone: 'UTC' })}`;
-  next = milestone(ship);
+  marks = ship.near ? null : milestones(ship.id, jdOf(Date.now()));
 }
 
-// The next round-number moment for this ship: one light-day from Earth, or the next 10 AU from the Sun.
-function milestone(ship) {
-  if (ship.near) return null;
-  const now = jdOf(Date.now());
-  const r = readings(ship.id, now);
-  const options = [];
-  const lightDay = whenAbove(jd => readings(ship.id, jd).earthAU, LIGHT_DAY_AU, now, 30);
-  if (lightDay) options.push({ jd: lightDay, text: 'one light-day from Earth: a hail will take a whole day to reach her' });
-  const ten = Math.floor(r.sunAU / 10) * 10 + 10;
-  const tenAt = whenAbove(jd => readings(ship.id, jd).sunAU, ten, now, 30);
-  if (tenAt) options.push({ jd: tenAt, text: `${ten} AU from the Sun, ${ten} times farther out than Earth` });
-  return options.sort((a, b) => a.jd - b.jd)[0] || null;
+// How long ago a date was, by the calendar: today, yesterday, 12 days ago.
+function daysAgo(then, now) {
+  const day = d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const n = Math.round((day(now) - day(then)) / 864e5);
+  return n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${plural(n, 'day')} ago`;
 }
 
 // ---------- Hailing ----------
@@ -199,12 +192,20 @@ function tick(force = false) {
     $('hail').classList.toggle('waiting', state === 'outbound' || state === 'inbound');
   }
 
-  const n = $('next');
-  n.hidden = !next;
-  if (next) {
-    const days = next.jd - jd;
-    const when = fmtDate(dateOf(next.jd));
-    n.innerHTML = `<b>Next milestone</b> ${esc(when)}${days < 400 ? ` (${days < 1 ? 'today' : `in ${plural(Math.ceil(days), 'day')}`})` : ''}: ${esc(next.text)}.`;
+  // The round-number moments: the one coming, and a light-day mark gone by in the last two months. A page left open
+  // past the next one works them out again.
+  if (marks?.next && jd > marks.next.jd) marks = milestones(sel, jd);
+  const n = $('next'), gone = $('passed');
+  n.hidden = !marks?.next;
+  gone.hidden = !marks?.passed;
+  if (marks?.next) {
+    const days = marks.next.jd - jd;
+    const when = fmtDate(dateOf(marks.next.jd));
+    n.innerHTML = `<b>Next milestone</b> ${esc(when)}${days < 400 ? ` (${days < 1 ? 'today' : `in ${plural(Math.ceil(days), 'day')}`})` : ''}: ${esc(milestoneText(ship, marks.next))}.`;
+  }
+  if (marks?.passed) {
+    const then = dateOf(marks.passed.jd);
+    gone.innerHTML = `<b>Just passed</b> ${esc(fmtDate(then))} (${daysAgo(then, new Date(nowMs))}): ${esc(milestoneText(ship, marks.passed, true))}.`;
   }
 
   const warp = $('ship-warp');
@@ -309,7 +310,7 @@ function drawSun(jd, now, nowMs) {
   ring(radius(121), 'rgba(255, 181, 74, 0.4)', [5, 5]);
   label('Edge of the Sun’s bubble', W / 2 - radius(121) + 4, CY() - 9, 'rgba(255, 181, 74, 0.75)', 'left', 10);
   ring(radius(LIGHT_DAY_AU), 'rgba(134, 216, 255, 0.35)', [1.5, 4]);
-  ringLabel('One light-day', radius(LIGHT_DAY_AU), 'rgba(134, 216, 255, 0.75)', -Math.PI * 0.27);
+  ringLabel('One light-day from the Sun', radius(LIGHT_DAY_AU), 'rgba(134, 216, 255, 0.75)', -Math.PI * 0.27);
 
   // The Sun.
   const g = ctx.createRadialGradient(W / 2, CY(), 0, W / 2, CY(), 16);

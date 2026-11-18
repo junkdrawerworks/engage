@@ -634,6 +634,34 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await near.close();
 }
 
+// Voyager 1 passed one light-day from Earth on 18 November 2026. The day after, her file says so, with the ring on
+// the map (a light-day from the Sun) next; the week before, the crossing itself was next, and so the warp scale said.
+{
+  const day = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'UTC' });
+  const p = await day.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.clock.setFixedTime(new Date('2026-11-19T15:00:00Z'));
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions && !document.getElementById('passed').hidden);
+  assert.match(await p.locator('#passed').innerText(), /^JUST PASSED\s+18 November 2026 \(yesterday\): one light-day from Earth\. .*Nothing people have made has been this far\.$/i);
+  assert.match(await p.locator('#next').innerText(), /3 February 2027 \(in 77 days\): one light-day from the Sun/);
+  assert.match(await p.locator('#signal').innerText(), /^24 h 0/);
+  await p.locator('.ship-tab[data-id="v2"]').click();
+  assert.equal(await p.locator('#passed').isHidden(), true, 'Voyager 2 has passed no light-day');
+  await p.goto(base + 'warp.html#voyager');
+  await p.waitForFunction(() => window.warpScale);
+  assert.match(await p.locator('#place .about').innerText(), /has been more than a light-day from Earth since 18 November 2026\.$/);
+  await p.clock.setFixedTime(new Date('2026-11-10T15:00:00Z'));
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions && !document.getElementById('next').hidden);
+  assert.equal(await p.locator('#passed').isHidden(), true);
+  assert.match(await p.locator('#next').innerText(), /18 November 2026 \(in 8 days\): one light-day from Earth/);
+  await p.goto(base + 'warp.html#voyager');
+  await p.waitForFunction(() => window.warpScale);
+  assert.match(await p.locator('#place .about').innerText(), /reaches one light-day from Earth in 8 days, on 18 November 2026\.$/);
+  await day.close();
+}
+
 // A damaged save keeps what's still good and starts the rest afresh, instead of stopping the page.
 {
   const junk = await browser.newContext({ viewport: { width: 390, height: 844 } });

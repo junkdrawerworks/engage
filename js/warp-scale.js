@@ -1,7 +1,7 @@
 // The warp scale explorer's numbers: the places on the ladder from the Moon to Andromeda, the ships racing there, how
 // long each takes, and the race clock. Pure, so test/warp.test.mjs can check it without a browser.
 import { warpSpeed, plural, formatYear } from './physics.js';
-import { readings, planetAt, earthAt, moonAt, jdOf, C_KM_S } from './ephemeris.js';
+import { readings, planetAt, earthAt, moonAt, jdOf, dateOf, whenAbove, LIGHT_DAY_AU, C_KM_S } from './ephemeris.js';
 
 export const AU_PER_LY = 63241.1;
 export const SECONDS_PER_YEAR = 31557600; // a Julian year, the one light years are measured in
@@ -61,7 +61,8 @@ export const PLACES = [
   {
     id: 'voyager', name: 'Voyager 1', group: 'home', color: '#6fe3a4', kind: 'probe',
     live: jd => readings('v1', jd).earthAU / AU_PER_LY,
-    about: 'The farthest thing people have made, launched in 1977. Around the end of 2026 it reaches one light-day from Earth.',
+    about: 'The farthest thing people have made, launched in 1977.',
+    aboutNow: jd => voyagerLightDay(jd),
     trek: 'In The Motion Picture, V’Ger turns out to be Voyager 6, coming home three centuries later.',
   },
   {
@@ -143,6 +144,21 @@ function fromEarth(planet, jd) {
   const p = planetAt(planet, jd), e = earthAt(jd);
   return Math.hypot(p[0] - e[0], p[1] - e[1], p[2] - e[2]) / AU_PER_LY;
 }
+
+// Voyager 1 and one light-day from Earth, said for a date. By the same trajectory Long missions uses she crossed it
+// on 18 November 2026 (NASA's own figure is the same morning) and never drops back inside.
+let v1Day = 0;
+function voyagerLightDay(jd) {
+  v1Day ||= whenAbove(t => readings('v1', t).earthAU, LIGHT_DAY_AU, jdOf(new Date('2026-01-01T00:00:00Z')), 2);
+  const d = dateOf(v1Day), day = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  if (jd >= v1Day) return `It has been more than a light-day from Earth since ${day}.`;
+  const days = Math.ceil(v1Day - jd);
+  return days > 60 ? `It reaches one light-day from Earth on ${day}.` : `It reaches one light-day from Earth ${days <= 1 ? 'within a day' : `in ${days} days`}, on ${day}.`;
+}
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// What a place's card says about it. A few places have a line that depends on the date.
+export const aboutOn = (place, date = new Date()) => (place.aboutNow ? `${place.about} ${place.aboutNow(jdOf(date))}` : place.about);
 
 // How far each place is, in light years, on a date.
 export const distanceLy = (place, date = new Date()) => (place.live ? place.live(jdOf(date)) : place.ly);

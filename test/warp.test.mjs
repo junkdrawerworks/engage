@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { LANES, PLACES, GROUPS, byId, distanceLy, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt } from '../js/warp-scale.js';
+import { LANES, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt } from '../js/warp-scale.js';
 import { warpSpeed } from '../js/physics.js';
 
 const DATE = new Date('2026-10-24T00:00:00Z');
@@ -41,6 +41,20 @@ test('the Solar System’s distances are for the day', () => {
   assert.ok(ls('mars') / 60 > 3 && ls('mars') / 60 < 23);
   const v = ls('voyager') / 3600;
   assert.ok(v > 23 && v < 25, `Voyager 1 is ${v} light-hours away`);
+});
+
+test('Voyager 1’s card knows which side of one light-day it is on', () => {
+  const v = byId.get('voyager'), on = iso => aboutOn(v, new Date(iso));
+  assert.equal(on('2026-11-10T00:00:00Z'), 'The farthest thing people have made, launched in 1977. It reaches one light-day from Earth in 9 days, on 18 November 2026.');
+  assert.match(on('2026-06-01T00:00:00Z'), /It reaches one light-day from Earth on 18 November 2026\.$/);
+  assert.match(on('2026-11-18T00:00:00Z'), /within a day, on 18 November 2026\.$/);
+  for (const iso of ['2026-11-18T12:00:00Z', '2026-11-19T00:00:00Z', '2027-03-01T00:00:00Z', '2031-01-01T00:00:00Z']) {
+    assert.equal(on(iso), 'The farthest thing people have made, launched in 1977. It has been more than a light-day from Earth since 18 November 2026.');
+    assert.ok(distanceLy(v, new Date(iso)) * 365.25 > 1, `${iso}: the card says past a light-day and the distance says not`);
+  }
+  assert.ok(distanceLy(v, new Date('2026-11-10T00:00:00Z')) * 365.25 < 1);
+  // Every other place says the same thing whatever the day.
+  for (const p of PLACES.filter(p => p !== v)) assert.equal(aboutOn(p, DATE), p.about);
 });
 
 test('the places with Set course are stars the bridge knows', async () => {

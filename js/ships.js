@@ -112,3 +112,14 @@ export function hailState(sent, lightMs, now, silent = false) {
   if (!silent && now < sent + 2 * lightMs) return 'inbound';
   return 'done';
 }
+
+// The words for one of a ship's round-number moments (milestones() in ephemeris.js), still coming or just gone by.
+// They follow a date and a colon on the file, and end without a full stop.
+export function milestoneText(ship, m, passed = false) {
+  if (m.kind === 'earth-day') {
+    if (!passed) return 'one light-day from Earth: a hail will take a whole day to reach her';
+    return `one light-day from Earth. A hail now takes more than a day to reach her, and as long again for her answer${ship.id === 'v1' ? '. Nothing people have made has been this far' : ''}`;
+  }
+  if (m.kind === 'sun-day') return passed ? 'one light-day from the Sun. She is outside the dotted ring on the map now' : 'one light-day from the Sun, the dotted ring on the map';
+  return `${m.au} AU from the Sun, ${m.au} times farther out than Earth`;
+}

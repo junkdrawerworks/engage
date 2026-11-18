@@ -1,8 +1,8 @@
 // The long missions' numbers, checked without a browser:  node --test test/missions.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { jdOf, dateOf, readings, stateAt, earthAt, planetAt, heading, whenAbove, jwstFromEarth, jwstAroundL2, trackUntil, LIGHT_DAY_AU, AU_KM } from '../js/ephemeris.js';
-import { SHIPS, hailState } from '../js/ships.js';
+import { jdOf, dateOf, readings, stateAt, earthAt, planetAt, heading, whenAbove, lastCrossing, milestones, jwstFromEarth, jwstAroundL2, trackUntil, LIGHT_DAY_AU, AU_KM } from '../js/ephemeris.js';
+import { SHIPS, byId, hailState, milestoneText } from '../js/ships.js';
 
 const at = iso => jdOf(new Date(iso));
 
@@ -32,11 +32,46 @@ test('the ships are where NASA says, in October 2026', () => {
   assert.ok(webb.earthAU * AU_KM > 1.0e6 && webb.earthAU * AU_KM < 1.9e6, 'Webb is not near L2');
 });
 
-test('Voyager 1 is one light-day from Earth in November 2026', () => {
-  const t = whenAbove(jd => readings('v1', jd).earthAU, LIGHT_DAY_AU, at('2026-10-01'));
-  const d = dateOf(t);
-  assert.equal(d.getUTCFullYear(), 2026);
-  assert.equal(d.getUTCMonth(), 10);
+test('Voyager 1 passes one light-day from Earth on 18 November 2026 and stays past it', () => {
+  // NASA's figure for the crossing is 18 November 2026, mid-morning UTC; this trajectory agrees to a few minutes.
+  const fromEarth = jd => readings('v1', jd).earthAU;
+  const t = whenAbove(fromEarth, LIGHT_DAY_AU, at('2026-10-01'));
+  assert.equal(dateOf(t).toISOString().slice(0, 13), '2026-11-18T10');
+  for (let jd = t + 0.01; jd < t + 3650; jd += 0.5) assert.ok(fromEarth(jd) > LIGHT_DAY_AU, `back inside a light-day on ${dateOf(jd).toISOString()}`);
+  // Looking back finds the same moment, for two months and no longer.
+  assert.equal(lastCrossing(fromEarth, LIGHT_DAY_AU, at('2026-11-10')), null, 'not there yet');
+  assert.ok(Math.abs(lastCrossing(fromEarth, LIGHT_DAY_AU, at('2026-11-19')) - t) < 1e-6);
+  assert.ok(Math.abs(lastCrossing(fromEarth, LIGHT_DAY_AU, at('2026-11-18T11:00:00Z')) - t) < 1e-6, 'within the hour');
+  assert.ok(Math.abs(lastCrossing(fromEarth, LIGHT_DAY_AU, at('2027-01-15')) - t) < 1e-6);
+  assert.equal(lastCrossing(fromEarth, LIGHT_DAY_AU, at('2027-03-01')), null, 'more than 60 days ago');
+});
+
+test('the milestones look both ways across the light-day', () => {
+  const v1 = byId('v1');
+  const day = m => dateOf(m.jd).toISOString().slice(0, 10);
+  // A week before: the crossing is next, and nothing has just gone by.
+  let m = milestones('v1', at('2026-11-10'));
+  assert.deepEqual([m.next.kind, day(m.next), m.passed], ['earth-day', '2026-11-18', null]);
+  assert.match(milestoneText(v1, m.next), /^one light-day from Earth: a hail will take a whole day/);
+  // The day after: it has just been passed, and the ring on the map (a light-day from the Sun) is next.
+  m = milestones('v1', at('2026-11-19'));
+  assert.deepEqual([m.passed.kind, day(m.passed)], ['earth-day', '2026-11-18']);
+  assert.deepEqual([m.next.kind, day(m.next)], ['sun-day', '2027-02-03']);
+  assert.match(milestoneText(v1, m.passed, true), /^one light-day from Earth\. A hail now takes more than a day .*Nothing people have made has been this far$/);
+  assert.match(milestoneText(v1, m.next), /light-day from the Sun, the dotted ring/);
+  // March 2027: both light-day marks are behind her (the Sun's within two months), and 180 AU is next, in 2029.
+  m = milestones('v1', at('2027-03-01'));
+  assert.deepEqual([m.passed.kind, day(m.passed)], ['sun-day', '2027-02-03']);
+  assert.deepEqual([m.next.kind, m.next.au, dateOf(m.next.jd).getUTCFullYear()], ['au', 180, 2029]);
+  assert.equal(milestoneText(v1, m.next), '180 AU from the Sun, 180 times farther out than Earth');
+  // Two months on from that, nothing recent; and the claim to be farthest is only ever Voyager 1's.
+  assert.equal(milestones('v1', at('2027-06-01')).passed, null);
+  assert.doesNotMatch(milestoneText(byId('v2'), { kind: 'earth-day' }, true), /Nothing people have made/);
+  for (const s of SHIPS.filter(s => !s.near)) {
+    const ms = milestones(s.id, at('2026-11-19'));
+    assert.ok(ms.next && ms.next.jd > at('2026-11-19'), `${s.id} has nothing ahead`);
+    assert.ok(milestoneText(s, ms.next));
+  }
 });
 
 test('Earth crosses the March and September equinox points', () => {
