@@ -94,15 +94,9 @@ body.carded .controls { visibility: hidden; }
 .city { height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); font-size: 14px; }
 .city[aria-pressed="true"] { border-color: var(--amber); color: var(--amber); }
 
-/* Night vision: everything in red, so your eyes stay used to the dark */
-body.red::after { content: ''; position: fixed; inset: 0; z-index: 100; background: #ff2a14; mix-blend-mode: multiply; pointer-events: none; }
-/* The red light keeps only the red in each colour. Starfleet's cyan has little, so what was meant to stand out (its
-   names in the list, the headings, where to look) came out the dimmest thing on the page. Under the light, what
-   stands out is white, which keeps all its red, and what stands back is given a little less and a lighter weight:
-   emphasis by brightness and weight, since hue is gone. Pure red on black can't do better than 5.25:1, and needs
-   red 236 or more of 255 to reach 4.5:1, so "a little less" is all there is room for. (The sky's own tags do the
-   same: see TAG in js/tonight.js.) */
-body.red { --cyan: #fff; --text: #fff0ec; --muted: #ecd0c8; --dim: #d8b8b0; }
+/* Night vision (the red light itself is in css/app.css: the bridge wears it too). Under it, what stands out is
+   white, which keeps all its red, and what stands back is given a little less and a lighter weight: emphasis by
+   brightness and weight, since hue is gone. (The sky's own tags do the same: see TAG in js/tonight.js.) */
 body.red .s-name { font-weight: 500; color: #ecc8bc; }
 body.red .system.trek .s-name { font-weight: 600; color: #fff; }
 body.red .card .look { border-left-color: #fff; background: rgba(255, 255, 255, 0.1); }

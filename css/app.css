@@ -200,8 +200,11 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 
 .toggle { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); cursor: pointer; flex: none; }
 .toggle input { width: 20px; height: 20px; accent-color: var(--amber); margin: 0; }
-/* The settings scroll as a whole, so on a short screen "What you're seeing" isn't squeezed into a sliver. */
-#settings { overflow-y: auto; overscroll-behavior: contain; }
+/* Everything under the settings' heading scrolls as one, so on a short screen "What you're seeing" isn't squeezed
+   into a sliver, and the heading and its close button stay where they are. (It is the part under the heading that
+   scrolls and not the sheet itself: with the whole sheet scrolling, Chromium drew a lit band above it under night
+   vision's red light.) */
+#settings .sheet-body { overflow-y: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px; flex: 1 1 auto; min-height: 0; }
 .about { flex: none; color: var(--muted); font-size: 14px; }
 .about h3 { margin: 18px 0 6px; font: 600 13px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); }
 .about p { margin: 0 0 10px; }
@@ -222,6 +225,21 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .jd-foot { flex: none; display: flex; justify-content: center; gap: 8px; padding: 14px 0 2px; font-size: 12px; color: var(--dim); }
 .jd-foot a { color: var(--dim); text-decoration: none; }
 .jd-foot a:hover, .jd-foot a:focus-visible { text-decoration: underline; color: var(--muted); }
+
+/* Night vision: everything in red, so eyes that are used to the dark stay that way. It is switched on in tonight's
+   sky or in Bridge settings, kept by tonight's sky, and worn by both (the other rooms don't have it).
+   The red light keeps only the red in each colour. Starfleet's cyan has little, so what was meant to stand out came
+   out the dimmest thing on the page. Under the light it is white, which keeps all its red. Pure red on black can't
+   do better than 5.25:1, and needs red 236 or more of 255 to reach 4.5:1. */
+body.red::after { content: ''; position: fixed; inset: 0; z-index: 100; background: #ff2a14; mix-blend-mode: multiply; pointer-events: none; }
+body.red { --cyan: #fff; --text: #fff0ec; --muted: #ecd0c8; --dim: #d8b8b0; }
+/* The log's words and the links that were green or violet have too little red of their own. */
+body.red .entry dd:not(.home), body.red .intro-card p, body.red .lost p { color: var(--text); }
+body.red .entry .files a.to-lab, body.red #open-scale { color: var(--text); border-color: rgba(255, 255, 255, 0.4); }
+body.red #open-xeno svg, body.red #open-contact svg { stroke: currentColor; }
+/* Nothing large and bright is left: the big buttons are drawn as outlines. (The flash of going to warp is dimmed
+   too: see flash() in js/app.js.) */
+body.red .primary, body.red .engage:not(:disabled) { background: none; box-shadow: none; border: 1.5px solid currentColor; color: var(--text); }
 
 @media (max-width: 480px) {
   /* Look for the Sun and Next destination each fit on one line of a phone. */

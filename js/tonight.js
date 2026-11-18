@@ -50,6 +50,15 @@ function load() {
     night: !!s.night,
   };
 }
+// Night vision: the red light over everything (css/app.css), the button lit, and the browser's own bar dark red
+// with it. The bridge wears it too, and can switch it from its settings: it is kept here, with the place.
+function showNight() {
+  document.body.classList.toggle('red', !!saved.night);
+  $('night').setAttribute('aria-pressed', String(!!saved.night));
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', saved.night ? '#0a0000' : '#05070d');
+  dirty = true; // the sky is drawn in other colours under the red light
+}
+
 // The bridge's log, read once and never written: each star the ship has dropped out of warp at, with the stardate of
 // the latest visit (the log keeps the newest entry first) and how many there have been. A missing or damaged save
 // is no visits.
@@ -88,8 +97,7 @@ async function start() {
   if (!saved.place || saved.place.how === 'guess') saved.place = guessPlace();
   prepareStars();
   buildSheets();
-  document.body.classList.toggle('red', !!saved.night);
-  $('night').setAttribute('aria-pressed', String(!!saved.night));
+  showNight();
   compute();
   faceSomethingGood();
   bind();
@@ -1060,18 +1068,14 @@ function bind() {
   $('locate').addEventListener('click', locate);
   $('night').addEventListener('click', () => {
     saved.night = !saved.night; save();
-    document.body.classList.toggle('red', saved.night);
-    $('night').setAttribute('aria-pressed', String(saved.night));
-    dirty = true; // the sky is drawn in other colours under the red light
+    showNight();
   });
   // Tonight's sky open in another tab: the place, the kind of sky and night vision chosen there are the ones kept,
   // so this tab shows them too, and a city picked there isn't written over by a guess from here.
   watch(KEY, () => {
     Object.assign(saved, load());
     if (!saved.place || saved.place.how === 'guess') saved.place = guessPlace();
-    document.body.classList.toggle('red', saved.night);
-    $('night').setAttribute('aria-pressed', String(saved.night));
-    dirty = true;
+    showNight();
     compute();
     renderPlaces();
   });

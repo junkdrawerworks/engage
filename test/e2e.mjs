@@ -3230,6 +3230,90 @@ await page.emulateMedia({ reducedMotion: null });
   await kinds.close();
 }
 
+// Night vision follows you to the bridge. It was only in tonight's sky, and every card there ends in Set course:
+// someone outside with red light on tapped it and got the bridge at full brightness, amber Engage and all. The
+// bridge now wears the same red light when tonight's sky has it on, can switch it from Bridge settings (it is
+// tonight's sky's setting, kept under its key: no new one), and draws its big buttons as outlines under it.
+{
+  const dark = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await dark.addInitScript(() => {
+    if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } }));
+    if (!localStorage.getItem('engage.tonight.v1')) localStorage.setItem('engage.tonight.v1', JSON.stringify({ night: true, sky: 'dark', trim: 3, place: { name: 'Tokyo', lat: 35.68, lon: 139.69, how: 'city', tz: 'Asia/Tokyo' } }));
+  });
+  const p = await dark.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const red = (page = p) => page.evaluate(() => [document.body.classList.contains('red'), document.querySelector('meta[name="theme-color"]').content]);
+  const kept = () => p.evaluate(() => JSON.parse(localStorage.getItem('engage.tonight.v1')));
+  await p.goto(base);
+  // Red before the stars are in: there is no bright moment on the way from the sky to the bridge.
+  await p.waitForFunction(() => document.getElementById('where').textContent !== '');
+  assert.deepEqual(await red(), [true, '#0a0000'], 'the bridge opened at full brightness with night vision on');
+  await bridgeReady(p);
+  assert.deepEqual(await red(), [true, '#0a0000']);
+  assert.equal(await p.locator('body').evaluate(el => getComputedStyle(el, '::after').mixBlendMode), 'multiply', 'the red light is not over the bridge');
+  // Nothing large and bright is left: Engage, and Next destination on the arrival's sheet, are outlines.
+  await p.evaluate(() => engage.target('Vega'));
+  const outline = sel => p.locator(sel).evaluate(el => { const c = getComputedStyle(el); return [c.backgroundImage, c.backgroundColor, c.borderTopStyle, parseFloat(c.borderTopWidth) >= 1]; });
+  assert.deepEqual(await outline('#engage'), ['none', 'rgba(0, 0, 0, 0)', 'solid', true], 'Engage is still a bright slab under night vision');
+  await p.evaluate(() => engage.jump('Vega'));
+  assert.deepEqual(await outline('#arrival-next'), ['none', 'rgba(0, 0, 0, 0)', 'solid', true]);
+  // The log's words keep enough red to read: white, where they were a grey-blue with less.
+  assert.equal(await p.locator('#arrival-entry dd').first().evaluate(el => getComputedStyle(el).color), 'rgb(255, 240, 236)');
+  await p.evaluate(() => engage.closeSheets());
+  // Bridge settings has the switch, ticked. Unticking it turns the light off here and in tonight's sky, and leaves
+  // the place and the kind of sky kept there alone.
+  await p.tap('#open-settings');
+  assert.equal(await p.locator('#opt-night').isChecked(), true);
+  await p.locator('#opt-night').uncheck();
+  assert.deepEqual(await red(), [false, '#05070d']);
+  assert.deepEqual(await kept(), { night: false, sky: 'dark', trim: 3, place: { name: 'Tokyo', lat: 35.68, lon: 139.69, how: 'city', tz: 'Asia/Tokyo' } });
+  assert.deepEqual(await outline('#arrival-next').then(o => o[0] !== 'none'), true, 'the buttons stayed outlines with the light off');
+  await p.evaluate(() => engage.closeSheets());
+  await Promise.all([p.waitForNavigation(), p.tap('#open-sky')]);
+  await p.waitForFunction(() => window.tonight);
+  assert.deepEqual([...(await red()), await p.locator('#night').getAttribute('aria-pressed')], [false, '#05070d', 'false'], 'night vision switched off on the bridge was still on in tonight’s sky');
+  // Switched on in tonight's sky, it is on when Back reaches the bridge, and the tick in settings shows it.
+  await p.tap('#night');
+  assert.deepEqual(await red(), [true, '#0a0000']);
+  // Tonight's own big button is an outline too.
+  assert.deepEqual(await outline('#sensors'), ['none', 'rgba(0, 0, 0, 0)', 'solid', true], 'Point your phone is still a bright slab under night vision');
+  await Promise.all([p.waitForNavigation(), p.tap('a.back')]);
+  await bridgeReady(p);
+  assert.deepEqual(await red(), [true, '#0a0000']);
+  await p.tap('#open-settings');
+  assert.equal(await p.locator('#opt-night').isChecked(), true);
+  // The sheet's heading and its close button stay put while the settings under them scroll.
+  const head = () => p.locator('#settings .close').evaluate(el => Math.round(el.getBoundingClientRect().top));
+  const before = await head();
+  await p.locator('#settings .sheet-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
+  assert.equal(await head(), before, 'the settings’ close button scrolled away');
+  await p.evaluate(() => engage.closeSheets());
+  // Two tabs: ticking it on the bridge in one turns the other's sky red, and unticking it turns it back.
+  const q = await dark.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  await q.goto(base + 'tonight.html');
+  await q.waitForFunction(() => window.tonight);
+  assert.equal((await red(q))[0], true);
+  await p.tap('#open-settings');
+  await p.locator('#opt-night').uncheck();
+  await q.waitForFunction(() => !document.body.classList.contains('red'));
+  await p.locator('#opt-night').check();
+  await q.waitForFunction(() => document.body.classList.contains('red'));
+  assert.equal((await kept()).place.name, 'Tokyo');
+  // And the other way: switched off in the sky, the bridge in the other tab goes back to its own colours.
+  await q.tap('#night');
+  await p.waitForFunction(() => !document.body.classList.contains('red'));
+  assert.equal(await p.locator('#opt-night').isChecked(), false);
+  // With nothing of tonight's sky kept, the bridge's tick starts a record there that the sky reads as its own.
+  await p.evaluate(() => localStorage.removeItem('engage.tonight.v1'));
+  await p.locator('#opt-night').check();
+  assert.deepEqual(await kept(), { night: true });
+  await q.reload();
+  await q.waitForFunction(() => window.tonight);
+  assert.equal((await red(q))[0], true);
+  await dark.close();
+}
+
 // A tab that was asleep while another saved (a phone does that to tabs, and doesn't always tell them afterwards)
 // looks for itself when it comes back into view. Stood in for here by a save the tab is not told about, and then
 // the browser's "you're in view again".

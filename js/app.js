@@ -13,6 +13,9 @@ import {
 } from './physics.js';
 
 const KEY = 'engage.v1';
+// Night vision is tonight's sky's setting, kept with its place and its kind of sky: the bridge reads it and, from
+// Bridge settings, writes it back there. No key of its own.
+const NIGHT = 'engage.tonight.v1';
 // Where to come back to, for this tab only: the log entry a link to another room was followed from (see returnTo).
 const RETURN = 'engage.return';
 // The planetary survey page. The single-file copy points this at the live site.
@@ -155,8 +158,34 @@ function preview() {
   $('where').textContent = !away ? 'Earth orbit' : entry && entry.star === saved.at && typeof entry.title === 'string' ? entry.title : '';
 }
 
+// Night vision: red light over everything, so eyes used to the dark stay that way. Someone outside with tonight's
+// sky in red taps Set course on a star's card, and used to get the bridge at full brightness. `on` is given when
+// the browser wouldn't keep the choice: it holds for this visit all the same.
+function showNight(on = nightKept()) {
+  document.body.classList.toggle('red', on);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? '#0a0000' : '#05070d');
+  $('opt-night').checked = on;
+  dirty = true; // the names on the viewscreen are drawn in other colours under it
+}
+
+function nightKept() {
+  try {
+    const s = JSON.parse(localStorage.getItem(NIGHT) || 'null');
+    return !!(s && typeof s === 'object' && s.night);
+  } catch { return false; }
+}
+
+// Everything else tonight's sky keeps (the place, the kind of sky) is left as it is.
+function setNight(on) {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(NIGHT) || 'null'); } catch { /* nothing kept that can be read */ }
+  const why = keep(NIGHT, { ...(s && typeof s === 'object' && !Array.isArray(s) ? s : {}), night: on });
+  showNight(why ? on : undefined);
+}
+
 async function start() {
   preview();
+  showNight(); // before the stars are in: no bright moment on the way
   const img = new Image();
   img.src = 'img/milkyway.png';
   try {
@@ -187,6 +216,10 @@ async function start() {
   if (!state.seenIntro) { $('intro').hidden = false; behind(); $('intro-go').focus({ preventScroll: true }); }
   bind();
   watch(KEY, adopt);
+  // Night vision switched in tonight's sky, in another tab or on the page before this one (Back can bring this
+  // page back whole, as it was left).
+  watch(NIGHT, () => showNight());
+  addEventListener('pageshow', () => showNight());
   requestAnimationFrame(frame);
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
   window.engage = hooks();
@@ -292,6 +325,9 @@ function drawLabels(now) {
   const side = (x, gap, tw) => (x + gap + tw > w - 4 ? x - gap - tw : x + gap);
   drawn = [];
   const onScreen = p => p && !p.behind && p.x > -20 && p.y > -20 && p.x < w + 20 && p.y < h + 20;
+  // Under night vision only the red in a colour is left, and the helm's cyan has little: its marks are white there.
+  const red = document.body.classList.contains('red');
+  const CYAN = red ? '#ffffff' : '#86d8ff';
 
   // The target: brackets and its name.
   const target = trip ? trip.i : state.target;
@@ -299,7 +335,7 @@ function drawLabels(now) {
     const p = sky.project(target);
     if (onScreen(p)) {
       const r = 15;
-      g.strokeStyle = '#86d8ff';
+      g.strokeStyle = CYAN;
       g.lineWidth = 1.5;
       g.beginPath();
       for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
@@ -310,7 +346,7 @@ function drawLabels(now) {
       g.stroke();
       const name = titleFor(cat, target), dist = nominal(target) && !trip ? 'not measured' : formatLy(cat.distanceFrom(target, cam) * LY_PER_PC);
       const lw = labelWidth(g, name, dist), x = side(p.x, r + 6, lw);
-      label(g, name, dist, x, p.y + 4, '#86d8ff');
+      label(g, name, dist, x, p.y + 4, CYAN);
       taken.push(box(x, p.y + 4, lw));
       drawn.push({ text: name, x, y: p.y + 4, w: lw });
     }
@@ -355,7 +391,7 @@ function drawLabels(now) {
     const tw = g.measureText(text).width;
     const x = side(p.x, 8, tw);
     if (x < 0 || x + tw > w || p.y < 8 || p.y > h - 8 || !free(x, p.y + 4, tw)) continue; // too near an edge to fit
-    g.fillStyle = 'rgba(200, 212, 235, 0.62)';
+    g.fillStyle = red ? 'rgba(255, 240, 236, 0.8)' : 'rgba(200, 212, 235, 0.62)';
     g.fillText(text, x, p.y + 4);
     drawn.push({ text, x, y: p.y + 4, w: tw });
   }
@@ -637,6 +673,7 @@ function lift() {
 
 function flash(strength) {
   if (still.matches) return; // a white flash over the whole screen is just what reduced motion asks to skip
+  if (document.body.classList.contains('red')) strength *= 0.3; // and under night vision it is kept faint
   $('flash').animate([{ opacity: 0 }, { opacity: strength, offset: 0.25 }, { opacity: 0 }], { duration: 700, easing: 'ease-out' });
 }
 
@@ -1064,6 +1101,7 @@ function bind() {
       dirty = true;
     });
   }
+  $('opt-night').addEventListener('change', e => setNight(e.target.checked));
   // Two taps, asked on the button itself (the Artifact viewer refuses confirm dialogs).
   $('clear-log').addEventListener('click', e => {
     const b = e.currentTarget;
