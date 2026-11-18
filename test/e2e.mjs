@@ -2914,6 +2914,74 @@ await page.emulateMedia({ reducedMotion: null });
   await near.close();
 }
 
+// Looking home names a moment for the very year, links to the ship whose year it is, and a year typed in Set course
+// finds the stars its light is reaching. The log used to name a moment for 23 years, two years either side of each
+// (Wolf 359 saw 2019, "around when the James Webb Space Telescope launched": Christmas Day 2021), and "1987" found
+// only two stars with those digits in their catalogue numbers.
+{
+  const years = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await years.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await years.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.clock.setFixedTime(new Date('2026-11-18T12:00:00Z'));
+  await p.goto(base);
+  await bridgeReady(p);
+  const home = () => p.locator('#arrival-entry dd.home').innerText();
+  // Sirius is 8.6 light years out: on 18 November 2026 it sees early 2018, the year Voyager 2 left the Sun's bubble
+  // by her own file in long missions. The log links to that file.
+  await p.evaluate(() => engage.jump('Sirius'));
+  assert.match(await home(), /Earth as it was in 2018, the year Voyager 2 left the Sun’s bubble for interstellar space\./);
+  const link = p.locator('#arrival-entry dd.home + dd.files a');
+  assert.deepEqual([await link.innerText(), await link.getAttribute('href')], ['Where Voyager 2 is now', 'missions.html#v2']);
+  await Promise.all([p.waitForNavigation(), link.tap()]);
+  await p.waitForFunction(() => window.missions);
+  assert.equal(await p.evaluate(() => missions.sel), 'v2', 'the log’s link did not open Voyager 2’s file');
+  assert.match(await p.locator('#ship-log, .ship-log, main').first().innerText(), /2018[\s\S]*heliopause/, 'her file does not have the moment the log named');
+  await Promise.all([p.waitForNavigation(), p.locator('a.back').tap()]);
+  await bridgeReady(p);
+  await p.evaluate(() => engage.closeSheets());
+  // Wolf 359, 7.8 light years: early 2019, New Horizons at Arrokoth. Not Webb, two years on.
+  await p.evaluate(() => engage.jump('Wolf 359'));
+  assert.match(await home(), /in 2019, the year New Horizons flew past Arrokoth, the farthest world ever visited\./);
+  assert.equal(await p.locator('#arrival-entry dd.home + dd.files a').getAttribute('href'), 'missions.html#nh');
+  // Vega's 2001 is nobody's on a long mission: a moment, and no link.
+  await p.evaluate(() => engage.jump('Vega'));
+  assert.match(await home(), /in 2001, the year NEAR Shoemaker made the first landing on an asteroid, Eros\./);
+  assert.equal(await p.locator('#arrival-entry dd.home + dd.files').count(), 0);
+  // The link is kept with the entry in the log.
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-log');
+  await p.locator('.past summary').nth(1).tap();
+  assert.equal(await p.locator('.past').nth(1).locator('dd.home + dd.files a').innerText(), 'Where New Horizons is now');
+  await p.evaluate(() => engage.closeSheets());
+
+  // A year in Set course: the stars with that number in their names, as before, and then the three brightest stars
+  // that year's light is reaching now.
+  await p.tap('#choose');
+  await p.fill('#search', '1987');
+  const list = () => p.locator('#list > *').evaluateAll(els => els.map(el => (el.matches('.row') ? el.querySelector('.name').firstChild.textContent : `[${el.textContent}]`)));
+  assert.deepEqual(await list(), ['HIP 19878', 'HIP 91987', '[Light that left Earth in 1987 is arriving about now at]', 'λ Serpentis', 'ζ Trianguli Australis', 'ζ² Reticuli']);
+  // The heading is long: it wraps inside the sheet and doesn't push it wider.
+  assert.ok(await p.locator('#list .group').evaluate(el => el.scrollWidth <= el.clientWidth && el.getBoundingClientRect().right <= innerWidth), 'the heading runs off the sheet');
+  // Take one, fly there, and the log names the year that was asked for.
+  await p.locator('#list .row', { hasText: 'λ Serpentis' }).tap();
+  assert.equal(await p.locator('#target-name').innerText(), 'λ Serpentis');
+  await p.evaluate(() => engage.jump('λ Serpentis'));
+  assert.match(await home(), /Earth as it was in 1987, the year Star Trek: The Next Generation premiered\./);
+  await p.evaluate(() => engage.closeSheets());
+  // Light from 2024 hasn't got as far as Proxima yet, and a number that is no year is only a number.
+  await p.tap('#choose');
+  await p.fill('#search', '2024');
+  assert.equal((await list()).at(-1), '[Light that left Earth in 2024 hasn’t reached another star yet.]');
+  await p.fill('#search', '1899');
+  assert.ok(!(await list()).some(t => /Light that left/.test(t)));
+  await p.fill('#search', '2099'); // a year that hasn't come, but four digits of HIP 20997
+  assert.deepEqual(await list(), ['HIP 20997']);
+  await p.fill('#search', 'qqqq');
+  assert.deepEqual(await list(), ['[No star by that name in the catalogue.]']);
+  await years.close();
+}
+
 // A tab that was asleep while another saved (a phone does that to tabs, and doesn't always tell them afterwards)
 // looks for itself when it comes back into view. Stood in for here by a save the tab is not told about, and then
 // the browser's "you're in view again".

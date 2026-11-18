@@ -5,6 +5,7 @@ import {
 } from './physics.js';
 import { ANCHORS, DESTINATIONS } from './destinations.js';
 import { chartFor } from './charts.js';
+import { byId as shipById } from './ships.js';
 
 const NOTES = new Map(DESTINATIONS.map(d => [d.star, d]));
 const COLOUR = { O: 'Blue', B: 'Blue-white', A: 'White', F: 'Yellow-white', G: 'Yellow', K: 'Orange', M: 'Red' };
@@ -85,11 +86,9 @@ export function homeLines(cat, cam, year = Number(stardate()), skip = -1, nomina
   } else {
     lines.push(`The Sun is too faint to see without a telescope from here (magnitude ${m.toFixed(1)}), ${where}.`);
   }
-  // The calendar year that light left in: light that set out in the middle of 2017 shows 2017, not the nearer 2018.
-  const seen = Math.floor(year - ly);
-  // "Around when" means within a couple of years, or a decade for the sparser moments before 1500.
-  const anchor = ANCHORS.find(([y]) => Math.abs(y - seen) <= (seen < 1500 ? 10 : 2));
-  lines.push(`With a big enough telescope, someone here would see Earth as it was in ${formatYear(seen)}${anchor ? `, around when ${anchor[1]}` : ''}.`);
+  const seen = earthYear(cam, year);
+  const moment = momentFor(seen);
+  lines.push(`With a big enough telescope, someone here would see Earth as it was in ${formatYear(seen)}${moment ? `, ${moment.gap ? 'around when' : 'the year'} ${moment.text}` : ''}.`);
   const tv = 1936 + ly;
   lines.push(tv <= year
     ? `Earth’s radio and TV signals, leaking out since the 1930s, first passed here around ${formatYear(tv)}.`
@@ -211,6 +210,26 @@ export function skyLine(cat, i, sky = skyFrom(cat, i)) {
   return text;
 }
 
+// The calendar year of Earth on show from `cam` (parsecs from the Sun) at `year`, the date as a year and the fraction
+// of it gone: the year the light left in. Light that set out in the middle of 2017 shows 2017, not the nearer 2018.
+export const earthYear = (cam, year) => Math.floor(year - Math.hypot(...cam) * LY_PER_PC);
+
+// The moment in Earth's history to name beside a year, or null: { year, text, gap, ship }. From 1900 on a moment is
+// named only for its own year, so "the year Voyager 2 flew past Uranus" is exact (the log once had Wolf 359 seeing
+// 2019, "around when the James Webb Space Telescope launched", two years early). Before 1900 the moments are
+// sparse, and one is named up to two years either side of its own, or ten before 1500: `gap` is how many years
+// off, and the log then says "around when". Of two in reach, the nearer. `ship` is the id of the long mission whose
+// moment it is, or null.
+export function momentFor(seen) {
+  let best = null;
+  for (const [year, text, ship] of ANCHORS) {
+    const gap = Math.abs(year - seen);
+    if (gap > (year >= 1900 ? 0 : year >= 1500 ? 2 : 10)) continue;
+    if (!best || gap < best.gap) best = { year, text, gap, ship: ship || null };
+  }
+  return best;
+}
+
 // With `nominal`, one end of the trip is a star whose distance isn't known, so the trip is as long as the charts say.
 export function tripLine(ly, warp, fromTitle, nominal = false) {
   const t = tripYears(ly, warp);
@@ -250,7 +269,12 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
   if (sky) sections.push(['The sky from here', skyLine(cat, i, sky)]);
   if (i !== 0) sections.push(['Looking home', homeLines(cat, cam, Number(stardate(date)), i, unmeasured).join(' ')]);
   if (tripLy > 0) sections.push(['The trip', tripLine(tripLy, warp, fromTitle, unmeasured || nominal)]);
-  return { star: i, title, stardate: stardate(date), intro, sections, ly: tripLy || 0, ...(sky ? { near: sky.nearest.star } : {}) };
+  // When the year of Earth on show is one of a long mission's own, the entry keeps the ship, to link to her file.
+  const ship = i !== 0 && !unmeasured ? shipById(momentFor(earthYear(cam, Number(stardate(date))))?.ship) : null;
+  return {
+    star: i, title, stardate: stardate(date), intro, sections, ly: tripLy || 0,
+    ...(sky ? { near: sky.nearest.star } : {}), ...(ship ? { ship: { id: ship.id, name: ship.name } } : {}),
+  };
 }
 
 // The records the captain's log can show, worked out from the entries themselves (newest first, as the log keeps

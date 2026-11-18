@@ -33,7 +33,7 @@ async function bundle(order, patch = (name, src) => src) {
 }
 const pageBody = page => page.slice(page.indexOf('<body') , page.indexOf('</body>')).replace(/^<body[^>]*>/, '').replace(/<script type="module" src="[^"]+"><\/script>/, '');
 
-const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'log', 'search', 'share', 'store', 'catalog', 'sky', 'app'];
+const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'ships', 'log', 'search', 'share', 'store', 'catalog', 'sky', 'app'];
 const js = await bundle(ORDER, async (name, src) => {
   if (name !== 'app') return src;
   return src
@@ -150,7 +150,7 @@ console.log(`dist/missions.html: ${(missionsOut.length / 1024).toFixed(0)} KB`);
 
 // Tonight's sky, as its own single file, with the stars inline. Links back to the bridge go to the live site.
 const tonightHtml = await read('tonight.html');
-const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'log', 'catalog', 'wake', 'store', 'tonight'], (name, src) =>
+const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'ships', 'log', 'catalog', 'wake', 'store', 'tonight'], (name, src) =>
   src.replace("const BRIDGE = './';", `const BRIDGE = '${LIVE}';`));
 const tonightOut = `<title>Tonight’s sky</title>
 <meta name="theme-color" content="#05070d">

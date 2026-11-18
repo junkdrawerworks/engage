@@ -5,8 +5,9 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor, widthFor } from '../js/physics.js';
-import { THIN_LY, companions, describeKind, homeLines, composeEntry, inTextFor, logRecords, nearestStars, skyFrom, skyLine, titleFor, tripLine } from '../js/log.js';
-import { DESTINATIONS } from '../js/destinations.js';
+import { THIN_LY, companions, describeKind, earthYear, homeLines, composeEntry, inTextFor, logRecords, momentFor, nearestStars, skyFrom, skyLine, titleFor, tripLine } from '../js/log.js';
+import { ANCHORS, DESTINATIONS } from '../js/destinations.js';
+import { SHIPS, byId as shipById } from '../js/ships.js';
 import { CLASSES, quizReadings } from '../js/classes.js';
 import { rng, grow } from '../js/xeno-gen.js';
 import { CHARTS } from '../js/charts.js';
@@ -85,7 +86,7 @@ test('from Alpha Centauri the Sun is a bright star in Cassiopeia', () => {
 test('Earth’s old light is dated from today, not from New Year', () => {
   const home = (name, date) => { const i = cat.byName.get(name); return composeEntry(cat, i, { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 1, date: new Date(date) }).sections.find(s => s[0] === 'Looking home')[1]; };
   // Sirius is 8.60 ly away. On 18 November 2026 (2026.88) its view of Earth is from early 2018; it used to say 2017.
-  assert.match(home('Sirius', '2026-11-18T12:00:00Z'), /Earth as it was in 2018\./);
+  assert.match(home('Sirius', '2026-11-18T12:00:00Z'), /Earth as it was in 2018, the year Voyager 2 left the Sun’s bubble for interstellar space\./);
   assert.match(home('Sirius', '2026-02-01T12:00:00Z'), /Earth as it was in 2017[.,]/);
   // The year is the one the light left in, not the nearest: on 1 May (2026.33) that is still 2017, three quarters gone.
   assert.match(home('Sirius', '2026-05-01T12:00:00Z'), /Earth as it was in 2017[.,]/);
@@ -96,14 +97,74 @@ test('Earth’s old light is dated from today, not from New Year', () => {
   const antares = home('Antares', '2026-11-18T12:00:00Z');
   assert.match(antares, /Earth as it was in 14\d\d\./);
   assert.doesNotMatch(antares, /Columbus/);
-  // An anchor is offered only within two years of it after 1500, or ten before.
+  // Before 1900 a moment is offered within two years of it, or ten before 1500, as "around when".
   const lines = (ly, year) => homeLines(cat, [ly / 3.26156, 0, 0], year).join(' ');
-  assert.match(lines(60, 2026.5), /in 1966, around when Star Trek premiered on television/);
-  assert.doesNotMatch(lines(111.2, 2026.5), /around when/); // 1915
+  assert.match(lines(60, 2026.5), /in 1966, the year Star Trek premiered on television/);
+  assert.doesNotMatch(lines(112.2, 2026.5), /around when|the year/); // 1914
   assert.match(lines(540, 2026.5), /in 1486, around when Columbus crossed the Atlantic/);
   assert.doesNotMatch(lines(556, 2026.5), /around when/); // 1470
   // Before year 1 the count runs the other way: 2,500.2 light years back from mid-2026 is 475 BCE.
   assert.match(lines(2500.2, 2026.5), /Earth as it was in 475 BCE/);
+});
+
+test('Looking home names a moment for the very year, and only then', () => {
+  const said = (name, date = '2026-11-18T12:00:00Z') => { const i = cat.byName.get(name); return composeEntry(cat, i, { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 1, date: new Date(date) }); };
+  const home = (name, date) => said(name, date).sections.find(s => s[0] === 'Looking home')[1];
+  // Wolf 359 is 7.8 light years out: on 18 November 2026 it sees early 2019. The log used to say "2019, around when
+  // the James Webb Space Telescope launched", which was Christmas Day 2021.
+  assert.match(home('Wolf 359'), /Earth as it was in 2019, the year New Horizons flew past Arrokoth, the farthest world ever visited\./);
+  assert.doesNotMatch(home('Wolf 359'), /Webb|around when/);
+  // The ships' own years, from their files: Procyon sees New Horizons at Pluto, TRAPPIST-1 sees Voyager 2 at Uranus.
+  assert.match(home('Procyon'), /in 2015, the year New Horizons flew past Pluto\./);
+  assert.match(home('TRAPPIST-1'), /in 1986, the year Voyager 2 flew past Uranus\./);
+  assert.match(home('Proxima Centauri'), /in 2022, the year the James Webb Space Telescope sent back its first pictures\./);
+  assert.match(home('Vega'), /in 2001, the year NEAR Shoemaker made the first landing on an asteroid, Eros\./);
+  // The entry keeps the ship whose moment it is, for a link to her file; one with no ship in it keeps none.
+  assert.deepEqual(said('Sirius').ship, { id: 'v2', name: 'Voyager 2' });
+  assert.deepEqual(said('Procyon').ship, { id: 'nh', name: 'New Horizons' });
+  assert.deepEqual(said('Proxima Centauri').ship, { id: 'jwst', name: 'James Webb' });
+  assert.ok(!('ship' in said('Vega')) && !('ship' in said('Deneb')));
+  const lost = cat.unmeasured.findIndex(u => u);
+  assert.ok(!('ship' in composeEntry(cat, lost, { cam: [...cat.pos.subarray(lost * 3, lost * 3 + 3)], holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 3262, date: new Date('2026-11-18T12:00:00Z') })));
+
+  // From 1900 on, only the year itself: a year with no moment says nothing, however near its neighbours'.
+  assert.equal(momentFor(2002), null);
+  assert.equal(momentFor(1904), null);
+  assert.deepEqual(momentFor(1903), { year: 1903, text: 'the Wright brothers first flew', gap: 0, ship: null });
+  // Before 1900 the nearest moment within two years (ten before 1500), and "around when" unless it is the year.
+  assert.equal(momentFor(1606).year, 1604);
+  assert.equal(momentFor(1608).year, 1610);
+  assert.equal(momentFor(1607), null);
+  assert.equal(momentFor(1783).gap, 2);
+  assert.equal(momentFor(1784), null);
+  assert.equal(momentFor(1045).year, 1054);
+  assert.equal(momentFor(1043), null);
+  const line = (ly, year) => homeLines(cat, [ly / 3.26156, 0, 0], year)[1];
+  assert.match(line(2026.5 - 1781.5, 2026.5), /in 1781, the year William Herschel discovered Uranus\./);
+  assert.match(line(2026.5 - 1780.5, 2026.5), /in 1780, around when William Herschel discovered Uranus\./);
+  assert.match(line(2026.5 - 1572.5, 2026.5), /in 1572, the year Tycho Brahe saw a new star, a supernova, in Cassiopeia\./);
+  assert.match(line(2026.5 - 1718.5, 2026.5), /in 1718, the year Edmond Halley found that the stars move\./);
+  assert.match(line(2026.5 - 1050.5, 2026.5), /in 1050, around when the supernova that made the Crab Nebula lit up the sky\./);
+  assert.equal(earthYear([8.6 / 3.26156, 0, 0], 2026.88), 2018);
+
+  // The list: one moment to a year, in order, each a clause that can follow "the year" or "around when".
+  const years = ANCHORS.map(a => a[0]);
+  assert.deepEqual(years, [...new Set(years)].sort((a, b) => a - b));
+  for (const [year, text] of ANCHORS) assert.match(text, /^[a-zA-Z][^.]*[a-zA-Z0-9]$/, `${year}: ${text}`);
+  // Every year from Sputnik to 2024 has one, but for the ones with nothing sure to say.
+  const missing = [];
+  for (let y = 1957; y <= 2024; y++) if (!years.includes(y)) missing.push(y);
+  assert.deepEqual(missing, [2002]);
+  // A ship's moment is in her own file under the same day, so the log and long missions can't disagree; and each
+  // ship on a long mission has at least one.
+  const ships = new Set();
+  for (const [year, text, ship, day] of ANCHORS) {
+    if (!ship) { assert.equal(day, undefined, text); continue; }
+    ships.add(ship);
+    assert.ok(shipById(ship)?.log.some(([d]) => d === day), `${ship} has nothing on ${day}`);
+    assert.equal(Number(day.slice(0, 4)), year, text);
+  }
+  assert.deepEqual([...ships].sort(), SHIPS.map(s => s.id).sort());
 });
 
 test('from far away the Sun is too faint to see', () => {

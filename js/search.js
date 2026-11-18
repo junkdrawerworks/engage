@@ -94,6 +94,31 @@ function rank(index, query, mag) {
   return hits.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
 }
 
+// ---------- A year ----------
+
+// A query that is a year, from 1900 to this one ("1987"), or null. `now` is today as a year and the fraction of it
+// gone (the stardate's number).
+export function yearAsked(query, now) {
+  const m = /^\s*(\d{4})\s*$/.exec(String(query));
+  const year = m ? Number(m[1]) : 0;
+  return year >= 1900 && year <= Math.floor(now) ? year : null;
+}
+
+// The stars that light which left Earth in `year` is reaching about now: those within half a light year of the
+// middle of that year's light, which is to say the stars from which the log would date Earth's old light to that
+// year (it is floor(now - ly) there too, so the log on arrival names the year that was asked for). The `n`
+// brightest from Earth, brightest first. `lyFromSol(i)` is star i's distance from the Sun in light years, or null
+// where it was never measured; `mag(i)` is how bright it looks from Earth. "About now": distances 40 to 80 light
+// years out are good to a few tenths of a light year at best.
+export function litBy(year, now, count, lyFromSol, mag, n = 3) {
+  const hits = [];
+  for (let i = 1; i < count; i++) {
+    const ly = lyFromSol(i);
+    if (ly !== null && Math.floor(now - ly) === year) hits.push(i);
+  }
+  return hits.sort((a, b) => mag(a) - mag(b) || a - b).slice(0, n);
+}
+
 // Stars that share a name (the two of 61 Cygni, the three of θ¹ Orionis) get a letter each, the brightest A, so the
 // rows of a list can be told apart. `absmag` is each star's true brightness. Returns star number -> letter.
 export function pairLetters(names, absmag) {

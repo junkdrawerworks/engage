@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildIndex, chartTag, fold, named, pairLetters, readings, search } from '../js/search.js';
+import { buildIndex, chartTag, fold, litBy, named, pairLetters, readings, search, yearAsked } from '../js/search.js';
 import { CHARTS } from '../js/charts.js';
 import { DESTINATIONS } from '../js/destinations.js';
 
@@ -149,4 +149,39 @@ test('a link names one star, however it is spelled, or none', () => {
   assert.equal(star('Narnia'), undefined);
   assert.equal(star(''), undefined);
   assert.equal(star('%'), undefined);
+});
+
+test('a year finds the stars its light is reaching now', () => {
+  const NOW = 2026.88; // 18 November 2026
+  // Only a year on its own, from 1900 to this one.
+  assert.equal(yearAsked('1987', NOW), 1987);
+  assert.equal(yearAsked(' 1987 ', NOW), 1987);
+  assert.equal(yearAsked('1900', NOW), 1900);
+  assert.equal(yearAsked('2026', NOW), 2026);
+  for (const q of ['1899', '2027', '987', '19870', 'hip 1987', '1987 b', '', '19.87']) assert.equal(yearAsked(q, NOW), null, q);
+  // The catalogue as the bridge reads it: a star parked at exactly 1,000 parsecs has no measured distance.
+  const pc = i => Math.hypot(raw[i * 5], raw[i * 5 + 1], raw[i * 5 + 2]);
+  const ly = i => (Math.abs(pc(i) - 1000) < 0.01 ? null : pc(i) * 3.26156);
+  const lit = (year, n) => litBy(year, NOW, meta.names.length, ly, mag, n);
+  // '1987' used to find only HIP 19878 and HIP 91987, for the digits in their names.
+  assert.deepEqual(find('1987'), ['HIP 19878', 'HIP 91987']);
+  assert.deepEqual(lit(1987).map(i => meta.names[i]), ['λ Serpentis', 'ζ Trianguli Australis', 'ζ² Reticuli']);
+  // Each is within half a light year of the middle of that year's light, and the brightest come first.
+  for (const year of [1987, 1966, 1969, 2001, 1936, 1900]) {
+    const stars = lit(year, 50);
+    assert.ok(stars.length >= 3, `${year}: ${stars.length}`);
+    for (const i of stars) assert.ok(Math.abs(ly(i) - (NOW - year - 0.5)) <= 0.5, `${meta.names[i]} for ${year}`);
+    assert.ok(stars.every((i, k) => !k || mag(i) >= mag(stars[k - 1])), String(year));
+    assert.deepEqual(lit(year), stars.slice(0, 3));
+  }
+  // The stars people know: light from 2018 is at Sirius, from 2015 at Procyon, from 2001 at Vega.
+  assert.equal(meta.names[lit(2018, 1)[0]], 'Sirius');
+  assert.equal(meta.names[lit(2015, 1)[0]], 'Procyon');
+  assert.equal(meta.names[lit(2001, 1)[0]], 'Vega');
+  assert.deepEqual(lit(2022).map(i => meta.names[i]), ['Rigil Kentaurus', 'Toliman', 'Proxima Centauri']);
+  // Nothing is nearer than Proxima, 4.2 light years out: light from 2023 on has reached no star. Never the Sun,
+  // and never a star nobody has measured.
+  for (const year of [2023, 2024, 2025, 2026]) assert.deepEqual(lit(year), [], String(year));
+  assert.ok(!lit(1987, 50).includes(0));
+  assert.ok(!litBy(Math.floor(NOW - 3261.56), NOW, meta.names.length, ly, mag, 5000).some(i => ly(i) === null));
 });

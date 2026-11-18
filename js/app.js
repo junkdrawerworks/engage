@@ -5,7 +5,7 @@ import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
-import { buildIndex, chartTag, named, pairLetters, search } from './search.js';
+import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { LIVE, share } from './share.js';
 import { keep, watch } from './store.js';
 import {
@@ -18,6 +18,8 @@ const SURVEY = 'survey.html';
 const AWAY = SURVEY.startsWith('http') ? ' target="_blank" rel="noopener"' : '';
 // The xenobiology lab, beside it.
 const XENO = SURVEY.replace('survey.html', 'xeno.html');
+// Long missions, too.
+const MISSIONS = SURVEY.replace('survey.html', 'missions.html');
 // Tonight's sky, likewise.
 const TONIGHT = 'tonight.html';
 const $ = id => document.getElementById(id);
@@ -770,6 +772,7 @@ function entryHtml(e, heading) {
     if (label) parts.push(`<dt${style}>${esc(label)}</dt>`);
     parts.push(`<dd class="${label ? (label === 'Looking home' ? 'home' : '') : 'note'}"${style}>${esc(text)}</dd>`);
     if (label === 'Planets') parts.push(surveyLinks(e.star, style));
+    if (label === 'Looking home') parts.push(shipLink(e.ship, style));
   }
   parts.push('</dl>', entryActions(e, heading));
   return parts.join('');
@@ -808,6 +811,13 @@ function surveyLinks(i, style) {
     `<a href="${SURVEY}#${encodeURIComponent(cls.id)}"${AWAY}>${esc(world.name)}: ${world.misfit ? `on the ${esc(classLabel(cls))} file` : `${esc(classLabel(cls))}${cls.candidate ? ' candidate' : ''}`}</a>`
     // and, where the lab has the planet's own readings, to a creature grown for it.
     + (grows(world) ? `<a class="to-lab" href="${XENO}#world=${encodeURIComponent(world.name)}"${AWAY}>Grow a creature for ${esc(world.name)}</a>` : '')).join('')}</dd>`;
+}
+
+// When the year of Earth an entry looks back on is one of a long mission's own ("the year Voyager 2 flew past
+// Uranus"), a link to that ship's file in long missions: where she is now.
+function shipLink(ship, style) {
+  if (!ship || !/^[a-z0-9]+$/.test(ship.id) || typeof ship.name !== 'string') return '';
+  return `<dd class="files"${style}><a href="${MISSIONS}#${ship.id}"${AWAY}>Where ${esc(ship.name)} is now</a></dd>`;
 }
 
 function renderLog() {
@@ -888,8 +898,17 @@ function renderList() {
       html += `<p class="group">${state.at !== 0 && away ? away : title}</p>` + stars.map(i => row(i, metaFor(i, false))).join('');
     }
   } else {
-    const hits = search(starIndex(), q, magFromEarth);
-    html = hits.length ? hits.map(i => row(i, metaFor(i, false))).join('') : '<p class="empty">No star by that name in the catalogue.</p>';
+    html = search(starIndex(), q, magFromEarth).map(i => row(i, metaFor(i, false))).join('');
+    // A year finds the stars its light is reaching now, after any star with that number in its name: from each of
+    // them the log dates Earth's old light to that year.
+    const now = Number(stardate()), year = yearAsked(q, now);
+    if (year) {
+      const lit = litBy(year, now, cat.count, i => (cat.unmeasured[i] ? null : Math.hypot(...starPos(i)) * LY_PER_PC), magFromEarth);
+      html += lit.length
+        ? `<p class="group">Light that left Earth in ${year} is arriving about now at</p>` + lit.map(i => row(i, metaFor(i, false))).join('')
+        : `<p class="empty">Light that left Earth in ${year} hasn’t reached another star yet.</p>`;
+    }
+    html ||= '<p class="empty">No star by that name in the catalogue.</p>';
   }
   $('list').innerHTML = html;
 }
