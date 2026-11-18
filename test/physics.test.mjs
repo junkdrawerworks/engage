@@ -8,6 +8,7 @@ import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears
 import { describeKind, homeLines, composeEntry, inTextFor, titleFor, tripLine } from '../js/log.js';
 import { DESTINATIONS } from '../js/destinations.js';
 import { CLASSES } from '../js/classes.js';
+import { CHARTS } from '../js/charts.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // loadCatalog fetches relative URLs; answer them from the repo.
@@ -88,6 +89,22 @@ test('a log entry covers the star, home and the trip', () => {
   for (const l of ['The star', 'Planets', 'Looking home', 'The trip']) assert.ok(labels.includes(l), l);
   assert.match(e.intro, /Proxima b’s orbit/);
   assert.match(e.sections.find(s => s[0] === 'Looking home')[1], /Cassiopeia/);
+});
+
+test('the log says what Starfleet’s charts put at a star', () => {
+  const entry = name => { const i = cat.byName.get(name); return composeEntry(cat, i, { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 10, date: new Date('2026-10-08T00:00:00Z') }); };
+  for (const c of CHARTS) {
+    const said = entry(c.star).sections.filter(s => s[0] === 'Starfleet charts');
+    assert.deepEqual(said, [['Starfleet charts', c.log || c.line]], c.star);
+  }
+  const wolf = entry('Wolf 359').sections;
+  assert.match(wolf.find(s => s[0] === 'Starfleet charts')[1], /the Borg destroyed 39 starships/);
+  assert.ok(!wolf.some(s => /a great starship battle/.test(s[1])), 'Wolf 359 is still coy about the battle');
+  // Vulcan is said once, not in two sections.
+  assert.equal(entry('Keid').sections.filter(s => /Sky & Telescope/.test(s[1])).length, 1);
+  // The stories that aren't Star Trek's keep their own section, beside the charts'.
+  assert.deepEqual(entry('Vega').sections.map(s => s[0]).filter(l => /fiction|charts/.test(l)), ['In fiction', 'Starfleet charts']);
+  assert.ok(!entry('Sirius').sections.some(s => s[0] === 'Starfleet charts'));
 });
 
 test('the Pleiades are "The Pleiades" in a heading and "the Pleiades" in a sentence', () => {

@@ -1,11 +1,12 @@
 // Starfleet's charts laid over the real sky: what Star Trek put at the stars you can see from your back garden.
 // `star` is the name in data/stars.json. `tag` is what the overlay calls it; `line` is the story, with where it's from.
+// The captain's log tells the same story on arrival: `log` is the line for it where the garden's wouldn't fit.
 // Every other star Engage has notes on is tagged too, by its own name, so the sky shows everywhere the bridge can go.
 
 export const CHARTS = [
   { star: 'Keid', tag: 'Vulcan', line: 'Spock’s home world circles 40 Eridani A. Gene Roddenberry and three astronomers put it here in a 1991 letter to Sky & Telescope, and you can see the star without a telescope from a dark enough garden.' },
   { star: 'Rigil Kentaurus', tag: 'Cochrane’s home', line: '“Zefram Cochrane of Alpha Centauri,” Kirk calls the man who invented warp drive, in Metamorphosis.' },
-  { star: 'Wolf 359', tag: 'Wolf 359', line: 'Where the Borg destroyed 39 starships in 2367, in The Best of Both Worlds. Far too faint to see: it’s a red dwarf only a tenth the Sun’s mass.' },
+  { star: 'Wolf 359', tag: 'Wolf 359', line: 'Where the Borg destroyed 39 starships in 2367, in The Best of Both Worlds. Far too faint to see: it’s a red dwarf only a tenth the Sun’s mass.', log: 'Where the Borg destroyed 39 starships in 2367, in The Best of Both Worlds.' },
   { star: 'Rigel', tag: 'Rigel VII', line: 'Captain Pike fought the Kalar warriors on Rigel VII, in The Cage, the very first pilot.' },
   { star: 'Vega', tag: 'Vega colony', line: 'In The Cage, the Enterprise was bound for the Vega colony with her wounded when she picked up a distress call from Talos IV.' },
   { star: 'Altair', tag: 'Altair VI', line: 'In Amok Time, Kirk was ordered to the inauguration on Altair VI and took Spock to Vulcan instead.' },

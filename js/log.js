@@ -4,6 +4,7 @@ import {
   LY_PER_PC, apparentMag, formatDuration, formatLy, formatYear, stardate, tripYears, voyagerYears, SUN_ABSMAG,
 } from './physics.js';
 import { ANCHORS, DESTINATIONS } from './destinations.js';
+import { chartFor } from './charts.js';
 
 const NOTES = new Map(DESTINATIONS.map(d => [d.star, d]));
 const COLOUR = { O: 'Blue', B: 'Blue-white', A: 'White', F: 'Yellow-white', G: 'Yellow', K: 'Orange', M: 'Red' };
@@ -97,6 +98,9 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, dat
   if (notes?.planets) sections.push(['Planets', notes.planets]);
   for (const n of notes?.notes || []) sections.push(['', n]);
   if (notes?.fiction) sections.push(['In fiction', notes.fiction]);
+  // What Star Trek put here, in the words tonight's sky uses for the same star.
+  const chart = chartFor(cat.names[i]);
+  if (chart) sections.push(['Starfleet charts', chart.log || chart.line]);
   if (i !== 0) sections.push(['Looking home', homeLines(cat, cam, date.getUTCFullYear(), i).join(' ')]);
   if (tripLy > 0) sections.push(['The trip', tripLine(tripLy, warp, fromTitle)]);
   return { star: i, title, stardate: stardate(date), intro, sections, ly: tripLy || 0 };

@@ -58,7 +58,6 @@ export const DESTINATIONS = [
       'One of the faintest and smallest stars known, only about a tenth of the Sun’s mass.',
       'Like many small red dwarfs it is a flare star, prone to sudden outbursts.',
     ],
-    fiction: 'Famous in science fiction as the site of a great starship battle.',
   },
   {
     star: 'Lalande 21185', worlds: true, title: 'Lalande 21185', group: 'neighbors',
@@ -159,7 +158,6 @@ export const DESTINATIONS = [
     notes: [
       'A triple: an orange star like this one, a white dwarf and a red dwarf. The white dwarf is the easiest of all white dwarfs to see from Earth, in a small telescope.',
     ],
-    fiction: 'Vulcan’s sun. Gene Roddenberry and three astronomers named it in a 1991 letter to Sky & Telescope.',
   },
   {
     star: 'Altair', title: 'Altair', find: ['Alpha Aquilae'], group: 'famous',
