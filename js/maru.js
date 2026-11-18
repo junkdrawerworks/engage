@@ -1,5 +1,5 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
-import { newGame, orders, act, evaluate, CREW, MARU } from './maru-sim.js';
+import { newGame, orders, act, evaluate, transcript, CREW, MARU, ENDINGS, GRADED } from './maru-sim.js';
 import { sound } from './audio.js';
 
 const KEY = 'engage.maru.v1';
@@ -14,7 +14,8 @@ function load() {
   if (!s || typeof s !== 'object' || Array.isArray(s)) s = {};
   // Keep every run that can still be listed, even if something else in the save was damaged.
   const runs = Array.isArray(s.runs) ? s.runs.filter(r => r && typeof r === 'object' && Array.isArray(r.grades) && r.grades.every(x => x && typeof x === 'object')) : [];
-  return { ...s, runs };
+  // The endings seen, the best grades and the count of runs outlive the 30 runs listed; an older save's are filled in from its runs.
+  return { ...s, runs, ...transcript({ ...s, runs }) };
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* fine */ } }
 try { sound.on = JSON.parse(localStorage.getItem('engage.v1') || '{}')?.opts?.sound !== false; } catch { /* keep it on */ }
@@ -35,6 +36,12 @@ function showBrief() {
   const runs = saved.runs.slice(-8).reverse();
   $('record').hidden = !runs.length;
   $('rewrite').hidden = !runs.length;
+  // The standing record: endings as a collection (the ones not seen yet stay unnamed), best grades, runs taken.
+  const seen = new Set(saved.seen);
+  $('endings-n').textContent = `${seen.size} of ${ENDINGS.length}`;
+  $('endings').innerHTML = ENDINGS.map(t => (seen.has(t) ? `<li class="seen">${esc(t)}</li>` : '<li><span aria-hidden="true">—</span><span class="sr">Not seen yet</span></li>')).join('');
+  $('best').innerHTML = GRADED.map(name => `<span class="${saved.best[name] || 'none'}"><b>${saved.best[name] || '–'}</b>${name}</span>`).join('');
+  $('taken').textContent = `${saved.taken} ${saved.taken === 1 ? 'run' : 'runs'} taken`;
   $('runs').innerHTML = runs.map(r => `<li><b>${esc(r.title)}</b><span class="when">${esc(new Date(r.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>
     <span class="letters">${r.grades.map(x => `${esc(x.name)} ${esc(x.letter)}`).join(' · ')}</span></li>`).join('');
   showScreen('brief');
@@ -128,6 +135,7 @@ let lastEval = null;
 function record() {
   lastEval = evaluate(g);
   saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, grades: lastEval.grades.map(x => ({ name: x.name, letter: x.letter })), at: new Date().toISOString() });
+  Object.assign(saved, transcript({ ...saved, taken: saved.taken + 1 })); // before the list is cut to its last 30
   saved.runs = saved.runs.slice(-30);
   save();
 }

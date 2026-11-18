@@ -1,7 +1,7 @@
 // The Kobayashi Maru's rules, checked without a browser:  node --test test/maru.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, orders, evaluate, CREW, MARU, WARP_HULL } from '../js/maru-sim.js';
+import { newGame, act, orders, evaluate, transcript, CREW, MARU, WARP_HULL, ENDINGS, GRADED } from '../js/maru-sim.js';
 
 function play(plan, opts = {}) {
   const g = newGame({ seed: 7, ...opts });
@@ -203,5 +203,85 @@ test('every ending gets four grades and a note', () => {
     for (const x of e.grades) assert.match(x.letter, /^[ABCDF]$/);
     assert.ok(e.note.length >= 1);
     assert.ok(e.summary.length > 20);
+  }
+});
+
+// One way to each ending, as the orders a cadet would give. (Going down fighting takes three kills without beaming
+// anyone over, which the dice allow in most simulations but not all: seed 1 is one that does.)
+const WAYS = {
+  'By the book': [['leave']],
+  'Turned back': [['enter', 'warp']],
+  'The lifeboat': [['enter', 'beam', 'beam', 'warp']],
+  'Last off the ship': [['enter', 'beam', 'beam', 'abandon']],
+  'Held the line': [['enter', ...Array(30).fill('evade')]],
+  'Died trying': [['enter', ...Array(8).fill('beam')]],
+  'Went down fighting': [['enter', 'hail', 'torpedoes', 'torpedoes', 'torpedoes', ...Array(30).fill('phasers')], { seed: 1 }],
+  'The war you started': [['enter', ...Array(30).fill('phasers')]],
+  'Changed the rules': [['enter', ...Array(6).fill('beam'), 'warp'], { rewritten: true }],
+};
+
+test('every ending on the list can be reached, and the simulation has no ending off it', () => {
+  assert.deepEqual(Object.keys(WAYS).sort(), [...ENDINGS].sort());
+  assert.equal(ENDINGS.length, 9);
+  for (const [title, [plan, opts]] of Object.entries(WAYS)) {
+    const g = play(plan, opts);
+    assert.ok(g.over, `${title}: the orders did not end the simulation`);
+    assert.equal(evaluate(g).title, title);
+  }
+  // A few thousand cadets giving orders at random never find a tenth.
+  let a = 12345;
+  const rand = () => { a = (a * 1103515245 + 12345) & 0x7fffffff; return a / 0x7fffffff; };
+  for (let seed = 1; seed <= 3000; seed++) {
+    const g = newGame({ seed, rewritten: seed % 5 === 0 });
+    while (!g.over && g.turn < 80) { const open = orders(g).filter(o => !o.done); act(g, open[Math.floor(rand() * open.length)].id); }
+    if (g.over) assert.ok(ENDINGS.includes(evaluate(g).title), evaluate(g).title);
+  }
+});
+
+test('the record counts endings seen, best grades and runs taken, and outlives the list of runs', () => {
+  assert.deepEqual(transcript(), { seen: [], best: {}, taken: 0 });
+  // A save from before the record was kept: only its runs. It is filled in from them.
+  const run = (title, letters) => ({ title, outcome: 'x', grades: GRADED.map((name, k) => ({ name, letter: letters[k] })), at: '2026-11-18T00:00:00Z' });
+  const old = { runs: [run('The lifeboat', 'BCBD'), run('By the book', 'FCAF'), run('The lifeboat', 'CBCB')] };
+  const t = transcript(old);
+  assert.deepEqual(t, { seen: ['By the book', 'The lifeboat'], best: { Compassion: 'B', Judgment: 'B', Restraint: 'A', Nerve: 'B' }, taken: 3 });
+  assert.equal(old.runs.length, 3, 'the runs were changed');
+  // Forty runs later the page lists only the last thirty, and the record still has the rest.
+  const saved = { ...old, ...t };
+  for (let n = 0; n < 40; n++) {
+    saved.runs.push(run(n === 0 ? 'Went down fighting' : 'Turned back', n === 0 ? 'DFCA' : 'DFBF'));
+    Object.assign(saved, transcript({ ...saved, taken: saved.taken + 1 }));
+    saved.runs = saved.runs.slice(-30);
+  }
+  const later = transcript(JSON.parse(JSON.stringify(saved)));
+  assert.deepEqual(later.seen, ['By the book', 'Turned back', 'The lifeboat', 'Went down fighting']);
+  assert.deepEqual(later.best, { Compassion: 'B', Judgment: 'B', Restraint: 'A', Nerve: 'A' });
+  assert.equal(later.taken, 43);
+  // A reprogrammed run's Honesty is not one of the four, and junk in a save is ignored rather than counted.
+  const junk = transcript({ runs: [{ title: 'Changed the rules', grades: [{ name: 'Honesty', letter: 'F' }, null, { name: 'Nerve', letter: 'Z' }] }, null, { title: 'Made up' }], seen: ['Nope', 7], best: { Nerve: 'AA', Judgment: 'C' }, taken: -4 });
+  assert.deepEqual(junk, { seen: ['Changed the rules'], best: { Judgment: 'C' }, taken: 2 });
+});
+
+test('a grade below an A says what cost it, and the letters are the ones they always were', () => {
+  const why = (plan, name, opts) => { const x = gradeOf(evaluate(play(plan, opts)), name); return `${x.letter} ${x.why}`; };
+  // Never firing is the best thing said about Restraint, and still only a B: crossing the line cost ten.
+  assert.equal(why(['enter', 'beam', 'beam', 'warp'], 'Restraint'), 'B You never fired a shot, but you broke the treaty to be there.');
+  assert.equal(why(['starfleet', 'enter', 'hail', 'surrender', 'warp'], 'Restraint'), 'A You talked before you shot.');
+  assert.equal(why(['enter', 'phasers', 'warp'], 'Restraint'), 'F You fired the first shot.');
+  assert.equal(why(['leave'], 'Restraint'), 'A You never broke the treaty.');
+  assert.match(why(['enter', 'beam', 'beam', 'warp'], 'Compassion'), /^[B-F] You brought 150 people off the Maru, but 231 never left her\.$/);
+  assert.match(why(['enter', 'beam', ...Array(30).fill('evade')], 'Compassion'), /^[B-F] You brought 75 people off the Maru, though they died with your ship, and 306 never left her\.$/);
+  assert.equal(why(['enter', ...Array(8).fill('beam')], 'Compassion'), 'A You brought 300 people off the Maru, though they died with your ship.');
+  assert.match(why(['enter', 'warp'], 'Nerve'), /^[B-F] You held for 1 turn under their guns, then ran, before you had tried anything\.$/);
+  assert.match(why(['enter', 'beam', 'beam', 'warp'], 'Nerve'), /^[B-F] You held for 3 turns under their guns, then ran, sooner than the board likes\.$/);
+  assert.match(why(['enter', 'beam', 'beam', 'abandon'], 'Nerve'), /^[B-F] You were the last off the ship, but you gave her up after only 3 turns\.$/);
+  assert.match(why(['enter', ...Array(30).fill('evade')], 'Judgment'), /^F 0% of the 811 lives in your hands came through, and you (stayed \d+ turns after the Maru was gone|lost the ship without bringing anyone across)\.$/);
+  // An A is left as it was, and so is every letter: the scores behind them have not moved.
+  for (const [plan, opts] of Object.values(WAYS)) {
+    for (const x of evaluate(play(plan, opts)).grades) {
+      if ('score' in x) assert.equal(x.letter, x.score >= 85 ? 'A' : x.score >= 70 ? 'B' : x.score >= 55 ? 'C' : x.score >= 40 ? 'D' : 'F');
+      assert.match(x.why, /^[A-Z0-9][^.]*\.$/, `${x.name}: ${x.why}`);
+      if (x.letter === 'A') assert.doesNotMatch(x.why, /, (but|and you|sooner|before you|after offering)/, x.why);
+    }
   }
 });

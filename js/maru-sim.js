@@ -265,6 +265,29 @@ function volley(g, { evading, shieldsDown, parting }, events, say) {
 
 // ---------- The evaluation ----------
 
+// Every way the simulation can end, by the title evaluate() gives it. The briefing counts how many a cadet has seen.
+export const ENDINGS = ['By the book', 'Turned back', 'The lifeboat', 'Last off the ship', 'Held the line', 'Died trying', 'Went down fighting', 'The war you started', 'Changed the rules'];
+// The four things every run is graded on. (A reprogrammed run adds Honesty, which is only ever an F.)
+export const GRADED = ['Compassion', 'Judgment', 'Restraint', 'Nerve'];
+
+// A cadet's standing record, from what the page has saved: the endings seen (in ENDINGS' order), the best letter
+// earned for each grade, and how many runs have been taken. The page lists only its last 30 runs, so `seen`, `best`
+// and `taken` are kept beside them; a save from before they were kept is filled in from its runs. Anything in the
+// save that isn't an ending or a letter is ignored.
+export function transcript(saved = {}) {
+  const runs = Array.isArray(saved.runs) ? saved.runs.filter(r => r && typeof r === 'object') : [];
+  const seen = new Set(Array.isArray(saved.seen) ? saved.seen : []);
+  const best = {};
+  const earn = (name, l) => { if (GRADED.includes(name) && ['A', 'B', 'C', 'D', 'F'].includes(l) && (!best[name] || l < best[name])) best[name] = l; };
+  if (saved.best && typeof saved.best === 'object') for (const name of GRADED) earn(name, saved.best[name]);
+  for (const r of runs) {
+    seen.add(r.title);
+    for (const x of Array.isArray(r.grades) ? r.grades : []) if (x && typeof x === 'object') earn(x.name, x.letter);
+  }
+  const taken = Math.max(Number.isInteger(saved.taken) && saved.taken > 0 ? saved.taken : 0, runs.length);
+  return { seen: ENDINGS.filter(t => seen.has(t)), best, taken };
+}
+
 const letter = s => (s >= 85 ? 'A' : s >= 70 ? 'B' : s >= 55 ? 'C' : s >= 40 ? 'D' : 'F');
 const clamp = s => Math.max(0, Math.min(100, Math.round(s)));
 const people = n => `${n.toLocaleString('en-US')} ${n === 1 ? 'person' : 'people'}`;
@@ -337,12 +360,26 @@ export function evaluate(g) {
   if (g.over === 'destroyed' || g.over === 'abandoned') nerve += 10;
   if (f.surrendered && g.over !== 'destroyed') nerve -= 10;
 
+  // Each why-line says the best thing about the run. `but` is what cost the most, where the line doesn't already
+  // say it: it is added when the letter is below an A, so a B beside "You never fired a shot" explains itself.
+  const turns = `${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'}`;
+  const judgmentBut = afterMaru > 1 && g.over === 'destroyed' ? `and you stayed ${afterMaru} turns after the Maru was gone`
+    : g.over === 'destroyed' && !g.beamedEver ? 'and you lost the ship without bringing anyone across' : '';
+  const nerveBut = !went ? ''
+    : g.over === 'warp' ? `${f.klingonsFired ? '' : 'but you left '}${zoneTurns <= 1 && !g.beamedEver ? 'before you had tried anything' : f.surrendered ? 'after offering to surrender' : 'sooner than the board likes'}`
+    : g.over === 'abandoned' ? (f.surrendered ? 'after offering to surrender' : `but you gave her up after only ${turns}`)
+    : 'but the end came quickly';
   const grades = [
-    { name: 'Compassion', score: clamp(compassion), why: !went ? 'You never went to them.' : g.beamedEver ? `You brought ${people(g.beamedEver)} off the Maru${g.over === 'destroyed' ? ', though they died with your ship' : ''}.` : 'You went in, but nobody came off the Maru.' },
-    { name: 'Judgment', score: clamp(judgment), why: `${Math.round(kept * 100)}% of the ${(CREW + MARU).toLocaleString('en-US')} lives in your hands came through${prisoners ? ', as prisoners' : ''}.` },
-    { name: 'Restraint', score: clamp(restraint), why: !went ? 'You never broke the treaty.' : f.firedFirst ? 'You fired the first shot.' : f.hailedKlingons ? 'You talked before you shot.' : f.playerFired ? 'You fired only after they did.' : 'You never fired a shot.' },
-    { name: 'Nerve', score: clamp(nerve), why: !went ? 'You decided from a safe distance.' : g.over === 'warp' ? (f.klingonsFired ? `You held for ${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'} under their guns, then ran.` : `You stayed ${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'} alongside the Maru, and nobody fired.`) : g.over === 'abandoned' ? 'You were the last off the ship.' : `You held your post for ${zoneTurns} ${zoneTurns === 1 ? 'turn' : 'turns'}, to the end.` },
-  ].map(x => ({ ...x, letter: letter(x.score) }));
+    { name: 'Compassion', score: clamp(compassion), why: !went ? 'You never went to them.' : g.beamedEver ? `You brought ${people(g.beamedEver)} off the Maru${g.over === 'destroyed' ? ', though they died with your ship' : ''}.` : 'You went in, but nobody came off the Maru.',
+      but: went && g.beamedEver ? `${g.over === 'destroyed' ? 'and' : 'but'} ${MARU - g.beamedEver} never left her` : '' },
+    { name: 'Judgment', score: clamp(judgment), why: `${Math.round(kept * 100)}% of the ${(CREW + MARU).toLocaleString('en-US')} lives in your hands came through${prisoners ? ', as prisoners' : ''}.`, but: judgmentBut },
+    { name: 'Restraint', score: clamp(restraint), why: !went ? 'You never broke the treaty.' : f.firedFirst ? 'You fired the first shot.' : f.hailedKlingons ? 'You talked before you shot.' : f.playerFired ? 'You fired only after they did.' : 'You never fired a shot.',
+      but: went && !f.firedFirst ? 'but you broke the treaty to be there' : '' },
+    { name: 'Nerve', score: clamp(nerve), why: !went ? 'You decided from a safe distance.' : g.over === 'warp' ? (f.klingonsFired ? `You held for ${turns} under their guns, then ran.` : `You stayed ${turns} alongside the Maru, and nobody fired.`) : g.over === 'abandoned' ? 'You were the last off the ship.' : `You held your post for ${turns}, to the end.`, but: nerveBut },
+  ].map(({ but, ...x }) => {
+    const l = letter(x.score);
+    return { ...x, letter: l, why: l !== 'A' && but ? `${x.why.slice(0, -1)}, ${but}.` : x.why };
+  });
   if (g.rewritten) grades.push(honesty);
 
   const note = [];

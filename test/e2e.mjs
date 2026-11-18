@@ -536,8 +536,15 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= i
 await page.click('#read-eval');
 assert.equal(await text('#eval-title'), 'The lifeboat');
 assert.equal(await page.locator('.grade').count(), 4);
+// A grade below an A says what cost it: never firing is the best thing about this run's restraint, and still a B.
+assert.equal(await page.locator('.grade', { hasText: 'Restraint' }).locator('.w').innerText(), 'You never fired a shot, but you broke the treaty to be there.');
 await page.click('#again');
 assert.match(await text('#runs'), /The lifeboat/);
+// The record on the briefing: the endings as a collection (the ones not seen yet stay unnamed), the best grades and the runs taken.
+assert.equal(await text('#endings-n'), '1 OF 9');
+assert.deepEqual(await page.locator('#endings li').evaluateAll(els => els.map(el => (el.className ? el.textContent : '?')).filter(t => t !== '?').concat(els.length)), ['The lifeboat', 9]);
+assert.match((await text('#best')).replace(/\s+/g, ' '), /^[A-F] COMPASSION [A-F] JUDGMENT B RESTRAINT [A-F] NERVE$/);
+assert.equal(await text('#taken'), '1 RUN TAKEN');
 assert.equal(await shown('#rewrite'), true, 'no way to reprogram the simulator after a run');
 await page.click('#rewrite');
 await order('enter');
@@ -545,6 +552,11 @@ for (let i = 0; i < 6; i++) await order('beam');
 await order('warp');
 await page.click('#read-eval');
 assert.equal(await text('#eval-title'), 'Changed the rules');
+await page.click('#again');
+assert.equal(await text('#endings-n'), '2 OF 9');
+assert.equal(await text('#taken'), '2 RUNS TAKEN');
+assert.match((await text('#best')).replace(/\s+/g, ' '), /^A COMPASSION A JUDGMENT A RESTRAINT [A-F] NERVE$/, 'the best grades did not take the better run’s');
+assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.maru.v1')); return [s.runs.length, s.seen, s.taken]; }), [2, ['The lifeboat', 'Changed the rules'], 2]);
 // Long missions: reached from the bridge, the ships on file, a hail sent, and a course set for where one is bound.
 await page.goto(base);
 await bridgeReady();
@@ -885,6 +897,39 @@ await bridgeReady();
   assert.equal(await p.locator('#systems .s-been').count(), 2);
   assert.ok(await p.evaluate(() => localStorage.getItem('engage.v1')) === bridgeSave, 'tonight’s sky wrote to the bridge’s save');
   await been.close();
+}
+
+// Records kept before the rooms kept standing ones: the Kobayashi Maru's runs with nothing beside them. Nothing in
+// them is lost, and the endings seen, best grades and runs taken are filled in from them.
+{
+  const old = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const grades = letters => ['Compassion', 'Judgment', 'Restraint', 'Nerve'].map((name, k) => ({ name, letter: letters[k] }));
+  const maruRuns = [
+    { title: 'The lifeboat', outcome: 'warp', grades: grades('CBBB'), at: '2026-11-16T10:00:00.000Z' },
+    { title: 'By the book', outcome: 'stayed', grades: grades('FCAF'), at: '2026-11-17T10:00:00.000Z' },
+  ];
+  await old.addInitScript(runs => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('engage.maru.v1', JSON.stringify({ runs }));
+  }, maruRuns);
+  const p = await old.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru);
+  assert.equal(await p.locator('#endings-n').innerText(), '2 OF 9');
+  assert.deepEqual(await p.locator('#endings li.seen').allInnerTexts(), ['By the book', 'The lifeboat']);
+  assert.equal((await p.locator('#best').innerText()).replace(/\s+/g, ' '), 'C COMPASSION B JUDGMENT A RESTRAINT B NERVE');
+  assert.equal(await p.locator('#taken').innerText(), '2 RUNS TAKEN');
+  assert.equal(await p.locator('#runs li').count(), 2);
+  // The next run is added to them, and the old runs are saved back as they were.
+  await p.click('#start');
+  await p.click('.order[data-id="leave"]');
+  await p.waitForFunction(() => !maru.busy && document.getElementById('read-eval'), null, { timeout: 20000 });
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.maru.v1')));
+  assert.deepEqual(kept.runs.slice(0, 2), maruRuns, 'the old runs were changed');
+  assert.deepEqual([kept.runs.length, kept.seen, kept.taken, kept.best.Restraint], [3, ['By the book', 'The lifeboat'], 3, 'A']);
+  await old.close();
 }
 
 // The xenobiology lab: reached from the bridge, a creature grown for a class, kept in a jar, and reached from a survey file.
