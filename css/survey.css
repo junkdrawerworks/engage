@@ -55,6 +55,8 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .fly:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* Set course, and Grow a creature for it: side by side where there's room, one under the other on a phone. */
 .w-links { display: flex; flex-wrap: wrap; gap: 0 20px; }
+/* A long planet's name takes its link to a second line: give the two lines room. */
+.w-links .fly { line-height: 1.4; }
 
 /* Thumbnails to flip through */
 .strip-wrap { margin: 14px -16px 0; }
