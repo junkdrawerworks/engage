@@ -8,7 +8,7 @@ import { CHARTS } from './charts.js';
 import { LY_PER_PC, apparentMag, formatLy, formatYear, stardate } from './physics.js';
 import {
   jdOf, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark,
-  phonePose, SKIES, NAKED_EYE_PLANETS,
+  phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone,
 } from './astro.js';
 import { hold, release } from './wake.js';
 
@@ -19,22 +19,6 @@ const $ = id => document.getElementById(id);
 const DEG = Math.PI / 180;
 const DARK_SKY = 6.5; // the faintest star ever drawn
 const PLANET_NAMES = { mercury: 'Mercury', venus: 'Venus', mars: 'Mars', jupiter: 'Jupiter', saturn: 'Saturn' };
-
-// Cities to pick from when the phone can't say where it is, and for guessing from the time zone.
-const CITIES = [
-  ['New York', 40.71, -74.01, 'America/New_York'], ['Boston', 42.36, -71.06, 'America/New_York'], ['Washington', 38.91, -77.04, 'America/New_York'],
-  ['Toronto', 43.65, -79.38, 'America/Toronto'], ['Chicago', 41.88, -87.63, 'America/Chicago'], ['Houston', 29.76, -95.37, 'America/Chicago'],
-  ['Denver', 39.74, -104.99, 'America/Denver'], ['Phoenix', 33.45, -112.07, 'America/Phoenix'], ['Los Angeles', 34.05, -118.24, 'America/Los_Angeles'],
-  ['San Francisco', 37.77, -122.42, 'America/Los_Angeles'], ['Seattle', 47.61, -122.33, 'America/Los_Angeles'], ['Vancouver', 49.28, -123.12, 'America/Vancouver'],
-  ['Anchorage', 61.22, -149.9, 'America/Anchorage'], ['Honolulu', 21.31, -157.86, 'Pacific/Honolulu'], ['Mexico City', 19.43, -99.13, 'America/Mexico_City'],
-  ['São Paulo', -23.55, -46.63, 'America/Sao_Paulo'], ['Buenos Aires', -34.6, -58.38, 'America/Argentina/Buenos_Aires'], ['Reykjavík', 64.15, -21.94, 'Atlantic/Reykjavik'],
-  ['Dublin', 53.35, -6.26, 'Europe/Dublin'], ['London', 51.51, -0.13, 'Europe/London'], ['Paris', 48.86, 2.35, 'Europe/Paris'],
-  ['Madrid', 40.42, -3.7, 'Europe/Madrid'], ['Berlin', 52.52, 13.4, 'Europe/Berlin'], ['Rome', 41.9, 12.5, 'Europe/Rome'],
-  ['Stockholm', 59.33, 18.07, 'Europe/Stockholm'], ['Cairo', 30.04, 31.24, 'Africa/Cairo'], ['Nairobi', -1.29, 36.82, 'Africa/Nairobi'],
-  ['Cape Town', -33.92, 18.42, 'Africa/Johannesburg'], ['Dubai', 25.2, 55.27, 'Asia/Dubai'], ['Mumbai', 19.08, 72.88, 'Asia/Kolkata'],
-  ['Singapore', 1.35, 103.82, 'Asia/Singapore'], ['Hong Kong', 22.32, 114.17, 'Asia/Hong_Kong'], ['Tokyo', 35.68, 139.69, 'Asia/Tokyo'],
-  ['Sydney', -33.87, 151.21, 'Australia/Sydney'], ['Melbourne', -37.81, 144.96, 'Australia/Melbourne'], ['Auckland', -36.85, 174.76, 'Pacific/Auckland'],
-].map(([name, lat, lon, tz]) => ({ name, lat, lon, tz }));
 
 const saved = load();
 const visits = loadVisits(); // star index -> { stardate, n }: where the bridge's log says the ship has been
@@ -151,13 +135,9 @@ const starDir = i => [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]];
 function guessPlace() {
   let tz = '';
   try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* none */ }
-  const city = CITIES.find(c => c.tz === tz);
-  if (city) return { name: city.name, lat: city.lat, lon: city.lon, tz, how: 'guess' };
-  // Each hour of a zone's standard time is 15° of longitude. Summer time runs an hour ahead, so go by whichever of January and July is behind.
+  // Summer time runs an hour ahead of a zone's standard time, so go by whichever of January and July is behind.
   const y = new Date().getFullYear();
-  const lon = -Math.max(new Date(y, 0, 1).getTimezoneOffset(), new Date(y, 6, 1).getTimezoneOffset()) / 4;
-  const south = /^(Australia|Antarctica|Pacific\/(Auckland|Fiji)|America\/(Argentina|Santiago|Sao_Paulo|Montevideo))/.test(tz);
-  return { name: 'your time zone', lat: south ? -33 : 40, lon, tz, how: 'guess' };
+  return placeForZone(tz, -Math.max(new Date(y, 0, 1).getTimezoneOffset(), new Date(y, 6, 1).getTimezoneOffset()));
 }
 
 function setPlace(p) {

@@ -161,6 +161,77 @@ export function nextDark(lat, lon, from, hours = 36) {
   return null;
 }
 
+// ---------- Where you might be ----------
+
+// Cities to pick from when the phone can't say where it is, and for guessing from the time zone: the first city listed
+// for a zone is the guess.
+export const CITIES = [
+  ['New York', 40.71, -74.01, 'America/New_York'], ['Boston', 42.36, -71.06, 'America/New_York'], ['Washington', 38.91, -77.04, 'America/New_York'],
+  ['Toronto', 43.65, -79.38, 'America/Toronto'], ['Chicago', 41.88, -87.63, 'America/Chicago'], ['Houston', 29.76, -95.37, 'America/Chicago'],
+  ['Denver', 39.74, -104.99, 'America/Denver'], ['Phoenix', 33.45, -112.07, 'America/Phoenix'], ['Los Angeles', 34.05, -118.24, 'America/Los_Angeles'],
+  ['San Francisco', 37.77, -122.42, 'America/Los_Angeles'], ['Seattle', 47.61, -122.33, 'America/Los_Angeles'], ['Vancouver', 49.28, -123.12, 'America/Vancouver'],
+  ['Anchorage', 61.22, -149.9, 'America/Anchorage'], ['Honolulu', 21.31, -157.86, 'Pacific/Honolulu'], ['Mexico City', 19.43, -99.13, 'America/Mexico_City'],
+  ['Bogotá', 4.71, -74.07, 'America/Bogota'], ['Lima', -12.05, -77.04, 'America/Lima'], ['São Paulo', -23.55, -46.63, 'America/Sao_Paulo'],
+  ['Buenos Aires', -34.6, -58.38, 'America/Argentina/Buenos_Aires'], ['Santiago', -33.45, -70.67, 'America/Santiago'], ['Reykjavík', 64.15, -21.94, 'Atlantic/Reykjavik'],
+  ['Dublin', 53.35, -6.26, 'Europe/Dublin'], ['London', 51.51, -0.13, 'Europe/London'], ['Lisbon', 38.72, -9.14, 'Europe/Lisbon'],
+  ['Madrid', 40.42, -3.7, 'Europe/Madrid'], ['Paris', 48.86, 2.35, 'Europe/Paris'], ['Berlin', 52.52, 13.4, 'Europe/Berlin'],
+  ['Rome', 41.9, 12.5, 'Europe/Rome'], ['Stockholm', 59.33, 18.07, 'Europe/Stockholm'], ['Warsaw', 52.23, 21.01, 'Europe/Warsaw'],
+  ['Athens', 37.98, 23.73, 'Europe/Athens'], ['Kyiv', 50.45, 30.52, 'Europe/Kyiv'], ['Istanbul', 41.01, 28.98, 'Europe/Istanbul'],
+  ['Moscow', 55.76, 37.62, 'Europe/Moscow'], ['Cairo', 30.04, 31.24, 'Africa/Cairo'], ['Lagos', 6.52, 3.38, 'Africa/Lagos'],
+  ['Nairobi', -1.29, 36.82, 'Africa/Nairobi'], ['Johannesburg', -26.2, 28.05, 'Africa/Johannesburg'], ['Cape Town', -33.92, 18.42, 'Africa/Johannesburg'],
+  ['Riyadh', 24.71, 46.68, 'Asia/Riyadh'], ['Tehran', 35.69, 51.39, 'Asia/Tehran'], ['Dubai', 25.2, 55.27, 'Asia/Dubai'],
+  ['Karachi', 24.86, 67.01, 'Asia/Karachi'], ['Mumbai', 19.08, 72.88, 'Asia/Kolkata'], ['Delhi', 28.61, 77.21, 'Asia/Kolkata'],
+  ['Dhaka', 23.81, 90.41, 'Asia/Dhaka'], ['Bangkok', 13.76, 100.5, 'Asia/Bangkok'], ['Ho Chi Minh City', 10.82, 106.63, 'Asia/Ho_Chi_Minh'],
+  ['Kuala Lumpur', 3.14, 101.69, 'Asia/Kuala_Lumpur'], ['Singapore', 1.35, 103.82, 'Asia/Singapore'], ['Jakarta', -6.21, 106.85, 'Asia/Jakarta'],
+  ['Manila', 14.6, 120.98, 'Asia/Manila'], ['Hong Kong', 22.32, 114.17, 'Asia/Hong_Kong'], ['Shanghai', 31.23, 121.47, 'Asia/Shanghai'],
+  ['Beijing', 39.9, 116.41, 'Asia/Shanghai'], ['Taipei', 25.03, 121.57, 'Asia/Taipei'], ['Seoul', 37.57, 126.98, 'Asia/Seoul'],
+  ['Tokyo', 35.68, 139.69, 'Asia/Tokyo'], ['Perth', -31.95, 115.86, 'Australia/Perth'], ['Adelaide', -34.93, 138.6, 'Australia/Adelaide'],
+  ['Brisbane', -27.47, 153.03, 'Australia/Brisbane'], ['Sydney', -33.87, 151.21, 'Australia/Sydney'], ['Melbourne', -37.81, 144.96, 'Australia/Melbourne'],
+  ['Auckland', -36.85, 174.76, 'Pacific/Auckland'],
+].map(([name, lat, lon, tz]) => ({ name, lat, lon, tz }));
+
+// Browsers still give some zones by the names they had before they were respelt or regrouped (Chrome says
+// Asia/Calcutta for India and America/Buenos_Aires for Argentina). Old name to the one the cities above use.
+const ZONE_NOW = {
+  'Asia/Calcutta': 'Asia/Kolkata', 'Asia/Saigon': 'Asia/Ho_Chi_Minh', 'Europe/Kiev': 'Europe/Kyiv', 'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+  'Asia/Chongqing': 'Asia/Shanghai', 'Asia/Chungking': 'Asia/Shanghai', 'Asia/Harbin': 'Asia/Shanghai', PRC: 'Asia/Shanghai',
+  'Asia/Istanbul': 'Europe/Istanbul', Turkey: 'Europe/Istanbul', 'Asia/Dacca': 'Asia/Dhaka', 'Asia/Katmandu': 'Asia/Kathmandu', 'Asia/Rangoon': 'Asia/Yangon',
+  'Australia/Canberra': 'Australia/Sydney', 'Australia/NSW': 'Australia/Sydney', 'Australia/Victoria': 'Australia/Melbourne',
+  'Australia/Queensland': 'Australia/Brisbane', 'Australia/South': 'Australia/Adelaide', 'Australia/West': 'Australia/Perth',
+  'US/Eastern': 'America/New_York', 'US/Central': 'America/Chicago', 'US/Mountain': 'America/Denver', 'US/Pacific': 'America/Los_Angeles',
+  'US/Arizona': 'America/Phoenix', 'US/Alaska': 'America/Anchorage', 'US/Hawaii': 'Pacific/Honolulu', 'Canada/Eastern': 'America/Toronto', 'Canada/Pacific': 'America/Vancouver',
+  'Europe/Belfast': 'Europe/London', GB: 'Europe/London', Eire: 'Europe/Dublin', Japan: 'Asia/Tokyo', ROK: 'Asia/Seoul', Singapore: 'Asia/Singapore',
+  Hongkong: 'Asia/Hong_Kong', Iran: 'Asia/Tehran', Egypt: 'Africa/Cairo', NZ: 'Pacific/Auckland', Iceland: 'Atlantic/Reykjavik', 'Brazil/East': 'America/Sao_Paulo',
+};
+
+// For a zone with no city above, a latitude typical of its part of the world: the far south, the tropics, or the
+// middle latitudes of the north, where most of the rest live. The first pattern that fits wins.
+const ZONE_LATITUDES = [
+  [/^(Australia|Antarctica)\/|^Pacific\/(Auckland|Chatham)$|^Atlantic\/(Stanley|South_Georgia)$|^Indian\/(Mauritius|Reunion|Antananarivo)$/, -33],
+  [/^America\/(Argentina\/|Buenos_Aires|Cordoba|Rosario|Mendoza|Catamarca|Jujuy|Santiago|Punta_Arenas|Montevideo|Asuncion|Sao_Paulo)/, -33],
+  [/^Africa\/(Johannesburg|Maseru|Mbabane|Gaborone|Windhoek|Maputo|Harare|Bulawayo)$/, -25],
+  [/^Africa\/(Cairo|Tripoli|Tunis|Algiers|Casablanca|El_Aaiun|Ceuta)$/, 32],
+  [/^America\/(La_Paz|Manaus|Cuiaba|Campo_Grande|Porto_Velho|Rio_Branco|Belem|Fortaleza|Recife|Maceio|Bahia|Araguaina|Santarem|Noronha)$/, -10],
+  [/^America\/(Bogota|Lima|Guayaquil|Caracas|Boa_Vista|Cayenne|Paramaribo|Guyana|Panama|Costa_Rica|Managua|Tegucigalpa|El_Salvador|Guatemala|Belize|Cancun|Merida|Jamaica|Havana|Port-au-Prince|Santo_Domingo|Puerto_Rico|Port_of_Spain|Barbados|Martinique|Guadeloupe|Curacao|Aruba|St_|Grenada|Antigua|Dominica|Anguilla|Montserrat|Tortola|Cayman|Nassau)/, 10],
+  [/^Asia\/(Pontianak|Makassar|Ujung_Pandang|Jayapura|Dili|Brunei|Kuching)$|^Pacific\/|^Indian\//, -5],
+  [/^Asia\/(Phnom_Penh|Vientiane|Yangon|Colombo|Aden|Macau)$/, 15],
+  [/^Asia\/(Kathmandu|Thimphu|Muscat|Qatar|Bahrain|Kuwait)$/, 26],
+  [/^Africa\//, 5],
+  [/^Europe\//, 50],
+  [/^Asia\//, 38],
+];
+export const zoneLatitude = tz => (ZONE_LATITUDES.find(([re]) => re.test(tz)) || [0, 40])[1];
+
+// A first guess at where someone is from their time zone alone: the zone's city if it has one here, or else the
+// longitude its standard time is set by (each hour ahead of Greenwich is 15° east; `standardMin` is minutes ahead)
+// at a latitude typical of its part of the world.
+export function placeForZone(tz, standardMin = 0) {
+  const zone = ZONE_NOW[tz] || tz;
+  const city = CITIES.find(c => c.tz === zone);
+  if (city) return { name: city.name, lat: city.lat, lon: city.lon, tz, how: 'guess' };
+  return { name: 'your time zone', lat: zoneLatitude(zone), lon: standardMin / 4, tz, how: 'guess' };
+}
+
 // The rest frame of the phone: which way the back camera faces, and the screen's right and up, in east-north-up,
 // from the deviceorientation angles (degrees; alpha measured from north). `screenAngle` is the screen's rotation.
 export function phonePose(alpha, beta, gamma, screenAngle = 0) {

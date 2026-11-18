@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   jdOf, gmst, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, phaseMag, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark, phonePose,
+  CITIES, placeForZone, zoneLatitude,
 } from '../js/astro.js';
 import { CHARTS } from '../js/charts.js';
 
@@ -157,6 +158,48 @@ test('the next dark sky', () => {
   const dark = nextDark(40.7, -74, noon);
   const local = (dark.getUTCHours() + 24 - 4) % 24 + dark.getUTCMinutes() / 60;
   near(local, 19.75, 0.5, 'dark in New York in October');
+});
+
+test('a place guessed from the time zone', () => {
+  const guess = (tz, hoursAhead = 0) => placeForZone(tz, hoursAhead * 60);
+  // A zone with a city here is that city, whichever of its names the browser gives: Chrome still says Asia/Calcutta
+  // for India, America/Buenos_Aires for Argentina, Asia/Saigon for Vietnam and Europe/Kiev for Ukraine.
+  for (const [tz, name, lat] of [
+    ['Asia/Kolkata', 'Mumbai', 19], ['Asia/Calcutta', 'Mumbai', 19], ['America/Argentina/Buenos_Aires', 'Buenos Aires', -35], ['America/Buenos_Aires', 'Buenos Aires', -35],
+    ['Asia/Ho_Chi_Minh', 'Ho Chi Minh City', 11], ['Asia/Saigon', 'Ho Chi Minh City', 11], ['Europe/Kyiv', 'Kyiv', 50], ['Europe/Kiev', 'Kyiv', 50],
+    ['America/Lima', 'Lima', -12], ['Asia/Jakarta', 'Jakarta', -6], ['Africa/Lagos', 'Lagos', 7], ['Asia/Shanghai', 'Shanghai', 31], ['Asia/Seoul', 'Seoul', 38],
+    ['Asia/Manila', 'Manila', 15], ['Asia/Bangkok', 'Bangkok', 14], ['Asia/Karachi', 'Karachi', 25], ['Asia/Dhaka', 'Dhaka', 24], ['Asia/Tehran', 'Tehran', 36],
+    ['Europe/Istanbul', 'Istanbul', 41], ['Europe/Moscow', 'Moscow', 56], ['Africa/Johannesburg', 'Johannesburg', -26], ['America/Bogota', 'Bogotá', 5],
+    ['America/Santiago', 'Santiago', -33], ['Australia/Perth', 'Perth', -32], ['Australia/Brisbane', 'Brisbane', -27], ['Australia/Adelaide', 'Adelaide', -35],
+    ['Europe/Lisbon', 'Lisbon', 39], ['Europe/Athens', 'Athens', 38], ['Europe/Warsaw', 'Warsaw', 52], ['America/New_York', 'New York', 41], ['US/Pacific', 'Los Angeles', 34],
+  ]) {
+    const p = guess(tz);
+    assert.deepEqual([p.name, Math.round(p.lat), p.how, p.tz], [name, lat, 'guess', tz], tz);
+  }
+  // A zone with no city is put at the longitude its standard time is set by, at a latitude for its part of the
+  // world: not 40° north for the whole of the tropics and the south.
+  assert.deepEqual(guess('Europe/Amsterdam', 1), { name: 'your time zone', lat: 50, lon: 15, tz: 'Europe/Amsterdam', how: 'guess' });
+  for (const [tz, hours, lo, hi] of [
+    ['Africa/Kinshasa', 1, -10, 10], ['Africa/Accra', 0, -10, 10], ['America/Caracas', -4, 0, 15], ['America/Panama', -5, 0, 15], ['America/La_Paz', -4, -20, -5],
+    ['Asia/Makassar', 8, -10, 5], ['Pacific/Fiji', 12, -20, 0], ['Indian/Maldives', 5, -10, 10], ['America/Montevideo', -3, -40, -25], ['America/Cordoba', -3, -40, -25],
+    ['Australia/Hobart', 10, -45, -30], ['Africa/Maputo', 2, -30, -20], ['Africa/Casablanca', 0, 28, 36], ['America/Halifax', -4, 35, 50], ['America/Winnipeg', -6, 35, 50],
+    ['Asia/Tashkent', 5, 30, 45], ['Europe/Oslo', 1, 45, 60], ['Asia/Kathmandu', 5.75, 20, 30], ['Asia/Katmandu', 5.75, 20, 30], ['UTC', 0, 35, 45], ['', 0, 35, 45],
+  ]) {
+    const p = guess(tz, hours);
+    assert.equal(p.name, 'your time zone', tz);
+    assert.ok(p.lat >= lo && p.lat <= hi, `${tz} was put at latitude ${p.lat}`);
+    assert.equal(p.lon, hours * 15, tz);
+    assert.equal(zoneLatitude(tz), tz === 'Asia/Katmandu' ? 38 : p.lat); // the old spelling is put right before the latitude is looked up
+  }
+  // Every city is somewhere on Earth, named once, in a zone this browser knows.
+  assert.equal(new Set(CITIES.map(c => c.name)).size, CITIES.length);
+  for (const c of CITIES) {
+    assert.ok(Math.abs(c.lat) < 70 && Math.abs(c.lon) <= 180, c.name);
+    assert.doesNotThrow(() => new Intl.DateTimeFormat('en-US', { timeZone: c.tz }), c.name);
+    // Its clock agrees with its longitude to within a couple of hours (China and Spain keep time well off the Sun's).
+    const offset = (Date.UTC(2026, 0, 15, 12) - new Date(new Date(Date.UTC(2026, 0, 15, 12)).toLocaleString('en-US', { timeZone: c.tz }) + ' UTC')) / -3600e3;
+    assert.ok(Math.abs(offset - c.lon / 15) < 2.6, `${c.name} at ${c.lon}° keeps time ${offset} hours from Greenwich`);
+  }
 });
 
 test('the phone’s pose', () => {

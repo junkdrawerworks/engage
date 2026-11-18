@@ -840,6 +840,20 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= i
   assert.equal(await p.evaluate(() => tonight.state.place.name), 'Paris', 'the city picked by hand was guessed over');
   await summer.close();
 }
+// Chrome gives Argentina's zone by its old name, America/Buenos_Aires. That is still Buenos Aires, in the southern
+// sky, and not "your time zone" at 40° north in the middle of the Atlantic.
+{
+  const south = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'America/Argentina/Buenos_Aires' });
+  const p = await south.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  assert.equal(await p.locator('#place-name').innerText(), 'Near Buenos Aires?');
+  const guess = await p.evaluate(() => tonight.state.place);
+  assert.deepEqual([guess.lat, guess.lon, guess.how], [-34.6, -58.38, 'guess']);
+  assert.ok(await p.evaluate(() => { tonight.at('2026-11-19T03:00:00Z'); return tonight.tag('Cochrane’s home').alt; }) > 0, 'Alpha Centauri never sets from Buenos Aires');
+  await south.close();
+}
 await page.evaluate(() => { tonight.at('2026-10-11T04:30:00Z'); tonight.aimAt('Vulcan'); });
 await page.waitForTimeout(200);
 const v2 = await page.evaluate(() => tonight.where('Vulcan'));
