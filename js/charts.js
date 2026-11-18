@@ -4,7 +4,7 @@
 // Every other star Engage has notes on is tagged too, by its own name, so the sky shows everywhere the bridge can go.
 
 export const CHARTS = [
-  { star: 'Keid', tag: 'Vulcan', line: 'Spock’s home world circles 40 Eridani A. Gene Roddenberry and three astronomers put it here in a 1991 letter to Sky & Telescope, and you can see the star without a telescope from a dark enough garden.' },
+  { star: 'Keid', tag: 'Vulcan', line: 'Spock’s home world circles 40 Eridani A. Gene Roddenberry and three astronomers put it here in a 1991 letter to Sky & Telescope, and you can see the star without a telescope from a dark enough garden.', log: 'Spock’s home world circles 40 Eridani A. Gene Roddenberry and three astronomers put it here in a 1991 letter to Sky & Telescope.' },
   { star: 'Rigil Kentaurus', tag: 'Cochrane’s home', line: '“Zefram Cochrane of Alpha Centauri,” Kirk calls the man who invented warp drive, in Metamorphosis.' },
   { star: 'Wolf 359', tag: 'Wolf 359', line: 'Where the Borg destroyed 39 starships in 2367, in The Best of Both Worlds. Far too faint to see: it’s a red dwarf only a tenth the Sun’s mass.', log: 'Where the Borg destroyed 39 starships in 2367, in The Best of Both Worlds.' },
   { star: 'Rigel', tag: 'Rigel VII', line: 'Captain Pike fought the Kalar warriors on Rigel VII, in The Cage, the very first pilot.' },

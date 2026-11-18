@@ -218,6 +218,8 @@ test('the log says what Starfleet’s charts put at a star', () => {
   const wolf = entry('Wolf 359').sections;
   assert.match(wolf.find(s => s[0] === 'Starfleet charts')[1], /the Borg destroyed 39 starships/);
   assert.ok(!wolf.some(s => /a great starship battle/.test(s[1])), 'Wolf 359 is still coy about the battle');
+  // What is written for someone standing in a garden isn't said to someone at the star.
+  for (const c of CHARTS) assert.doesNotMatch(c.log || c.line, /garden|too faint to see/, `${c.star}'s line in the log is written for the garden`);
   // Vulcan is said once, not in two sections.
   assert.equal(entry('Keid').sections.filter(s => /Sky & Telescope/.test(s[1])).length, 1);
   // The stories that aren't Star Trek's keep their own section, beside the charts'.
