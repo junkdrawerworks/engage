@@ -457,10 +457,12 @@ export function standing(saved = {}) {
 // What an encounter added to the record: `before` is the record as it stood (standing() of the save before this
 // encounter went on it) and `d` its debrief. `best` is a notebook that beat the best on record, by standing()'s own
 // rule (a first encounter has no record to beat); `contacts` is how many first contacts that makes, when this was one.
+// A notebook with nothing right in it is never a best: by standing()'s rule none right of eleven phrases beats none
+// right of two, and the debrief said "Your best notebook yet" over "0/11, you didn't write any right guesses".
 export function encounterFirsts(before = {}, d) {
   const was = standing(before);
   const now = standing({ ...was, runs: [{ decoded: d.decoded, of: d.of }] }).best;
-  const best = was.met > 0 && !!now && (!was.best || now.decoded !== was.best.decoded || now.of !== was.best.of);
+  const best = was.met > 0 && d.decoded > 0 && !!now && (!was.best || now.decoded !== was.best.decoded || now.of !== was.best.of);
   return { best, contacts: d.outcome === 'contact' ? was.contacts + 1 : 0 };
 }
 // The same in words, for the debrief: "Your best notebook yet · First contact made: 1".

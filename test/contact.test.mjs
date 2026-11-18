@@ -288,6 +288,13 @@ test('an encounter says what it added to the record: a best notebook, a first co
   assert.deepEqual(encounterFirsts(had, d('fled', 6, 11)), { best: false, contacts: 0 });
   assert.deepEqual(encounterFirsts(had, d('contact', 5, 11)), { best: false, contacts: 2 });
   assert.deepEqual(encounterFirsts(had, d('hostile', 0, 0)), { best: false, contacts: 0 });
+  // A notebook with nothing right is never a best, though none right of eleven outranks none right of two on the
+  // record: a contact made by repeating their words, with no guesses written down, is a contact and no more.
+  const blank = { met: 1, contacts: 0, runs: [{ outcome: 'fled', decoded: 0, of: 2 }] };
+  assert.deepEqual(encounterFirsts(blank, d('contact', 0, 11)), { best: false, contacts: 1 });
+  assert.equal(firstsLine(encounterFirsts(blank, d('contact', 0, 11))), 'First contact made: 1');
+  assert.deepEqual(encounterFirsts({ met: 1, runs: [{ outcome: 'hostile', decoded: 0, of: 0 }] }, d('silence', 0, 5)), { best: false, contacts: 0 });
+  assert.deepEqual(encounterFirsts(blank, d('silence', 1, 11)), { best: true, contacts: 0 });
   // The record as the page keeps it, with its runs: the same answer as standing() gives before and after.
   const saved = { runs: [{ outcome: 'contact', decoded: 3, of: 9, people: 'Beqen' }, { outcome: 'silence', decoded: 4, of: 8, people: 'Orru' }] };
   const real = debrief(win(newGame({ seed: 5 })));
