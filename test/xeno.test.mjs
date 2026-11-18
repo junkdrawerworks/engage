@@ -23,6 +23,21 @@ test('the same class and seed always grow the same creature', () => {
   assert.notDeepEqual(growFor('Proxima b', 482).name, grow('M', 482).name);
 });
 
+test('a creature drawn pale is not said to be black', () => {
+  // Under a red dwarf the notes said "its skin is almost black" of every animal, and a furred one is drawn pale:
+  // every walker and flyer grown for Proxima b, TRAPPIST-1 e and LHS 1140 b, which are cold enough for fur.
+  const light = c => c.notes.find(n => n.k === 'light').text;
+  let furred = 0, dark = 0;
+  const grown = [...all, ...LAB_WORLDS.flatMap(({ world }) => Array.from({ length: 60 }, (_, i) => growFor(world, i + 1)))];
+  for (const c of grown) {
+    const t = light(c), where = `${c.world ? c.world.name : c.classId}-${c.seed}: ${t}`;
+    if (!/almost black/.test(t)) continue;
+    if (c.body.covering === 'fur') { furred++; assert.match(t, /the skin under its pale fur is almost black/, where); assert.ok(c.body.color.l >= 70, where); }
+    else { dark++; assert.match(t, /its skin is almost black/, where); assert.ok(c.body.color.l <= 26, where); }
+  }
+  assert.ok(furred > 50 && dark > 50, `${furred} furred and ${dark} dark creatures under red dwarfs`);
+});
+
 test('a class has many names, and no one name for most of its creatures', () => {
   // The first 200 specimens of each class. Lava worlds and hot Jupiters used to have one name between all 200, Class N
   // three, and six classes a single Latin name.
