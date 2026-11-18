@@ -1206,6 +1206,7 @@ function bind() {
   // Bridge settings can bring the welcome card back, with its list of rooms. Take the helm puts it away again.
   $('show-intro').addEventListener('click', () => {
     closeSheets();
+    $('intro-course').hidden = true; // the course a link brought was laid in when the card first came up, not now
     $('intro').hidden = false;
     $('intro').scrollTop = 0;
     behind();

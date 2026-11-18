@@ -313,7 +313,7 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
   .sheet { left: auto; right: max(20px, var(--safe-r)); top: calc(84px + var(--safe-t)); bottom: 20px; width: 440px; max-height: none; border-radius: 22px; border-bottom: 1px solid var(--line); padding: 6px 16px 14px; animation-name: slide; }
   .sheet.arrival { top: auto; max-height: calc(100vh - 104px); }
   #picker { bottom: calc(20px + var(--kb, 0px)); height: auto; }
-  .intro-card { max-width: 470px; } /* each room's line fits on one line */
+  .intro-card { max-width: 470px; } /* wider, so the card with its list of rooms fits in a screen 800 px tall */
   @keyframes slide { from { transform: translateX(30px); opacity: 0; } }
 }
 

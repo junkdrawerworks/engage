@@ -119,6 +119,12 @@ assert.ok(await page.locator('#engage').isDisabled(), 'engage works with no dest
   assert.equal(await p.locator('#intro-course').innerText(), 'A course is laid in for Vega, 25 light years out. Take the helm and engage.');
   await p.tap('#intro-go');
   assert.equal(await p.locator('#target-name').innerText(), 'Vega');
+  // Brought back from Bridge settings, the card no longer says a link has just laid in a course.
+  await p.tap('#open-settings');
+  await p.tap('#show-intro');
+  assert.ok(await p.locator('#intro').evaluate(el => !el.hidden));
+  assert.equal(await p.locator('#intro-course').isHidden(), true, 'the welcome card brought back still says a link has just laid in a course');
+  await p.tap('#intro-go');
   await p.evaluate(() => localStorage.clear());
   await p.goto(base + '?course=Alcyone');
   await bridgeReady(p);
