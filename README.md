@@ -19,7 +19,7 @@
   &nbsp;
   <img src="docs/phone-maru.png" alt="The Kobayashi Maru on the tactical display: your ship fires phasers at one of five Klingon cruisers circling the disabled freighter, with 150 people rescued and the hull at 51%" width="250">
   &nbsp;
-  <img src="docs/phone-contact.png" alt="First contact: a green alien captain with swept-back fins and a glowing visor on the viewscreen, a transmitted picture of a minefield beside them, and their words below: “Thaejy on the tower”, “Zythy, the ash falling”, with a reply being put together from the notebook" width="250">
+  <img src="docs/phone-contact.png" alt="First contact: a blue-green alien captain with a crested brow and glowing orange eyes on the viewscreen, a transmitted picture of a minefield beside them, and their words below: “Qaethuk, her lantern lifted”, “Huthfyn, the sea rising”, with a reply being put together from the notebook" width="250">
   &nbsp;
   <img src="docs/phone-scale.png" alt="The warp scale racing to the galactic core, 26,700 light years away: warp 9.975 is there after 3 years 11 months and warp 9 after 17 years 7 months, while warp 5, light and Voyager 1 are still on their way" width="250">
   &nbsp;
