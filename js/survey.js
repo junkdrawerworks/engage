@@ -21,8 +21,14 @@ const drillGlobe = new Globe($('drill-globe'));
 let drill = null; // the world being matched
 let paintId = 0;
 
+// The quiz's streak, its best and how many worlds have been seen: whole numbers from nought up, or else nought.
 function load() {
-  try { return { best: 0, streak: 0, seen: 0, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { best: 0, streak: 0, seen: 0 }; }
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* start again */ }
+  if (!s || typeof s !== 'object') s = {};
+  const count = x => (Number.isInteger(x) && x >= 0 ? x : 0);
+  const streak = count(s.streak);
+  return { best: Math.max(count(s.best), streak), streak, seen: count(s.seen) };
 }
 // Keeps the streak and the best. When the browser won't take them, a line under the score says so. Returns whether
 // it worked.

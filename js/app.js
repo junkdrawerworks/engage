@@ -5,7 +5,7 @@ import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { composeEntry, describeKind, inTextFor, logRecords, notesFor, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
-import { buildIndex, chartTag, pairLetters, search } from './search.js';
+import { buildIndex, chartTag, named, pairLetters, search } from './search.js';
 import { LIVE, share } from './share.js';
 import { keep, watch } from './store.js';
 import {
@@ -172,13 +172,20 @@ async function start() {
   window.engage = hooks();
 }
 
-// A link like ?course=Proxima%20Centauri, from the planetary survey, sets course for that star.
+// A link like ?course=Proxima%20Centauri, from the planetary survey or someone's shared course, sets course for that
+// star. The name is the catalogue's, but a link typed or passed on by hand is read the way Set course reads it
+// (?course=vega, ?course=The%20Pleiades). One that names no star opens Set course with the name in the search
+// field, so there is something to see and to correct, and not a link that did nothing.
 function courseFromLink() {
   const name = new URLSearchParams(location.search).get('course');
   if (name == null) return;
-  const i = cat.byName.get(name);
-  if (i !== undefined) setTarget(i);
   history.replaceState(null, '', location.pathname + location.hash);
+  const i = cat.byName.get(name) ?? named(starIndex(), name, magFromEarth);
+  if (i !== undefined) { setTarget(i); return; }
+  if (!name.trim()) return;
+  $('search').value = name.trim().slice(0, 60);
+  renderList();
+  openSheet('picker', $('choose'));
 }
 
 // ---------- Drawing ----------
@@ -729,6 +736,8 @@ function recordsHtml() {
 }
 
 let searchIndex = null, letters = null;
+const starIndex = () => (searchIndex ||= buildIndex(cat.names, cat.constellations));
+const magFromEarth = i => apparentMag(cat.absmag[i], Math.max(Math.hypot(...starPos(i)), 1e-6));
 // The line under a star's name: what else it's called, where Starfleet's charts put it, its kind. A row of the list
 // shows the charts' name as a badge beside the star's instead.
 function metaFor(i, charts = true) {
@@ -763,8 +772,7 @@ function renderList() {
       html += `<p class="group">${title}</p>` + stars.map(i => row(i, metaFor(i, false))).join('');
     }
   } else {
-    searchIndex ||= buildIndex(cat.names, cat.constellations);
-    const hits = search(searchIndex, q, i => apparentMag(cat.absmag[i], Math.max(Math.hypot(...starPos(i)), 1e-6)));
+    const hits = search(starIndex(), q, magFromEarth);
     html = hits.length ? hits.map(i => row(i, metaFor(i, false))).join('') : '<p class="empty">No star by that name in the catalogue.</p>';
   }
   $('list').innerHTML = html;

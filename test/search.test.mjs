@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildIndex, chartTag, fold, pairLetters, readings, search } from '../js/search.js';
+import { buildIndex, chartTag, fold, named, pairLetters, readings, search } from '../js/search.js';
 import { CHARTS } from '../js/charts.js';
 import { DESTINATIONS } from '../js/destinations.js';
 
@@ -130,4 +130,23 @@ test('stars that share a name get a letter each, the brightest first', () => {
 
 test('every other name a destination lists finds it', () => {
   for (const d of DESTINATIONS) for (const name of [d.title, ...(d.find || [])]) assert.equal(first(name), d.star, name);
+});
+
+test('a link names one star, however it is spelled, or none', () => {
+  const star = q => meta.names[named(index, q, mag)];
+  assert.equal(star('Vega'), 'Vega');
+  assert.equal(star('vega'), 'Vega');
+  assert.equal(star('  VEGA '), 'Vega');
+  assert.equal(star('The Pleiades'), 'Alcyone');
+  assert.equal(star('pleiades'), 'Alcyone');
+  assert.equal(star('40 eridani'), 'Keid');
+  assert.equal(star('Vulcan'), 'Keid');
+  assert.equal(star('proxima centauri'), 'Proxima Centauri');
+  assert.equal(star('barnards star'), "Barnard's Star");
+  // Part of a name, or no star's name at all, is not a course: Set course shows what it might have meant instead.
+  assert.equal(star('veg'), undefined);
+  assert.equal(star('centauri'), undefined);
+  assert.equal(star('Narnia'), undefined);
+  assert.equal(star(''), undefined);
+  assert.equal(star('%'), undefined);
 });

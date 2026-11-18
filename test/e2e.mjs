@@ -1825,6 +1825,94 @@ await page.emulateMedia({ reducedMotion: null });
   await full.close();
 }
 
+// A course link is read the way Set course reads a name, not only as the catalogue spells it; one that names no star
+// opens Set course with the name in the search field, and not a bridge where nothing happened.
+{
+  const links = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await links.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+  const p = await links.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  for (const [link, name] of [['Vega', 'Vega'], ['vega', 'Vega'], ['The%20Pleiades', 'The Pleiades'], ['vulcan', '40 Eridani']]) {
+    await p.goto(`${base}?course=${link}`);
+    await bridgeReady(p);
+    assert.equal(await p.locator('#target-name').innerText(), name, `?course=${link} did not set course for ${name}`);
+    assert.equal(await p.evaluate(() => location.search), '');
+    assert.equal(await p.locator('#picker').evaluate(el => el.hidden), true);
+    await p.evaluate(() => window.engage.target('no star')); // the next link starts from no course
+  }
+  await p.goto(`${base}?course=Narnia`);
+  await bridgeReady(p);
+  assert.equal(await p.locator('#picker').evaluate(el => el.hidden), false, 'a link naming no star did not open Set course');
+  assert.equal(await p.inputValue('#search'), 'Narnia');
+  assert.equal(await p.locator('#list .empty').innerText(), 'No star by that name in the catalogue.');
+  // Part of a name isn't a course either, but the list shows what it might have meant.
+  await p.goto(`${base}?course=centauri`);
+  await bridgeReady(p);
+  assert.equal(await p.inputValue('#search'), 'centauri');
+  assert.match(await p.locator('#list .row').first().innerText(), /Centauri/);
+  assert.equal(await p.locator('#target-name').innerText(), 'Choose a star');
+  await links.close();
+}
+
+// The offline copy keeps one of each page, however many links to it are opened: ?course=Vega and ?course=Sirius are
+// the same page. It used to keep one whole page for every different link.
+{
+  const linked = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await linked.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await p.evaluate(() => navigator.serviceWorker.ready);
+  for (const link of ['?course=Vega', '?course=Sirius', '?course=Altair', '?course=Deneb', '?course=Polaris', '?utm_source=x&fbclid=abc123', 'warp.html?warp=7.25', 'warp.html?warp=3']) {
+    await p.goto(base + link);
+    await p.waitForFunction(() => typeof window.engage?.jump === 'function' || window.warpScale);
+  }
+  await p.waitForTimeout(300);
+  const copies = await p.evaluate(async () => {
+    const names = (await caches.keys()).filter(k => /^engage-v\d+$/.test(k));
+    const keys = (await (await caches.open(names[0])).keys()).map(r => new URL(r.url));
+    return { caches: names.length, pages: keys.filter(u => /\/(index\.html|warp\.html)?$/.test(u.pathname)).map(u => u.pathname.split('/').pop() + u.search).sort(), searched: keys.filter(u => u.search).length };
+  });
+  assert.deepEqual(copies, { caches: 1, pages: ['', 'index.html', 'warp.html'], searched: 0 }, 'the offline copy kept a page for each link opened');
+  // And a page opened by a link still opens offline from that one copy.
+  await linked.setOffline(true);
+  await p.goto(base + '?course=Procyon').catch(() => {});
+  assert.equal(await p.locator('#target-name').innerText().catch(() => ''), 'Procyon', 'a course link did not open from the offline copy');
+  await linked.setOffline(false);
+  await linked.close();
+}
+
+// A hail stamped in the future (the clock has been set back since, or the save came from another device) used to
+// read "-300% of the way there", and one past the end of time "sent Invalid Date". Both now count as never sent.
+// The survey's streak and best were shown as saved, whatever was saved: "Streak -4 · Best abc".
+{
+  const odd = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  await odd.addInitScript(() => {
+    if (localStorage.getItem('engage.missions.v1')) return;
+    localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { v1: Date.now() + 3 * 864e5, v2: 8.64e15 + 1, nh: Date.now() - 3600e3 } }));
+    localStorage.setItem('engage.survey.v1', JSON.stringify({ best: 'abc', streak: -4, seen: 3 }));
+  });
+  const p = await odd.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions);
+  assert.deepEqual(await p.evaluate(() => Object.keys(window.missions.hails)), ['nh'], 'a hail from the future was kept');
+  for (const id of ['v1', 'v2']) {
+    await p.evaluate(ship => window.missions.choose(ship), id);
+    assert.match(await p.locator('#hail-note').innerText(), /^A hail sent now reaches her /, `${id}’s hail from the future is still on its file`);
+    assert.equal(await p.locator('#hail').textContent(), 'Hail her');
+  }
+  await p.evaluate(() => window.missions.choose('nh'));
+  assert.match(await p.locator('#hail-note').innerText(), /^Your hail, sent today at .* is \d+% of the way there\./);
+  // A clock set back while the page is open: the hail isn't a minus number of the way there.
+  await p.evaluate(() => { window.missions.hails.v1 = Date.now() + 864e5; window.missions.choose('v1'); });
+  assert.doesNotMatch(await p.locator('#hail-note').innerText(), /-\d|Invalid/);
+  await p.goto(base + 'survey.html');
+  await p.waitForFunction(() => window.survey);
+  await p.tap('[data-mode="drill"]');
+  assert.equal(await p.locator('#score').textContent(), 'Streak 0 · Best 0');
+  await odd.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

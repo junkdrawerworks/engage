@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jdOf, dateOf, readings, stateAt, earthAt, planetAt, heading, whenAbove, lastCrossing, milestones, jwstTracked, jwstSpan, jwstFromEarth, jwstAroundL2, trackUntil, LIGHT_DAY_AU, AU_KM } from '../js/ephemeris.js';
-import { SHIPS, byId, hailState, milestoneText } from '../js/ships.js';
+import { SHIPS, byId, hailSent, hailState, milestoneText } from '../js/ships.js';
 
 const at = iso => jdOf(new Date(iso));
 
@@ -171,4 +171,16 @@ test('a hail goes out, waits for its answer, and only then can another be sent',
     last = k;
   }
   assert.equal(last, 2);
+});
+
+test('a saved hail is kept only if it left at a real moment that has already come', () => {
+  const now = Date.UTC(2026, 10, 18, 12);
+  assert.equal(hailSent(now - 3600e3, now), now - 3600e3);
+  assert.equal(hailSent(now, now), now);
+  assert.equal(hailSent(now + 30e3, now), now + 30e3, 'a clock nudged by half a minute dropped a hail just sent');
+  // Three days ahead (a clock set back since): it used to read "-300.006% of the way there".
+  assert.equal(hailSent(now + 3 * 864e5, now), null);
+  // Past the last moment a date can hold: it used to read "sent Invalid Date at Invalid Date".
+  assert.equal(hailSent(8.64e15 + 1, now), null);
+  for (const t of [0, -5, NaN, Infinity, '1790000000000', null, undefined, {}]) assert.equal(hailSent(t, now), null, `kept ${String(t)}`);
 });

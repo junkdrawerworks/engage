@@ -60,6 +60,17 @@ export function readings(query, genitive = new Map()) {
 // bright star i looks from Earth. Last come names that hold every word typed with something between them:
 // "zeta reticuli" is both ζ¹ and ζ² Reticuli, which the catalogue writes "zeta 1 reticuli".
 export function search(index, query, mag, limit = 60) {
+  return rank(index, query, mag).slice(0, limit).map(h => h[4]);
+}
+
+// The one star a name means, for a link that names its star (?course=vega, ?course=The%20Pleiades): the best match
+// when the name is exactly one of the star's own, however it is spelled, or else nothing.
+export function named(index, query, mag) {
+  const best = rank(index, query, mag)[0];
+  return best && best[0] === 0 ? best[4] : undefined;
+}
+
+function rank(index, query, mag) {
   const ways = readings(query, index.genitive).map(q => [q, tight(q), q.split(' ')]).filter(w => w[1]);
   if (!ways.length) return [];
   const hits = [];
@@ -80,8 +91,7 @@ export function search(index, query, mag, limit = 60) {
     }
     if (best < 9) hits.push([best, star.known ? 0 : 1, start, mag(i), i]);
   });
-  hits.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
-  return hits.slice(0, limit).map(h => h[4]);
+  return hits.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
 }
 
 // Stars that share a name (the two of 61 Cygni, the three of θ¹ Orionis) get a letter each, the brightest A, so the

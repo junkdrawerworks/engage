@@ -102,6 +102,11 @@ export const SHIPS = [
 
 export const byId = id => SHIPS.find(s => s.id === id);
 
+// The moment a saved hail left, if it can be one: a real time (ms), and not in the future. A clock set back, or a
+// save carried over from another device, can leave a hail stamped days ahead: there is no saying how far along it
+// is, so it counts as never sent. A minute's grace covers a clock being nudged.
+export const hailSent = (t, now) => (Number.isFinite(t) && t > 0 && t <= now + 60000 ? t : null);
+
 // Where a hail stands. `sent` is when it left (ms, or nothing if never), `lightMs` the one-way light time now.
 //   idle: nothing sent · outbound: on its way out · inbound: it has arrived and her answer could be on its way back
 //   done: the answer could be home (or she is silent and it has arrived), so another can go

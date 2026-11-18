@@ -8,7 +8,7 @@
 // fingerprint of every file in SHELL: change any of them and test/e2e.mjs fails until FILES is changed to match (it
 // says what to), which changes this file, so every copy is made whole again at once.
 const CACHE = 'engage-v14'; // bump the number when the file list changes
-const FILES = '2f2200ae'; // test/e2e.mjs checks this
+const FILES = 'e068bf0e'; // test/e2e.mjs checks this
 const SHELL = [
   './', 'index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'icon.svg', 'manifest.webmanifest',
   'css/app.css', 'css/survey.css', 'css/maru.css', 'css/missions.css', 'css/tonight.css', 'css/xeno.css', 'css/contact.css', 'css/warp.css', 'js/app.js', 'js/maru.js', 'js/maru-sim.js', 'js/missions.js', 'js/tonight.js', 'js/xeno.js', 'js/xeno-gen.js', 'js/xeno-art.js', 'js/species.js', 'js/contact.js', 'js/contact-sim.js', 'js/contact-art.js', 'js/warp.js', 'js/warp-scale.js', 'js/wake.js', 'js/astro.js', 'js/charts.js', 'js/ships.js', 'js/ephemeris.js', 'js/classes.js', 'js/planet-art.js', 'js/survey.js', 'js/audio.js', 'js/catalog.js', 'js/destinations.js', 'js/log.js', 'js/search.js', 'js/share.js', 'js/store.js', 'js/physics.js', 'js/sky.js',
@@ -77,11 +77,20 @@ function page(e) {
 function network(e, keep = () => true) {
   let stored;
   const got = fresh(e.request).then(res => {
-    if (res.ok && keep()) { const copy = res.clone(); stored = caches.open(CACHE).then(c => c.put(e.request, copy)); }
+    if (res.ok && keep()) { const copy = res.clone(); stored = caches.open(CACHE).then(c => c.put(plain(e.request), copy)); }
     return res;
   });
   try { e.waitUntil(got.then(() => stored, () => {})); } catch { /* the event is over: the copy goes in anyway */ }
   return got;
+}
+
+// A file is kept under its address without the "?..." part: a link like ?course=Vega opens the same page as any
+// other (the copy is looked up that way too, see kept()), and kept as asked for, each one would add a whole page.
+function plain(request) {
+  const url = new URL(request.url);
+  if (!url.search) return request;
+  url.search = '';
+  return url.href;
 }
 
 // A file from the copy, marked like the network's (see askAgainNextTime() below), so a reload once the network is

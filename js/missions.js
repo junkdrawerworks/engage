@@ -1,6 +1,6 @@
 // Long missions: where the Voyagers, New Horizons, Webb and the Pioneers are right now, on a map and in numbers,
 // with a hail you can send and watch crawl out to them at the speed of light.
-import { SHIPS, byId, hailState, milestoneText } from './ships.js';
+import { SHIPS, byId, hailSent, hailState, milestoneText } from './ships.js';
 import {
   AU_KM, LIGHT_DAY_AU, jdOf, dateOf, readings, trackUntil, planetAt, earthAt, semiMajor,
   jwstFromEarth, jwstSpan, jwstAroundL2, jwstTracked, moonAt, milestones,
@@ -25,8 +25,9 @@ function load() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* no hails yet */ }
   if (!s || typeof s !== 'object' || Array.isArray(s)) s = {};
-  // Each hail is the moment it was sent; anything else in there is left out.
-  const hails = s.hails && typeof s.hails === 'object' ? Object.fromEntries(Object.entries(s.hails).filter(([, t]) => Number.isFinite(t))) : {};
+  // Each hail is the moment it was sent; anything else in there is left out, and so is a moment still to come.
+  const now = Date.now();
+  const hails = s.hails && typeof s.hails === 'object' ? Object.fromEntries(Object.entries(s.hails).filter(([, t]) => hailSent(t, now))) : {};
   return { ...s, hails };
 }
 // Keeps the hails. When the browser won't take them, a line under Hail her says so: the page promises a hail will
@@ -151,7 +152,7 @@ function hailLabel(ship, state) {
 }
 
 function hailText(ship, r, nowMs) {
-  const sent = saved.hails[ship.id];
+  const sent = hailSent(saved.hails[ship.id], nowMs - 60000); // one the clock has since gone back behind was never sent
   const lt = r.lightSeconds * 1000;
   if (!sent || nowMs - sent > 2 * lt + 864e5) {
     if (ship.status === 'silent') return `She can’t answer: her last signal reached Earth on ${fmtDate(new Date(ship.silentSince + 'T12:00:00Z'), { timeZone: 'UTC' })}. A hail sent now would still find her in ${lightTime(r.lightSeconds)}.`;
