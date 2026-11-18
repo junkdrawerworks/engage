@@ -64,6 +64,7 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .acts .secondary { height: 42px; font-size: 12px; padding: 0 8px; border-color: var(--line-strong); color: var(--text); }
 .acts .secondary:hover:not(:disabled) { border-color: var(--cyan); }
+.acts .secondary:disabled { opacity: 0.4; cursor: default; }
 .acts .secondary.danger { color: #ffb0a8; border-color: rgba(255, 107, 94, 0.45); }
 .acts .secondary[aria-pressed="true"] { color: var(--red); border-color: var(--red); }
 .side.busy button { pointer-events: none; }

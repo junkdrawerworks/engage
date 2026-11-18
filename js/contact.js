@@ -173,7 +173,7 @@ function play(lines) {
 }
 
 // Whether the keyboard's place has gone with a control that was switched off or taken away.
-const lostFocus = () => !document.activeElement || document.activeElement === document.body || document.activeElement.disabled;
+const lostFocus = () => !document.activeElement || document.activeElement === document.body || document.activeElement.disabled || !document.activeElement.getClientRects().length;
 
 // The dots over the viewscreen are a picture. When one goes out, the channel says so in words, for a screen reader:
 // their patience is the one thing that can end the encounter, and it used to go unread.
@@ -231,6 +231,9 @@ function update() {
   $('shields').textContent = g.shields ? 'Lower shields' : 'Raise shields';
   $('shields').setAttribute('aria-pressed', String(g.shields));
   for (const id of ['listen', 'standard', 'shields', 'leave']) $(id).disabled = over;
+  // Once it's over there is nothing left to say or do but read the debrief: the reply and the four buttons go, as the
+  // Maru's orders do, and don't stand there looking live.
+  for (const el of [document.querySelector('.reply .reply-head'), $('reply'), document.querySelector('.acts')]) el.hidden = over;
   if (over) {
     $('send').disabled = busy;
     $('send').textContent = 'Read the debrief';
@@ -281,7 +284,7 @@ function renderBook() {
     const off = full || reply.includes(id);
     const add = li.querySelector('.ph-add'), plus = li.querySelector('.plus'), menu = li.querySelector('select'), n = li.querySelector('.ph-n');
     if (off) add.setAttribute('aria-disabled', 'true'); else add.removeAttribute('aria-disabled');
-    setText(plus, reply.includes(id) ? 'In reply' : 'Say it');
+    setText(plus, g.over ? '' : reply.includes(id) ? 'In reply' : 'Say it'); // nothing more can be said once it's over
     setText(n, `heard ${count(id)}×`);
     if (menu.value !== (g.tags[id] || '')) menu.value = g.tags[id] || '';
     menu.classList.toggle('tagged', !!g.tags[id]);

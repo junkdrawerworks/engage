@@ -1701,8 +1701,19 @@ assert.match((await text('#tally')).replace(/\s+/g, ' '), /^1 SPECIES MET 1 CONT
 // Breaking off from the next ship is a second species met, and no second contact.
 await page.click('#start');
 await settled();
+// While it lasts, the four buttons under the reply are live (back again, after the encounter before this one ended);
+// a button that is switched off looks it.
+assert.deepEqual(await page.locator('.acts button').evaluateAll(els => els.map(el => [el.getClientRects().length > 0, el.disabled])), Array(4).fill([true, false]));
+assert.deepEqual(await page.evaluate(() => { const b = document.getElementById('listen'); b.disabled = true; const { opacity, cursor } = getComputedStyle(b); b.disabled = false; return [opacity, cursor]; }), ['0.4', 'default']);
 await page.click('#leave');
 await settled();
+// Once it's over, all that is left to press is Read the debrief: the reply, Listen again, Speak Standard, Raise
+// shields and Break off are gone (they used to stay, switched off but looking exactly as live as before), and the
+// notebook no longer says "Say it" beside each phrase.
+assert.deepEqual(await page.locator('#sim .reply button').evaluateAll(els => els.filter(el => el.getClientRects().length).map(el => el.textContent.trim())), ['Read the debrief']);
+assert.deepEqual(await page.locator('#sim .reply .reply-head, #sim #reply, #sim .acts').evaluateAll(els => els.map(el => el.getClientRects().length)), [0, 0, 0]);
+assert.deepEqual(await page.locator('#book .plus').evaluateAll(els => [...new Set(els.map(el => el.textContent))]), ['']);
+assert.equal(await page.evaluate(() => document.activeElement.id), 'send', 'the keyboard’s place went with the buttons');
 await page.click('#send');
 await page.click('#again');
 assert.match((await text('#tally')).replace(/\s+/g, ' '), /^2 SPECIES MET 1 CONTACT MADE 1\/1[0-9] BEST NOTEBOOK LOST IN TRANSLATION$/);
