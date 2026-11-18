@@ -15,7 +15,7 @@
   &nbsp;
   <img src="docs/phone-survey.png" alt="The planetary survey open at Class O, an ocean world covered in cloud, with thumbnails of the other classes below" width="250">
   &nbsp;
-  <img src="docs/phone-xeno.png" alt="The xenobiology lab grown for Class H: a tan, four-legged sail-backed dune grazer under a bright sun, next to a person for scale, with its field notes below" width="250">
+  <img src="docs/phone-xeno.png" alt="The xenobiology lab grown for Class H: a tan, four-legged, sail-backed dune forager under a bright sun, next to a person for scale, with its field notes below" width="250">
   &nbsp;
   <img src="docs/phone-maru.png" alt="The Kobayashi Maru on the tactical display: your ship fires phasers at one of five Klingon cruisers circling the disabled freighter, with 150 people rescued and the hull at 51%" width="250">
   &nbsp;
@@ -25,7 +25,7 @@
   &nbsp;
   <img src="docs/phone-missions.png" alt="Long missions: a map of the Solar System with the paths of Voyager 1 and 2, New Horizons and the two Pioneers curling out past the planets, Voyager 1 nearly at the one light-day ring" width="250">
   &nbsp;
-  <img src="docs/phone-tonight.png" alt="Tonight's sky from New York after midnight, looking east: Orion rising with Rigel tagged Rigel VII, 40 Eridani tagged Vulcan, Aldebaran tagged Aldebaran whiskey and Capella tagged Capella IV" width="250">
+  <img src="docs/phone-tonight.png" alt="Tonight's sky from New York after midnight, looking east: Orion rising with Rigel tagged Rigel VII, 40 Eridani tagged Vulcan, Aldebaran tagged Aldebaran whiskey and Capella tagged Capella IV, the constellations named in small capitals, and the Orionid meteor shower’s radiant marked beside Betelgeuse" width="250">
 </p>
 
 ## How it works
