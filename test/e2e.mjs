@@ -381,6 +381,17 @@ assert.match(entry, /Proxima b: Class M candidate/, 'the log does not link to th
 assert.equal(await page.locator('#arrival-entry .files a', { hasText: 'Grow a creature for Proxima b' }).getAttribute('href'), 'xeno.html#world=Proxima%20b');
 assert.equal(await text('#where'), 'Proxima Centauri');
 assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'the helm stayed out of reach after arriving');
+// Under the star's name, one quiet line says what this arrival did: a first trip sets every record and charts a
+// destination, and the entry used to say none of it. The count is the one the log's records give (see below).
+assert.deepEqual(await page.locator('#arrival-entry h3 + .firsts span').allInnerTexts(), ['First visit', 'Farthest yet from Sol', 'Longest trip yet', 'Destination 2 of 32 charted']);
+// It takes two lines on a phone: each part stays whole, and no dot is left hanging at the end of the first.
+{
+  const parts = await page.locator('#arrival-entry .firsts span').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { top: r.top, left: r.left, right: r.right, lines: el.getClientRects().length }; }));
+  const edge = await page.locator('#arrival-entry .firsts').evaluate(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, clip: getComputedStyle(el).clipPath }; });
+  assert.ok(parts.every(s => s.lines === 1 && s.right <= edge.right + 0.5), 'a part of the arrival’s line is broken or cut off');
+  assert.ok(parts.some(s => s.top > parts[0].top) && parts.filter(s => s.top > parts[0].top).some(s => s.left === edge.left) && edge.clip.startsWith('inset('), 'the arrival’s line did not wrap cleanly on a phone');
+}
+assert.ok(!('firsts' in await page.evaluate(() => engage.state.log[0])) && !/First visit/.test(await page.evaluate(() => localStorage.getItem('engage.v1'))), 'the line was kept with the entry');
 // In the header, the stardate and the distance from home don't fit on one line of a phone here. The dot between them
 // goes with the second, and is clipped away when that starts a line: it isn't left dangling at the end of the first.
 {
@@ -2879,7 +2890,8 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(rows[0][1], '3.57 ly');
   await p.evaluate(() => engage.closeSheets());
   // The entry's own button sets that course, and the helm agrees about the distance.
-  await p.evaluate(() => engage.jump('Denebola')); // (the sheet again: a second arrival at the same star)
+  await p.evaluate(() => engage.jump('Denebola')); // (the sheet again: a second arrival at the same star, which sets no record)
+  assert.deepEqual(await p.locator('#arrival-entry .firsts span').allInnerTexts(), ['Second visit']);
   await p.tap('#arrival-entry [data-course]');
   assert.equal(await p.locator('#target-name').innerText(), 'Gliese 452.1');
   assert.match(await p.locator('#trip').innerText(), /^3\.57 ly away/);
@@ -3053,6 +3065,7 @@ await page.emulateMedia({ reducedMotion: null });
   await home();
   assert.ok(await up('#arrival'), 'back from the survey, the arrival’s entry was gone');
   assert.equal(await p.locator('#arrival-entry h3').innerText(), 'Proxima Centauri');
+  assert.deepEqual(await p.locator('#arrival-entry .firsts span').allInnerTexts(), ['First visit', 'Destination 4 of 32 charted'], 'the entry came back without its line about the records');
   assert.equal(await entry.evaluate(el => el.scrollTop), scrolled, 'the entry came back scrolled somewhere else');
   assert.equal(await p.locator('#arrival-entry [style*="animation"]').count(), 0, 'the entry’s lines filed in again on the way back');
   assert.equal(await p.locator('#scrim').evaluate(el => el.hidden), true);

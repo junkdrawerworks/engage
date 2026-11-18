@@ -3,7 +3,7 @@ import { loadCatalog } from './catalog.js';
 import { Sky } from './sky.js';
 import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
-import { companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, titleFor } from './log.js';
+import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { LIVE, share } from './share.js';
@@ -768,6 +768,9 @@ function showArrival(entry, again = false) {
   arrived = entry;
   $('arrival-date').textContent = `Captain’s log · Stardate ${entry.stardate}`;
   $('arrival-entry').innerHTML = entryHtml(entry, true, !again);
+  // What this arrival did to the records, said once under the star's name: it is the newest entry that is up.
+  const firsts = entry === state.log[0] ? arrivalFirsts(state.log, recordOpts()) : [];
+  if (firsts.length) $('arrival-entry').querySelector('h3').insertAdjacentHTML('afterend', `<p class="firsts">${firsts.map(t => `<span>${esc(t)}</span>`).join(' ')}</p>`);
   unsavedNote('arrival-unsaved', 'The log is full: this entry won’t be kept.', 'This browser isn’t letting the bridge save: this entry won’t be kept.');
   openSheet('arrival');
   $('scrim').hidden = true; // keep the view of the new star clear
@@ -917,15 +920,21 @@ function drawLog() {
 // The log's records, at the head of the entries (they scroll away with them, so a phone on its side keeps room for
 // the log itself): all worked out from the entries, so there is nothing more to keep.
 let chartedStars = null;
+// What logRecords and arrivalFirsts need to know of the catalogue.
+function recordOpts() {
+  chartedStars ||= DESTINATIONS.filter(d => d.star !== 'Sol').map(d => cat.byName.get(d.star)).filter(i => i !== undefined);
+  return { lyFromSol: i => (cat.unmeasured[i] ? null : Math.hypot(...starPos(i)) * LY_PER_PC), charted: chartedStars };
+}
+
 function recordsHtml() {
   if (!state.log.length) return '';
-  chartedStars ||= DESTINATIONS.filter(d => d.star !== 'Sol').map(d => cat.byName.get(d.star)).filter(i => i !== undefined);
-  const r = logRecords(state.log, { lyFromSol: i => (cat.unmeasured[i] ? null : Math.hypot(...starPos(i)) * LY_PER_PC), charted: chartedStars });
+  const r = logRecords(state.log, recordOpts());
+  const charted = chartedSaid(r.charted);
   const rows = [
     r.farthest && ['Farthest from Sol', `${r.farthest.title} · ${formatLy(r.farthest.ly)}`],
     r.longest && ['Longest trip', `${formatLy(r.longest.ly)} to ${r.longest.title}`],
     r.most && ['Most visited', `${r.most.title} · ${r.most.n} visits`],
-    ['Charted destinations', `${r.charted.n + 1} of ${r.charted.of + 1}`], // Sol is one of them, and the ship set out from there
+    ['Charted destinations', `${charted.n} of ${charted.of}`],
   ].filter(Boolean);
   return `<dl class="records" id="records">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
 }

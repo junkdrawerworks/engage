@@ -5,7 +5,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { warpSpeed, apparentMag, formatDuration, formatLy, formatYear, tripYears, voyagerYears, physical, holdDistanceAU, spectral, massFor, widthFor } from '../js/physics.js';
-import { THIN_LY, companions, describeKind, earthYear, homeLines, composeEntry, inTextFor, logRecords, momentFor, nearestStars, skyFrom, skyLine, titleFor, tripLine } from '../js/log.js';
+import { THIN_LY, arrivalFirsts, chartedSaid, companions, describeKind, earthYear, homeLines, composeEntry, inTextFor, logRecords, momentFor, nearestStars, skyFrom, skyLine, titleFor, tripLine } from '../js/log.js';
 import { ANCHORS, DESTINATIONS } from '../js/destinations.js';
 import { SHIPS, byId as shipById } from '../js/ships.js';
 import { CLASSES, quizReadings } from '../js/classes.js';
@@ -552,4 +552,33 @@ test('the log’s records are worked out from its entries', () => {
   assert.deepEqual(back.longest, { title: 'Sol', ly: 1400 }, 'the trip home holds no record');
   // But not from a star with no measured distance.
   assert.deepEqual(logRecords([{ star: 0, title: 'Sol', ly: 3262 }, { star: 4, title: 'HIP 4', ly: 3262 }], opts).longest, null);
+});
+
+test('an arrival says what it did to the records', () => {
+  // Stars by number, as above: 1 is 4 ly out, 2 is 25 ly, 3 is 1,400 ly, 4 has no measured distance, 5 is 10 ly.
+  const far = { 1: 4, 2: 25, 3: 1400, 4: null, 5: 10 };
+  const opts = { lyFromSol: i => far[i], charted: [1, 2, 9] };
+  const e = (star, ly) => ({ star, title: `star ${star}`, ly });
+  assert.deepEqual(arrivalFirsts([], opts), []);
+  // The first trip of all sets every record, and charts a destination: the count is the record row's, home included.
+  assert.deepEqual(arrivalFirsts([e(1, 4)], opts), ['First visit', 'Farthest yet from Sol', 'Longest trip yet', 'Destination 2 of 4 charted']);
+  assert.deepEqual(chartedSaid(logRecords([e(1, 4)], opts).charted), { n: 2, of: 4 });
+  // A second star farther out by a longer trip.
+  assert.deepEqual(arrivalFirsts([e(2, 27), e(1, 4)], opts), ['First visit', 'Farthest yet from Sol', 'Longest trip yet', 'Destination 3 of 4 charted']);
+  // Back to the first: a second visit, and no record.
+  assert.deepEqual(arrivalFirsts([e(1, 27), e(2, 27), e(1, 4)], opts), ['Second visit']);
+  // A star with no notes, nearer than the farthest, by the longest trip yet: only that.
+  assert.deepEqual(arrivalFirsts([e(5, 30), e(1, 27), e(2, 27), e(1, 4)], opts), ['First visit', 'Longest trip yet']);
+  // The same distance again is no record: "yet" means farther than before.
+  assert.deepEqual(arrivalFirsts([e(2, 30), e(5, 30), e(2, 27)], opts), ['Second visit']);
+  // A star nobody has measured holds no record for distance or for the trip there, but it is still a first visit.
+  assert.deepEqual(arrivalFirsts([e(4, 3262), e(1, 4)], opts), ['First visit']);
+  // Coming home is not a visit, but the way home can be the longest trip.
+  assert.deepEqual(arrivalFirsts([e(0, 1400), e(3, 1396), e(1, 4)], opts), ['Longest trip yet']);
+  assert.deepEqual(arrivalFirsts([e(0, 4), e(1, 4)], opts), []);
+  // Third, tenth, eleventh.
+  assert.deepEqual(arrivalFirsts([e(1, 1), e(1, 1), e(1, 4)], opts), ['Third visit']);
+  assert.deepEqual(arrivalFirsts(Array.from({ length: 10 }, () => e(1, 4)), opts), ['Tenth visit']);
+  assert.deepEqual(arrivalFirsts(Array.from({ length: 11 }, () => e(1, 4)), opts), ['11th visit']);
+  assert.deepEqual(arrivalFirsts(Array.from({ length: 22 }, () => e(1, 4)), opts), ['22nd visit']);
 });

@@ -301,6 +301,30 @@ export function logRecords(log, { lyFromSol, charted }) {
   return { farthest, longest, most, charted: { n: charted.filter(i => visits.has(i)).length, of: charted.length } };
 }
 
+// The count of charted destinations as the log says it: Sol is one of them, and the ship set out from there. The
+// record row and the arrival's line both say it through here, so the two can't disagree.
+export const chartedSaid = c => ({ n: c.n + 1, of: c.of + 1 });
+
+// What the newest arrival did, for one quiet line under its title: the log with the new entry at its head against
+// the log before it. "First visit" (or "Third visit"), and each record it set: "Farthest yet from Sol", "Longest
+// trip yet", "Destination 3 of 32 charted". The first trip of all sets every one. Coming home is not a visit.
+// Nothing is kept with the entry: it is worked out from the log, as the records are (same `opts` as logRecords).
+const NTH = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
+export function arrivalFirsts(log, opts) {
+  const e = log[0];
+  if (!e) return [];
+  const before = logRecords(log.slice(1), opts), after = logRecords(log, opts);
+  const lines = [];
+  if (e.star !== 0) {
+    const visits = log.filter(x => x.star === e.star).length;
+    lines.push(`${NTH[visits - 1] || ordinal(visits)} visit`);
+  }
+  if (after.farthest && (!before.farthest || after.farthest.ly > before.farthest.ly)) lines.push('Farthest yet from Sol');
+  if (after.longest && (!before.longest || after.longest.ly > before.longest.ly)) lines.push('Longest trip yet');
+  if (after.charted.n > before.charted.n) { const c = chartedSaid(after.charted); lines.push(`Destination ${c.n} of ${c.of} charted`); }
+  return lines;
+}
+
 function ordinal(n) {
   const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
