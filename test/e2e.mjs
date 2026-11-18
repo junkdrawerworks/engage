@@ -2294,6 +2294,78 @@ await page.emulateMedia({ reducedMotion: null });
   await keys.close();
 }
 
+// The viewscreen's keys. The arrow keys used to stop looking around as soon as any button had been clicked or tabbed
+// to, and nothing gave the sky the keyboard back; there was no way to zoom without a wheel or two fingers, and the
+// list in Set course took a Tab for every star.
+{
+  const keys = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+  await keys.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+  const p = await keys.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  const view = () => p.evaluate(() => { const { yaw, pitch, fov, warp } = window.engage.state; return { yaw, pitch, fov, warp }; });
+  const at = () => p.evaluate(() => document.activeElement?.id || document.activeElement?.className || 'the page');
+  // With a button holding the keyboard, the arrows still look around.
+  await p.click('#open-settings');
+  await p.keyboard.press('Escape');
+  assert.equal(await at(), 'open-settings');
+  let was = await view();
+  await p.keyboard.press('ArrowLeft');
+  await p.keyboard.press('ArrowUp');
+  let now = await view();
+  assert.ok(now.yaw > was.yaw && now.pitch > was.pitch, 'the arrow keys stopped looking around once a button had the keyboard');
+  // + and - zoom, and where the keys leave the view is kept.
+  await p.keyboard.press('+');
+  await p.keyboard.press('=');
+  assert.ok(Math.abs((await view()).fov / now.fov - 0.64) < 0.001, 'the plus key did not zoom in');
+  await p.keyboard.press('-');
+  assert.ok(Math.abs((await view()).fov / now.fov - 0.8) < 0.001, 'the minus key did not zoom out');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).fov), (await view()).fov, 'the zoom was not kept');
+  // The warp slider keeps the arrows for itself.
+  await p.focus('#warp');
+  was = await view();
+  await p.keyboard.press('ArrowLeft');
+  now = await view();
+  assert.deepEqual([now.yaw, now.warp], [was.yaw, 8.9], 'an arrow key on the warp slider turned the view');
+  // / opens Set course with nothing typed; the arrows walk the list and come back; Enter takes the star.
+  await p.focus('#look-home');
+  await p.keyboard.press('/');
+  assert.equal(await at(), 'search');
+  assert.equal(await p.inputValue('#search'), '');
+  was = await view();
+  await p.keyboard.type('ald+');
+  assert.equal((await view()).fov, was.fov, 'a plus typed in the search field zoomed the view');
+  await p.keyboard.press('Backspace');
+  await p.keyboard.press('ArrowLeft');
+  assert.equal((await view()).yaw, was.yaw, 'an arrow key in the search field turned the view');
+  await p.keyboard.press('ArrowDown');
+  assert.match(await p.evaluate(() => document.activeElement.innerText), /^Aldebaran/, 'the down arrow did not go into the list');
+  const second = await p.locator('#list .row').nth(1).innerText();
+  await p.keyboard.press('ArrowDown');
+  assert.equal(await p.evaluate(() => document.activeElement.innerText), second);
+  assert.equal((await view()).pitch, was.pitch, 'an arrow key in the list turned the view');
+  await p.keyboard.press('ArrowUp');
+  await p.keyboard.press('ArrowUp');
+  assert.equal(await at(), 'search', 'the up arrow did not come back to the search field');
+  await p.keyboard.press('ArrowDown');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.locator('#target-name').innerText(), 'Aldebaran');
+  assert.equal(await at(), 'choose');
+  // With a sheet up, the keys leave the sky behind it alone.
+  await p.focus('#open-settings');
+  await p.keyboard.press('Enter');
+  was = await view();
+  await p.keyboard.press('ArrowLeft');
+  await p.keyboard.press('+');
+  now = await view();
+  assert.deepEqual([now.yaw, now.fov], [was.yaw, was.fov], 'the keys moved the sky behind Bridge settings');
+  await p.keyboard.press('Escape');
+  // The viewscreen says so to a screen reader.
+  assert.equal(await p.getByRole('img', { name: /^Viewscreen\. .* With a keyboard: the arrow keys look around, plus and minus zoom, and slash opens Set course\.$/ }).count(), 1);
+  await keys.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

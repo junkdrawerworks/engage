@@ -947,15 +947,35 @@ function bind() {
   addEventListener('keydown', e => {
     if (e.key === 'Tab') keepTab(e);
     if (e.key === 'Escape') { if (!$('intro').hidden) dismissIntro(); else closeSheets(); }
-    if (e.target.closest('input, button') || trip) return;
+    // The viewscreen's keys: the arrows look around, + and - zoom, / opens Set course. They work wherever the
+    // keyboard is on the bridge, a button included (they used to stop as soon as anything had been clicked or
+    // tabbed to, and nothing gave the sky the keyboard back), but not in a field or on the warp slider, which have
+    // their own use for them, nor with a sheet up, nor in flight.
+    if (trip || e.ctrlKey || e.metaKey || e.altKey || $('bridge').inert || e.target.closest?.('input, select, textarea, .sheet')) return;
     const step = state.fov * 0.08;
     const moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+    const zooms = { '+': 1 / 1.25, '=': 1 / 1.25, '-': 1.25, _: 1.25 };
     if (moves[e.key]) {
+      turn = null;
       state.yaw += moves[e.key][0];
       state.pitch = clampPitch(state.pitch + moves[e.key][1]);
       dirty = true;
-      e.preventDefault();
-    }
+    } else if (zooms[e.key]) setFov(state.fov * zooms[e.key]);
+    else if (e.key === '/') $('choose').click();
+    else return;
+    e.preventDefault();
+  });
+  // Where the keys left the view is kept, as where a drag leaves it is.
+  addEventListener('keyup', e => { if (/^Arrow|^[-+=_]$/.test(e.key) && !trip && !$('bridge').inert && !e.target.closest?.('input, select, textarea, .sheet')) save(); });
+  // In Set course, the down arrow goes from the search field into the list and on through it, and the up arrow comes
+  // back: it used to take a Tab for every star.
+  $('picker').addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const rows = [...$('list').querySelectorAll('.row:not(:disabled)')];
+    const i = rows.indexOf(document.activeElement);
+    if (i < 0 && e.target !== $('search')) return;
+    const to = e.key === 'ArrowDown' ? rows[i + 1] : i === 0 ? $('search') : rows[i - 1];
+    if (to) { e.preventDefault(); to.focus(); }
   });
   addEventListener('resize', () => { dirty = true; });
   still.addEventListener?.('change', () => { dirty = true; });
