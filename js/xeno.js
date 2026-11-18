@@ -108,26 +108,62 @@ function renderRefs(id) {
 
 // ---------- Jars ----------
 
+// A kept creature is only let go when the person says so. When the shelf is full, Keep says so and waits.
+const JAR_MAX = 40;
+const isKept = () => !!current && saved.jars.some(j => j.id === current.classId && j.seed === current.seed);
+
 function renderKeep() {
-  const kept = current && saved.jars.some(j => j.id === current.classId && j.seed === current.seed);
-  $('keep').textContent = kept ? 'In a jar' : 'Keep in a jar';
+  const kept = isKept();
+  const n = saved.jars.length;
+  const full = !kept && n >= JAR_MAX;
+  $('keep').textContent = kept ? 'In a jar' : full ? 'Jars full: let one go first' : 'Keep in a jar';
   $('keep').setAttribute('aria-pressed', kept ? 'true' : 'false');
+  $('keep').disabled = full;
+  // The jars are at the foot of the page, below the reference cards, so say how many there are and link to them.
+  $('kept-note').hidden = !n;
+  $('kept-note').innerHTML = full
+    ? `All ${JAR_MAX} jars are full. <a href="#jars-head">Let one go</a> to keep this one.`
+    : `<a href="#jars-head">${n} kept in your jars <span aria-hidden="true">↓</span></a>`;
 }
 
 function toggleKeep() {
   if (!current) return;
   const i = saved.jars.findIndex(j => j.id === current.classId && j.seed === current.seed);
   if (i >= 0) saved.jars.splice(i, 1);
-  else saved.jars.unshift({ id: current.classId, seed: current.seed });
-  saved.jars = saved.jars.slice(0, 40);
+  else if (saved.jars.length < JAR_MAX) saved.jars.unshift({ id: current.classId, seed: current.seed });
+  else return;
+  // With the shelf full again there is nowhere to put back the one just let go, so its Undo goes too.
+  if (gone && saved.jars.length >= JAR_MAX) { clearTimeout(gone.timer); gone = null; }
   save();
   renderKeep();
   renderJars();
 }
 
+// Letting one go can be taken back for a few seconds: the X sits right on the tile that opens the jar.
+let gone = null; // { jar, at, name, timer }
+function letGo(j) {
+  const at = saved.jars.indexOf(j);
+  if (at < 0) return;
+  saved.jars.splice(at, 1);
+  clearTimeout(gone?.timer);
+  gone = { jar: j, at, name: grow(j.id, j.seed).name.common, timer: setTimeout(() => { gone = null; renderJars(); }, 8000) };
+  save(); renderJars(); renderKeep();
+}
+function undoLetGo() {
+  if (!gone) return;
+  clearTimeout(gone.timer);
+  const { jar, at } = gone;
+  gone = null;
+  if (saved.jars.length < JAR_MAX && !saved.jars.some(j => j.id === jar.id && j.seed === jar.seed)) saved.jars.splice(Math.min(at, saved.jars.length), 0, jar);
+  save(); renderJars(); renderKeep();
+}
+
 function renderJars() {
-  const list = saved.jars.filter(j => byId.has(j.id));
-  $('jars-wrap').hidden = !list.length;
+  const list = saved.jars;
+  $('jars-wrap').hidden = !list.length && !gone;
+  $('jars-n').textContent = `${list.length} of ${JAR_MAX}`;
+  $('jar-undo').hidden = !gone;
+  if (gone) $('jar-undo-text').textContent = `Let the ${gone.name} go.`;
   $('jars').innerHTML = list.map((j, k) => {
     const c = grow(j.id, j.seed);
     return `<li class="jar"><button class="jar-open" type="button" data-k="${k}"><canvas width="300" height="225" aria-hidden="true"></canvas>
@@ -185,15 +221,17 @@ buildStrip();
 $('cabinet').innerHTML = SPECIMENS.map(refHtml).join('');
 $('again').addEventListener('click', () => show(current.classId));
 $('keep').addEventListener('click', toggleKeep);
+$('jar-undo-go').addEventListener('click', undoLetGo);
+// The address keeps naming the creature in the tank, so the link down to the jars scrolls without changing it.
+$('kept-note').addEventListener('click', e => {
+  if (!e.target.closest('a')) return;
+  e.preventDefault();
+  $('jars-head').scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
+});
 $('jars').addEventListener('click', e => {
   const drop = e.target.closest('[data-drop]');
-  const list = saved.jars.filter(j => byId.has(j.id));
-  if (drop) {
-    const j = list[Number(drop.dataset.drop)];
-    saved.jars = saved.jars.filter(x => x !== j);
-    save(); renderJars(); renderKeep();
-    return;
-  }
+  const list = saved.jars;
+  if (drop) { letGo(list[Number(drop.dataset.drop)]); return; }
   const open = e.target.closest('[data-k]');
   if (open) {
     const j = list[Number(open.dataset.k)];

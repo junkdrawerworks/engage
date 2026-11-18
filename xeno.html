@@ -50,6 +50,7 @@
           <button class="primary" id="again" type="button">Grow another</button>
           <button class="secondary" id="keep" type="button">Keep in a jar</button>
         </div>
+        <p class="kept-note" id="kept-note" hidden></p>
       </div>
 
       <article class="specimen" id="specimen" aria-live="polite"></article>
@@ -66,7 +67,8 @@
     </section>
 
     <section class="jars" id="jars-wrap" aria-labelledby="jars-head" hidden>
-      <h2 class="section-head" id="jars-head">Your jars</h2>
+      <h2 class="section-head" id="jars-head">Your jars <span class="jars-n" id="jars-n"></span></h2>
+      <p class="jar-undo" id="jar-undo" role="status" hidden><span id="jar-undo-text"></span> <button class="text-button" id="jar-undo-go" type="button">Undo</button></p>
       <ul class="jar-list" id="jars"></ul>
     </section>
   </main>

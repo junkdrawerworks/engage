@@ -13,6 +13,9 @@
   font: 600 11px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); }
 .bench-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .bench-actions .secondary[aria-pressed="true"] { border-color: #6fe3a4; color: #6fe3a4; }
+.bench-actions .secondary:disabled { opacity: 1; color: var(--muted); border-style: dashed; font-size: 12px; }
+.kept-note { margin: 8px 0 0; text-align: right; font-size: 13px; color: var(--muted); }
+.kept-note a { color: #6fe3a4; text-underline-offset: 3px; display: inline-block; padding: 6px 0; }
 
 .specimen { padding: 18px 18px 10px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
 .specimen h2 { margin: 4px 0 0; font: 600 26px/1.1 var(--display); letter-spacing: 0.02em; }
@@ -42,6 +45,12 @@
 .cabinet summary { cursor: pointer; padding: 10px 0; font: 600 13px/1.2 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .cabinet summary:hover { color: var(--text); }
 
+.jars .section-head { scroll-margin-top: 12px; }
+.jars-n { margin-left: 6px; color: var(--muted); font-weight: 500; letter-spacing: 0.08em; }
+.jar-undo { margin: 6px 0 0; padding: 4px 12px; border-radius: 12px; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.03); font-size: 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.jar-undo[hidden] { display: none; }
+.jar-undo .text-button { padding: 10px 4px; }
 .jar-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .jar { position: relative; }
 .jar-open { width: 100%; display: grid; gap: 6px; padding: 6px 6px 10px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); text-align: left; }

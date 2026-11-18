@@ -630,8 +630,46 @@ await page.reload();
 await page.waitForFunction(() => window.xeno?.current);
 assert.deepEqual(await page.evaluate(() => [xeno.current.classId, xeno.current.seed]), ['lava-world', 7], 'the link did not bring back the same creature');
 assert.equal(await page.locator('#jars .jar').count(), 1, 'the jar was not kept');
+// Letting one go can be taken back, and the count beside Keep links down to the jars.
+assert.match(await text('#kept-note'), /^1 kept in your jars/);
 await page.click('#jars .jar-drop');
-assert.equal(await shown('#jars-wrap'), false);
+assert.equal(await page.locator('#jars .jar').count(), 0);
+assert.match(await text('#jar-undo'), /^Let the .+ go\.\s+Undo$/i);
+assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars.length), 0);
+await page.click('#jar-undo-go');
+assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars), [{ id: 'lava-world', seed: 7 }], 'Undo did not put the creature back in its jar');
+assert.equal(await shown('#jar-undo'), false);
+assert.equal(await text('#keep'), 'IN A JAR');
+await page.click('#jars .jar-drop');
+await page.waitForFunction(() => document.getElementById('jars-wrap').hidden, null, { timeout: 15000 }); // the Undo line goes after a few seconds
+assert.equal(await shown('#kept-note'), false);
+// The shelf holds 40. A 41st is never kept by quietly dropping the oldest: Keep says the jars are full and waits.
+for (let seed = 1; seed <= 41; seed++) {
+  await page.evaluate(n => xeno.show('M', n, false), seed);
+  if (seed <= 40) await page.click('#keep');
+}
+assert.equal(await page.evaluate(() => xeno.jars.length), 40);
+assert.ok(await page.locator('#keep').isDisabled(), 'Keep still works with every jar full');
+assert.equal(await text('#keep'), 'JARS FULL: LET ONE GO FIRST');
+assert.match(await text('#jars-head'), /40 OF 40/i);
+assert.match(await text('#kept-note'), /All 40 jars are full/);
+await page.evaluate(() => document.getElementById('keep').click()); // even a click that gets through changes nothing
+assert.deepEqual(await page.evaluate(() => xeno.jars[39]), { id: 'M', seed: 1 }, 'the first creature kept was dropped to make room');
+assert.equal(await page.evaluate(() => xeno.jars.some(j => j.seed === 41)), false);
+assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the lab scrolls sideways with full jars');
+// The link beside Keep goes down to the jars without changing the address, which names the creature in the tank.
+await page.click('#kept-note a');
+assert.equal(new URL(page.url()).hash, '#M-41');
+// Let one go, and the 41st can be kept; the other 39 are still there.
+await page.click('#jars .jar-drop'); // the newest, seed 40
+assert.equal(await text('#keep'), 'KEEP IN A JAR');
+await page.click('#keep');
+assert.deepEqual(await page.evaluate(() => xeno.jars.map(j => j.seed)), [41, ...Array.from({ length: 39 }, (_, i) => 39 - i)]);
+// With the shelf full again, the Undo for the one let go has nowhere to put it, so it is withdrawn.
+assert.equal(await shown('#jar-undo'), false);
+assert.equal(await page.evaluate(() => xeno.jars.length), 40);
+assert.equal(await page.evaluate(() => xeno.jars.some(j => j.seed === 40)), false);
+await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
 await page.goto(base + 'survey.html#O');
 await page.waitForFunction(() => window.survey);
 await Promise.all([page.waitForNavigation(), page.locator('#file a', { hasText: 'Grow a creature' }).click()]);
