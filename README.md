@@ -19,7 +19,7 @@
   &nbsp;
   <img src="docs/phone-away.png" alt="The away team on TRAPPIST-1 e: its orange sun low over a dark horizon, two sister planets beside it and a third higher up, and the lab's pink, long-legged creature for the planet standing in front" width="250">
   &nbsp;
-  <img src="docs/phone-xeno.png" alt="The xenobiology lab grown for Class H: a tan, four-legged, sail-backed dune forager under a bright sun, next to a person for scale, with its field notes below" width="250">
+  <img src="docs/phone-xeno.png" alt="The xenobiology lab grown for Class H: the Grow and Bench tabs over the tank, a tan, four-legged, sail-backed dune forager under a bright sun, next to a person for scale, with its field notes below" width="250">
   &nbsp;
   <img src="docs/phone-maru.png" alt="The Kobayashi Maru on the tactical display: your ship fires phasers at one of five Klingon cruisers circling the disabled freighter, with 150 people rescued and the hull at 51%" width="250">
   &nbsp;
