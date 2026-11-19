@@ -1007,8 +1007,9 @@ function fillCard(s) {
     kind = 'Long missions'; title = ship.full || ship.name;
     sub = [ship.near ? `${(km / 1e6).toFixed(1)} million km away` : `${(km / 1e9).toFixed(1)} billion km away`, con ? `in ${con}` : ''].filter(Boolean).join(' · ');
     line = ship.near ? 'Too faint to see by eye: the mark is where she is.' : 'Far too faint for any telescope to see: the mark is where she is.';
-    const sec = r.lightSeconds;
-    facts = `A signal from her takes ${sec < 60 ? `${sec.toFixed(1)} seconds` : sec < 3600 ? `${Math.round(sec / 60)} minutes` : `${Math.floor(sec / 3600)} hours ${Math.round(sec / 60) % 60} minutes`} to reach you.`;
+    // Rounded to the minute before it is split into hours, so 23 h 59.6 min reads 24 hours 0 minutes, not 23 hours 0.
+    const sec = r.lightSeconds, min = Math.round(sec / 60);
+    facts = `A signal from her takes ${sec < 60 ? `${sec.toFixed(1)} seconds` : min < 60 ? `${min} minutes` : `${Math.floor(min / 60)} hours ${min % 60} minutes`} to reach you.`;
   } else if (s.kind === 'shower') {
     const { shower: sh, peak } = sky.shower;
     const md = ([m, d]) => dayOf(new Date(Date.UTC(2026, m - 1, d, 12)), 'UTC');
