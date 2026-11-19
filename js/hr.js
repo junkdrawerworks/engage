@@ -61,19 +61,22 @@ export function family(temp, lum) {
 }
 export const FAMILY_NAMES = { dwarf: 'Main sequence', giant: 'Giants', supergiant: 'Supergiants', 'white dwarf': 'White dwarfs' };
 
-// Which stars go on the wall. Two kinds can't: those the catalogue has no colour for (it gives them a stand-in, so
-// they would all draw in one false stripe at one temperature) and those it has no distance for (so no true
-// brightness). Home goes on as the Sun. `cat` needs `count`, `temp`, `lum`, `nocolour` and `unmeasured`.
+// Which stars go on the wall. Three kinds can't: those the catalogue has no colour for (it gives them a stand-in, so
+// they would all draw in one false stripe at one temperature), those too red for the colour-to-temperature rule
+// (B-V past 2.0: they all get its reddest temperature, another false stripe) and those it has no distance for (so
+// no true brightness). Home goes on as the Sun. `cat` needs `count`, `temp`, `lum`, `nocolour`, `offscale` and
+// `unmeasured`.
 export function wall(cat) {
   const stars = [];
-  let noColour = 0, noDistance = 0, off = 0;
+  let noColour = 0, tooRed = 0, noDistance = 0, off = 0;
   for (let i = 0; i < cat.count; i++) {
     if (cat.nocolour[i]) { noColour++; continue; }
+    if (cat.offscale[i]) { tooRed++; continue; }
     if (cat.unmeasured[i]) { noDistance++; continue; }
     if (!onWall(cat.temp[i], cat.lum[i])) { off++; continue; }
     stars.push(i);
   }
-  return { stars, noColour, noDistance, off };
+  return { stars, noColour, tooRed, noDistance, off };
 }
 
 // The filters, each a lesson. `visited` is a Set of the stars in the log.
@@ -108,7 +111,7 @@ const pct = (a, n) => `${Math.round((100 * a) / Math.max(n, 1))}%`;
 // The line under the wall for a filter: what its stars show.
 export function lesson(filter, c) {
   const n = c.n.toLocaleString('en-US');
-  if (filter === 'eye') return `${n} stars you can see without a telescope. ${pct(c.giant + c.supergiant + c.hot, c.n)} of them are giants, supergiants or main-sequence stars hotter than the Sun: they are the ones bright enough to see from far away. Only ${pct(c.red, c.n)} are red dwarfs.`;
+  if (filter === 'eye') return `${n} stars you can see without a telescope. ${pct(c.giant + c.supergiant + c.hot, c.n)} of them are giants, supergiants or main-sequence stars hotter than the Sun: they are the ones bright enough to see from far away. ${c.red ? `Only ${pct(c.red, c.n) === '0%' ? 'a handful' : pct(c.red, c.n)} are red dwarfs.` : 'Not one is a red dwarf.'}`;
   if (filter === 'near') return `${n} stars within 80 light years, the neighbourhood the catalogue knows best. ${pct(c.red, c.n)} of them are red dwarfs, too faint to see by eye, and only ${pct(c.giant + c.supergiant, c.n)} are giants: close to, most stars are small and dim. The catalogue is still missing red dwarfs too faint to have been found.`;
   if (filter === 'visited') {
     if (c.n < 2) return 'Nothing in your log yet but home. Fly somewhere, and it lands here.';

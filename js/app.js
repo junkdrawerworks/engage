@@ -1211,10 +1211,10 @@ function placeLink(i, style) {
 }
 
 // Under the line on what kind of star it is, a link to astrometrics, with the star ringed among all the others on
-// the wall of colour against true brightness. Not for a star the wall leaves off (no colour, or no distance, on the
-// charts).
+// the wall of colour against true brightness. Not for a star the wall leaves off (no colour, too red a colour, or
+// no distance).
 function wallLink(i, style) {
-  if (!(i >= 0 && i < cat.count) || cat.unmeasured[i] || cat.nocolour[i]) return '';
+  if (!(i >= 0 && i < cat.count) || cat.unmeasured[i] || cat.nocolour[i] || cat.offscale[i]) return '';
   return `<dd class="files"${style}><a href="${ASTROMETRICS}#star=${encodeURIComponent(cat.names[i])}"${AWAY}>Astrometrics: where this star sits</a></dd>`;
 }
 

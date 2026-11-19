@@ -6453,7 +6453,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.waitForFunction(() => window.astrometrics?.ready);
   assert.equal(await p.title(), 'Arcturus · Astrometrics · Engage');
   assert.match(await p.locator('#card').innerText(), /^Arcturus\n[\s\S]*Orange giant[\s\S]*Among the giants: [\d,]+ K, \d+ times as bright as the Sun\./);
-  assert.match(await p.locator('#left-out').innerText(), /^[\d,]+ stars on the wall\. Left off: 758 stars the catalogue has no colour for and 419 with no measured distance/);
+  assert.match(await p.locator('#left-out').innerText(), /^16,955 stars on the wall\. Left off: 758 stars the catalogue has no colour for, 67 too red for its colours to give a temperature and 407 with no measured distance/);
   assert.match(await p.locator('#lesson').innerText(), /^[\d,]+ stars, each in its own colour\. Most lie on the main sequence/);
   // The naked eye sees giants and hot stars; the neighbourhood is red dwarfs; Visited is the log, with home.
   await p.tap('[data-filter="eye"]');

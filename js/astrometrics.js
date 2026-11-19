@@ -144,6 +144,7 @@ function renderCard() {
   const title = titleFor(cat, i), tag = chartFor(cat.names[i])?.tag;
   let where;
   if (cat.nocolour[i]) where = 'The catalogue has no colour for it, so it isn’t on the wall.';
+  else if (cat.offscale[i]) where = 'It is redder than the catalogue’s colours can turn into a temperature (a B-V past 2.0), so it isn’t on the wall.';
   else if (cat.unmeasured[i]) where = 'It has no measured distance, so nobody knows how bright it really is: it isn’t on the wall.';
   else if (!onWall.stars.includes(i)) where = `At ${Math.round(cat.temp[i]).toLocaleString('en-US')} K it is off the wall’s hot edge.`;
   else where = `${FAMILY_SAID[family(cat.temp[i], cat.lum[i])]}: ${(Math.round(cat.temp[i] / 10) * 10).toLocaleString('en-US')} K, ${lumSaid(cat.lum[i])}.`;
@@ -221,8 +222,9 @@ loadCatalog().then(c => {
   visited = readVisited();
   const left = [];
   left.push(`${onWall.noColour.toLocaleString('en-US')} stars the catalogue has no colour for`);
+  left.push(`${onWall.tooRed.toLocaleString('en-US')} too red for its colours to give a temperature`);
   left.push(`${onWall.noDistance.toLocaleString('en-US')} with no measured distance`);
-  $('left-out').textContent = `${onWall.stars.length.toLocaleString('en-US')} stars on the wall. Left off: ${left.join(' and ')}, which would draw as a false stripe or at a made-up brightness${onWall.off ? `, and ${onWall.off === 1 ? 'one star' : `${onWall.off} stars`} hotter than its edge (the Ring Nebula’s, at 135,000 K)` : ''}.`;
+  $('left-out').textContent = `${onWall.stars.length.toLocaleString('en-US')} stars on the wall. Left off: ${left.slice(0, -1).join(', ')} and ${left[left.length - 1]}, which would draw as false stripes or at a made-up brightness${onWall.off ? `, and ${onWall.off === 1 ? 'one star' : `${onWall.off} stars`} hotter than its edge (the Ring Nebula’s, at 135,000 K)` : ''}.`;
   open();
   window.astrometrics.ready = true;
 });

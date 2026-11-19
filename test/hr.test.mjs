@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { temperature } from '../js/physics.js';
 import { FILTERS, MAIN_SEQUENCE, SUN_LIFE, census, family, hrX, hrY, lesson, msLum, onWall, passes, wall } from '../js/hr.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,13 +46,17 @@ test('stars fall in their families: dwarfs, giants, supergiants and white dwarfs
 test('the wall leaves out, and counts, the stars with no colour or no distance', () => {
   const w = wall(cat);
   assert.equal(w.noColour, 758);
-  // 431 in the catalogue have no distance, less the ten that have no colour either (counted once, there) and the two
-  // the deep sky moves out to the Orion Nebula's measured distance.
-  assert.equal(w.noDistance, 431 - 10 - 2);
+  // Redder than the colour-to-temperature rule goes (B-V past 2.0): left off too, or they stand in one false column
+  // at its reddest temperature. Nothing on the wall is at that temperature.
+  assert.equal(w.tooRed, 67);
+  assert.equal(w.stars.filter(i => Math.round(cat.temp[i]) === Math.round(temperature(2.0))).length, 0, 'a column of stars at the rule’s reddest temperature');
+  // 431 in the catalogue have no distance, less the ten that have no colour either and the twelve too red (each
+  // counted once, there) and the two the deep sky moves out to the Orion Nebula's measured distance.
+  assert.equal(w.noDistance, 431 - 10 - 12 - 2);
   assert.ok(w.stars.includes(0), 'the Sun is not on the wall');
   assert.equal(w.off, 1, 'only the Ring Nebula’s star, at 135,000 K, is off the wall');
-  assert.equal(w.stars.length + w.noColour + w.noDistance + w.off, cat.count);
-  for (const i of w.stars) assert.ok(!cat.nocolour[i] && !cat.unmeasured[i]);
+  assert.equal(w.stars.length + w.noColour + w.tooRed + w.noDistance + w.off, cat.count);
+  for (const i of w.stars) assert.ok(!cat.nocolour[i] && !cat.offscale[i] && !cat.unmeasured[i]);
 });
 
 test('each filter teaches what it should: the naked eye sees giants and hot stars, the neighbourhood is red dwarfs', () => {
@@ -65,6 +70,10 @@ test('each filter teaches what it should: the naked eye sees giants and hot star
   assert.deepEqual([visited.dwarf, visited.giant], [2, 1]);
   assert.match(lesson('eye', eye), /^\d,\d{3} stars you can see without a telescope\. \d+% of them are giants/);
   assert.match(lesson('near', near), /^\d,\d{3} stars within 80 light years/);
+  // A share that rounds to nothing isn't said as "0%".
+  assert.doesNotMatch(lesson('eye', eye), /\b0%/);
+  assert.match(lesson('eye', { ...eye, red: 1 }), /Only a handful are red dwarfs\.$/);
+  assert.match(lesson('eye', { ...eye, red: 0 }), /Not one is a red dwarf\.$/);
   assert.equal(lesson('visited', visited), '3 stars in your log, home among them: 2 on the main sequence, 1 giant or supergiant.');
   assert.equal(lesson('visited', census(cat, [0])), 'Nothing in your log yet but home. Fly somewhere, and it lands here.');
   assert.deepEqual(FILTERS.map(f => f.id), ['all', 'eye', 'near', 'visited']);

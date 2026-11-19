@@ -54,6 +54,11 @@ export function buildCatalog(bin, meta) {
   const nocolour = new Uint8Array(n);
   const STAND_IN = Math.fround(0.6);
   for (let i = 0; i < base; i++) if (raw[i * 5 + 4] === STAND_IN) nocolour[i] = 1;
+  // Stars redder than a B-V of 2.0, mostly carbon stars and dust-reddened supergiants, where the colour-to-temperature
+  // rule (js/physics.js) stops: they all get its reddest temperature, about 3,170 K, so it is only a floor for them
+  // (astrometrics leaves them off its wall too, where they would stand in one false column).
+  const offscale = new Uint8Array(n);
+  for (let i = 0; i < base; i++) if (raw[i * 5 + 4] > 2.0) offscale[i] = 1;
   for (let i = 0; i < n; i++) {
     pos[i * 3] = raw[i * 5]; pos[i * 3 + 1] = raw[i * 5 + 1]; pos[i * 3 + 2] = raw[i * 5 + 2];
     absmag[i] = raw[i * 5 + 3];
@@ -68,12 +73,12 @@ export function buildCatalog(bin, meta) {
   for (const d of DESTINATIONS) {
     const i = byName.get(d.star);
     if (i === undefined) continue;
-    if (d.temp) { temp[i] = d.temp; lum[i] = d.lum; radius[i] = d.radius; }
+    if (d.temp) { temp[i] = d.temp; lum[i] = d.lum; radius[i] = d.radius; offscale[i] = 0; }
   }
   for (let i = 0; i < n; i++) color.set(starColor(temp[i]), i * 3);
 
   return {
-    count: n, pos, absmag, color, radius, temp, lum, unmeasured, nocolour,
+    count: n, pos, absmag, color, radius, temp, lum, unmeasured, nocolour, offscale,
     names, spect,
     constellations: meta.constellations, lines: meta.lines,
     byName,
