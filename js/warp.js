@@ -461,7 +461,8 @@ function seen(k, cx, cy, R) {
   const d = doppler(cosTp, beta);
   const r = R * Math.acos(cosTp) / Math.PI;
   const phi = Math.atan2(x * v[0] + y * v[1] + z * v[2], x * u[0] + y * u[1] + z * u[2]);
-  return { x: cx - r * Math.sin(phi), y: cy - r * Math.cos(phi), mag: mag - 5 * Math.log10(d), d };
+  // Seen from inside, with north up, east is to the left: `v` points west, so it is drawn to the right.
+  return { x: cx + r * Math.sin(phi), y: cy - r * Math.cos(phi), mag: mag - 5 * Math.log10(d), d };
 }
 
 function skySize() {

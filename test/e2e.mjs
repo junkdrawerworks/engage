@@ -1483,6 +1483,11 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   // Arcturus, about 65° from Vega in Earth's sky, is drawn that far out at a full stop.
   const rest = await p.evaluate(() => warpScale.impulse.where('Arcturus'));
   assert.ok(rest.fromMiddle > 55 && rest.fromMiddle < 75, `Arcturus drawn ${rest.fromMiddle}° from dead ahead at rest`);
+  // The sky is seen from inside, as from the ground, north up: Polaris above Vega, Deneb to its east on the left and
+  // Arcturus to its west on the right. It was drawn the other way round, as if from outside a globe.
+  const mid = await p.evaluate(() => { const r = document.getElementById('impulse-sky').getBoundingClientRect(); return { x: r.width / 2, y: r.height / 2 + 8 }; });
+  const [deneb, arcturus, polaris] = await p.evaluate(() => ['Deneb', 'Arcturus', 'Polaris'].map(n => warpScale.impulse.where(n)));
+  assert.ok(deneb.x < mid.x && arcturus.x > mid.x && polaris.y < mid.y, `the sky round Vega is mirrored: Deneb at ${deneb.x}, Arcturus at ${arcturus.x}`);
   await p.locator('#throttle').fill('0.9');
   assert.equal(await p.locator('#impulse-speed').innerText(), '0.9 of light speed, 269,813 km/s');
   const read = await p.locator('#impulse-read').innerText();
