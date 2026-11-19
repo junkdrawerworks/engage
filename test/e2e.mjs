@@ -2856,6 +2856,59 @@ await page.waitForFunction(() => window.xeno?.current);
   await page.waitForFunction(() => window.xeno?.current);
   assert.deepEqual([await shown('#pair'), await shown('#link-note')], [false, true]);
 }
+// Names on the jars: tapping a jar's name gives it one of yours, kept above its own on the shelf and on its card.
+{
+  await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
+  await page.goto(base + 'maru.html');
+  await page.goto(base + 'xeno.html#M-42');
+  await page.waitForFunction(() => window.xeno?.current);
+  await page.click('#keep');
+  const own = await text('#specimen h2');
+  assert.match(await page.getAttribute('#jars .jar-title', 'aria-label'), /^Give the .+ a name$/);
+  assert.ok(await page.locator('#jars .jar-title').evaluate(el => el.getBoundingClientRect().height) >= 44, 'the jar’s name is under 44 px tall');
+  await page.click('#jars .jar-title');
+  assert.equal(await page.evaluate(() => document.activeElement.className), 'jar-field');
+  await page.keyboard.type('  Biscuit  ');
+  await page.keyboard.press('Enter');
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars.map(j => j.name)), ['Biscuit']);
+  assert.deepEqual(await page.locator('#jars .jar-title span').allInnerTexts(), ['Biscuit', own]);
+  assert.equal(await text('#specimen .own-name'), 'Biscuit');
+  assert.equal(await page.evaluate(() => document.activeElement.className), 'jar-title', 'the name lost its place for the keyboard');
+  await page.reload();
+  await page.waitForFunction(() => window.xeno?.current);
+  assert.equal(await text('#jars .jar-own'), 'Biscuit', 'the name did not last a reload');
+  assert.equal(await text('#specimen .own-name'), 'Biscuit');
+  // Escape leaves it as it was; a long name is cut to 24 letters; an empty one takes the name away.
+  await page.click('#jars .jar-title');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('Something else');
+  await page.keyboard.press('Escape');
+  assert.equal(await text('#jars .jar-own'), 'Biscuit');
+  await page.click('#jars .jar-title');
+  await page.fill('#jars .jar-field', 'The Very Honourable Biscuit the Third');
+  await page.keyboard.press('Enter');
+  assert.equal(await text('#jars .jar-own'), 'The Very Honourable Bisc');
+  await page.click('#jars .jar-title');
+  await page.fill('#jars .jar-field', '   ');
+  await page.click('#specimen h2'); // leaving the field keeps what it holds
+  assert.equal(await page.locator('#jars .jar-own').count(), 0);
+  assert.equal(await page.locator('#specimen .own-name').count(), 0);
+  assert.deepEqual(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('engage.xeno.v1')).jars[0]).sort()), ['at', 'id', 'seed']);
+  // A named jar let go says so by its name.
+  await page.click('#jars .jar-title');
+  await page.fill('#jars .jar-field', 'Biscuit');
+  await page.keyboard.press('Enter');
+  await page.click('#jars .jar-drop');
+  assert.match(await text('#jar-undo'), /^Let Biscuit go\.\s+Undo$/);
+  await page.click('#jar-undo-go');
+  assert.equal(await text('#jars .jar-own'), 'Biscuit');
+  // A name that isn't text, from a copy or another version, is dropped and the jar kept.
+  await page.evaluate(() => localStorage.setItem('engage.xeno.v1', JSON.stringify({ jars: [{ id: 'M', seed: 42, name: 7 }, { id: 'K', seed: 3, name: ' Rex ' }] })));
+  await page.reload();
+  await page.waitForFunction(() => window.xeno?.current);
+  assert.deepEqual(await page.evaluate(() => xeno.jars.map(j => j.name ?? null)), [null, 'Rex']);
+  await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
+}
 await page.goto(base);
 await bridgeReady();
 

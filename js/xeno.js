@@ -32,7 +32,9 @@ function load() {
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { /* start again */ }
   // A jar holds a class and a specimen number, or a real planet's name and a number: { id, seed } or { world, seed }.
   const known = j => (typeof j.world === 'string' ? grows(worldByName(j.world)?.world) : byId.has(j.id));
-  const jars = Array.isArray(s.jars) ? s.jars.filter(j => j && Number.isInteger(j.seed) && known(j)) : [];
+  // A jar may carry a name of yours: a short line of text, or none.
+  const named = j => (typeof j.name === 'string' && j.name.trim() ? { ...j, name: j.name.trim().slice(0, 24) } : (({ name, ...rest }) => rest)(j));
+  const jars = Array.isArray(s.jars) ? s.jars.filter(j => j && Number.isInteger(j.seed) && known(j)).map(named) : [];
   return { ...s, jars };
 }
 // Keeps the shelf, and says so beside Keep and over the jars when the browser wouldn't take it: a jar that is on
@@ -90,6 +92,7 @@ function cardHtml(c) {
   const rarity = rarityFor(c);
   return `
     <p class="eyebrow">${c.world ? `Grown for ${esc(c.world.name)}, ${esc(lyText(c.world.ly))} light years away` : `Specimen grown for ${esc(label(c.cls))}${c.cls.letter ? ` · ${esc(c.cls.name)}` : ''}`}</p>
+    ${nameOf(c) ? `<p class="own-name">${esc(nameOf(c))}</p>` : ''}
     <h2>${esc(c.name.common)}</h2>
     <p class="latin">${esc(c.name.genus)} ${esc(c.name.species)}</p>
     <p class="odds"><b>${ODDS_HEAD[c.odds]}.</b> ${esc(oddsFor(c).replace(/^[^.]+\. /, ''))}</p>
@@ -324,7 +327,7 @@ function letGo(j) {
   if (at < 0) return;
   saved.jars.splice(at, 1);
   clearTimeout(gone?.timer);
-  gone = { jar: j, at, name: growJar(j).name.common, timer: setTimeout(() => { gone = null; renderJars(); }, 8000) };
+  gone = { jar: j, at, name: j.name || `the ${growJar(j).name.common}`, timer: setTimeout(() => { gone = null; renderJars(); }, 8000) };
   save(); renderJars(); renderKeep();
 }
 function undoLetGo() {
@@ -350,7 +353,7 @@ function showPair(p, scroll) {
   const { rows, sentence } = compare(a, b);
   $('pair-pics').innerHTML = [a, b].map((c, k) => `<button class="pair-pic" type="button" data-pair="${k}" aria-label="Grow the ${esc(c.name.common)} in the tank">
     <canvas width="480" height="360" aria-hidden="true"></canvas>
-    <span class="jar-name">${esc(c.name.common)}</span><span class="jar-cls">${esc(c.world ? c.world.name : label(c.cls))}</span></button>`).join('');
+    ${nameOf(c) ? `<span class="jar-own">${esc(nameOf(c))}</span>` : ''}<span class="jar-name">${esc(c.name.common)}</span><span class="jar-cls">${esc(c.world ? c.world.name : label(c.cls))}</span></button>`).join('');
   $('pair-pics').querySelectorAll('canvas').forEach((cv, k) => drawScene(cv.getContext('2d'), [a, b][k], cv.width, cv.height, 0, 1));
   $('pair-table').innerHTML = `<caption class="sr">The ${esc(a.name.common)} and the ${esc(b.name.common)}, reading by reading</caption>`
     + rows.map(r => `<tr${r.alike ? ' class="alike"' : ''}><th scope="row">${r.label}${r.alike ? ' <span class="alike-tag">Alike</span>' : ''}</th><td>${esc(r.a)}</td><td>${esc(r.b)}</td></tr>`).join('');
@@ -381,13 +384,16 @@ function renderJars() {
   $('jars').classList.toggle('comparing', comparing);
   $('jars-n').textContent = `${list.length} of ${JAR_MAX}`;
   $('jar-undo').hidden = !gone;
-  if (gone) $('jar-undo-text').textContent = `Let the ${gone.name} go.`;
+  if (gone) $('jar-undo-text').textContent = `Let ${gone.name} go.`;
   $('jars').innerHTML = list.map((j, k) => {
     const c = growJar(j);
     const on = comparing && picked.some(p => sameJar(p, j));
-    return `<li class="jar"><button class="jar-open" type="button" data-k="${k}"${comparing ? ` aria-pressed="${on}"` : ''}><canvas width="300" height="225" aria-hidden="true"></canvas>
-      <span class="jar-name">${esc(c.name.common)}</span><span class="jar-cls">${esc(c.world ? c.world.name : label(c.cls))}</span></button>
-      <button class="jar-drop" type="button" data-drop="${k}" aria-label="Let the ${esc(c.name.common)} go"${comparing ? ' hidden' : ''}>
+    const called = j.name ? `${j.name}, the ${c.name.common}` : `the ${c.name.common}`;
+    // The picture opens the jar (or, comparing, picks it); its name is a button of its own, to give it yours.
+    return `<li class="jar${on ? ' picked' : ''}"><button class="jar-open" type="button" data-k="${k}" aria-label="${comparing ? `Pick ${esc(called)}` : `Grow ${esc(called)} in the tank`}"${comparing ? ` aria-pressed="${on}"` : ''}><canvas width="300" height="225" aria-hidden="true"></canvas></button>
+      <button class="jar-title" type="button" data-name="${k}" aria-label="${j.name ? `Rename ${esc(called)}` : `Give the ${esc(c.name.common)} a name`}">${j.name ? `<span class="jar-own">${esc(j.name)}</span>` : ''}<span class="jar-name">${esc(c.name.common)}<svg class="pen" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></span></button>
+      <span class="jar-cls">${esc(c.world ? c.world.name : label(c.cls))}</span>
+      <button class="jar-drop" type="button" data-drop="${k}" aria-label="Let ${esc(called)} go"${comparing ? ' hidden' : ''}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></li>`;
   }).join('');
   $('jars').querySelectorAll('.jar-open canvas').forEach((cv, k) => {
@@ -538,9 +544,47 @@ $('kept-note').addEventListener('click', e => {
   e.preventDefault();
   $('jars-head').scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
 });
+// ---------- Names on the jars ----------
+
+// A jar can carry a name of yours ("Biscuit"), shown above the creature's own, on its card in the tank and on its
+// picture. Tapping the name opens a field in its place: Enter or leaving it keeps what is typed (nothing takes the
+// name away), Escape leaves it as it was.
+const NAME_MAX = 24;
+const nameOf = c => saved.jars.find(j => inJar(j, c))?.name || '';
+function nameJar(k) {
+  const j = saved.jars[k], title = $('jars').querySelector(`[data-name="${k}"]`);
+  if (!j || !title) return;
+  const c = growJar(j);
+  const field = document.createElement('input');
+  Object.assign(field, { type: 'text', className: 'jar-field', value: j.name || '', maxLength: NAME_MAX, placeholder: 'Give it a name', enterKeyHint: 'done', autocomplete: 'off' });
+  field.setAttribute('aria-label', `A name for the ${c.name.common}`);
+  title.replaceWith(field);
+  field.focus();
+  let done = false;
+  const finish = keepIt => {
+    if (done) return;
+    done = true;
+    const name = field.value.replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+    if (keepIt && name !== (j.name || '')) {
+      if (name) j.name = name; else delete j.name;
+      save();
+    }
+    renderJars();
+    if (current && inJar(j, current) && mode === 'grow') $('specimen').innerHTML = cardHtml(current);
+    $('jars').querySelector(`[data-name="${saved.jars.indexOf(j)}"]`)?.focus({ preventScroll: true });
+  };
+  field.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  field.addEventListener('blur', () => finish(true));
+}
+
 $('jars').addEventListener('click', e => {
   const drop = e.target.closest('[data-drop]');
   const list = saved.jars;
+  const naming = e.target.closest('[data-name]');
+  if (naming) { nameJar(Number(naming.dataset.name)); return; }
   if (drop) { letGo(list[Number(drop.dataset.drop)]); return; }
   const tile = e.target.closest('[data-k]');
   if (tile && comparing) { // pick it, or put it back; the second pick puts the two side by side

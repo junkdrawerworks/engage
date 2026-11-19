@@ -67,8 +67,8 @@
 .jars-top, .pair-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .jars-top .text-button, .pair-top .text-button { color: #6fe3a4; font-size: 13px; min-height: 44px; padding: 12px 0; margin: 16px 0 -8px; }
 .compare-hint { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
-.jar-list.comparing .jar-open[aria-pressed="true"] { border-color: #6fe3a4; box-shadow: 0 0 0 2px rgba(111, 227, 164, 0.35); }
-.jar-list.comparing .jar-open[aria-pressed="false"] { border-style: dashed; }
+.jar-list.comparing .jar.picked { border-color: #6fe3a4; box-shadow: 0 0 0 2px rgba(111, 227, 164, 0.35); }
+.jar-list.comparing .jar:not(.picked) { border-style: dashed; }
 /* Side by side: two pictures, a reading under each, a row for each field note, and one sentence. */
 .pair { scroll-margin-top: 12px; max-width: 760px; }
 .pair-pics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
@@ -89,12 +89,19 @@
 .jar-undo[hidden] { display: none; }
 .jar-undo .text-button { padding: 10px 4px; }
 .jar-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.jar { position: relative; }
-.jar-open { width: 100%; display: grid; gap: 6px; padding: 6px 6px 10px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); text-align: left; }
-.jar-open:hover { border-color: var(--line-strong); }
+.jar { position: relative; display: grid; align-content: start; padding: 6px 6px 10px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.jar:hover { border-color: var(--line-strong); }
+.jar-open { width: 100%; display: block; padding: 0; border: 0; border-radius: 11px; background: none; }
 .jar-open canvas { width: 100%; aspect-ratio: 4 / 3; border-radius: 11px; display: block; background: #02040a; }
 .jar-name { font: 600 13px/1.2 var(--display); letter-spacing: 0.02em; padding: 0 4px; }
 .jar-cls { font-size: 12px; color: var(--muted); padding: 0 4px; }
+/* The jar's name: a button that becomes a field. 44 px tall under a thumb, whatever it holds. */
+.jar-title { display: grid; align-content: center; gap: 1px; min-height: 44px; margin: 2px 0 0; padding: 4px 0; border: 0; background: none; text-align: left; color: var(--text); }
+.jar-own { font: 600 15px/1.2 var(--display); letter-spacing: 0.02em; color: #6fe3a4; padding: 0 4px; overflow-wrap: anywhere; }
+.jar-title .pen { width: 12px; height: 12px; margin-left: 5px; vertical-align: -1px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linejoin: round; }
+.jar-title:hover .pen { stroke: #6fe3a4; }
+.jar-field { min-width: 0; height: 40px; margin: 4px 0 2px; padding: 0 10px; border-radius: 10px; border: 1px solid #6fe3a4; background: rgba(5, 7, 13, 0.8); color: var(--text); font: 600 16px/1 var(--display); }
+.specimen .own-name { margin: 6px 0 0; font: 600 18px/1.2 var(--display); letter-spacing: 0.02em; color: #6fe3a4; }
 .jar-drop { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line-strong); background: rgba(5, 7, 13, 0.75); display: grid; place-items: center; padding: 0; }
 .jar-drop svg { width: 14px; height: 14px; }
 /* The disc stays 30 px; a tap lands on it from 7 px further out all round. */
