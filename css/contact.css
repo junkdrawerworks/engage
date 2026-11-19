@@ -38,6 +38,16 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 .daily .daily-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
 .daily .daily-note b { display: block; font: 600 11px/1.3 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--alien); }
 .daily .text-button { margin: 6px 0 0; color: var(--cyan); min-height: 44px; }
+/* The linguist's challenges: five named hails, each with how it went, Answer and Send. */
+.challenges .how { font-size: 14px; color: var(--muted); }
+ol.challenges { list-style: none; margin: 4px 0 0; padding: 0; }
+ol.challenges li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+ol.challenges li b { font: 600 16px/1.2 var(--display); letter-spacing: 0.02em; }
+ol.challenges li .state { grid-column: 1; font-size: 13px; color: var(--muted); }
+ol.challenges li.done .state { color: var(--green); }
+ol.challenges li .secondary { grid-row: 1 / 3; grid-column: 2; height: 40px; padding: 0 14px; font-size: 12px; border-color: var(--alien); color: var(--text); }
+ol.challenges li .text-button { grid-row: 1 / 3; grid-column: 3; color: var(--cyan); min-height: 44px; font-size: 13px; }
+.brief .sent { border-left-color: var(--cyan); }
 /* A people you made contact with, hailing again (second contact). */
 .friend h2 { font-size: 24px; }
 .friend .secondary { width: 100%; margin-top: 6px; border-color: var(--alien); color: var(--text); }

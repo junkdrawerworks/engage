@@ -2460,6 +2460,68 @@ await bridgeReady();
   await day.close();
 }
 
+// The linguist's challenges: five named hails on the briefing, each marked done once contact is made, with its best
+// notebook, and each with a link to send (contact.html#hail=…) that opens on that hail for whoever has it.
+{
+  const hard = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await hard.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const settle = () => p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  const { CHALLENGES, makeLanguage } = await import('../js/contact-sim.js');
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  const peoples = CHALLENGES.map(seed => makeLanguage(seed).people);
+  assert.deepEqual(await p.locator('#challenges li b').allInnerTexts(), peoples.map(n => `The ${n}`));
+  assert.deepEqual([...new Set(await p.locator('#challenges .state').allInnerTexts())], ['Not answered yet']);
+  // Tried and broken off: tried, with the notebook. Then made: done, with the best notebook kept.
+  await p.locator('#challenges [data-challenge]').nth(1).click();
+  await settle();
+  assert.equal(await p.evaluate(() => contact.game.seed), CHALLENGES[1]);
+  await p.evaluate(() => contact.act('leave'));
+  await settle();
+  await p.click('#send');
+  await p.click('#again');
+  assert.equal(await p.locator('#challenges .state').nth(1).innerText(), 'Tried · best notebook 0/2');
+  await p.locator('#challenges [data-challenge]').nth(1).click();
+  await settle();
+  await p.evaluate(() => { contact.tag('meet', 'meet'); contact.tag('we', 'we'); });
+  while (!(await p.evaluate(() => contact.game.over))) { await p.evaluate(() => { contact.pick(contact.hint()); contact.send(); }); await settle(); }
+  await p.click('#send');
+  await p.click('#again');
+  assert.match(await p.locator('#challenges .state').nth(1).innerText(), /^Contact made · best notebook 2\/1\d, Lost in translation$/);
+  assert.equal(await p.locator('#challenges li').nth(1).getAttribute('class'), 'done');
+  // Send: the hail as a link.
+  await p.evaluate(() => { delete Navigator.prototype.share; });
+  await hard.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await p.locator('#challenges [data-send]').nth(3).click();
+  const url = await p.evaluate(() => navigator.clipboard.readText());
+  assert.equal(url, `https://engage.junkdrawer.works/contact.html#hail=${CHALLENGES[3].toString(36)}`);
+  // Opened by a friend: the briefing says what was sent, and Answer the hail answers it.
+  const other = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const q = await other.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  await q.goto(url.replace('https://engage.junkdrawer.works/', base));
+  await q.waitForFunction(() => window.contact);
+  assert.equal(await q.locator('#hail-note').innerText(), `A linguist’s challenge, sent to you: the ${peoples[3]}, one of the five hardest languages on file.`);
+  assert.equal(await q.locator('#start').innerText(), `ANSWER THE ${peoples[3].toUpperCase()}`);
+  await q.click('#start');
+  await q.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  assert.deepEqual(await q.evaluate(() => [contact.game.seed, location.hash]), [CHALLENGES[3], '']);
+  await q.evaluate(() => contact.act('leave'));
+  await q.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await q.click('#send');
+  await q.click('#again');
+  assert.equal(await q.locator('#hail-note').isHidden(), true);
+  assert.equal(await q.locator('#start').innerText(), 'ANSWER THE HAIL');
+  assert.equal(await q.locator('#challenges .state').nth(3).innerText(), 'Tried · best notebook 0/2');
+  // A link that isn't a hail is no hail.
+  await q.goto(base + 'contact.html#hail=!!');
+  await q.waitForFunction(() => window.contact);
+  assert.equal(await q.locator('#hail-note').isHidden(), true);
+  await other.close();
+  await hard.close();
+}
+
 // The warp scale: reached from under the warp slider with the helm's warp factor, a race to the galactic core run to
 // the end, another place picked from the ladder, and a link back to the bridge with a course set. (With a star chosen
 // at the helm the link races there instead: see "Doors between rooms" below.)

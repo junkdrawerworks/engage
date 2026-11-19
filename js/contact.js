@@ -2,7 +2,7 @@
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
 import { LIVE, share } from './share.js';
 import { oneSwitch } from './switch.js';
-import { newGame, act, debrief, fluencyOf, hint, answer, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, dailySeed, today, shareLine, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, answer, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, dailySeed, today, shareLine, makeLanguage, CHALLENGES, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -114,8 +114,41 @@ function renderFriend() {
   setText($('friend-more'), `${more} more ${more === 1 ? 'ship' : 'ships'} you’ve made contact with will call after them.`);
 }
 
+// The linguist's challenges: each with its people, how it has gone (contact made, with the best notebook; tried; or
+// not yet), a button to answer it and one to send it.
+const challengeOf = seed => (saved.challenges && typeof saved.challenges === 'object' ? saved.challenges[seed] : null);
+function renderChallenges() {
+  $('challenges').innerHTML = CHALLENGES.map(seed => {
+    const people = makeLanguage(seed).people, c = challengeOf(seed);
+    const ok = c && Number.isInteger(c.decoded) && Number.isInteger(c.of) && c.of > 0;
+    const state = ok && c.contact ? `Contact made · best notebook ${c.decoded}/${c.of}, ${fluencyOf(c.decoded, c.of)}` : ok ? `Tried · best notebook ${c.decoded}/${c.of}` : 'Not answered yet';
+    return `<li${ok && c.contact ? ' class="done"' : ''}><b>The ${esc(people)}</b><span class="state">${esc(state)}</span>
+      <button class="secondary" type="button" data-challenge="${seed}" aria-label="Answer the ${esc(people)}">Answer</button>
+      <button class="text-button" type="button" data-send="${seed}" aria-label="Send the ${esc(people)}’s hail">Send</button></li>`;
+  }).join('');
+}
+
+// A hail sent by link (contact.html#hail=<seed in base 36>): a challenge, today's hail or any one. The briefing says
+// so, and Answer the hail answers that one.
+let sent = null; // the seed of the hail a link sent, until it is answered
+function sentHail() {
+  const m = /^#hail=([0-9a-z]{1,7})$/.exec(location.hash);
+  const seed = m ? parseInt(m[1], 36) : NaN;
+  return Number.isFinite(seed) && seed <= 0xffffffff ? seed : null;
+}
+function renderSent() {
+  $('hail-note').hidden = sent === null;
+  if (sent === null) { setText($('start'), 'Answer the hail'); return; }
+  const people = makeLanguage(sent).people;
+  setText($('hail-note'), CHALLENGES.includes(sent) ? `A linguist’s challenge, sent to you: the ${people}, one of the five hardest languages on file.`
+    : sent === dailySeed(today()) ? `Today’s hail, sent to you: the ${people}.` : `A hail sent to you: the ${people}.`);
+  setText($('start'), `Answer the ${people}`);
+}
+
 function renderRecord() {
   renderFriend();
+  renderChallenges();
+  renderSent();
   // The ship has dropped out of warp where the bridge left yours: "off your bow, here at Vega".
   const w = whereWords(readShipPlace());
   setText($('brief-where'), `A ship of no known design has dropped out of warp off your bow${w ? `, ${w},` : ''} and she’s hailing you.`);
@@ -440,6 +473,13 @@ function record() {
     if (lastEval.outcome === 'contact') {
       saved.friends = [...friendsOf(saved), { seed: g.seed, people: lastEval.people, at: new Date().toISOString(), ...where, heard: g.heard.filter(id => id !== 'story'), tags: { ...g.tags } }];
     }
+    // A linguist's challenge keeps its best notebook, and whether contact has been made.
+    if (CHALLENGES.includes(g.seed)) {
+      const was = challengeOf(g.seed), e = lastEval;
+      const better = !was || !Number.isInteger(was.decoded) || !(was.of > 0) || e.decoded * was.of > was.decoded * e.of;
+      saved.challenges = { ...(saved.challenges && typeof saved.challenges === 'object' ? saved.challenges : {}),
+        [g.seed]: { ...(better ? { decoded: e.decoded, of: e.of } : { decoded: was.decoded, of: was.of }), contact: !!was?.contact || e.outcome === 'contact' } };
+    }
     Object.assign(saved, standing({ ...saved, met: saved.met + 1, contacts: saved.contacts + (lastEval.outcome === 'contact' ? 1 : 0) })); // before the list is cut to its last 30
     saved.runs = saved.runs.slice(-30);
   }
@@ -607,7 +647,7 @@ const visible = (...ids) => ids.map(id => $(id));
 const sw = oneSwitch({
   key: 'engage.oneswitch',
   items() {
-    if (!$('brief').hidden) return visible('resume', 'start', 'daily-start', 'daily-share', 'friend-start', 'one-switch');
+    if (!$('brief').hidden) return [...visible('resume', 'start', 'daily-start', 'daily-share', 'friend-start'), ...$('challenges').querySelectorAll('button'), $('one-switch')];
     if (!$('eval').hidden) return visible('again', 'to-bridge', 'share-run', 'to-lab');
     if (busy || !g) return [];
     if (g.over) return visible('send');
@@ -620,7 +660,22 @@ $('one-switch').addEventListener('change', e => sw.set(e.target.checked));
 
 // ---------- Wiring ----------
 
-$('start').addEventListener('click', () => start());
+$('start').addEventListener('click', () => {
+  if (sent === null) { start(); return; }
+  const seed = sent;
+  sent = null;
+  history.replaceState(null, '', location.pathname + location.search);
+  start(seed, null, seed === dailySeed(today()) ? today() : '');
+});
+$('challenges').addEventListener('click', e => {
+  const b = e.target.closest('[data-challenge]');
+  if (b) { start(Number(b.dataset.challenge)); return; }
+  const send = e.target.closest('[data-send]');
+  if (!send) return;
+  const seed = Number(send.dataset.send), people = makeLanguage(seed).people;
+  share(send, { title: 'First contact: a linguist’s challenge', text: `The ${people} speak one of the five hardest languages the translator has on file. Can you make first contact?`,
+    url: `${LIVE}contact.html#hail=${seed.toString(36)}` });
+});
 $('daily-start').addEventListener('click', () => { const day = today(); start(dailySeed(day), null, day); });
 $('daily-share').addEventListener('click', e => {
   const d = saved.daily, url = `${LIVE}contact.html#run=${d.run}`;
@@ -692,6 +747,9 @@ watch(KEY, () => {
   }
   else if (!back && saved.game) delete saved.game;
 }
+sent = sentHail();
+// A hail link opened on a page already open: the briefing takes it up.
+addEventListener('hashchange', () => { const h = sentHail(); if (h !== null) { sent = h; if (!$('brief').hidden) renderRecord(); } });
 const shared = openedRun();
 if (shared) watchEncounter(shared); else showBrief();
 sw.set(sw.on);

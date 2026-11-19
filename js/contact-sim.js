@@ -552,6 +552,24 @@ export function encodeRun({ seed, acts, tags = {}, again = null }) {
   }
   return `1.${(seed >>> 0).toString(36)}.${done}.${guesses}`;
 }
+// False friends: two phrases with different meanings whose stories end in the same image ("the gates open" is hello,
+// "the road open" is go, "her hands open" a gift and "his eyes open" understanding), so hearing one in a phrase you
+// don't know yet points the wrong way. The pairs of phrases in a language that share their last word, leaving out
+// names and pronouns. Of 200,000 languages, 38% have none and about 1 in 350 has seven, the most there can be (all
+// four "open"s, and two of "drawn" or "raised").
+export function falseFriends(L) {
+  const by = {};
+  for (const [id] of MEANINGS) {
+    const w = L.phrases[id].split(/[^\p{L}]+/u).filter(Boolean).at(-1);
+    if (L.names.includes(w) || ['him', 'her', 'them'].includes(w)) continue;
+    (by[w] ||= []).push(id);
+  }
+  return Object.values(by).flatMap(ids => ids.flatMap((a, i) => ids.slice(i + 1).map(b => [a, b])));
+}
+// The linguist's challenges: five languages with seven false friends each, found by that count, named on the
+// briefing by their people. A challenge's link is contact.html#hail=<seed in base 36>, and opens its hail.
+export const CHALLENGES = [179, 632, 762, 1926, 2633];
+
 // Today's hail: the same ship and the same language for every officer on the same calendar day, so two people can
 // compare notebooks on the same aliens. `day` is the date as YYYY-MM-DD; the seed is its FNV-1a hash.
 export function dailySeed(day) {

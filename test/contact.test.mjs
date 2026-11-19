@@ -561,3 +561,26 @@ test('today’s hail is the same language all day for everyone, and a new one to
   assert.equal(shareLine(d, '2026-11-19'), `First contact, 19 Nov: the ${d.people}. First contact, ${d.decoded} of ${d.of} phrases decoded`);
   assert.equal(shareLine(d), `First contact: First contact, ${d.decoded} of ${d.of} phrases decoded`);
 });
+
+// The linguist's challenges: the hardest languages, by false friends.
+test('the five linguist’s challenges each have seven false friends, the most there can be, and can be won', async () => {
+  const { falseFriends, CHALLENGES } = await import('../js/contact-sim.js');
+  assert.equal(CHALLENGES.length, 5);
+  const peoples = new Set();
+  for (const seed of CHALLENGES) {
+    const L = makeLanguage(seed);
+    assert.equal(falseFriends(L).length, 7, `challenge ${seed}`);
+    peoples.add(L.people);
+    assert.equal(win(newGame({ seed })).over, 'contact');
+  }
+  assert.equal(peoples.size, 5);
+  // The numbers the briefing rests on: about 38% have none, about 1 in 350 has seven, and none has more.
+  const n = 40000, count = {};
+  for (let seed = 1; seed <= n; seed++) { const k = falseFriends(makeLanguage(seed)).length; count[k] = (count[k] || 0) + 1; }
+  assert.ok(Math.max(...Object.keys(count).map(Number)) === 7, JSON.stringify(count));
+  assert.ok(count[0] / n > 0.36 && count[0] / n < 0.40, `${count[0] / n} have none`);
+  assert.ok(n / count[7] > 250 && n / count[7] < 500, `1 in ${n / count[7]} has seven`);
+  // Their example: "the gates open" and "the road open" are a pair.
+  const pairs = falseFriends(makeLanguage(179)).map(p => p.join('+'));
+  assert.ok(pairs.includes('meet+go') && pairs.includes('understand+give'), pairs.join(' '));
+});
