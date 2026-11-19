@@ -115,7 +115,7 @@ export const MOMENTS = [
   { year: 2265, label: '2265', said: 'Kirk’s Enterprise goes past the galaxy’s edge, “Where No Man Has Gone Before”.' },
   { year: 2364, label: '2364', said: 'Picard’s first mission, “Encounter at Farpoint”.' },
   { barnard: true, label: 'Barnard’s closest', said: '' },
-  { year: 14000, label: 'AD 14,000', said: 'Vega, the brightest star near the pole for 12,000 years either way.' },
+  { year: 14000, label: 'AD 14,000', said: 'Vega is the pole star, the brightest in the whole 25,772-year turn of Earth’s axis.' },
 ];
 
 // What has changed since `now`, in one line: how far the most-moved bright star has gone.

@@ -22,7 +22,8 @@ let shown = { pole: poleIn(NOW), poleStar: null, nearest: null };
 const colOf = i => [cat.color[i * 3], cat.color[i * 3 + 1], cat.color[i * 3 + 2]];
 const dirIn = (i, year) => unit(placeAt(cat, vel, i, year));
 const magOf = (i, year) => apparentMag(cat.absmag[i], Math.hypot(...placeAt(cat, vel, i, year)));
-const fmtMag = m => `${m < 0 ? '−' : ''}${Math.abs(m).toFixed(1)}`;
+// Rounded first, so Vega at −0.01 reads 0.0, not −0.0.
+const fmtMag = m => { const r = Math.round(m * 10) / 10; return `${r < 0 ? '−' : ''}${Math.abs(r).toFixed(1)}`; };
 const lyIs = ly => `${ly.toFixed(2)} light years`;
 const degIs = d => (d < 0.1 ? 'less than a tenth of a degree' : `${d < 10 ? d.toFixed(1) : Math.round(d)}°`);
 const linesIn = year => cat.lines.map(([a, b]) => [dirIn(a, year), dirIn(b, year)]);
@@ -43,18 +44,21 @@ function marks(g, at, { W, H }) {
   for (const d of circle) { const p = at(d); if (!p) { pen = false; continue; } if (pen) g.lineTo(p.x, p.y); else g.moveTo(p.x, p.y); pen = true; }
   g.stroke(); g.setLineDash([]);
   const pp = at(shown.pole);
+  const psAt = shown.poleStar != null ? at(dirIn(shown.poleStar, view.year)) : null;
   if (pp) {
     g.strokeStyle = '#86d8ff'; g.lineWidth = 1.5;
     g.beginPath(); g.moveTo(pp.x - 9, pp.y); g.lineTo(pp.x + 9, pp.y); g.moveTo(pp.x, pp.y - 9); g.lineTo(pp.x, pp.y + 9); g.stroke();
     g.beginPath(); g.arc(pp.x, pp.y, 4, 0, 7); g.stroke();
-    label('North pole of the sky', { x: pp.x, y: pp.y + 16 }, 'rgba(134, 216, 255, 0.9)', -4);
+    // Under the cross, or over it when the pole star's own label sits just below (Vega in AD 14,000).
+    const below = !psAt || Math.abs(psAt.y - (pp.y + 16)) > 13;
+    label('North pole of the sky', { x: pp.x, y: below ? pp.y + 16 : pp.y - 16 }, 'rgba(134, 216, 255, 0.9)', -4);
   }
   for (const s of chart.stars) {
     if (s.mag > 1.2) break;
     if (s.i === shown.poleStar) continue;
     label(titleFor(cat, s.i), at(s.dir), 'rgba(200, 212, 235, 0.65)', 7);
   }
-  if (shown.poleStar != null) label(`${titleFor(cat, shown.poleStar)} · pole star`, at(dirIn(shown.poleStar, view.year)), '#ffd27a', 9);
+  if (psAt) label(`${titleFor(cat, shown.poleStar)} · pole star`, psAt, '#ffd27a', 9);
   if (view.moment?.barnard) {
     const i = cat.byName.get("Barnard's Star"), p = at(dirIn(i, view.year));
     if (p) { g.strokeStyle = '#ffb54a'; g.lineWidth = 2; g.beginPath(); g.arc(p.x, p.y, 9, 0, 7); g.stroke(); label('Barnard’s Star', p, '#ffb54a', 13); }
