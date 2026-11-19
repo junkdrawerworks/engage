@@ -1259,6 +1259,84 @@ assert.equal(await page.evaluate(() => location.hash.slice(1)), world);
   await p.close();
 }
 
+// Long-range sensors: Planet hunt. Tap three dips on the star's light for the planet's year, set the line at the floor
+// of the dip for its size, then file it. A tap on nothing says so; three dips of two planets aren't a year; dips too
+// faint to see are found by trying years until the passes add up; and the wobble gives 51 Pegasi b's mass.
+{
+  const p = await ctx.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const status = () => p.locator('#hunt-status').textContent();
+  // Taps the real plot at a moment in the curve, as a finger would.
+  const tapAt = async at => {
+    const box = await p.locator('#hunt-plot').boundingBox();
+    const L = await p.evaluate(() => ({ rowDays: survey.hunt.curve.level.rowDays, rows: survey.hunt.curve.rows, wob: !!survey.hunt.curve.level.wobble }));
+    const rowH = L.wob ? 200 : L.rows > 3 ? 88 : 110, row = Math.floor(at / L.rowDays);
+    await p.mouse.click(box.x + 10 + (at - row * L.rowDays) / L.rowDays * (box.width - 20), box.y + row * rowH + rowH / 2);
+  };
+  const firstOf = (name, n = 3) => p.evaluate(([name, n]) => { const e = survey.huntTest.events(); const pl = name || e[0].planet.name; return e.filter(x => x.planet.name === pl).slice(0, n).map(x => x.at); }, [name, n]);
+  const setLine = v => p.locator('#depth-range').evaluate((r, v) => { r.value = Math.round(v); r.dispatchEvent(new Event('input')); }, v);
+  await p.goto(base + 'survey.html#M');
+  await p.waitForFunction(() => window.survey);
+  await p.click('[data-mode="hunt"]');
+  await p.waitForFunction(() => survey.hunt.curve);
+  assert.match(new URL(p.url()).hash, /^#hunt=1\.\d+$/);
+  assert.equal(await p.title(), 'Long-range sensors · Planetary survey · Engage');
+  await p.goto(base + 'survey.html#hunt=1.42');
+  await p.waitForFunction(() => survey.hunt.curve?.seed === 42);
+  const curve42 = await p.evaluate(() => Array.from(survey.hunt.curve.y.slice(0, 20)));
+  const dips = await firstOf();
+  await tapAt(dips[0] + 1.2 * (dips[1] - dips[0]) / 2.4);
+  assert.match(await status(), /^Nothing there but scatter/);
+  await tapAt(dips[0]);
+  assert.equal(await status(), '1 of 3. Tap another dip.');
+  await tapAt(dips[1]); await tapAt(dips[2]);
+  const found = await p.evaluate(() => ({ stage: survey.hunt.stage, name: survey.hunt.found.name, days: survey.hunt.found.days, depth: survey.hunt.found.k ** 2, file: survey.hunt.found.file }));
+  assert.equal(found.stage, 'depth');
+  assert.match(await status(), /^One every [\d.]+ days: that is its year\. Now drag the line to the bottom of the dips\.$/);
+  await setLine(found.depth * 1e5 * 0.5);
+  await p.click('#depth-go');
+  assert.equal(await status(), 'Not quite: the floor of the dip is lower than that.');
+  await setLine(found.depth * 1e5);
+  await p.click('#depth-go');
+  assert.match(await status(), /dimmer, so the planet is about [\d.]+% of its star’s width: about .+\.$/);
+  assert.equal(await p.locator('#hunt-choices .choice').count(), 4);
+  await p.click(`#hunt-choices [data-file="${found.file}"]`);
+  assert.equal(await p.locator('#reveal-head').textContent(), `Filed. It’s ${found.name}.`);
+  assert.equal(await p.locator('#reveal-links a').first().getAttribute('href'), `#${found.file}`);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the planet hunt scrolls sideways on a phone');
+  // The same link draws the same curve: a teacher can send one to a class.
+  const q = await ctx.newPage();
+  await q.goto(base + 'survey.html#hunt=1.42');
+  await q.waitForFunction(() => survey.hunt.curve);
+  assert.deepEqual(await q.evaluate(() => Array.from(survey.hunt.curve.y.slice(0, 20))), curve42);
+  await q.close();
+
+  // Seven worlds: dips of two planets aren't one planet's year.
+  await p.click('[data-level="3"]');
+  const [b0, b1] = await firstOf('TRAPPIST-1 b', 2), [c0] = await firstOf('TRAPPIST-1 c', 1);
+  await tapAt(b0); await tapAt(c0); await tapAt(b1);
+  assert.match(await status(), /^Those dips aren’t one planet’s/);
+  // Too faint to see: try the planet's own year, and the passes line up.
+  await p.click('[data-level="2"]');
+  assert.equal(await p.locator('#hunt-fold').isVisible(), true);
+  const P = await p.evaluate(() => survey.hunt.curve.planets[0].days);
+  await p.locator('#fold-year').evaluate((r, v) => { r.value = v; r.dispatchEvent(new Event('input')); }, Math.round(Math.log(P * 2 / 0.5) / Math.log(16) * 3000));
+  assert.equal(await status(), 'Two dips in one fold: the year is half this.');
+  await p.locator('#fold-year').evaluate((r, v) => { r.value = v; r.dispatchEvent(new Event('input')); }, Math.round(Math.log(P / 0.5) / Math.log(16) * 3000));
+  assert.match(await status(), /^The passes line up\./);
+  // The wobble: 51 Pegasi b, at least half Jupiter's mass, and Set course for its star.
+  await p.click('[data-level="4"]');
+  for (const at of await firstOf()) await tapAt(at);
+  assert.match(await status(), /^One every 4\.23 days: that is its year\. Now drag the line to the top of the wave\.$/);
+  await setLine(56);
+  await p.click('#depth-go');
+  assert.match(await status(), /The star swings 56 m\/s each way, so the planet weighs at least 0\.47 times as much as Jupiter\.$/);
+  await p.locator('#hunt-choices .choice:not([data-file="hot-jupiter"])').first().click();
+  assert.match(await p.locator('#reveal-head').textContent(), /^Not that file: by its size and year it’s a hot Jupiter\. It’s 51 Pegasi b\.$/);
+  assert.equal(await p.locator('#reveal-links a', { hasText: 'Set course' }).getAttribute('href'), './?course=Helvetios');
+  await p.close();
+}
+
 // A picture nobody can see isn't drawn. Five rooms animate a canvas, and each kept drawing it sixty times a second
 // with the canvas scrolled out of sight (a long file read to its end, the notebook under a viewscreen); the survey's
 // globe, painted pixel by pixel, kept a whole processor core busy that way. Each room now stops drawing while its

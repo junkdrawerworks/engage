@@ -150,3 +150,95 @@ test('a saved exam that makes no sense is dropped', () => {
   assert.deepEqual(examSaved({ day: '2026-11-19', marks: [true, false] }), { day: '2026-11-19', marks: [true, false] });
   for (const bad of [null, 3, { day: 'today', marks: [] }, { day: '2026-11-19', marks: [1] }, { day: '2026-11-19', marks: [true, true, true, true, true, true] }, { day: '2026-11-19' }]) assert.equal(examSaved(bad), null);
 });
+
+// ---------- Long-range sensors: Planet hunt ----------
+import * as H from '../js/hunt.js';
+import { fileFor } from '../js/worlds.js';
+import { DESTINATIONS } from '../js/destinations.js';
+import { buildCatalog } from '../js/catalog.js';
+import { readFileSync } from 'node:fs';
+
+test('the hunt’s planets are real, with their sources, each on the file the survey would put it on', () => {
+  assert.equal(H.PLANETS.length, 14);
+  const lum = { 'TRAPPIST-1': [10 ** -3.25727, 2566], 'π Mensae c': [10 ** 0.15836, 5998], 'HD 209458 b': [10 ** 0.23086, 6091], 'HD 189733 b': [10 ** -0.46119, 5052] };
+  const names = new Set(JSON.parse(readFileSync(new URL('../data/stars.json', import.meta.url))).names);
+  for (const p of H.PLANETS) {
+    assert.ok(byId.has(p.file), `${p.name}: no file ${p.file}`);
+    assert.match(p.src, /\d{4}/, `${p.name} has no source`);
+    assert.match(p.found, /^[A-Z].*\.$/);
+    if (p.star) assert.ok(names.has(p.star), `${p.name}: ${p.star} isn't in the catalogue, so Set course would find nothing`);
+    if (p.kms) continue;
+    // A crossing lasts from half an hour to four hours for these, as the papers have it.
+    const hours = H.duration(p) * 24;
+    assert.ok(hours > 0.4 && hours < 4.5, `${p.name}: ${hours} h`);
+    // The survey's own file where it has one, else the rule a placed planet is filed by.
+    const filed = worldByName(p.name);
+    const width = p.k * p.rs * H.SUN_EARTHS;
+    if (filed) assert.equal(p.file, filed.cls.id, `${p.name} is on another file in the survey`);
+    else { const [l, t] = lum[p.system || p.name]; assert.equal(p.file, fileFor(width, p.au, l, t), p.name); }
+  }
+  // TRAPPIST-1 e is Earth-sized (Agol and others 2021: 0.920 Earths); HD 209458 b is 1.4 Jupiters.
+  assert.ok(Math.abs(H.sizeFrom(H.depthOf(H.planetByName('TRAPPIST-1 e')), 0.1192).earths - 0.92) < 0.01);
+  assert.ok(Math.abs(H.sizeFrom(H.depthOf(H.planetByName('HD 209458 b')), 1.19).earths / 11.21 - 1.4) < 0.05);
+});
+
+test('51 Pegasi b’s wobble gives about half Jupiter’s mass, as Mayor and Queloz found (0.47, Nature 378, 355)', () => {
+  const p = H.planetByName('51 Pegasi b');
+  assert.ok(Math.abs(H.leastMass(p.kms, p.days, p.ms) - 0.46) < 0.01);
+  assert.equal(H.massLine(55.77, p.days, p.ms), 'The star swings 56 m/s each way, so the planet weighs at least 0.46 times as much as Jupiter.');
+});
+
+test('every curve has three of its planet’s dips (or tops) to tap, and the same seed draws the same curve', () => {
+  for (const level of [1, 2, 3, 4]) {
+    for (let seed = 1; seed <= 60; seed++) {
+      const c = H.curve(level, seed);
+      assert.deepEqual(Array.from(H.curve(level, seed).y.slice(0, 50)), Array.from(c.y.slice(0, 50)));
+      const ev = H.events(c);
+      const most = Math.max(...c.planets.map(p => ev.filter(e => e.planet === p).length));
+      assert.ok(most >= 3, `level ${level} seed ${seed}: at most ${most}`);
+      assert.ok(c.t.every(t => t >= 0 && t < c.days));
+    }
+  }
+});
+
+test('three dips of one planet give its year; dips of two give nothing but a warning', () => {
+  const c = H.curve(3, 9);
+  const ev = H.events(c);
+  const b = ev.filter(e => e.planet.name === 'TRAPPIST-1 b').slice(0, 3);
+  const year = H.yearFrom([b[0], b[2], b[1]]);
+  assert.equal(year.planet.name, 'TRAPPIST-1 b');
+  assert.ok(Math.abs(year.days - 1.510826) < 1e-9);
+  const c1 = ev.find(e => e.planet.name === 'TRAPPIST-1 c');
+  assert.deepEqual(H.yearFrom([b[0], c1, b[1]]), { mixed: true });
+  assert.deepEqual(H.eventAt(c, b[1].at + 0.01, 0.05), b[1]);
+  assert.notEqual(H.eventAt(c, b[1].at + 0.3, 0.05)?.n, b[1].n);
+  assert.equal(H.yearLine(1.510826), 'One every 36.3 hours: that is its year.');
+  assert.equal(H.yearLine(3.52474859), 'One every 3.52 days: that is its year.');
+});
+
+test('passes too faint to see make a dip when added up on the right year, and only then', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const c = H.curve(2, seed), p = c.planets[0];
+    assert.equal(H.tried(c, p.days), 'found');
+    assert.equal(H.tried(c, p.days + H.tolerance(c) * 0.9), 'found');
+    assert.equal(H.tried(c, p.days * 2), 'double');
+    assert.equal(H.tried(c, p.days * 1.05), null);
+    // No single pass shows: the scatter is half the dip.
+    assert.ok(Math.abs(c.noise / H.depthOf(p) - 0.5) < 1e-9);
+    // Added up, the deepest slice is at least half as deep as the dip, and deeper than at a wrong year.
+    const low = d => 1 - Math.min(...H.fold(c, d, H.binsFor(c)).filter(x => !Number.isNaN(x)));
+    assert.ok(low(p.days) > H.depthOf(p) * 0.5, `seed ${seed}: ${low(p.days)}`);
+    assert.ok(low(p.days) > low(p.days * 1.07), `seed ${seed}`);
+  }
+});
+
+test('a reading by hand counts within a third; the lines it gives; links that travel', () => {
+  assert.ok(H.near(0.011, 0.015) && !H.near(0.009, 0.015) && H.near(70, 56) && !H.near(80, 56));
+  assert.equal(H.sizeLine(0.00501, 0.1192), '0.5% dimmer, so the planet is about 7.1% of its star’s width: about Earth’s size.');
+  assert.equal(H.sizeLine(0.0146, 1.19), '1.5% dimmer, so the planet is about 12.1% of its star’s width: about 1.4 times Jupiter’s width.');
+  assert.equal(H.sizeLine(0.000331, 0.943), '0.03% dimmer, so the planet is about 1.8% of its star’s width: about 1.9 times Earth’s width.');
+  const c = H.curve(2, 4187);
+  assert.equal(H.linkOf(c), 'hunt=2.4187');
+  assert.deepEqual(H.fromLink('hunt=2.4187'), { level: 2, seed: 4187 });
+  for (const bad of ['hunt=5.3', 'hunt=2.', 'hunt=2.0', 'hunt=1.123456', 'hunt', 'hunt=2.12x']) assert.equal(H.fromLink(bad), null, bad);
+});

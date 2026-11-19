@@ -74,7 +74,7 @@ function worldOf(cls, r) {
   return { cls, seed: 1 + Math.floor(r() * 9999), ...quizReadings(cls, r), survey: `${pick(r, TAGS)} · Sector ${100 + Math.floor(r() * 900)}` };
 }
 // Four files with `id` among them: two from its own group where it has them, and the rest from anywhere.
-function fourWith(id, r) {
+export function fourWith(id, r) {
   const near = shuffle(r, groupOf(id).filter(x => x !== id)).slice(0, 2);
   const others = shuffle(r, CLASSES.map(x => x.id).filter(x => x !== id && !near.includes(x)));
   return shuffle(r, [id, ...near, ...others].slice(0, 4)).map(x => byId.get(x));

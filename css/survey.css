@@ -11,8 +11,8 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .back:hover { border-color: var(--cyan); }
 .back svg { width: 20px; height: 20px; }
 .title h1 { margin: 2px 0 0; font: 600 22px/1.15 var(--display); letter-spacing: 0.04em; }
-.tabs { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; gap: 4px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
-.tabs button { min-height: 40px; padding: 4px 6px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 12px/1.15 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.tabs { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); padding: 4px; gap: 4px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.tabs button { min-height: 40px; padding: 4px 4px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 12px/1.15 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
 .tabs button[aria-pressed="true"] { background: rgba(255, 181, 74, 0.14); color: var(--amber); box-shadow: 0 0 0 1px rgba(255, 181, 74, 0.35) inset; }
 
 /* The planet */
@@ -131,7 +131,7 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 
 @media (min-width: 760px) {
   .top { grid-template-columns: auto 1fr auto; padding: calc(20px + var(--safe-t)) max(24px, var(--safe-r)) 14px max(24px, var(--safe-l)); }
-  .tabs { grid-column: auto; width: 380px; }
+  .tabs { grid-column: auto; width: 520px; }
   .title h1 { font-size: 26px; }
   .survey main { padding: 0 max(24px, var(--safe-r)) 0 max(24px, var(--safe-l)); }
   #files:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'viewer file' 'strip file'; gap: 0 28px; align-items: start; }
@@ -155,3 +155,25 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .yours b { font: 600 15px/1.2 var(--display); letter-spacing: 0.02em; }
 .yours span { font-size: 13px; color: var(--muted); }
 .yours-none { max-width: 760px; margin: 12px auto; color: var(--muted); font-size: 14px; }
+
+/* Four tabs on a narrow phone: two lines each at most. */
+@media (max-width: 459px) { .tabs button { font-size: 11px; letter-spacing: 0.05em; } }
+
+/* Long-range sensors: Planet hunt. The star's light in rows of days, the passes added up, and a line read off by hand. */
+#hunt { max-width: 900px; margin: 0 auto; }
+.hunt-brief { max-width: 640px; margin: 0 auto 8px; text-align: center; color: var(--muted); font-size: 14px; }
+.hunt-panel { padding: 10px 10px 12px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel); }
+.hunt-plot, .fold-plot { display: block; width: 100%; touch-action: pan-y; cursor: crosshair; }
+.hunt-fold { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.fold-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fold-row label { font: 600 11px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.fold-row output { font: 600 15px/1.2 var(--display); color: var(--cyan); font-variant-numeric: tabular-nums; }
+.fold-row input[type="range"] { flex: 1; }
+.fold-step { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel); color: var(--text); font: 600 20px/1 var(--display); padding: 0; }
+.hunt-status { min-height: 1.3em; margin: 10px 4px 0; font-size: 14px; color: #cdd5e3; text-align: center; }
+.hunt-status.ok { color: #6fe3a4; }
+.hunt-status.bad { color: #ff9a8c; }
+.hunt-depth { display: grid; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.hunt-depth input[type="range"] { width: 100%; }
+.hunt-verdict { margin-top: 6px; }
+.hunt-actions { display: flex; justify-content: center; gap: 24px; margin-top: 12px; }

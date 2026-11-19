@@ -37,6 +37,7 @@
     <nav class="tabs" aria-label="Mode">
       <button type="button" data-mode="files" aria-pressed="true">Survey files</button>
       <button type="button" data-mode="drill" aria-pressed="false">Cover your tracks</button>
+      <button type="button" data-mode="hunt" aria-pressed="false">Long-range sensors</button>
       <button type="button" data-mode="yours" aria-pressed="false">Your stars</button>
     </nav>
   </header>
@@ -115,6 +116,51 @@
         <p class="caught" id="caught" hidden></p>
       </div>
       <p class="unsaved" id="score-unsaved" role="status" hidden></p>
+    </section>
+
+    <section id="hunt" hidden aria-label="Long-range sensors">
+      <div class="drill-intro"><p>Nobody has seen most planets. They are found in their stars’ light: a dip each time one crosses its star, or a wobble as it pulls its star about. Find one the way astronomers do.</p></div>
+      <div class="rounds" role="group" aria-label="Level">
+        <button type="button" data-level="1" aria-pressed="true">Deep dips</button>
+        <button type="button" data-level="2" aria-pressed="false">Too faint to see</button>
+        <button type="button" data-level="3" aria-pressed="false">Seven worlds</button>
+        <button type="button" data-level="4" aria-pressed="false">The wobble</button>
+      </div>
+      <p class="hunt-brief" id="hunt-brief"></p>
+      <div class="hunt-panel">
+        <canvas class="hunt-plot" id="hunt-plot" role="img" aria-label="The star’s light, reading by reading, in rows of days"></canvas>
+        <div class="hunt-fold" id="hunt-fold" hidden>
+          <div class="fold-row">
+            <label for="fold-year">Try a year</label>
+            <output id="fold-out" for="fold-year"></output>
+          </div>
+          <div class="fold-row">
+            <button class="fold-step" id="fold-less" type="button" aria-label="A shorter year">−</button>
+            <input type="range" id="fold-year" min="0" max="3000" step="1" value="1500">
+            <button class="fold-step" id="fold-more" type="button" aria-label="A longer year">+</button>
+          </div>
+          <canvas class="fold-plot" id="fold-plot" role="img" aria-label="The passes added up on the year being tried"></canvas>
+        </div>
+        <p class="hunt-status" id="hunt-status" role="status"></p>
+        <div class="hunt-depth" id="hunt-depth" hidden>
+          <div class="fold-row">
+            <label for="depth-range" id="depth-label">Depth of the dip</label>
+            <output id="depth-out" for="depth-range"></output>
+          </div>
+          <input type="range" id="depth-range" min="0" max="100" step="1" value="0">
+          <button class="primary" id="depth-go" type="button">That’s the line</button>
+        </div>
+      </div>
+      <div class="hunt-verdict" id="hunt-verdict" hidden>
+        <p class="prompt">Which survey file is it?</p>
+        <div class="choices" id="hunt-choices"></div>
+        <div class="verdict" id="hunt-reveal" hidden>
+          <p class="verdict-head" id="reveal-head"></p>
+          <p id="reveal-text"></p>
+          <div class="w-links" id="reveal-links"></div>
+        </div>
+      </div>
+      <p class="share-row hunt-actions"><button class="text-button" id="hunt-new" type="button">Another star</button><button class="text-button" id="hunt-share" type="button">Share this curve</button></p>
     </section>
 
     <section id="yours" hidden aria-label="Your stars">

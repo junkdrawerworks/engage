@@ -1,6 +1,7 @@
 // The planetary survey: flip through the planet classes, or match an unlogged world to the file it would pass for.
 import { CLASSES, byId, label, quizReadings, grows, streakRecord } from './classes.js';
 import { MOONS } from './moons.js';
+import { openHunt, huntLink, hunt, huntTest } from './hunt-view.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -488,7 +489,14 @@ function setMode(m, push = true) {
   $('files').hidden = m !== 'files';
   $('drill').hidden = m !== 'drill';
   $('yours').hidden = m !== 'yours';
-  if (m === 'yours') {
+  $('hunt').hidden = m !== 'hunt';
+  if (m === 'hunt') {
+    const link = huntLink(hashText());
+    if (link) openHunt(link.level, link.seed);
+    else if (!hunt().curve) openHunt(1);
+    else if (push) try { history.replaceState(null, '', `#hunt=${hunt().curve.level.id}.${hunt().curve.seed}`); } catch { /* fine */ }
+    document.title = 'Long-range sensors · Planetary survey · Engage';
+  } else if (m === 'yours') {
     renderYours();
     if (push) try { history.replaceState(null, '', '#yours'); } catch { /* fine */ }
     document.title = 'Your stars · Planetary survey · Engage';
@@ -511,6 +519,7 @@ function fromHash() {
   if (h === 'drill') return setMode('drill', false);
   if (h === 'exam') { if (saved.round !== 'exam') { saved.round = 'exam'; drill = null; } return setMode('drill', false); }
   if (h === 'yours') return setMode('yours', false);
+  if (h === 'hunt' || huntLink(h)) return setMode('hunt', false);
   const i = order.findIndex(c => c.id.toLowerCase() === h.toLowerCase());
   if (i >= 0) at = i;
   setMode('files', false);
@@ -589,4 +598,4 @@ bind();
 fromHash();
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, round: setRound, get world() { return drill; }, answer, get cached() { return maps.size; }, get draws() { return (globe.draws || 0) + (drillGlobe.draws || 0); }, get globeScale() { return pace.scale; } };
+window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, round: setRound, get hunt() { return hunt(); }, huntTest, get world() { return drill; }, answer, get cached() { return maps.size; }, get draws() { return (globe.draws || 0) + (drillGlobe.draws || 0); }, get globeScale() { return pace.scale; } };
