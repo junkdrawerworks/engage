@@ -133,7 +133,7 @@ ${css}
 ${await read('css/maru.css')}
 </style>
 <div class="maru-root">
-${bridgeLinks(pageBody(maruHtml), 'maru.html')}
+${swap(bridgeLinks(pageBody(maruHtml), 'maru.html'), 'href="directive.html"', `href="${LIVE}directive.html" target="_blank" rel="noopener"`, 'maru.html')}
 </div>
 <script type="module">
 const __m = {};

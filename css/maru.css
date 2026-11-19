@@ -65,6 +65,7 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 .officer-card h2 { font-size: 22px; }
 .officer-card .officer-record { font-size: 14px; color: var(--cyan); }
 .officer-card .secondary { width: 100%; margin-top: 4px; }
+.officer-card .go-board { display: grid; place-items: center; text-decoration: none; }
 #officer:not([hidden]) { display: block; }
 #officer-plot { display: block; width: 100%; aspect-ratio: 10 / 7; }
 #officer-bar { background: var(--amber); }

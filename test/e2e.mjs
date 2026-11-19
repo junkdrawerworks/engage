@@ -185,7 +185,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   assert.equal(await p.locator('#intro').evaluate(el => el.scrollTop), 0, `the welcome card opened scrolled down past its heading on a ${viewport.width}×${viewport.height} screen`);
   const touch = await small.newCDPSession(p);
   const x = viewport.width / 2, from = viewport.height - 40, to = 40;
-  // A swipe up, and another while Take the helm is still below the screen: with fifteen rooms on the list, a phone
+  // A swipe up, and another while Take the helm is still below the screen: with sixteen rooms on the list, a phone
   // on its side takes more than one. Four at most.
   let go;
   for (let swipe = 0; swipe < 4; swipe++) {
@@ -359,7 +359,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await bridgeReady(p);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
   await p.tap('#open-settings');
-  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all sixteen rooms work with no signal.', null, { timeout: 20000 })
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all seventeen rooms work with no signal.', null, { timeout: 20000 })
     .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
   assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
   assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
@@ -5085,7 +5085,7 @@ await page.emulateMedia({ reducedMotion: null });
   // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
   // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
   // half the time once the service worker was handing the stylesheet over.
-  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html']) {
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html']) {
     assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
   }
   for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
@@ -6730,9 +6730,55 @@ await page.emulateMedia({ reducedMotion: null });
   await ec.close();
 }
 
+// The Prime Directive: the case, a hearing given order by order with each one written into the transcript, the
+// board's finding with its four grades and what Picard did, the record, and a second hearing from the finding.
+{
+  const dc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await dc.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await dc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'directive.html');
+  await p.waitForFunction(() => window.directive?.ready);
+  assert.equal(await p.locator('#case-title').innerText(), 'The voice on the radio');
+  assert.equal(await p.locator('#record').isVisible(), false);
+  await p.tap('#hear');
+  assert.equal(await p.locator('#brief').isVisible(), false);
+  assert.deepEqual(await p.locator('.pd-choice').allInnerTexts(), ['Stop answering her, tonight', 'Keep listening, but say nothing more', 'Put it before the senior staff, and in the log']);
+  await p.locator('.pd-choice', { hasText: 'Stop answering' }).tap();
+  assert.match(await p.locator('#transcript li').first().innerText(), /Your order: Stop answering her, tonight\.\s+Oduya signs off without a word\./);
+  assert.match(await p.locator('#step-text').innerText(), /^Teshi’s next call is frightened/);
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'step-text', 'the next question did not take the focus');
+  await p.locator('.pd-choice', { hasText: 'Settle the faults' }).tap();
+  await p.locator('.pd-choice', { hasText: 'Beam her up' }).tap();
+  await p.locator('.pd-choice', { hasText: 'take her memory' }).tap();
+  assert.equal(await p.locator('#verdict').isVisible(), true);
+  assert.equal(await p.locator('#finding-title').innerText(), 'Nothing to remember');
+  assert.deepEqual(await p.locator('#grades .letter').allInnerTexts(), ['A', 'B', 'B', 'C']);
+  assert.match(await p.locator('#grades li').nth(3).innerText(), /CANDOUR: C\s+You took a child’s memory without asking her\./i);
+  assert.equal(await p.locator('#happened li').count(), 4);
+  assert.match(await p.locator('#screen-title').innerText(), /“Pen Pals” \(The Next Generation, season 2, 1989\)/);
+  assert.equal(await p.locator('#screen-same').innerText(), 'Your orders were Picard’s, every one.');
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.directive.v1')));
+  assert.deepEqual(kept.heard.map(h => h.path), [['stop', 'settle', 'beam', 'erase']]);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the room is wider than the phone');
+  // Again, another way: three orders this time.
+  await p.tap('#again');
+  assert.equal(await p.locator('#transcript li').count(), 0);
+  for (const t of ['Put it before', 'Leave the planet', 'Let it ring']) await p.locator('.pd-choice', { hasText: t }).tap();
+  assert.equal(await p.locator('#finding-title').innerText(), 'The order kept');
+  assert.equal(await p.locator('#screen-same').innerText(), 'None of your orders was Picard’s.');
+  // The record shows on the case.
+  await p.tap('#back');
+  assert.equal(await p.locator('#record').innerText(), 'Heard 2 times. Last finding: The order kept, F A B A.');
+  await p.reload();
+  await p.waitForFunction(() => window.directive?.ready);
+  assert.equal(await p.locator('#hear').innerText(), 'HEAR IT AGAIN');
+  await dc.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
-const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html'];
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html'];
 const until = async (ok, ms, what) => {
   for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
 };
@@ -6750,7 +6796,7 @@ for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await 
 const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
-const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal', 'longway.html': 'longway', 'engineering.html': 'engineering' };
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal', 'longway.html': 'longway', 'engineering.html': 'engineering', 'directive.html': 'directive' };
 const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
 net = 'down';
 await ctx.setOffline(true);
@@ -6815,7 +6861,7 @@ server.close();
 // a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
 // index.html; the first 8 hex of the sha1 of those).
 // Everything the ten pages and their scripts load is on the list: a file left off opens online and not offline.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
@@ -6825,7 +6871,7 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html']) {
   const html = await readFile(join(root, f), 'utf8');
   assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
   const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';

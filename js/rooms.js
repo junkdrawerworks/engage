@@ -4,7 +4,7 @@
 // bridge reaches from the captain's log instead (the system view and the away team, from a star's planets; subspace
 // radio, from a star's line about Earth's broadcasts, and from Set course; astrometrics, from a star's own line; the
 // distress call, the temporal observatory, the long way home and main engineering, from this list alone until the
-// bridge's round buttons are settled); `icon`
+// bridge's round buttons are settled; the Prime Directive, from this list and the Kobayashi Maru's briefing); `icon`
 // is the inside of that button's 24 × 24 drawing, so the list shows the same picture as the button. Pure, checked by
 // test/bridge.test.mjs.
 
@@ -33,6 +33,11 @@ export const ROOMS = [
     id: 'maru', href: 'maru.html', button: 'open-maru', name: 'Kobayashi Maru',
     line: 'The Academy’s no-win test: 381 aboard, and the Klingons coming.',
     icon: '<path d="M12 2.8c-2.4 5.2-4.6 11.6-6.2 18.4 1.9-2.4 4-3.6 6.2-3.6s4.3 1.2 6.2 3.6C16.6 14.4 14.4 8 12 2.8z"/>',
+  },
+  {
+    id: 'directive', href: 'directive.html', button: null, name: 'The Prime Directive',
+    line: 'A child on a world without warp calls for help. A board of inquiry grades what you do.',
+    icon: '<path d="M12 3v17M5 20.5h14"/><path d="M4 7.5h16"/><path d="M6.5 7.5L4 13.5a2.6 2.6 0 0 0 5 0zM17.5 7.5L15 13.5a2.6 2.6 0 0 0 5 0z"/>',
   },
   {
     id: 'contact', href: 'contact.html', button: 'open-contact', name: 'First contact',

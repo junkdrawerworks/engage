@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png, og-longway.png, og-engineering.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress, temporal, longway or engineering; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png, og-longway.png, og-engineering.png, og-directive.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress, temporal, longway, engineering or directive; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -592,6 +592,30 @@ if (!only || only === 'engineering') {
   const aspect = box.height / box.width;
   await wide.context().close();
   await ogCard('data:image/png;base64,' + shot.toString('base64'), aspect, 'Engage · Engineering', 'Main engineering', 'Hold the bridge’s orders through a shift, and see what each warp factor burns.', 'A kilogram of antimatter is 43 megatons', 'og-engineering.png');
+}
+
+// The Prime Directive: the board's finding on Picard's own orders in Pen Pals.
+if (!only || only === 'directive') {
+  const hear = async page => {
+    await page.goto(base + 'directive.html');
+    await page.waitForFunction(() => window.directive?.ready);
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => directive.hear(['stop', 'settle', 'beam', 'erase']));
+    await page.evaluate(() => document.getElementById('verdict').scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(300);
+  };
+  const page = await open({ width: 390, height: 844 }, 2);
+  await hear(page);
+  await save(await page.screenshot(), 'docs/phone-directive.png');
+  await page.context().close();
+  const narrow = await open({ width: 400, height: 900 }, 2);
+  await hear(narrow);
+  // The finding's title and its four grades.
+  const box = await narrow.locator('#verdict').boundingBox(), grades = await narrow.locator('#grades').boundingBox();
+  const clip = { x: box.x, y: box.y, width: box.width, height: grades.y + grades.height + 16 - box.y };
+  const shot = await narrow.screenshot({ clip });
+  await narrow.context().close();
+  await ogCard('data:image/png;base64,' + shot.toString('base64'), clip.height / clip.width, 'Engage · Starfleet Academy', 'The Prime Directive', 'A child on a world without warp calls for help. You may not answer.', 'A board of inquiry grades what you do', 'og-directive.png');
 }
 
 if (!only || only === 'courses') {

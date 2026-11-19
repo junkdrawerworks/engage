@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>The Prime Directive · Engage</title>
+  <meta name="description" content="A board of inquiry at Starfleet Academy. A people who haven’t reached warp, a call for help, and General Order 1, which says you may not answer it. Give your orders, and the board grades your compassion, restraint, judgment and candour.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="The Prime Directive">
+  <meta property="og:description" content="A child on a pre-warp world is calling for help, and General Order 1 says you may not answer. A board of inquiry grades what you do.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-directive.png">
+  <meta property="og:image:alt" content="Engage, the Prime Directive. A board of inquiry’s finding: four grades, compassion, restraint, judgment and candour, each with the board’s reason.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/directive.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/directive.css">
+</head>
+<body class="survey directive-page">
+  <noscript><p class="noscript">The board of inquiry needs JavaScript to hear the case.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Starfleet Academy</p>
+      <h1>The Prime Directive</h1>
+    </div>
+  </header>
+
+  <main>
+    <p class="lab-intro">General Order 1: no interference with a people who haven’t reached warp, not even to let them know you exist. A board of inquiry gives you a case where it and the right thing pull apart. Give your orders, and the board grades your compassion, restraint, judgment and candour, and tells you what a captain on screen did. Nobody earns all four.</p>
+
+    <section class="pd-card" id="brief" aria-labelledby="case-title">
+      <p class="eyebrow" id="case-where"></p>
+      <h2 id="case-title"></h2>
+      <div id="case-brief"></div>
+      <p class="pd-record" id="record" hidden></p>
+      <button type="button" class="primary" id="hear">Hear the case</button>
+    </section>
+
+    <section class="pd-card" id="hearing" hidden aria-label="The hearing">
+      <ol class="transcript" id="transcript"></ol>
+      <p class="step-text" id="step-text" tabindex="-1"></p>
+      <div class="pd-choices" id="choices" role="group" aria-labelledby="step-text"></div>
+    </section>
+
+    <section class="pd-card finding" id="verdict" hidden aria-labelledby="finding-title">
+      <p class="eyebrow">Board of inquiry · Finding</p>
+      <h2 id="finding-title" tabindex="-1"></h2>
+      <ul class="grades" id="grades"></ul>
+      <h3>What happened</h3>
+      <ol class="happened" id="happened"></ol>
+      <div class="on-screen">
+        <p class="eyebrow">On screen</p>
+        <h3 id="screen-title"></h3>
+        <p id="screen-text"></p>
+        <p class="same" id="screen-same"></p>
+      </div>
+      <div class="pd-row">
+        <button type="button" class="secondary" id="back">Back to the case</button>
+        <button type="button" class="primary" id="again">Hear it again</button>
+      </div>
+    </section>
+
+    <p class="also">Also at the Academy: <a href="maru.html">the Kobayashi Maru</a>, the no-win test, and the Bridge Officer’s Test on its briefing.</p>
+    <p class="sources">General Order 1, the Prime Directive, is Starfleet’s from the first series on. The case, its world and its people are this game’s; the account of “Pen Pals” is from Wikipedia’s article on the episode. The grades are the board’s opinion, not a rule: another board might weigh them differently.</p>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/directive.js"></script>
+</body>
+</html>
