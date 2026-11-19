@@ -32,11 +32,12 @@ export function courseCaption(d, ly) {
 }
 
 // The line under the preview's title: what Starfleet's charts put there, where they put something (the story the
-// log tells on arrival), or else the first of the star's notes that reads well away from it (not "where you are now").
+// log tells on arrival), or else the first of the star's notes that reads well away from it (not "where you are now";
+// a nebula's "Ahead, a cloud…" is said as "A cloud…").
 export function courseLine(d) {
   const chart = chartFor(d.star);
   if (chart) return chart.log || chart.line;
-  return d.notes.find(n => !/\byou\b|this one/i.test(n)) || d.notes[0];
+  return (d.notes.find(n => !/\byou\b|this one/i.test(n)) || d.notes[0]).replace(/^Ahead, (\w)/, (_, c) => c.toUpperCase());
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

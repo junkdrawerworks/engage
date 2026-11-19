@@ -2049,6 +2049,8 @@ function hooks() {
     snapshot() { sky.render(viewNow(0)); return $('sky').toDataURL('image/png'); },
     // What the disc of a star that behaves was last drawn doing: { star, light, size, glow }, or null.
     get behave() { return sky.behave; },
+    // The nebulae and clusters painted on the viewscreen in the last frame: { id, x, y, r } in CSS pixels.
+    get sights() { return sky.drawn.map(d => ({ ...d })); },
     // Holds the disc of a star that behaves at one moment of its sped-up cycle (null lets it run): for pictures.
     holdBehave(seconds) { behaveClock = seconds; dirty = true; },
     closeSheets,

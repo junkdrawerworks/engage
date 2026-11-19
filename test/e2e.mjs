@@ -694,7 +694,7 @@ assert.equal(await text('#where'), 'Proxima Centauri');
 assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'the helm stayed out of reach after arriving');
 // Under the star's name, one quiet line says what this arrival did: a first trip sets every record and charts a
 // destination, and the entry used to say none of it. The count is the one the log's records give (see below).
-assert.deepEqual(await page.locator('#arrival-entry h3 + .firsts span').allInnerTexts(), ['First visit', 'Farthest yet from Sol', 'Longest trip yet', 'Destination 2 of 32 charted']);
+assert.deepEqual(await page.locator('#arrival-entry h3 + .firsts span').allInnerTexts(), ['First visit', 'Farthest yet from Sol', 'Longest trip yet', 'Destination 2 of 35 charted']);
 // It takes two lines on a phone: each part stays whole, and no dot is left hanging at the end of the first.
 {
   const parts = await page.locator('#arrival-entry .firsts span').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { top: r.top, left: r.left, right: r.right, lines: el.getClientRects().length }; }));
@@ -757,7 +757,7 @@ assert.ok(Math.abs(sun[1] - 60.8 * Math.PI / 180) < 0.1, 'the view did not turn 
 // The log keeps the trip, and so does a reload.
 await page.click('#open-log');
 assert.match(await text('#stats'), /1 star visited · 4\.2\d ly travelled/);
-assert.match((await text('#records')).replace(/\s+/g, ' '), /^FARTHEST FROM SOL Proxima Centauri · 4\.2\d ly LONGEST TRIP 4\.2\d ly to Proxima Centauri CHARTED DESTINATIONS 2 of 32 KINDS OF STAR 1 of 7 OBAFGKM$/);
+assert.match((await text('#records')).replace(/\s+/g, ' '), /^FARTHEST FROM SOL Proxima Centauri · 4\.2\d ly LONGEST TRIP 4\.2\d ly to Proxima Centauri CHARTED DESTINATIONS 2 of 35 KINDS OF STAR 1 of 7 OBAFGKM$/);
 // An entry opened from the log says its first line once, not in the heading and again underneath.
 await page.locator('.past summary').first().click();
 {
@@ -2287,7 +2287,7 @@ await bridgeReady();
   await p.click('#open-log');
   // (Vega to Alpheratz and back are the same 90.3 ly, so either may hold the longest trip.)
   assert.match((await p.locator('#records div').allInnerTexts()).map(t => t.replace(/\s+/g, ' ')).join('; '),
-    /^FARTHEST FROM SOL Alpheratz · 97\.0 ly; LONGEST TRIP 90\.3 ly to (Alpheratz|Vega); MOST VISITED Vega · 2 visits; CHARTED DESTINATIONS 2 of 32; KINDS OF STAR 2 of 7 OBAFGKM$/);
+    /^FARTHEST FROM SOL Alpheratz · 97\.0 ly; LONGEST TRIP 90\.3 ly to (Alpheratz|Vega); MOST VISITED Vega · 2 visits; CHARTED DESTINATIONS 2 of 35; KINDS OF STAR 2 of 7 OBAFGKM$/);
   assert.equal(await p.locator('.past').nth(0).locator('[data-again]').count(), 0, 'the log offers a course for the star the ship is at');
   await p.locator('.past summary').nth(1).click();
   // Share this course, from an entry: with no share sheet (a desktop browser) the link is copied and the button says
@@ -2413,6 +2413,41 @@ await bridgeReady();
   await been.close();
 }
 
+// Nebulae and clusters as destinations: the Orion Nebula is in Set course under its own heading, the flight holds 28
+// light years out with the whole nebula painted ahead at its true size, the log says where the ship is and that the
+// shape is an impression, and its course page is the nebula's own. From Earth, facing Orion, it is a faint patch.
+{
+  const neb = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await neb.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.click('#intro-go');
+  await p.evaluate(() => engage.lookAtStar('θ¹ Orionis'));
+  await p.waitForTimeout(400);
+  const home = (await p.evaluate(() => engage.sights)).find(x => x.id === 'orion');
+  assert.ok(home && home.r > 3 && home.r < 20, `from Earth the Orion Nebula is not a small patch: ${JSON.stringify(home)}`);
+  await p.click('#choose');
+  const heads = await p.locator('#picker .group').allInnerTexts();
+  assert.ok(heads.some(h => /nebulae and clusters/i.test(h)), `no Nebulae and clusters heading in Set course: ${heads}`);
+  await p.locator('#picker .row', { hasText: 'The Orion Nebula' }).click();
+  assert.equal(await p.locator('#target-name').innerText(), 'The Orion Nebula');
+  await p.evaluate(() => { engage.speed(50); });
+  await p.tap('#engage');
+  await p.waitForFunction(() => !engage.trip && !document.getElementById('arrival').hidden, null, { timeout: 60000 });
+  assert.match(await p.locator('#arrival').innerText(), /We’ve dropped out of warp at the Orion Nebula, 1,344 ly from Sol, and are holding 28 light years out, with the whole nebula ahead\./);
+  assert.match(await p.locator('#arrival').innerText(), /its glow is real, its shape an impression/);
+  await p.evaluate(() => engage.closeSheets());
+  await p.waitForTimeout(300);
+  const there = (await p.evaluate(() => engage.sights)).find(x => x.id === 'orion');
+  assert.ok(there && there.r > 120, `the nebula is not painted across the viewscreen: ${JSON.stringify(there)}`);
+  assert.equal(await p.locator('#where').innerText(), 'The Orion Nebula');
+  const page = await (await fetch(base + 'course/the-orion-nebula.html')).text();
+  assert.match(page, /<meta property="og:title" content="Set course for the Orion Nebula">/);
+  assert.match(page, /<meta property="og:description" content="A cloud about 25 light years across where new stars are being born/);
+  await neb.close();
+}
+
 // Clusters, nebulae and galaxies in tonight's sky, from the one list the bridge and the warp scale use too. New York
 // at 10 pm on 8 January 2027, a suburban sky and the Moon down: the Pleiades and the Hyades are tagged as patches at
 // their true size, a link opens a card, the Pleiades take Alcyone's place (its course and its visits), and the list
@@ -2452,7 +2487,7 @@ await bridgeReady();
   assert.deepEqual([await p.locator('#card-kind').innerText(), await p.locator('#card-sub').innerText()], ['NEBULA', 'M42 · 1,344 light years away · in Orion']);
   assert.match(await p.locator('#card-look').innerText(), /^\d+° up in the south(-[a-z]+)?\. You can see it by eye from the suburbs\. Binoculars show it better\.$/);
   assert.match(await p.locator('#card-facts').innerText(), /^1\.1° across the sky, about 25 light years wide\. The light reaching you tonight left it in 68\d\. A nebula is a captain’s favourite place/);
-  assert.equal(await p.locator('#card-course').evaluate(a => a.hidden), true, 'the Orion Nebula offers a course before the bridge can fly there');
+  assert.deepEqual(await p.locator('#card-course').evaluate(a => [a.hidden, decodeURIComponent(a.search)]), [false, '?course=θ¹ Orionis']);
   assert.equal(await p.locator('#card-share').innerText(), 'Share this nebula');
   assert.equal(await p.locator('#card-doors a').getAttribute('href'), './warp.html#orion');
   await p.click('#card .close');
@@ -2538,7 +2573,7 @@ await bridgeReady();
   assert.match(await p.locator('#stats').innerText(), /^2 stars visited · 8\.50 ly travelled$/);
   assert.equal(await p.locator('.past').count(), 2);
   assert.equal(await p.locator('.past [data-again]').count(), 1, 'an old entry has no Set course again');
-  assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 32 KINDS OF STAR \d of 7 OBAFGKM( Rare kinds: [\w, -]+)?$/);
+  assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 35 KINDS OF STAR \d of 7 OBAFGKM( Rare kinds: [\w, -]+)?$/);
   const after = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')));
   assert.deepEqual(after.log, bridge.log, 'the old log was changed');
   // (A setting that came later, the mission clock, is added to the old ones, off.)
@@ -4563,7 +4598,7 @@ await page.emulateMedia({ reducedMotion: null });
   const groups = () => p.locator('#list .group').allInnerTexts();
   // At home Set course is as it was (under the voyages): there is nothing nearer the ship than what Next door lists.
   await p.tap('#choose');
-  assert.deepEqual(await groups(), ['VOYAGES', 'HOME', 'NEXT DOOR', 'WORTH THE TRIP', 'LONG HAULS']);
+  assert.deepEqual(await groups(), ['VOYAGES', 'HOME', 'NEXT DOOR', 'WORTH THE TRIP', 'LONG HAULS', 'NEBULAE AND CLUSTERS']);
   await p.evaluate(() => engage.closeSheets());
   // Denebola has no notes. Its entry says where a planet would be temperate and the star's life, then what is around
   // it, between the star and the look home.
@@ -4575,7 +4610,7 @@ await page.emulateMedia({ reducedMotion: null });
   // The headings were written from Earth: away from it, the first group of destinations is the Sun's neighbours,
   // not "Next door".
   await p.tap('#arrival-next');
-  assert.deepEqual(await groups(), ['VOYAGES', 'NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS', 'WORTH THE TRIP', 'LONG HAULS']);
+  assert.deepEqual(await groups(), ['VOYAGES', 'NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS', 'WORTH THE TRIP', 'LONG HAULS', 'NEBULAE AND CLUSTERS']);
   const rows = await p.locator('#list .group').nth(1).locator('xpath=following-sibling::*').evaluateAll(els => {
     const out = [];
     for (const el of els) { if (!el.matches('.row')) break; out.push([el.querySelector('.name').firstChild.textContent, el.querySelector('.dist').textContent]); }
@@ -4771,7 +4806,7 @@ await page.emulateMedia({ reducedMotion: null });
   await home();
   assert.ok(await up('#arrival'), 'back from the survey, the arrival’s entry was gone');
   assert.equal(await p.locator('#arrival-entry h3').innerText(), 'Proxima Centauri');
-  assert.deepEqual(await p.locator('#arrival-entry .firsts span').allInnerTexts(), ['First visit', 'Destination 4 of 32 charted'], 'the entry came back without its line about the records');
+  assert.deepEqual(await p.locator('#arrival-entry .firsts span').allInnerTexts(), ['First visit', 'Destination 4 of 35 charted'], 'the entry came back without its line about the records');
   assert.equal(await entry.evaluate(el => el.scrollTop), scrolled, 'the entry came back scrolled somewhere else');
   assert.equal(await p.locator('#arrival-entry [style*="animation"]').count(), 0, 'the entry’s lines filed in again on the way back');
   assert.equal(await p.locator('#scrim').evaluate(el => el.hidden), true);

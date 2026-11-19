@@ -12,8 +12,12 @@ import { buildCatalog } from '../js/catalog.js';
 import { kindOf } from '../js/log.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const meta = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8'));
-const raw = new Float32Array((await readFile(join(root, 'data/stars.bin'))).buffer.slice(0));
+// The catalogue as the bridge builds it, with the stars the deep sky adds (js/deepsky.js) and moves.
+const stored = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8'));
+const built = buildCatalog((await readFile(join(root, 'data/stars.bin'))).buffer.slice(0), stored);
+const meta = { ...stored, names: built.names, spect: built.spect };
+const raw = new Float32Array(built.count * 5);
+for (let i = 0; i < built.count; i++) raw.set([built.pos[i * 3], built.pos[i * 3 + 1], built.pos[i * 3 + 2], built.absmag[i]], i * 5);
 const absmag = meta.names.map((_, i) => raw[i * 5 + 3]);
 // How bright each star looks from Earth, as the bridge works it out.
 const mag = i => absmag[i] + 5 * Math.log10(Math.max(Math.hypot(raw[i * 5], raw[i * 5 + 1], raw[i * 5 + 2]), 1e-6)) - 5;
@@ -201,7 +205,7 @@ test('a year finds the stars its light is reaching now', () => {
 // ---------- The ship's computer ----------
 
 const bin = await readFile(join(root, 'data/stars.bin'));
-const cat = buildCatalog(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength), meta);
+const cat = buildCatalog(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength), stored);
 const charted = DESTINATIONS.map(d => cat.byName.get(d.star));
 const shipAt = (name, extra = {}) => ({
   at: cat.byName.get(name), warp: 9, visited: new Set(), charted, worlds: i => !!DESTINATIONS.find(d => d.star === cat.names[i])?.worlds,
@@ -262,7 +266,7 @@ test('the computer finds kinds of star, planets, and the destinations still to v
   assert.ok(planets.stars.every(i => DESTINATIONS.find(d => d.star === cat.names[i])?.worlds));
   const prox = cat.byName.get('Proxima Centauri');
   const left = ask(cat, 'unvisited', shipAt('Sol', { visited: new Set([0, prox]) }));
-  assert.match(left.line, /^Of the 31 destinations with notes, 30 are still unvisited, nearest us first\.$/);
+  assert.match(left.line, /^Of the 34 destinations with notes, 33 are still unvisited, nearest us first\.$/);
   assert.ok(!left.stars.includes(prox) && !left.stars.includes(0));
 });
 

@@ -279,7 +279,8 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
       : `We’ve dropped out of warp at ${inTextFor(cat, i)}, ${formatLy(fromSol)} from Sol, and are ${hold}.`;
   const sections = [];
   const kind = notes?.kind || describeKind(cat.spect[i], cat.temp[i], unmeasured ? null : cat.absmag[i]);
-  const approx = notes ? '' : 'about ';
+  const guess = !notes || !!notes.estimate; // the star's width and brightness are the catalogue's estimates
+  const approx = guess ? 'about ' : '';
   const temp = `${(Math.round(cat.temp[i] / 10) * 10).toLocaleString('en-US')} K at the surface`;
   // How big a giant really is: how far it would reach in the Sun's place. The readings below rest on the star's
   // width and brightness, which for a star with notes were measured, and otherwise come from the catalogue.
@@ -289,7 +290,7 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
   sections.push(['The star', i === 0
     ? `${kind}. ${temp}.`
     : unmeasured ? `${kind}. ${temp}. Its width and brightness can’t be worked out without its distance.`
-    : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width', !notes).replace(approx ? /^about / : /^(?!)/, '')}, and ${approx}${ratio(cat.lum[i], 'brightness', !notes).replace(/^about /, '')}.${reach}`]);
+    : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width', guess).replace(approx ? /^about / : /^(?!)/, '')}, and ${approx}${ratio(cat.lum[i], 'brightness', guess).replace(/^about /, '')}.${reach}`]);
   if (notes?.planets) sections.push(['Planets', notes.planets]);
   for (const n of notes?.notes || []) sections.push(['', n]);
   // A star that behaves: where it is in its cycle, as Earth sees it on the day of the entry.
@@ -370,7 +371,7 @@ export const chartedSaid = c => ({ n: c.n + 1, of: c.of + 1 });
 
 // What the newest arrival did, for one quiet line under its title: the log with the new entry at its head against
 // the log before it. "First visit" (or "Third visit"), and each record it set: "Farthest yet from Sol", "Longest
-// trip yet", "Destination 3 of 32 charted". The first trip of all sets every one. Coming home is not a visit.
+// trip yet", "Destination 3 of 35 charted". The first trip of all sets every one. Coming home is not a visit.
 // Nothing is kept with the entry: it is worked out from the log, as the records are (same `opts` as logRecords).
 const NTH = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
 export function arrivalFirsts(log, opts) {

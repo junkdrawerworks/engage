@@ -1,7 +1,8 @@
 // Loads the stars: positions in parsecs from the Sun (x toward the March equinox, z toward the north celestial
 // pole), how bright each really is, and the colour, temperature and size worked out from that.
-import { physical, starColor } from './physics.js';
+import { LY_PER_PC, physical, starColor } from './physics.js';
 import { DESTINATIONS } from './destinations.js';
+import { ADDED, PLACED } from './deepsky.js';
 
 const NOMINAL_PC = 1000;
 
@@ -16,7 +17,27 @@ export async function loadCatalog() {
 // The catalogue from the two files' contents: data/stars.bin as an ArrayBuffer and data/stars.json parsed. (Apart
 // from loadCatalog, so a test can make one without a server.)
 export function buildCatalog(bin, meta) {
-  const raw = new Float32Array(bin);
+  // The catalogue's own stars, then the few the deep sky adds after them (js/deepsky.js), so every star the
+  // catalogue has keeps its number.
+  const own = new Float32Array(bin), base = own.length / 5;
+  const raw = new Float32Array((base + ADDED.length) * 5);
+  raw.set(own);
+  ADDED.forEach((a, k) => {
+    const r = a.ra * 15 * Math.PI / 180, d = a.dec * Math.PI / 180, pc = a.ly / LY_PER_PC;
+    raw.set([pc * Math.cos(d) * Math.cos(r), pc * Math.cos(d) * Math.sin(r), pc * Math.sin(d), a.vmag - 5 * Math.log10(pc / 10), a.bv], (base + k) * 5);
+  });
+  const names = [...meta.names, ...ADDED.map(a => a.name)], spect = [...meta.spect, ...ADDED.map(a => a.spect)];
+  // Stars the catalogue parks at its nominal distance that the deep sky has a measured one for (the Trapezium's, at
+  // the Orion Nebula's) are moved out along their own line of sight, and made as bright as that distance says.
+  for (const { name, ly } of PLACED) {
+    names.forEach((nm, i) => {
+      if (nm !== name) return;
+      const x = raw[i * 5], y = raw[i * 5 + 1], z = raw[i * 5 + 2], d = Math.hypot(x, y, z);
+      if (Math.abs(d - NOMINAL_PC) >= 0.01) return;
+      const pc = ly / LY_PER_PC;
+      raw.set([x / d * pc, y / d * pc, z / d * pc, raw[i * 5 + 3] + 5 * Math.log10(d / pc)], i * 5);
+    });
+  }
   const n = raw.length / 5;
   const pos = new Float64Array(n * 3);
   const absmag = new Float32Array(n);
@@ -35,19 +56,19 @@ export function buildCatalog(bin, meta) {
     temp[i] = p.temp; lum[i] = p.lum; radius[i] = p.radius;
   }
   const byName = new Map();
-  meta.names.forEach((name, i) => { if (!byName.has(name)) byName.set(name, i); });
+  names.forEach((name, i) => { if (!byName.has(name)) byName.set(name, i); });
 
   // The stars with notes use the measured values rather than the estimates.
   for (const d of DESTINATIONS) {
     const i = byName.get(d.star);
     if (i === undefined) continue;
-    temp[i] = d.temp; lum[i] = d.lum; radius[i] = d.radius;
+    if (d.temp) { temp[i] = d.temp; lum[i] = d.lum; radius[i] = d.radius; }
   }
   for (let i = 0; i < n; i++) color.set(starColor(temp[i]), i * 3);
 
   return {
     count: n, pos, absmag, color, radius, temp, lum, unmeasured,
-    names: meta.names, spect: meta.spect,
+    names, spect,
     constellations: meta.constellations, lines: meta.lines,
     byName,
     distanceFrom(i, p) {

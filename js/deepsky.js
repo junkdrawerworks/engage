@@ -5,10 +5,13 @@
 //
 // Positions are J2000 right ascension (hours) and declination (degrees), like the catalogue's stars. `size` is the
 // width across the sky in arcminutes, [long, short] where it is longer one way, with `pa` the long axis's angle east
-// of north where that is drawn (an object with none given is drawn round, at its mean width). `vis` is the faintest star (limiting magnitude) a sky must show for the object to be seen by
-// eye: a city sky shows to 3.5, the suburbs 4.6 and a dark site 6.3, as js/astro.js has it (less with the Moon up);
-// past 6.5 it needs a telescope. `star` is the catalogue star the bridge flies to for it (see js/destinations.js), `rung` the warp
-// scale's place for it, and `ly` its distance, each with its source:
+// of north where that is drawn (an object with none given is drawn round, at its mean width). `vis` is the faintest
+// star (limiting magnitude) a sky must show for the object to be seen by eye: a city sky shows to 3.5, the suburbs 4.6
+// and a dark site 6.3, as js/astro.js has it (less with the Moon up); past 6.5 it needs a telescope. `paint` is how the
+// bridge's viewscreen draws one it flies to (js/sky.js): a haze of the stars too faint for the charts, a cloud of dust
+// lit blue, a glowing cloud or a ring, in an impression's colours, at its true size. `star` is the catalogue star the
+// bridge flies to for it (see js/destinations.js), `rung` the warp scale's place for it, and `ly` its distance, each
+// with its source:
 //  - The Hyades: 153 ly (47 pc), Perryman et al. 1998 from Hipparcos; 330′ across; magnitude 0.5.
 //  - The Pleiades: the charts fly to Alcyone, 403 ly in the catalogue (Hipparcos). NASA's Hubble Messier catalogue
 //    gives 445 ly and says the number "is not universally agreed upon". 110′ across; magnitude 1.6 (NASA).
@@ -39,12 +42,14 @@ export const KINDS = {
 
 export const DEEP_SKY = [
   {
-    id: 'hyades', name: 'The Hyades', kind: 'open', ra: 4.448, dec: 15.87, ly: 153, size: [330], vis: 3.5, rung: 'hyades',
+    id: 'hyades', name: 'The Hyades', kind: 'open', ra: 4.448, dec: 15.87, ly: 153, size: [330], vis: 3.5, star: 'θ¹ Tauri', rung: 'hyades',
+    paint: { shape: 'haze', color: [1, 0.86, 0.66], alpha: 0.12 },
     about: 'The nearest star cluster to the Sun, a few hundred stars born together about 600 million years ago. Its brightest make the V of the Bull’s face. Orange Aldebaran sits in front of them but isn’t one of them: it is less than half as far.',
     bino: true,
   },
   {
     id: 'pleiades', name: 'The Pleiades', kind: 'open', ra: 3.790, dec: 24.117, size: [110], vis: 3, star: 'Alcyone', rung: 'pleiades',
+    paint: { shape: 'dust', color: [0.5, 0.66, 1], alpha: 1 },
     about: 'The Seven Sisters: over a thousand young stars, about 100 million years old, drifting through a cloud of dust that their blue light picks out. Six or seven are easy to see by eye; binoculars show dozens. Its distance was argued over for years: the Hipparcos satellite put it at about 390 light years, other measures and then Gaia at about 440.',
     bino: true,
   },
@@ -58,13 +63,15 @@ export const DEEP_SKY = [
     about: 'A cloud of dust that blots out the Milky Way beside the Southern Cross, the best-known dark nebula in the sky. For many Aboriginal Australians it is the head of the Emu in the sky.',
   },
   {
-    id: 'orion', name: 'The Orion Nebula', aka: 'M42', kind: 'nebula', ra: 5.588, dec: -5.391, ly: 1344, size: [65, 60], vis: 4.5, rung: 'orion',
+    id: 'orion', name: 'The Orion Nebula', aka: 'M42', kind: 'nebula', ra: 5.588, dec: -5.391, ly: 1344, size: [65, 60], vis: 4.5, star: 'θ¹ Orionis', rung: 'orion',
+    paint: { shape: 'glow', color: [1, 0.42, 0.58], core: [0.62, 0.95, 0.9], alpha: 0.75 },
     about: 'A cloud about 25 light years across where new stars are being born, lit up by the four hot young stars of the Trapezium at its heart. A fuzzy patch in Orion’s sword to the eye, and one of the brightest nebulae in the sky.',
     trek: 'A nebula is a captain’s favourite place to hide, the way Kirk lured Khan into the Mutara Nebula.',
     bino: true,
   },
   {
-    id: 'ring', name: 'The Ring Nebula', aka: 'M57', kind: 'planetary', ra: 18.8931, dec: 33.0292, ly: 2577, size: [1.6, 1.27], vis: 99, rung: 'ring',
+    id: 'ring', name: 'The Ring Nebula', aka: 'M57', kind: 'planetary', ra: 18.8931, dec: 33.0292, ly: 2577, size: [1.6, 1.27], vis: 99, star: 'NGC 6720 central star', rung: 'ring',
+    paint: { shape: 'ring', color: [1, 0.38, 0.32], core: [0.4, 0.88, 0.8], alpha: 0.7 },
     about: 'The shell of gas a star like the Sun threw off as it died, about a light year across, lit by the white-hot core it left behind. From Earth it needs a telescope: a small smoke ring about a twentieth of the width of the full Moon.',
   },
   {

@@ -253,15 +253,6 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'Alcyone', title: 'The Pleiades', inText: 'the Pleiades', aka: 'Alcyone', find: ['Seven Sisters', 'M45', 'Subaru', 'Eta Tauri'], group: 'giants',
-    kind: 'Blue giant, spectral type B7, the brightest of the Seven Sisters', temp: 12750, lum: 2400, radius: 9.3,
-    planets: 'None known.',
-    notes: [
-      'You are inside a cluster of over a thousand young stars, born together about 100 million years ago.',
-      'From Earth, Japan calls them Subaru, which is the six stars on the carmaker’s badge.',
-    ],
-  },
-  {
     star: 'Betelgeuse', title: 'Betelgeuse', find: ['Alpha Orionis'], group: 'giants',
     kind: 'Red supergiant, spectral type M2', temp: 3600, lum: 100000, radius: 760,
     planets: 'None known. In 2025 astronomers reported a small companion star tucked close to it.',
@@ -307,6 +298,53 @@ export const DESTINATIONS = [
       'Its distance is very uncertain, anywhere from about 1,400 to 2,600 light years.',
     ],
   },
+  // Nebulae and clusters: the four of the deep sky's list (js/deepsky.js) within 3,000 light years, each flown to by a
+  // star in it and held far enough out to see it whole, painted on the viewscreen at its true size. `estimate` says
+  // the star's width and brightness are the catalogue's estimates, said with an "about", not measured.
+  {
+    star: 'θ¹ Tauri', title: 'The Hyades', inText: 'the Hyades', aka: 'θ¹ Tauri', find: ['Hyades', 'Melotte 25', 'Theta Tauri', 'Caldwell 41'], group: 'deep', estimate: true,
+    kind: 'Yellow giant θ¹ Tauri, spectral type G7, one of the cluster’s brightest stars',
+    planets: 'None known round θ¹ Tauri. Ain, another of the cluster’s giants, has a planet several times Jupiter’s mass, found in 2007.',
+    hold: { au: 1010000, label: 'holding 16 light years out, with the whole cluster ahead' },
+    notes: [
+      'Ahead, the nearest star cluster to the Sun: a few hundred stars born together about 600 million years ago, most of them within about 9 light years of its middle.',
+      'From Earth its brightest stars make the V of the Bull’s face. Aldebaran sits in front of them but isn’t one of them: it is less than half as far.',
+      'The glow on the viewscreen is painted, at the cluster’s true size, for its fainter stars, too faint for the charts.',
+    ],
+  },
+  {
+    star: 'Alcyone', title: 'The Pleiades', inText: 'the Pleiades', aka: 'Alcyone', find: ['Seven Sisters', 'M45', 'Subaru', 'Eta Tauri'], group: 'deep',
+    kind: 'Blue giant, spectral type B7, the brightest of the Seven Sisters', temp: 12750, lum: 2400, radius: 9.3,
+    planets: 'None known.',
+    hold: { au: 885000, label: 'holding 14 light years out, with the whole cluster ahead' },
+    notes: [
+      'Ahead, a cluster of over a thousand young stars, born together about 100 million years ago, drifting through a cloud of dust that their blue light picks out.',
+      'From Earth, Japan calls them Subaru, which is the six stars on the carmaker’s badge.',
+      'The dust’s glow on the viewscreen is painted, at the cluster’s true size.',
+    ],
+  },
+  {
+    star: 'θ¹ Orionis', title: 'The Orion Nebula', inText: 'the Orion Nebula', aka: 'the Trapezium', find: ['M42', 'Orion Nebula', 'Trapezium', 'Theta Orionis', 'Great Nebula'], group: 'deep', estimate: true,
+    kind: 'The Trapezium: four young stars, the brightest a blue-white type O7 whose light makes the nebula glow',
+    planets: 'None known. Hundreds of the young stars round it have discs of dust and gas where planets may be forming, which the Hubble Space Telescope photographed in the 1990s.',
+    hold: { au: 1770000, label: 'holding 28 light years out, with the whole nebula ahead' },
+    notes: [
+      'Ahead, a cloud about 25 light years across where new stars are being born, lit up by the Trapezium’s ultraviolet light.',
+      'The catalogue has no measured distance for the Trapezium’s stars, so the charts put them at the nebula’s, 1,344 light years, from the parallax of its young stars measured by radio telescopes.',
+      'The nebula on the viewscreen is painted, at its true size: its glow is real, its shape an impression.',
+    ],
+  },
+  {
+    star: 'NGC 6720 central star', title: 'The Ring Nebula', inText: 'the Ring Nebula', aka: 'M57', find: ['M57', 'NGC 6720', 'Ring Nebula'], group: 'deep',
+    kind: 'White dwarf, the bare core of a star like the Sun, at the heart of the ring', temp: 135000, lum: 310, radius: 0.032,
+    planets: 'None known.',
+    hold: { au: 88500, label: 'holding 1.4 light years out, with the whole ring ahead' },
+    notes: [
+      'Ahead, the shell of gas the star threw off as it died, about a light year across and glowing in the core’s ultraviolet light.',
+      'The star at its heart is far too faint for the charts from Earth, magnitude 15.8: its distance, about 2,580 light years, is from the Gaia satellite.',
+      'The ring on the viewscreen is painted, at its true size: its glow is real, its shape an impression.',
+    ],
+  },
 ];
 
 // The headings in Set course. They are written from Earth: once the ship is somewhere else, the first is headed by
@@ -315,6 +353,7 @@ export const GROUPS = [
   ['neighbors', 'Next door', 'The Sun’s neighbours'],
   ['famous', 'Worth the trip'],
   ['giants', 'Long hauls'],
+  ['deep', 'Nebulae and clusters'],
 ];
 
 // Moments on Earth that a distant watcher could be seeing now, for the log's line about Earth's light: [year, what

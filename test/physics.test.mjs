@@ -242,7 +242,8 @@ test('stars the log has no notes on are still called what they are', () => {
 
 test('a star with no measured distance is not given one as fact', () => {
   const n = [...cat.unmeasured].filter(Boolean).length;
-  assert.equal(n, 431);
+  // 431 in the catalogue, less the three Trapezium stars (θ¹ Orionis) put at the Orion Nebula's distance.
+  assert.equal(n, 428);
   for (const d of DESTINATIONS) assert.equal(cat.unmeasured[cat.byName.get(d.star)], 0, d.star);
   assert.equal(cat.unmeasured[cat.byName.get('Deneb')], 0); // far, but measured
   const i = cat.byName.get('ρ Cassiopeiae');
@@ -684,4 +685,41 @@ test('the log says where a planet would be temperate, how far a giant reaches, a
   assert.ok(!/about about|Sun’s place/.test(said('Guniibuu', 'The star')), said('Guniibuu', 'The star'));
   // Every figure is hedged.
   for (const name of ['Denebola', 'Alsafi', 'Gliese 1294A', 'Regulus']) for (const s of entry(name).filter(x => /temperate|life/i.test(x[0]))) assert.match(s[1], /about|hundreds|trillions/, `${name}: ${s[1]}`);
+});
+
+// The deep sky's stars (js/deepsky.js): the Trapezium put at the Orion Nebula's distance, the Ring Nebula's central
+// star added after the catalogue's own, so every star the catalogue has keeps its number, and the four nebulae and
+// clusters held far enough out to be seen whole.
+test('nebulae and clusters: their stars, and where the ship holds', async () => {
+  const meta = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8'));
+  const ly = name => Math.hypot(...at(name)) * 3.26156;
+  assert.equal(cat.count, meta.names.length + 1);
+  for (const name of ['Sirius', 'Vega', 'Alcyone', 'θ¹ Tauri']) assert.equal(cat.byName.get(name), meta.names.indexOf(name), name);
+  assert.equal(cat.byName.get('NGC 6720 central star'), meta.names.length);
+  assert.ok(Math.abs(ly('NGC 6720 central star') - 2577) < 1);
+  assert.ok(Math.abs(ly('θ¹ Orionis') - 1344) < 1);
+  // All three Trapezium stars moved, made as bright as that distance says: θ¹ Orionis C, magnitude 5.1 from Earth.
+  const trapezium = meta.names.map((n, i) => (n === 'θ¹ Orionis' ? i : -1)).filter(i => i >= 0);
+  assert.equal(trapezium.length, 3);
+  for (const i of trapezium) assert.equal(cat.unmeasured[i], 0);
+  const m = apparentMag(cat.absmag[trapezium[0]], cat.distanceFrom(trapezium[0], [0, 0, 0]));
+  assert.ok(m > 4.9 && m < 5.3, `θ¹ Orionis C at magnitude ${m}`);
+  // The Ring's star, magnitude 15.75 from Earth.
+  const ring = cat.byName.get('NGC 6720 central star');
+  assert.ok(Math.abs(apparentMag(cat.absmag[ring], cat.distanceFrom(ring, [0, 0, 0])) - 15.75) < 0.01);
+  // Each is held far enough out that the whole thing, at its true width, takes about 50° of the view.
+  const { DEEP_SKY, sightWidthLy } = await import('../js/deepsky.js');
+  for (const o of DEEP_SKY.filter(o => o.star)) {
+    const d = DESTINATIONS.find(x => x.star === o.star);
+    assert.equal(d.group, 'deep', o.name);
+    const width = sightWidthLy(o, o.ly ?? ly(o.star))[0], hold = d.hold.au / 63241.1;
+    const view = 2 * Math.atan(width / 2 / hold) * 180 / Math.PI;
+    assert.ok(view > 44 && view < 54, `${o.name} takes ${view.toFixed(1)}° from where the ship holds`);
+    assert.match(d.hold.label, new RegExp(`^holding ${Math.round(hold * 10) / 10 >= 10 ? Math.round(hold) : (Math.round(hold * 10) / 10)} light years out`), o.name);
+  }
+  // The log says what it estimates: the Trapezium's width and brightness are the catalogue's, with an "about".
+  const i = cat.byName.get('θ¹ Orionis');
+  const e = composeEntry(cat, i, { cam: at('Sol'), holdAU: 1770000, warp: 9, fromTitle: 'Sol', tripLy: 1344, date: new Date('2026-10-08T00:00:00Z') });
+  assert.match(e.intro, /^We’ve dropped out of warp at the Orion Nebula, 1,344 ly from Sol, and are holding 28 light years out, with the whole nebula ahead\.$/);
+  assert.match(e.sections[0][1], /^The Trapezium: .*, about [\d,.]+ times the Sun’s width, and about/);
 });

@@ -1,7 +1,8 @@
 // The viewscreen: draws the real sky from wherever the ship is, in WebGL.
 // Stars are drawn by direction and by how bright they look from here, so moving the ship really changes the sky.
 // Positions are uploaded relative to a moving origin (the star the ship is at), so float32 stays precise up close.
-import { apparentMag, AU_PER_PC, SUN_RADIUS_AU } from './physics.js';
+import { apparentMag, AU_PER_PC, LY_PER_PC, SUN_RADIUS_AU } from './physics.js';
+import { DEEP_SKY, sightDir, sightWidthLy } from './deepsky.js';
 
 const NEAR_PC = 0.01; // stars closer than ~2,000 AU get drawn as discs with glare instead of points
 const STREAKS = 700;
@@ -73,6 +74,44 @@ void main() {
   gl_FragColor = vec4(c, 1.0);
 }`;
 
+// The nebulae and clusters the bridge flies to (js/deepsky.js), each a soft painted shape on a square round where
+// it is, as wide on screen as its true width looks from the ship. A nebula's surface stays as bright from any
+// distance (it only grows), so each keeps its own strength, and fades out only when it is down to a few pixels.
+const SIGHT_VS = `
+attribute vec2 a_xy; uniform vec2 u_center; uniform vec2 u_axes; uniform vec2 u_res; varying vec2 v_uv;
+void main() { v_uv = a_xy; gl_Position = vec4((u_center + a_xy * u_axes) / u_res * 2.0 - 1.0, 0.0, 1.0); }`;
+const SIGHT_FS = `
+precision highp float;
+varying vec2 v_uv; uniform float u_shape; uniform vec3 u_col; uniform vec3 u_core; uniform float u_alpha; uniform float u_seed;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)) + u_seed) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int k = 0; k < 5; k++) { v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }
+void main() {
+  float r = length(v_uv);
+  if (r > 1.0) discard;
+  float edge = 1.0 - smoothstep(0.75, 1.0, r);
+  vec3 c;
+  if (u_shape < 0.5) { // a haze: the cluster's stars too faint for the charts
+    c = u_col * exp(-r * r * 3.5);
+  } else if (u_shape < 1.5) { // dust lit blue by the stars in it, in wisps
+    float w = fbm(v_uv * 3.2 + vec2(u_seed)) * fbm(v_uv * 7.0 - vec2(u_seed));
+    c = u_col * w * 2.2 * exp(-r * r * 2.4);
+  } else if (u_shape < 2.5) { // a glowing cloud, brightest and bluer-green at its heart
+    float w = fbm(v_uv * 2.6 + vec2(u_seed)) * 1.4;
+    float heart = exp(-r * r * 14.0);
+    c = (mix(u_col, u_core, heart) * w * exp(-r * r * 2.2) + u_core * heart * 0.6);
+  } else { // a ring: a bright rim round a fainter middle, red outside and green-blue within
+    float rim = exp(-pow((r - 0.7) / 0.15, 2.0));
+    float w = 0.7 + 0.6 * fbm(v_uv * 6.0 + vec2(u_seed));
+    float outer = smoothstep(0.64, 0.8, r);
+    c = (u_col * rim * outer + u_core * (rim * (1.0 - outer) * 0.8 + 0.28 * exp(-r * r * 3.0))) * w;
+  }
+  gl_FragColor = vec4(c * u_alpha * edge, 1.0);
+}`;
+
 const WARP_VS = `
 attribute vec4 a_p; uniform mat4 u_proj; varying float v_a;
 void main() { v_a = a_p.w; gl_Position = u_proj * vec4(a_p.xyz, 1.0); }`;
@@ -101,6 +140,13 @@ export class Sky {
     this.streaks = new Float32Array(STREAKS * 4);
     this.streakVerts = new Float32Array(STREAKS * 8);
     for (let i = 0; i < STREAKS; i++) this.respawn(i, -Math.random() * 40);
+    // The nebulae and clusters to paint: each centred on the star the bridge flies to for it, as far off as that star
+    // is, with half its true width (both in parsecs). `drawn` keeps where each went in the last frame, for the tests.
+    this.sights = DEEP_SKY.filter(o => o.paint && catalog.byName.has(o.star)).map((o, k) => {
+      const i = catalog.byName.get(o.star), d = catalog.distanceFrom(i, [0, 0, 0]);
+      return { o, pos: sightDir(o).map(v => v * d), half: sightWidthLy(o, d * LY_PER_PC).map(w => w / 2 / LY_PER_PC), seed: 1.7 + k * 3.1 };
+    });
+    this.drawn = [];
 
     // If the graphics driver resets (a hang, a sleeping laptop), the browser takes the context away.
     // Asking to keep it lets the browser hand it back, and then everything on the GPU is rebuilt.
@@ -118,6 +164,7 @@ export class Sky {
     this.skyProg = program(gl, SKY_VS, SKY_FS);
     this.sunProg = program(gl, SUN_VS, SUN_FS);
     this.warpProg = program(gl, WARP_VS, WARP_FS);
+    this.sightProg = program(gl, SIGHT_VS, SIGHT_FS);
 
     this.posBuf = gl.createBuffer();
     this.magBuf = buffer(gl, cat.absmag);
@@ -222,6 +269,8 @@ export class Sky {
     clearAttrs(gl);
     gl.enable(gl.BLEND);
 
+    this.drawSights(view.cam);
+
     // Constellation lines, fading as the ship gets far enough that they stop meaning anything
     if (view.lines && Math.hypot(...view.cam) < 60) {
       const fromSun = Math.hypot(...view.cam);
@@ -300,6 +349,36 @@ export class Sky {
     attr(gl, this.sunProg, 'a_xy', this.quad, 2);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     clearAttrs(gl);
+  }
+
+  // Each nebula and cluster as wide as it looks from `camAbs`, unless it is behind, the ship is inside it, or it is
+  // down to a few pixels (from Earth the Orion Nebula is a faint patch about a degree across; the Ring isn't seen).
+  drawSights(camAbs) {
+    const { gl } = this;
+    this.drawn = [];
+    for (const s of this.sights) {
+      const d = s.pos.map((v, k) => v - camAbs[k]), dist = Math.hypot(...d);
+      if (dist < s.half[0] * 1.05) continue;
+      const p = this.project({ dir: d });
+      if (!p || p.behind) continue;
+      const shape = ['haze', 'dust', 'glow', 'ring'].indexOf(s.o.paint.shape);
+      const [a, b] = s.half.map(h => h / dist * this.last.focal); // device pixels: the tangent of its half-width's angle
+      const fade = Math.min(1, Math.max(0, (a - 3 * this.dpr) / (9 * this.dpr)));
+      if (fade <= 0) continue;
+      this.drawn.push({ id: s.o.id, x: p.x, y: p.y, r: a / this.dpr });
+      gl.useProgram(this.sightProg.p);
+      gl.uniform2f(this.sightProg.u.u_center, p.x * this.dpr, this.canvas.height - p.y * this.dpr);
+      gl.uniform2f(this.sightProg.u.u_axes, a, b);
+      gl.uniform2f(this.sightProg.u.u_res, this.canvas.width, this.canvas.height);
+      gl.uniform1f(this.sightProg.u.u_shape, shape);
+      gl.uniform3fv(this.sightProg.u.u_col, s.o.paint.color);
+      gl.uniform3fv(this.sightProg.u.u_core, s.o.paint.core || s.o.paint.color);
+      gl.uniform1f(this.sightProg.u.u_alpha, s.o.paint.alpha * fade);
+      gl.uniform1f(this.sightProg.u.u_seed, s.seed);
+      attr(gl, this.sightProg, 'a_xy', this.quad, 2);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      clearAttrs(gl);
+    }
   }
 
   drawWarp(view, proj) {
