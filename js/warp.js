@@ -531,7 +531,12 @@ function drawSky(message) {
     const box = [s.x + 4, s.y - 8, s.x + 8 + sg.measureText(name).width, s.y + 6];
     if (taken.some(t => box[0] < t[2] && box[2] > t[0] && box[1] < t[3] && box[3] > t[1])) continue;
     taken.push(box);
-    sg.fillStyle = 'rgba(200, 212, 235, 0.75)';
+    // Edged in the dark of the sky, so a name stays readable over the crowd of stars ahead at speed.
+    sg.lineWidth = 3;
+    sg.lineJoin = 'round';
+    sg.strokeStyle = 'rgba(2, 4, 10, 0.85)';
+    sg.strokeText(name, s.x + 6, s.y + 4);
+    sg.fillStyle = 'rgba(200, 212, 235, 0.85)';
     sg.fillText(name, s.x + 6, s.y + 4);
   }
   sg.strokeStyle = '#86d8ff';
