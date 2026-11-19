@@ -3879,9 +3879,10 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#choose');
   assert.deepEqual(await groups(), ['VOYAGES', 'HOME', 'NEXT DOOR', 'WORTH THE TRIP', 'LONG HAULS']);
   await p.evaluate(() => engage.closeSheets());
-  // Denebola has no notes. Its entry says what is around it, between the star and the look home.
+  // Denebola has no notes. Its entry says where a planet would be temperate and the star's life, then what is around
+  // it, between the star and the look home.
   await p.evaluate(() => engage.jump('Denebola'));
-  assert.deepEqual(await p.locator('#arrival-entry dt').allInnerTexts(), ['THE STAR', 'THE SKY FROM HERE', 'LOOKING HOME', 'THE TRIP']);
+  assert.deepEqual(await p.locator('#arrival-entry dt').allInnerTexts(), ['THE STAR', 'A TEMPERATE ORBIT', 'ITS LIFE', 'THE SKY FROM HERE', 'LOOKING HOME', 'THE TRIP']);
   assert.equal(await p.locator('#arrival-entry dt:text-is("The sky from here") + dd').innerText(), 'The brightest star in this sky is Arcturus, magnitude −1.2. The nearest is Gliese 452.1, 3.6 light years away.');
   assert.deepEqual(await p.locator('#arrival-entry .entry-actions > *').allInnerTexts(), ['SET COURSE FOR GLIESE 452.1', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE']);
   // Next destination opens on the stars nearest the ship, nearest first, each as far as the helm will say.
