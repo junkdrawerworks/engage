@@ -19,10 +19,10 @@ test('an arrival is dated by the moment it was written, or else by its stardate'
 
 test('a day is headed with its weekday and date, and how many arrivals it had', () => {
   const now = at('2026-11-19T09:00:00Z');
-  assert.equal(dayHeading(at('2026-11-18T14:32:00Z'), 6, 0, now), 'Wednesday 18 November · 6 arrivals');
-  assert.equal(dayHeading(at('2026-11-18T14:32:00Z'), 1, 0, now), 'Wednesday 18 November · 1 arrival');
-  assert.equal(dayHeading(at('2026-11-18T14:32:00Z'), 0, 2, now), 'Wednesday 18 November · 2 supplemental');
-  assert.equal(dayHeading(at('2025-12-31T23:00:00Z'), 2, 1, now), 'Wednesday 31 December 2025 · 2 arrivals · 1 supplemental', 'another year says which');
+  assert.equal(dayHeading(at('2026-11-18T14:32:00Z'), 6, now), 'Wednesday 18 November · 6 arrivals');
+  assert.equal(dayHeading(at('2026-11-18T14:32:00Z'), 1, now), 'Wednesday 18 November · 1 arrival');
+  assert.equal(dayHeading(at('2026-11-18T14:32:00Z'), 0, now), 'Wednesday 18 November', 'a day of supplemental lines only');
+  assert.equal(dayHeading(at('2025-12-31T23:00:00Z'), 2, now), 'Wednesday 31 December 2025 · 2 arrivals', 'another year says which');
   assert.equal(clockTime(at('2026-11-18T14:32:00Z')), '2:32 pm');
   assert.equal(clockTime(at('2026-11-18T00:05:00Z')), '12:05 am');
 });
@@ -73,4 +73,41 @@ test('a search finds a star’s name, the line under it or anything its entry sa
   assert.ok(matches(e, '  '), 'nothing typed finds everything');
   assert.ok(matches({ supp: { text: 'Supplemental: sat the Kobayashi Maru.' } }, 'kobayashi'));
   assert.equal(LONG_LOG, 30);
+});
+
+test('each room adds a line to the log when something in it finishes, read from its own record', async () => {
+  const { supplementals } = await import('../js/voyage.js');
+  const now = at('2026-11-19T12:00:00Z');
+  const lines = supplementals({
+    maru: {
+      runs: [
+        { title: 'The lifeboat', line: 'Kobayashi Maru: The lifeboat, 150 home, C B B B', grades: [], at: '2026-11-18T10:00:00.000Z' },
+        { title: 'Died trying', grades: [{ name: 'Compassion', letter: 'A' }, { name: 'Judgment', letter: 'C' }], at: '2026-11-17T10:00:00.000Z' }, // from before runs kept their line
+        { title: '<b>no</b>', at: '2026-11-17T11:00:00.000Z' },
+      ],
+      officer: { taken: 2, passed: '2026-11-18T11:00:00.000Z' },
+    },
+    contact: { runs: [
+      { title: 'First contact', people: 'Qaethuk', decoded: 9, of: 11, outcome: 'contact', at: '2026-11-18T12:00:00.000Z' },
+      { title: 'Second contact', people: 'Qaethuk', decoded: 10, of: 12, outcome: 'friends', second: true, at: '2026-11-18T13:00:00.000Z' },
+    ] },
+    xeno: { jars: [{ id: 'M', seed: 42, at: '2026-11-18T14:00:00.000Z' }, { world: 'Proxima b', seed: 7, at: '2026-11-18T15:00:00.000Z' }, { id: 'H', seed: 3 }, { id: 'nonsense', seed: 1, at: '2026-11-18T15:00:00.000Z' }] },
+    survey: { best: 7, streak: 2, seen: 30, bestAt: at('2026-11-18T16:00:00Z') },
+    missions: { hails: { v1: at('2026-11-18T17:00:00Z'), nobody: at('2026-11-18T17:00:00Z'), v2: now + 3600000 } },
+  }, now);
+  assert.deepEqual(lines.map(l => [l.room, l.text, l.href]), [
+    ['missions', 'Supplemental: hailed Voyager 1 from Earth.', 'missions.html#v1'],
+    ['survey', 'Supplemental: a best streak of 7 in Cover your tracks.', 'survey.html#drill'],
+    ['xeno', 'Supplemental: kept a creature grown for Proxima b in a jar.', 'xeno.html#world=Proxima%20b-7'],
+    ['xeno', 'Supplemental: kept a creature from a Class M world in a jar.', 'xeno.html#M-42'],
+    ['contact', 'Supplemental: the Qaethuk hailed again. Second contact, 10 of 12 phrases decoded.', 'contact.html'],
+    ['contact', 'Supplemental: answered a hail from the Qaethuk. First contact, 9 of 11 phrases decoded.', 'contact.html'],
+    ['maru', 'Supplemental: passed the Bridge Officer’s Test.', 'maru.html'],
+    ['maru', 'Supplemental: sat the Kobayashi Maru. The lifeboat, 150 home, C B B B.', 'maru.html'],
+    ['maru', 'Supplemental: sat the Kobayashi Maru. Died trying, A C.', 'maru.html'],
+  ]);
+  assert.equal(lines[0].t, at('2026-11-18T17:00:00Z'));
+  // Nothing on record, or records that aren't records: no lines.
+  assert.deepEqual(supplementals({}), []);
+  assert.deepEqual(supplementals({ maru: [], contact: 'x', xeno: { jars: 'x' }, survey: null, missions: { hails: [] } }), []);
 });

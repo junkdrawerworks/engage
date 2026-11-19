@@ -13,6 +13,7 @@ import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
+import { readRecords, supplementals } from './voyage.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -1048,8 +1049,11 @@ function returnTo(coursed) {
   past.querySelector('summary').focus({ preventScroll: true });
 }
 
+// What the other rooms have on record, read again each time the log is drawn: the lines they add to it.
+let supps = [];
 function drawLog() {
   contacts = readContacts();
+  supps = supplementals(readRecords());
   unsavedNote('log-unsaved', 'The log is full: new entries and the ship’s position aren’t being kept. Clearing the log, in settings, makes room.',
     'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;
@@ -1078,13 +1082,13 @@ function drawEntries() {
 // A search shows the arrivals that mention what is typed, under the days they were made, without the days' counts.
 let shown = PAGE;
 function daysHtml(q) {
-  const all = timeline(state.log).filter(x => matches(x, q));
-  if (!all.length) return `<p class="empty">Nothing in the log mentions “${esc(q)}”.</p>`;
+  const all = timeline(state.log, supps).filter(x => matches(x, q));
+  if (!all.length) return q ? `<p class="empty">Nothing in the log mentions “${esc(q)}”.</p>` : '';
   const counts = new Map(byDay(all).map(d => [d.key, d]));
   const now = Date.now();
   let html = byDay(newest(all, shown)).map(day => {
     const whole = counts.get(day.key);
-    const head = day.key === 'undated' ? 'Undated' : q ? dayHeading(day.t, 0, 0, now) : dayHeading(day.t, whole.arrivals, whole.supps, now);
+    const head = day.key === 'undated' ? 'Undated' : dayHeading(day.t, q ? 0 : whole.arrivals, now);
     return `<h3 class="day">${esc(head)}</h3>${day.items.map(itemHtml).join('')}`;
   }).join('');
   html += moreHtml(all.filter(x => x.entry).length, 'Show earlier');
@@ -1114,15 +1118,16 @@ function starsHtml(q) {
 // on a phone is also the way to save it as a PDF. It is laid out whenever the page is printed, from the button or
 // from the browser's own menu, and let go afterwards.
 function printLog() {
-  const days = byDay(timeline(state.log).reverse());
+  const days = byDay(timeline(state.log, supplementals(readRecords())).reverse());
   const n = new Set(state.log.map(e => e.star)).size;
   const printed = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   $('print-log').innerHTML = `<h1>Captain’s log</h1><p class="print-sub">${state.log.length
     ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} travelled · printed ${printed}` : 'Nothing logged yet.'}</p>`
-    + days.map(day => `<h2>${esc(day.key === 'undated' ? 'Undated' : dayHeading(day.t, day.arrivals, day.supps))}</h2>${day.items.map(printedHtml).join('')}`).join('');
+    + days.map(day => `<h2>${esc(day.key === 'undated' ? 'Undated' : dayHeading(day.t, day.arrivals))}</h2>${day.items.map(printedHtml).join('')}`).join('');
 }
 
-function printedHtml({ entry: e, t }) {
+function printedHtml({ entry: e, t, supp }) {
+  if (supp) return `<p class="supp">${esc(supp.text)}</p>`;
   const lines = e.sections.map(([label, text]) => `${label ? `<dt>${esc(label)}</dt>` : ''}<dd>${esc(text)}</dd>`).join('');
   const made = linesForVisit(contacts, e).map(line => `<dd>${esc(line)}</dd>`).join('');
   return `<article><h3>${esc(e.title)}</h3><span class="when">${t ? `${esc(clockTime(t))} · ` : ''}Stardate ${esc(e.stardate)}</span>`
@@ -1139,7 +1144,10 @@ function showEarlier() {
   $('entries').querySelectorAll('.past')[first]?.querySelector('summary').focus({ preventScroll: true });
 }
 
-function itemHtml({ entry: e, k, t }) {
+// A supplemental line, from another room ("Supplemental: sat the Kobayashi Maru. The lifeboat, 150 home, C B B B."),
+// leads to what it is about there.
+function itemHtml({ entry: e, k, t, supp }) {
+  if (supp) return `<p class="supp"><a href="${ROOM_BASE}${supp.href}"${AWAY}>${esc(supp.text)}</a></p>`;
   return `
     <details class="past" data-k="${k}">
       <summary><b>${esc(e.title)}</b><span class="sd">${t ? esc(clockTime(t)) : ''}<small>${esc(e.stardate)}</small></span><span>${esc(e.intro)}</span></summary>

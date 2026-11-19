@@ -21,14 +21,13 @@ export const dayKey = t => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// A day's heading: "Wednesday 18 November · 6 arrivals", with the year when it isn't this one, and the supplemental
-// lines counted when there are any.
-export function dayHeading(t, arrivals, supps = 0, now = Date.now()) {
+// A day's heading: "Wednesday 18 November · 6 arrivals", with the year when it isn't this one. (The supplemental
+// lines aren't counted: with them the heading ran onto a second line on a phone.)
+export function dayHeading(t, arrivals, now = Date.now()) {
   const d = new Date(t);
   const date = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', ...(d.getFullYear() !== new Date(now).getFullYear() ? { year: 'numeric' } : {}) })
     .replace(',', '');
-  const counts = [arrivals && `${arrivals} ${arrivals === 1 ? 'arrival' : 'arrivals'}`, supps && `${supps} supplemental`].filter(Boolean);
-  return [date, ...counts].join(' · ');
+  return arrivals ? `${date} · ${arrivals} ${arrivals === 1 ? 'arrival' : 'arrivals'}` : date;
 }
 
 // The time of day an arrival was logged: "2:32 pm".

@@ -24,14 +24,15 @@ const inView = new Map([[globe, onScreen(globe.canvas)], [drillGlobe, onScreen(d
 let drill = null; // the world being matched
 let paintId = 0;
 
-// The quiz's streak, its best and how many worlds have been seen: whole numbers from nought up, or else nought.
+// The quiz's streak, its best and how many worlds have been seen: whole numbers from nought up, or else nought. And
+// when the best was made (a moment in milliseconds, or nought), for the line the captain's log gives it.
 function load() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* start again */ }
   if (!s || typeof s !== 'object') s = {};
   const count = x => (Number.isInteger(x) && x >= 0 ? x : 0);
   const streak = count(s.streak);
-  return { best: Math.max(count(s.best), streak), streak, seen: count(s.seen) };
+  return { best: Math.max(count(s.best), streak), streak, seen: count(s.seen), bestAt: count(s.bestAt) };
 }
 // Keeps the streak and the best. When the browser won't take them, a line under the score says so. Returns whether
 // it worked.
@@ -289,6 +290,7 @@ function answer(id) {
   const bestBefore = saved.best;
   saved.streak = right ? saved.streak + 1 : 0;
   saved.best = Math.max(saved.best, saved.streak);
+  if (saved.best > bestBefore) saved.bestAt = Date.now();
   save();
   // A new best streak is said in the verdict, not left to the small score line under it.
   const record = right && streakRecord(bestBefore, saved.streak);

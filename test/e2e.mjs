@@ -991,6 +991,8 @@ assert.equal(await text('#endings-n'), '2 OF 9');
 assert.equal(await text('#taken'), '2 RUNS TAKEN');
 assert.match((await text('#best')).replace(/\s+/g, ' '), /^A COMPASSION A JUDGMENT A RESTRAINT [A-F] NERVE$/, 'the best grades did not take the better run’s');
 assert.deepEqual(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.maru.v1')); return [s.runs.length, s.seen, s.taken]; }), [2, ['The lifeboat', 'Changed the rules'], 2]);
+// Each run keeps its line, which the captain's log gives it.
+assert.match(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.maru.v1')).runs[1].line), /^Kobayashi Maru: Changed the rules, (\d+ home, )?[A-F]( [A-F])+$/);
 // Today's simulation: the same dice for everyone that day, taken once, then the line to send on the briefing. Share
 // this run sends that line with a link that plays the run back for a friend, turn by turn, to their evaluation, with
 // nothing put on the friend's record; and then they can take the same simulation, dice and all.
@@ -1977,7 +1979,8 @@ assert.equal(await page.locator('#jars .jar').count(), 0);
 assert.match(await text('#jar-undo'), /^Let the .+ go\.\s+Undo$/i);
 assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars.length), 0);
 await page.click('#jar-undo-go');
-assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars), [{ id: 'lava-world', seed: 7 }], 'Undo did not put the creature back in its jar');
+// (A jar keeps when it was kept, for the captain's log.)
+assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars.map(({ at, ...j }) => [j, Date.parse(at) > 0])), [[{ id: 'lava-world', seed: 7 }, true]], 'Undo did not put the creature back in its jar');
 assert.equal(await shown('#jar-undo'), false);
 assert.equal(await text('#keep'), 'IN A JAR');
 await page.click('#jars .jar-drop');
@@ -1994,7 +1997,7 @@ assert.equal(await text('#keep'), 'JARS FULL: LET ONE GO FIRST');
 assert.match(await text('#jars-head'), /40 OF 40/i);
 assert.match(await text('#kept-note'), /All 40 jars are full/);
 await page.evaluate(() => document.getElementById('keep').click()); // even a click that gets through changes nothing
-assert.deepEqual(await page.evaluate(() => xeno.jars[39]), { id: 'M', seed: 1 }, 'the first creature kept was dropped to make room');
+assert.deepEqual(await page.evaluate(() => (({ at, ...j }) => j)(xeno.jars[39])), { id: 'M', seed: 1 }, 'the first creature kept was dropped to make room');
 assert.equal(await page.evaluate(() => xeno.jars.some(j => j.seed === 41)), false);
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the lab scrolls sideways with full jars');
 // The link beside Keep goes down to the jars without changing the address, which names the creature in the tank.
@@ -2090,7 +2093,7 @@ await page.waitForFunction(() => window.xeno?.current);
   assert.deepEqual(await grown(), first, 'a reload grew a different creature for TRAPPIST-1 e');
   // Kept, it goes in a jar under the planet's name, and the jar opens the same one after other creatures and a reload.
   await page.click('#keep');
-  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars), [{ world: 'TRAPPIST-1 e', seed: first.seed }]);
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars.map(({ at, ...j }) => j)), [{ world: 'TRAPPIST-1 e', seed: first.seed }]);
   assert.equal(await text('#jars .jar-cls'), 'TRAPPIST-1 e');
   // Send this creature shares the planet's link.
   await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
@@ -4400,8 +4403,13 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await answer(true), null, 'equalling the best streak was called a record');
   assert.equal(await answer(true), 'Best streak yet: 4');
   assert.equal(await answer(true), 'Best streak yet: 5');
+  // When the best was made is kept, for the captain's log, and answers that make no new best leave it.
+  const bestAt = () => p.evaluate(() => JSON.parse(localStorage.getItem('engage.survey.v1')).bestAt);
+  const made = await bestAt();
+  assert.ok(made > Date.now() - 60000 && made <= Date.now());
   assert.equal(await answer(false), null);
   assert.equal(await answer(true), null);
+  assert.equal(await bestAt(), made);
   // From nothing: the first right answer anyone gives beats no record; the second is the first best streak.
   await p.evaluate(() => localStorage.removeItem('engage.survey.v1'));
   await p.reload();
@@ -4654,6 +4662,56 @@ await page.emulateMedia({ reducedMotion: null });
   await p.evaluate(() => dispatchEvent(new Event('beforeprint')));
   assert.equal(await p.locator('#print-log article').count(), 3);
   await booklet.close();
+}
+
+// Every room adds a line to the captain's log when something in it finishes, among the arrivals by when it happened:
+// "Supplemental: sat the Kobayashi Maru. The lifeboat, 150 home, C B B B." Each room kept its own record, and the log
+// never mentioned any of it. The lines are read from the rooms' own records each time the log is drawn: nothing
+// more is saved.
+{
+  const story = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await story.addInitScript(() => {
+    if (localStorage.getItem('engage.v1')) return;
+    const now = Date.now(), ago = m => now - m * 60000; // minutes
+    const entry = (h, star, title) => ({ id: ago(h), star, title, stardate: '2026.880', intro: `At ${title}.`, sections: [['Star', 'A star.']], ly: 4 });
+    localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false }, at: 1, log: [entry(20, 1, 'Newer'), entry(50, 2, 'Older')] }));
+    localStorage.setItem('engage.maru.v1', JSON.stringify({ runs: [{ title: 'The lifeboat', outcome: 'escaped', line: 'Kobayashi Maru: The lifeboat, 150 home, C B B B', grades: [], at: new Date(ago(35)).toISOString(), id: 'a' }], taken: 1, seen: ['The lifeboat'] }));
+    localStorage.setItem('engage.contact.v1', JSON.stringify({ runs: [{ title: 'First contact', outcome: 'contact', people: 'Qaethuk', decoded: 9, of: 11, at: new Date(ago(10)).toISOString(), id: 'b', seed: 5 }], met: 1, contacts: 1 }));
+  });
+  const p = await story.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  // A creature kept in the lab goes into the log too.
+  await p.goto(base + 'xeno.html#M-42');
+  await p.waitForFunction(() => window.xeno);
+  await p.click('#keep');
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-log');
+  const items = () => p.locator('#entries > .past, #entries > .supp').evaluateAll(els => els.map(el => (el.matches('.supp') ? el.textContent.trim() : el.querySelector('b').textContent)));
+  assert.deepEqual(await items(), [
+    'Supplemental: kept a creature from a Class M world in a jar.',
+    'Supplemental: answered a hail from the Qaethuk. First contact, 9 of 11 phrases decoded.',
+    'Newer',
+    'Supplemental: sat the Kobayashi Maru. The lifeboat, 150 home, C B B B.',
+    'Older',
+  ]);
+  // The days' headings count the arrivals only, and each line leads to what it is about.
+  const counted = (await p.locator('#entries .day').allInnerTexts()).join(' ');
+  assert.equal([...counted.matchAll(/(\d+) ARRIVALS?/g)].reduce((n, m) => n + Number(m[1]), 0), 2);
+  assert.doesNotMatch(counted, /SUPPLEMENTAL/);
+  assert.deepEqual(await p.locator('#entries .supp a').evaluateAll(as => as.map(a => a.getAttribute('href'))), ['xeno.html#M-42', 'contact.html', 'maru.html']);
+  // A search finds them, and the booklet prints them.
+  if (await p.locator('#log-search').isVisible()) throw new Error('a two-entry log has a search');
+  await p.evaluate(() => dispatchEvent(new Event('beforeprint')));
+  assert.equal(await p.locator('#print-log .supp').count(), 3);
+  assert.equal(await p.locator('#print-log .supp').first().innerText(), 'Supplemental: sat the Kobayashi Maru. The lifeboat, 150 home, C B B B.', 'the booklet reads oldest first');
+  await p.evaluate(() => dispatchEvent(new Event('afterprint')));
+  // Nothing about them was saved with the bridge's log.
+  assert.ok(!/Supplemental/.test(await p.evaluate(() => localStorage.getItem('engage.v1'))));
+  // Followed, a line goes to its room.
+  await Promise.all([p.waitForNavigation(), p.locator('#entries .supp a').nth(2).tap()]);
+  assert.match(p.url(), /maru\.html$/);
+  await story.close();
 }
 
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the

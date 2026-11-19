@@ -183,7 +183,7 @@ function toggleKeep() {
   if (!current) return;
   const i = saved.jars.findIndex(j => inJar(j, current));
   if (i >= 0) saved.jars.splice(i, 1);
-  else if (saved.jars.length < JAR_MAX) saved.jars.unshift(jarOf(current));
+  else if (saved.jars.length < JAR_MAX) saved.jars.unshift({ ...jarOf(current), at: new Date().toISOString() }); // when, for the captain's log
   else return;
   // With the shelf full again there is nowhere to put back the one just let go, so its Undo goes too.
   if (gone && saved.jars.length >= JAR_MAX) { clearTimeout(gone.timer); gone = null; }

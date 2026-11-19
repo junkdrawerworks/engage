@@ -314,7 +314,8 @@ function record() {
   if (daily && saved.daily?.date !== daily) saved.daily = { date: daily, line: shareLine(lastEval, daily), run: encodeRun({ seed: g.seed, rewritten: g.rewritten, orders: given }) };
   if (!saved.runs.some(r => r.id === gameId)) {
     firsts = runFirsts(saved, lastEval); // against the record as it stood
-    saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, grades: lastEval.grades.map(x => ({ name: x.name, letter: x.letter })), at: new Date().toISOString(), id: gameId });
+    // With its line ("Kobayashi Maru: The lifeboat, 150 home, C B B B"), which the captain's log gives it.
+    saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, grades: lastEval.grades.map(x => ({ name: x.name, letter: x.letter })), at: new Date().toISOString(), id: gameId, line: shareLine(lastEval) });
     Object.assign(saved, transcript({ ...saved, taken: saved.taken + 1 })); // before the list is cut to its last 30
     saved.runs = saved.runs.slice(-30);
   }
