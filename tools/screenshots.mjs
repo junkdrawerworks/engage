@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress or temporal; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png, og-longway.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress, temporal or longway; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -538,6 +538,33 @@ if (!only || only === 'temporal') {
   const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('chart'); return [c.toDataURL(), c.height / c.width]; });
   await wide.context().close();
   await ogCard(shot, aspect, 'Engage · Stellar cartography', 'Temporal observatory', 'The real sky of another century, 100,000 years either way.', 'The Big Dipper in AD 52,026', 'og-temporal.png');
+}
+
+// The long way home: a trip some way across the galaxy, at warp 9 with the stops taken.
+if (!only || only === 'longway') {
+  const fly = async page => {
+    await page.goto(base + 'longway.html');
+    await page.waitForFunction(() => window.longway?.ready);
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => longway.start(42));
+    await page.locator('#warp').fill('9');
+    for (let n = 0; n < 14; n++) {
+      if (await page.locator('#stops button').count()) await page.click('#stops button');
+      else await page.click('#cruise');
+    }
+    await page.waitForTimeout(300);
+  };
+  const page = await open({ width: 390, height: 844 }, 2);
+  await fly(page);
+  await page.evaluate(() => scrollTo(0, 120));
+  await page.waitForTimeout(200);
+  await save(await page.screenshot(), 'docs/phone-longway.png');
+  await page.context().close();
+  const wide = await open({ width: 900, height: 900 }, 1);
+  await fly(wide);
+  const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('map'); return [c.toDataURL(), c.height / c.width]; });
+  await wide.context().close();
+  await ogCard(shot, aspect, 'Engage · Helm', 'The long way home', 'Stranded 70,000 light years out. Choose your warp and your stops.', 'Why does it take 75 years?', 'og-longway.png');
 }
 
 if (!only || only === 'courses') {

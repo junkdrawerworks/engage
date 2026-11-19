@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>The long way home · Engage</title>
+  <meta name="description" content="Stranded 70,000 light years from Earth, as Voyager was. Each turn is a quarter of a year: choose how fast to fly and what to stop for, and watch your ship cross a to-scale map of the Milky Way. Fuel burns faster than speed rises.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="The long way home">
+  <meta property="og:description" content="Stranded 70,000 light years out. Choose your warp and your stops, a quarter-year at a time, and find out why it takes 75 years.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-longway.png">
+  <meta property="og:image:alt" content="Engage, the long way home. A to-scale map of the Milky Way from above, with a ship’s path from the far side of the galaxy toward the Sun.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/longway.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/longway.css">
+</head>
+<body class="survey longway-page">
+  <noscript><p class="noscript">The long way home needs JavaScript to fly the ship.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Helm</p>
+      <h1>The long way home</h1>
+    </div>
+  </header>
+
+  <main>
+    <p class="lab-intro">Stranded in the Delta Quadrant, 70,000 light years from Earth, as Voyager was. Each turn is a quarter of a year: choose how fast to fly and what to stop for. Your collectors scoop up enough fuel to keep you at warp 7.8 for ever. Faster burns it by the square of the speed.</p>
+    <div class="deck">
+      <div class="map-side">
+        <div class="screen"><canvas id="map" aria-hidden="true"></canvas></div>
+        <p class="map-key" id="map-key">The Milky Way from above, to scale: 100,000 light years across, the Sun about 26,000 from the centre.</p>
+      </div>
+      <div class="side">
+        <dl class="status" id="status" aria-live="polite"></dl>
+        <section class="lw-helm" id="helm" aria-labelledby="warp-label">
+          <p class="ahead" id="ahead"></p>
+          <div class="stops" id="stops"></div>
+          <label class="warp-label" id="warp-label" for="warp">Cruising warp <output id="warp-out" for="warp"></output></label>
+          <input type="range" id="warp" min="1" max="9.975" step="0.025" value="7.775">
+          <p class="burn" id="burn"></p>
+          <div class="fly-row">
+            <button type="button" class="primary" id="fly">Fly one quarter</button>
+            <button type="button" class="secondary" id="cruise">Cruise on</button>
+          </div>
+          <p class="cruise-said">Cruise on flies quarter after quarter until something needs you: somewhere to stop, the tanks running dry, the stores getting low, or home.</p>
+        </section>
+        <section class="debrief" id="debrief" hidden aria-labelledby="debrief-head">
+          <h2 id="debrief-head">Home</h2>
+          <p id="debrief-1"></p>
+          <p id="debrief-2"></p>
+          <p class="best" id="best"></p>
+          <button type="button" class="primary" id="again">Strand us again</button>
+        </section>
+        <ol class="voyage-log" id="voyage-log" aria-label="The last few quarters"></ol>
+      </div>
+    </div>
+    <p class="sources">Speeds are Engage’s own warp scale, the one the bridge flies by: warp 9.975, Voyager’s top cruising speed, is about 6,700 times the speed of light. The 70,000 light years and the 75-year journey are the show’s, from its first episode, “Caretaker”. Voyager came home in seven years by shortcuts the writers invented; this trip has none. Its fuel, stores and stops are a game’s, not canon.</p>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/longway-room.js"></script>
+</body>
+</html>

@@ -36,7 +36,7 @@ test('every room off the bridge is in the room list, once, with its name, a line
 
 test('counts are said in words', () => {
   assert.equal(inWords(8), 'eight');
-  assert.equal(inWords(ROOMS.length + 1), 'fourteen');
+  assert.equal(inWords(ROOMS.length + 1), 'fifteen');
   assert.equal(inWords(40), '40');
 });
 
