@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Subspace radio · Engage</title>
+  <meta name="description" content="Earth’s radio and television have been spreading through the stars since 1936. Tune to a year and see which real stars are hearing it tonight, follow the real messages people have sent to stars, and send a hail of your own.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="Subspace radio">
+  <meta property="og:description" content="Which stars are hearing 1969 tonight? Earth’s broadcasts on the real star map, and the real messages in flight.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-radio.png">
+  <meta property="og:image:alt" content="Engage, communications. Subspace radio: the stars within 100 light years from above, with the ring of Earth’s 1966 broadcasts lit among them.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/radio.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/radio.css">
+</head>
+<body class="survey radio-page">
+  <noscript><p class="noscript">Subspace radio needs JavaScript to work out which stars are hearing Earth.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Communications</p>
+      <h1>Subspace radio</h1>
+    </div>
+    <nav class="tabs" aria-label="Subspace radio">
+      <button type="button" data-tab="broadcasts" aria-pressed="true">Earth’s broadcasts</button>
+      <button type="button" data-tab="messages" aria-pressed="false">Messages in flight</button>
+      <button type="button" data-tab="hail" aria-pressed="false">Hail a star</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="pane" id="broadcasts" aria-labelledby="dial-label">
+      <p class="lab-intro">Earth has been leaking radio and television into space since 1936, and it spreads at the speed of light. Tune to a year to see which real stars are hearing it tonight.</p>
+      <div class="deck">
+        <div class="map-side">
+          <div class="screen"><canvas id="radio-map" aria-hidden="true"></canvas></div>
+          <p class="key"><span class="bubble-swatch" aria-hidden="true"></span> Everywhere Earth’s broadcasts have reached, seen from above the galaxy, its centre up</p>
+        </div>
+        <div class="dial-side">
+          <label class="dial-label" id="dial-label" for="dial">Hearing <output id="dial-out" for="dial">1969</output> tonight</label>
+          <input type="range" id="dial" min="1936" max="2026" step="1" value="1969">
+          <div class="dial-ends" aria-hidden="true"><span>1936</span><span id="dial-end">2026</span></div>
+          <p class="year-line" id="year-line"></p>
+          <p class="year-count" id="year-count" aria-live="polite"></p>
+          <ul class="three" id="three" aria-label="Stars hearing this year"></ul>
+          <div class="picked" id="picked" hidden aria-live="polite"></div>
+        </div>
+      </div>
+      <p class="sources">Within 80 light years the map has every star the HYG catalogue knows of; beyond that only the brighter ones, so its outer edge looks emptier than the sky really is.</p>
+    </section>
+
+    <section class="pane" id="messages" hidden aria-labelledby="messages-head">
+      <h2 id="messages-head">Messages in flight</h2>
+      <p class="lab-intro">Not leaks: messages people have aimed at real stars on purpose. Each bar is how far it has gone, at the speed of light, from the day it left.</p>
+      <ol class="flights" id="flights"></ol>
+      <p class="sources">From Wikipedia’s “List of interstellar radio messages” and its articles on each one. Arrivals are worked out here from the day each left and the catalogue’s distance, so a few differ by a year from the list’s.</p>
+    </section>
+
+    <section class="pane" id="hail" hidden aria-labelledby="hail-head">
+      <h2 id="hail-head">Hail a star</h2>
+      <p class="lab-intro">Choose any star and send a hail. It goes at the speed of light, and this room keeps it, so you can watch it on its way.</p>
+      <input class="search" id="hail-search" type="search" enterkeyhint="search" placeholder="Search 18,000 stars" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search for a star to hail">
+      <ul class="hail-results" id="hail-results" aria-label="Stars"></ul>
+      <div class="hail-chosen" id="hail-chosen" hidden>
+        <p id="hail-what"></p>
+        <button class="primary" type="button" id="hail-send">Send hail</button>
+      </div>
+      <p class="unsaved" id="hail-unsaved" hidden></p>
+      <p class="hail-said" id="hail-said" aria-live="polite"></p>
+      <h3 class="yours-head" id="yours-head" hidden>Your hails</h3>
+      <ol class="flights" id="yours" aria-labelledby="yours-head"></ol>
+    </section>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/radio-room.js"></script>
+</body>
+</html>

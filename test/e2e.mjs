@@ -352,7 +352,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await bridgeReady(p);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
   await p.tap('#open-settings');
-  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all ten rooms work with no signal.', null, { timeout: 20000 })
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all eleven rooms work with no signal.', null, { timeout: 20000 })
     .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
   assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
   assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
@@ -5077,7 +5077,7 @@ await page.emulateMedia({ reducedMotion: null });
   // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
   // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
   // half the time once the service worker was handing the stylesheet over.
-  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html']) {
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html']) {
     assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
   }
   for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
@@ -6352,9 +6352,93 @@ await page.emulateMedia({ reducedMotion: null });
   await sv.close();
 }
 
+// Subspace radio: the dial lights the shell of stars hearing a year tonight and names three; a star from the log opens
+// with the dial at its year; the messages in flight have their bars; a hail to a star is kept, once, and shows on its
+// way. The log's broadcast line and Set course both lead here.
+{
+  const rc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await rc.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await rc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const { yearNow, heardAt } = await import('../js/radio.js');
+  // From the bridge: an arrival's broadcast line links here with the star, and Set course has a way in at its foot.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => engage.jump('Vega'));
+  assert.equal(await p.locator('#arrival-entry .files a', { hasText: 'Subspace radio' }).getAttribute('href'), 'radio.html#star=Vega');
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#choose');
+  assert.equal(await p.locator('#list a.to-room').getAttribute('href'), 'radio.html');
+  await p.fill('#search', '1969');
+  assert.equal(await p.locator('#list a.to-room').getAttribute('href'), 'radio.html#year=1969');
+  await p.evaluate(() => engage.closeSheets());
+  // The star from the log: the dial at the year Vega is hearing tonight.
+  await p.goto(base + 'radio.html#star=Vega');
+  await p.waitForFunction(() => window.radio?.ready);
+  const vegaYear = await p.evaluate(() => radio.year);
+  assert.ok(vegaYear >= 2000 && vegaYear <= 2002, `Vega is hearing ${vegaYear}`);
+  assert.equal(await p.evaluate(() => radio.pick), 'Vega');
+  assert.match(await p.locator('#picked').innerText(), new RegExp(`^Vega \\(Vega colony\\), 25 light years out, is hearing ${vegaYear} tonight\\.`));
+  assert.equal(await p.title(), `${vegaYear} · Subspace radio · Engage`);
+  // 1969: the Moon landing, the stars about 57 to 58 light years out, three named with a course and their place tonight.
+  await p.goto(base + 'radio.html#year=1969');
+  await p.waitForFunction(() => window.radio?.ready && radio.year === 1969);
+  assert.equal(await p.locator('#year-line').innerText(), 'In 1969, people first walked on the Moon.');
+  assert.match(await p.locator('#year-count').innerText(), /^\d+ catalogued stars are hearing 1969 tonight, 5\d\.\d to 5\d\.\d light years out\.$/);
+  assert.equal(await p.locator('#three li').count(), 3);
+  assert.match(await p.locator('#three li a').first().getAttribute('href'), /^\.\/\?course=/);
+  assert.match(await p.locator('#three li a').nth(1).getAttribute('href'), /^\.\/tonight\.html#star=/);
+  // The dial moves the year; 1938 was on the air.
+  await p.locator('#dial').fill('1938');
+  assert.equal(await p.locator('#dial-out').innerText(), '1938');
+  assert.equal(await p.locator('#year-line').innerText(), 'On the air in 1938: Orson Welles’s radio play The War of the Worlds.');
+  // This year: no star is near enough yet.
+  const thisYear = new Date().getUTCFullYear();
+  await p.locator('#dial').fill(String(thisYear));
+  assert.match(await p.locator('#year-count').innerText(), new RegExp(`^No star is close enough to be hearing ${thisYear} yet`));
+  // A tap on the map picks the star there and turns the dial to its year.
+  await p.locator('#dial').fill('1980');
+  const box = await p.locator('#radio-map').boundingBox();
+  const dot = (await p.evaluate(() => radio.dots())).find(d => d.name === 'Altair');
+  await p.touchscreen.tap(box.x + dot.x, box.y + dot.y);
+  assert.equal(await p.evaluate(() => radio.pick), 'Altair');
+  assert.equal(await p.evaluate(() => radio.year), heardAt(16.73, yearNow()).year);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the room is wider than the phone');
+  // Messages in flight: Altair's arrived, Luyten's Star's on its way, M13 with no course.
+  await p.tap('[data-tab="messages"]');
+  assert.equal(await p.evaluate(() => radio.tab), 'messages');
+  const altair = p.locator('[data-message="altair"]');
+  assert.match(await altair.innerText(), /Sent 15 August 1983 from a radio telescope at Stanford, California\./);
+  assert.match(await altair.innerText(), /arrived about 2000/);
+  assert.match(await p.locator('[data-message="sonar"]').innerText(), /due about 2030 · \d+% of the way/);
+  assert.match(await p.locator('[data-message="cosmic1"] .from').innerText(), /^Sent 24 May to 1 July 1999 from the RT-70 dish at Yevpatoria, to 4 stars\.$/);
+  assert.equal(await p.locator('[data-message="arecibo"] .links').count(), 0, 'a cluster the catalogue lacks offers a course');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the messages are wider than the phone');
+  // Hail a star: search, send, kept; a hail on its way isn't sent twice.
+  await p.tap('[data-tab="hail"]');
+  await p.fill('#hail-search', 'wolf 359');
+  await p.locator('#hail-results [data-star]').first().tap();
+  assert.match(await p.locator('#hail-what').innerText(), /^Wolf 359 is 7\.8 light years away\. A hail sent now arrives in \w+ 20\d\d, 7 years( \d+ months?)? from now\.$/);
+  await p.tap('#hail-send');
+  assert.match(await p.locator('#hail-said').innerText(), /^Hailing frequencies open\. Your hail is on its way to Wolf 359/);
+  assert.equal(await p.locator('#hail-send').isDisabled(), true);
+  assert.equal(await p.locator('#yours li').count(), 1);
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.radio.v1')));
+  assert.deepEqual(kept.hails.map(h => h.star), ['Wolf 359']);
+  await p.reload();
+  await p.waitForFunction(() => window.radio?.ready);
+  await p.tap('[data-tab="hail"]');
+  assert.match(await p.locator('#yours li').innerText(), /^Wolf 359[\s\S]*Arrives in \w+ 20\d\d, /);
+  // A link to hail a star opens with it chosen; a star with no measured distance can't be hailed.
+  await p.goto(base + 'radio.html#hail=Altair');
+  await p.waitForFunction(() => window.radio?.ready && radio.tab === 'hail');
+  assert.match(await p.locator('#hail-what').innerText(), /^Altair is 17 light years away/);
+  await rc.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
-const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html'];
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html'];
 const until = async (ok, ms, what) => {
   for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
 };
@@ -6372,7 +6456,7 @@ for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await 
 const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
-const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam' };
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio' };
 const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
 net = 'down';
 await ctx.setOffline(true);
@@ -6437,7 +6521,7 @@ server.close();
 // a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
 // index.html; the first 8 hex of the sha1 of those).
 // Everything the ten pages and their scripts load is on the list: a file left off opens online and not offline.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
@@ -6447,7 +6531,7 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html']) {
   const html = await readFile(join(root, f), 'utf8');
   assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
   const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';

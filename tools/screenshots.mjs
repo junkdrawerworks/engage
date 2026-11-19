@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system or away; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away or radio; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -458,6 +458,21 @@ if (!only || only === 'away') {
   const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('sky'); return [c.toDataURL(), c.height / c.width]; });
   await wide.context().close();
   await ogCard(shot, aspect, 'Engage · Transporter room', 'Away team', 'Beam down and stand on a real planet, under its own sun.', 'TRAPPIST-1 e, Proxima b, Mars', 'og-away.png');
+}
+
+// Subspace radio: the stars hearing 1966, the year Star Trek went out, on the dial.
+if (!only || only === 'radio') {
+  const page = await open({ width: 390, height: 844 }, 2);
+  await page.goto(base + 'radio.html#year=1966');
+  await page.waitForFunction(() => window.radio?.ready);
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(500);
+  await page.evaluate(() => window.scrollTo(0, document.querySelector('.screen').getBoundingClientRect().top + scrollY - 140));
+  await page.waitForTimeout(200);
+  await save(await page.screenshot(), 'docs/phone-radio.png');
+  const [shot] = await page.evaluate(() => [document.getElementById('radio-map').toDataURL()]);
+  await page.context().close();
+  await ogCard(shot, 1, 'Engage · Communications', 'Subspace radio', 'Which real stars are hearing 1966, the year Star Trek went out, tonight?', 'And the real messages in flight', 'og-radio.png');
 }
 
 if (!only || only === 'courses') {

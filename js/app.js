@@ -42,6 +42,7 @@ const XENO = SURVEY.replace('survey.html', 'xeno.html');
 const MISSIONS = SURVEY.replace('survey.html', 'missions.html');
 // The system view, where a star's planets are flown in to and a planet of your own is placed.
 const SYSTEM = SURVEY.replace('survey.html', 'system.html');
+const RADIO = SURVEY.replace('survey.html', 'radio.html');
 // Tonight's sky, likewise.
 const TONIGHT = 'tonight.html';
 // And the warp scale.
@@ -1153,7 +1154,7 @@ function entryHtml(e, heading, staged = heading) {
     parts.push(`<dd class="${label ? (label === 'Looking home' ? 'home' : '') : 'note'}"${style}>${esc(text)}</dd>`);
     if (label === 'Planets') parts.push(systemLink(e.star, style), surveyLinks(e.star, style));
     if (label === 'A temperate orbit') parts.push(placeLink(e.star, style));
-    if (label === 'Looking home') parts.push(shipLink(e.ship, style));
+    if (label === 'Looking home') parts.push(shipLink(e.ship, style), radioLink(e.star, style));
   }
   // First contact made during this stay, read from first contact's own record.
   for (const line of linesForVisit(contacts, e)) parts.push(`<dd class="note contact-made">${esc(line)}</dd>`);
@@ -1205,6 +1206,14 @@ function systemLink(i, style) {
 }
 function placeLink(i, style) {
   return `<dd class="files"${style}><a href="${SYSTEM}#star=${encodeURIComponent(cat.names[i])}&amp;place"${AWAY}>Place a planet here</a></dd>`;
+}
+
+// Beside the line on when Earth's broadcasts reached a star, a link to subspace radio, with the dial at the year that
+// star is hearing tonight (or, past their reach, at the star itself). Not for home, nor for a star nobody knows the
+// distance to.
+function radioLink(i, style) {
+  if (!(i > 0 && i < cat.count) || cat.unmeasured[i]) return '';
+  return `<dd class="files"${style}><a href="${RADIO}#star=${encodeURIComponent(cat.names[i])}"${AWAY}>Subspace radio: what it hears from Earth</a></dd>`;
 }
 
 // When the year of Earth an entry looks back on is one of a long mission's own ("the year Voyager 2 flew past
@@ -1750,6 +1759,7 @@ function renderList() {
       stars.sort((a, b) => cat.distanceFrom(a, cam) - cat.distanceFrom(b, cam));
       html += `<p class="group">${state.at !== 0 && away ? away : title}</p>` + stars.map(i => row(i, metaFor(i, false))).join('');
     }
+    html += radioRow('Subspace radio: which stars are hearing Earth tonight', '');
   } else if ((said = askComputer(q))) {
     // A question for the ship's computer: its answer in a line, then the stars to tap.
     html = `<p class="computer" role="status">${esc(said.line)}</p>` + said.stars.map(i => row(i, i === 0 ? 'The Sun · Earth orbit' : metaFor(i, false))).join('');
@@ -1763,11 +1773,15 @@ function renderList() {
       html += lit.length
         ? `<p class="group">Light that left Earth in ${year} is arriving about now at</p>` + lit.map(i => row(i, metaFor(i, false))).join('')
         : `<p class="empty">Light that left Earth in ${year} hasn’t reached another star yet.</p>`;
+      if (year >= 1936) html += radioRow(`Subspace radio: the stars hearing ${year}’s broadcasts`, `#year=${year}`);
     }
     html ||= '<p class="empty">No star by that name in the catalogue.</p>';
   }
   $('list').innerHTML = html;
 }
+
+// A way from Set course to subspace radio, at the foot of the list (until the bridge has a button for it).
+const radioRow = (text, hash) => `<a class="to-room" href="${RADIO}${hash}"${AWAY} data-room="radio">${esc(text)} <span aria-hidden="true">›</span></a>`;
 
 // The ship's computer's answer to what is typed in Set course, or null for a name to look up.
 function askComputer(q) {
