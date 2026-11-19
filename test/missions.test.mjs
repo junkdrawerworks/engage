@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { jdOf, dateOf, readings, stateAt, earthAt, planetAt, heading, whenAbove, lastCrossing, milestones, jwstTracked, jwstSpan, jwstFromEarth, jwstAroundL2, trackUntil, LIGHT_DAY_AU, AU_KM } from '../js/ephemeris.js';
-import { SHIPS, byId, hailSent, hailState, milestoneText } from '../js/ships.js';
+import { SHIPS, byId, hailSent, hailState, milestoneText, GOLDEN_RECORD } from '../js/ships.js';
 
 const at = iso => jdOf(new Date(iso));
 
@@ -183,4 +183,20 @@ test('a saved hail is kept only if it left at a real moment that has already com
   // Past the last moment a date can hold: it used to read "sent Invalid Date at Invalid Date".
   assert.equal(hailSent(8.64e15 + 1, now), null);
   for (const t of [0, -5, NaN, Infinity, '1790000000000', null, undefined, {}]) assert.equal(hailSent(t, now), null, `kept ${String(t)}`);
+});
+
+test('the Golden Record has what NASA lists, and only the Voyagers carry it', () => {
+  // NASA's Voyager pages: greetings in 55 languages from Akkadian to Wu, 27 pieces of music, 115 pictures.
+  const g = GOLDEN_RECORD;
+  assert.equal(g.greetings.length, 55);
+  assert.equal(new Set(g.greetings.map(([l]) => l)).size, 55, 'a language is listed twice');
+  assert.deepEqual([g.greetings[0][0], g.greetings.at(-1)[0]], ['Akkadian', 'Wu']);
+  assert.equal(g.greetings.find(([l]) => l === 'English')[1], 'Hello from the children of planet Earth.');
+  assert.equal(g.music.length, 27);
+  assert.match(g.music[0][1], /^Bach, Brandenburg Concerto No. 2/);
+  assert.equal(g.music[6][1], '“Johnny B. Goode”');
+  assert.match(g.music.at(-1)[1], /Cavatina$/);
+  for (const m of g.music) assert.match(m[3], /^\d:\d\d$/);
+  assert.equal(g.pictures, 115);
+  assert.deepEqual(SHIPS.filter(s => s.golden).map(s => s.id), ['v1', 'v2']);
 });

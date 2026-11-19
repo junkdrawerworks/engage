@@ -67,6 +67,19 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 #ship-race { margin-right: 22px; }
 .file .record { color: var(--muted); font-size: 14px; font-style: italic; }
 
+/* The Golden Record, on both Voyagers: three lists that open one at a time. */
+.golden { margin: 14px 0 0; padding: 4px 14px 10px; border-radius: 16px; border: 1px solid rgba(255, 210, 122, 0.3); background: rgba(255, 210, 122, 0.05); }
+.golden h3 { color: #ffd27a; margin-top: 12px; }
+.golden details { border-top: 1px solid var(--line); }
+.golden summary { cursor: pointer; padding: 12px 0; min-height: 20px; font: 600 14px/1.3 var(--display); letter-spacing: 0.04em; color: var(--text); }
+.golden summary::marker { color: #ffd27a; }
+.golden ol { margin: 0 0 10px; padding: 0 0 0 1.6em; font-size: 14px; color: #cdd5e3; }
+.golden li { padding: 3px 0; }
+.golden li b { font-weight: 600; color: var(--text); }
+.golden li small { display: block; color: var(--muted); font-size: 13px; }
+.golden .greetings { list-style: none; padding: 0; }
+.file .golden-source { margin: 8px 0 0; font-size: 12px; color: var(--dim); }
+
 .source { max-width: 760px; margin: 18px auto 0; font-size: 12px; color: var(--dim); text-align: center; }
 .missions .jd-foot { padding: 22px 0 calc(18px + var(--safe-b)); }
 

@@ -1,6 +1,6 @@
 // Long missions: where the Voyagers, New Horizons, Webb and the Pioneers are right now, on a map and in numbers,
 // with a hail you can send and watch crawl out to them at the speed of light.
-import { SHIPS, byId, hailSent, hailState, milestoneText } from './ships.js';
+import { SHIPS, byId, hailSent, hailState, milestoneText, GOLDEN_RECORD } from './ships.js';
 import {
   AU_KM, LIGHT_DAY_AU, jdOf, dateOf, readings, trackUntil, planetAt, earthAt, semiMajor,
   jwstFromEarth, jwstSpan, jwstAroundL2, jwstTracked, moonAt, milestones,
@@ -125,8 +125,21 @@ function fillFile(ship) {
   if (BRIDGE.startsWith('http')) { race.target = '_blank'; race.rel = 'noopener'; }
   $('ship-record').textContent = ship.record || '';
   $('ship-record').hidden = !ship.record;
+  $('golden').hidden = !ship.golden;
   $('launched').textContent = `since launch on ${fmtDate(new Date(ship.launched + 'T12:00:00Z'), { timeZone: 'UTC' })}`;
   marks = ship.near ? null : milestones(ship.id, jdOf(Date.now()));
+}
+
+// The Golden Record's panel, the same on both Voyagers: what NASA lists on it, in three lists that open one at a time.
+function buildGolden() {
+  const g = GOLDEN_RECORD;
+  $('golden-about').textContent = `A 12-inch gold-plated copper disc, made for whoever finds her: greetings in ${g.greetings.length} languages, the sounds of Earth from surf, wind and thunder to birds and whales, ${g.music.length} pieces of music and ${g.pictures} pictures, with printed messages from President Carter and UN Secretary-General Kurt Waldheim. It plays at 16⅔ turns a minute, and a cartridge and needle travel with it. The cover shows how to play it and where the Sun is among 14 pulsars, and carries a speck of uranium-238 as a clock: half of it decays in 4.51 billion years.`;
+  $('golden-greetings-title').textContent = `Greetings in ${g.greetings.length} languages`;
+  $('golden-greetings').innerHTML = g.greetings.map(([lang, words]) => `<li><b>${esc(lang)}</b> “${esc(words)}”</li>`).join('');
+  $('golden-music-title').textContent = `${g.music.length} pieces of music`;
+  $('golden-music').innerHTML = g.music.map(([from, piece, by, len]) => `<li><b>${esc(piece)}</b><small>${esc(from)} · ${esc(by)} · ${esc(len)}</small></li>`).join('');
+  $('golden-pictures-title').textContent = `${g.pictures} pictures`;
+  $('golden-pictures').textContent = `Sent as sound, to be drawn line by line. The first is a circle, so whoever plays it can check they have the picture’s shape right. Among the rest: ${g.somePictures.join(', ')}.`;
 }
 
 // How long ago a date was, by the calendar: today, yesterday, 12 days ago.
@@ -556,6 +569,7 @@ function bind() {
 }
 
 buildFleet();
+buildGolden();
 resize();
 bind();
 choose(sel);

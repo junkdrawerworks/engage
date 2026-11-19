@@ -1728,7 +1728,18 @@ const mapLit = await page.evaluate(() => {
   return n;
 });
 assert.ok(mapLit > 5000, 'the map is not drawn');
+// The Golden Record: on both Voyagers, its lists closed until opened; on no other ship.
+assert.equal(await page.locator('#golden').isVisible(), true, 'Voyager 1 has no Golden Record panel');
+assert.equal(await page.locator('#golden-music').isVisible(), false);
+await page.locator('#golden-music-title').click();
+assert.equal(await page.locator('#golden-music li').count(), 27);
+assert.match(await page.locator('#golden-music li').nth(6).innerText(), /^“Johnny B. Goode”\nUnited States · written and performed by Chuck Berry · 2:38$/);
+assert.equal(await page.locator('#golden-greetings li').count(), 55);
+assert.equal(await text('#golden-greetings-title'), 'Greetings in 55 languages');
+await page.locator('.ship-tab[data-id="nh"]').click();
+assert.equal(await page.locator('#golden').isHidden(), true, 'New Horizons carries a Golden Record');
 await page.locator('.ship-tab[data-id="v2"]').click();
+assert.equal(await page.locator('#golden').isVisible(), true, 'Voyager 2 has no Golden Record panel');
 await Promise.all([page.waitForNavigation(), page.click('#ship-course')]);
 await bridgeReady();
 assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose the star Voyager 2 is bound for');
