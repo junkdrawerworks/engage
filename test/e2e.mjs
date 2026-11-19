@@ -3733,7 +3733,10 @@ await page.emulateMedia({ reducedMotion: null });
   await b.waitForFunction(() => window.warpScale.place === 'vulcan');
   await b.evaluate(() => window.warpScale.setCustom(7.5));
   await a.waitForFunction(() => document.getElementById('custom-out').textContent === '7.5');
-  assert.equal(await a.evaluate(() => localStorage.getItem('engage.warp.v1')), JSON.stringify({ place: 'vulcan', warp: 7.5 }));
+  // The real ship picked in one tab is the one the other races too.
+  await b.selectOption('#real-ship', 'nh');
+  await a.waitForFunction(() => document.getElementById('real-ship').value === 'nh' && window.warpScale.trip.lanes.at(-1).label === 'New Horizons');
+  assert.equal(await a.evaluate(() => localStorage.getItem('engage.warp.v1')), JSON.stringify({ place: 'vulcan', warp: 7.5, real: 'nh' }));
   const writes = await a.evaluate(async () => { let n = 0; addEventListener('storage', () => n++); await new Promise(r => setTimeout(r, 500)); return n; });
   assert.equal(writes, 0, 'two tabs of the warp scale went on saving at each other');
   await two.close();
