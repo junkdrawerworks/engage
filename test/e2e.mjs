@@ -4902,6 +4902,78 @@ await page.emulateMedia({ reducedMotion: null });
   await yard.close();
 }
 
+// Ship's records: Save a copy downloads one dated file of everything Engage keeps; Restore from a copy reads it back,
+// says what is in it, and offers Add to what's here or Replace, each asked twice. Everything lived in one browser on
+// one device: a lost phone, a cleared browser, or the move to the installed copy on an iPhone, and it was gone.
+{
+  const old = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, acceptDownloads: true });
+  await old.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await old.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => {
+    for (const name of ['Vega', 'Altair']) { engage.jump(name); engage.closeSheets(); }
+    localStorage.setItem('engage.xeno.v1', JSON.stringify({ jars: [{ id: 'M', seed: 42, at: new Date().toISOString() }] }));
+    localStorage.setItem('engage.maru.v1', JSON.stringify({ runs: [{ id: 'a', title: 'The lifeboat', outcome: 'escaped', grades: [], at: new Date().toISOString() }], taken: 3, seen: ['The lifeboat'] }));
+    localStorage.setItem('engage.oneswitch', 'on');
+    localStorage.setItem('another-tool.v1', 'not ours');
+  });
+  await p.tap('#open-settings');
+  const [download] = await Promise.all([p.waitForEvent('download'), p.tap('#records-save')]);
+  const { fileName } = await import('../js/records.js');
+  assert.equal(download.suggestedFilename(), fileName());
+  const file = JSON.parse(await readFile(await download.path(), 'utf8'));
+  assert.deepEqual([file.format, file.version, Object.keys(file.keys).sort()], ['Engage ship’s records', 1, ['engage.maru.v1', 'engage.oneswitch', 'engage.v1', 'engage.xeno.v1']]);
+  assert.equal(file.keys['engage.v1'].log.length, 2);
+  assert.equal(await p.locator('#records-said').innerText(), `Saved 2 log entries, 1 creature in a jar, 3 simulations, as ${fileName()}.`);
+  const copy = { name: download.suggestedFilename(), mimeType: 'application/json', buffer: await readFile(await download.path()) }; // the download goes with its context
+  await old.close();
+
+  // A new phone: one arrival of its own, then the copy added to it.
+  const fresh = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await fresh.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const q = await fresh.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  await q.goto(base);
+  await bridgeReady(q);
+  await q.evaluate(() => { engage.jump('Sirius'); engage.closeSheets(); localStorage.setItem('engage.survey.v1', JSON.stringify({ best: 4, streak: 0, seen: 7 })); });
+  await q.tap('#open-settings');
+  // Not a copy: said so, and nothing offered.
+  await q.locator('#records-file').setInputFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') });
+  await q.waitForFunction(() => document.getElementById('records-said').textContent);
+  assert.equal(await q.locator('#records-said').innerText(), 'That file isn’t a copy of Engage’s records.');
+  assert.equal(await q.locator('#records-found').isHidden(), true);
+  await q.locator('#records-file').setInputFiles(copy);
+  await q.waitForFunction(() => !document.getElementById('records-found').hidden);
+  assert.match(await q.locator('#records-what').innerText(), /^This copy, saved \d{1,2} \w+ \d{4}, holds 2 log entries, 1 creature in a jar, 3 simulations\.$/);
+  // One tap only arms it.
+  await q.tap('#records-add');
+  assert.equal(await q.locator('#records-add').innerText(), 'TAP AGAIN TO ADD IT');
+  assert.equal(await q.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).log.length), 1);
+  await Promise.all([q.waitForNavigation(), q.tap('#records-add')]);
+  await bridgeReady(q);
+  // Back with both logs, newest first, the survey's streak still here, and settings saying what came back.
+  assert.deepEqual(await q.evaluate(() => engage.state.log.map(e => e.title)), ['Sirius', 'Altair', 'Vega']);
+  assert.equal(await q.evaluate(() => JSON.parse(localStorage.getItem('engage.survey.v1')).best), 4);
+  assert.equal(await q.evaluate(() => localStorage.getItem('engage.oneswitch')), 'on');
+  assert.equal(await q.locator('#settings').isVisible(), true);
+  assert.equal(await q.locator('#records-said').innerText(), 'Added from your copy: 2 log entries, 1 creature in a jar, 3 simulations.');
+  // Replace: only what the copy has. The survey's record goes, and the log is the copy's.
+  await q.locator('#records-file').setInputFiles(copy);
+  await q.waitForFunction(() => !document.getElementById('records-found').hidden);
+  await q.tap('#records-replace');
+  assert.equal(await q.locator('#records-replace').innerText(), 'TAP AGAIN TO REPLACE EVERYTHING HERE');
+  await Promise.all([q.waitForNavigation(), q.tap('#records-replace')]);
+  await bridgeReady(q);
+  assert.deepEqual(await q.evaluate(() => engage.state.log.map(e => e.title)), ['Altair', 'Vega']);
+  assert.equal(await q.evaluate(() => localStorage.getItem('engage.survey.v1')), null);
+  assert.equal(await q.locator('#records-said').innerText(), 'Restored from your copy: 2 log entries, 1 creature in a jar, 3 simulations.');
+  // The ship is where the copy left her, at Altair.
+  assert.equal(await q.locator('#where').innerText(), 'Altair');
+  await fresh.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

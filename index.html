@@ -169,6 +169,23 @@
         <p>Every star is real and in its real place: about 18,000 of them, everything you could see from Earth with your eyes plus every catalogued star within 80 light years. As the ship moves, each one is redrawn as bright as it would look from where you are, so nearby stars slide across the sky and constellations come apart. Far from home the sky thins out: beyond 80 light years the charts hold only the stars bright enough to see from Earth, so a few hundred light years out the real sky has far more than the viewscreen shows.</p>
         <p>Warp speeds follow the scale where warp 9 is about 1,500 times the speed of light. The trip times are what that would take; the flight is shortened so you don’t have to wait a day.</p>
         <p>Star data: the HYG database by David Nash (CC BY-SA 4.0), built from the Hipparcos, Yale Bright Star and Gliese catalogues. Constellation lines and the Milky Way: d3-celestial by Olaf Frohn.</p>
+        <div class="records-io" id="records-io">
+          <h3>Ship’s records</h3>
+          <p>Everything Engage keeps is in this browser only. Save a copy to keep it safe, or to take it to another phone or browser.</p>
+          <div class="records-buttons">
+            <button class="secondary" id="records-save" type="button">Save a copy</button>
+            <button class="secondary" id="records-restore" type="button">Restore from a copy</button>
+          </div>
+          <input type="file" id="records-file" accept=".json,application/json" hidden>
+          <div id="records-found" hidden>
+            <p id="records-what"></p>
+            <div class="records-buttons">
+              <button class="secondary" id="records-add" type="button">Add to what’s here</button>
+              <button class="secondary" id="records-replace" type="button">Replace what’s here</button>
+            </div>
+          </div>
+          <p id="records-said" role="status"></p>
+        </div>
         <button class="text-button" id="clear-log" type="button">Clear the log and return to Earth</button>
       </div>
       <footer class="jd-foot">

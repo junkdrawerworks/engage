@@ -314,6 +314,11 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .rooms [data-room=xeno] svg { stroke: #6fe3a4; }
 .rooms [data-room=contact] svg, .rooms [data-room=warp] svg { stroke: #c9a2ff; }
 #show-intro { margin: 0 0 4px; }
+/* Ship's records: save everything to a file, and restore it. */
+.records-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.records-buttons .secondary { flex: 1 1 140px; min-height: 44px; height: auto; padding: 10px 14px; font-size: 13px; line-height: 1.2; }
+#records-what { color: var(--text); }
+#records-said:empty { display: none; }
 #install { min-height: 44px; padding: 0 18px; border-radius: 999px; font: 600 13px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 10px; }
 
 .loading { position: fixed; left: 0; right: 0; top: 45%; text-align: center; margin: 0; font: 500 14px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }

@@ -223,3 +223,70 @@ test('your ship: a name and a registry, tidied, and the USS in front unless she 
   const botany = { name: 'SS Botany Bay', registry: '' };
   assert.deepEqual([fullName(botany), shortName(botany), withRegistry(botany)], ['SS Botany Bay', 'Botany Bay', 'SS Botany Bay']);
 });
+
+test('ship’s records: everything Engage keeps in one file, read back, and added to what is here or put in its place', async () => {
+  const { FORMAT, VERSION, pack, unpack, fileName, contents, plan, rawOf, carried, jarsLeft } = await import('../js/records.js');
+  // The file's promise: these names, this shape.
+  assert.equal(FORMAT, 'Engage ship’s records');
+  assert.equal(VERSION, 1);
+  const raw = {
+    'engage.v1': JSON.stringify({ at: 2, log: [entry('2026-11-18T15:00:00Z', 2, 'Altair'), entry('2026-11-17T15:00:00Z', 1, 'Vega')], ly: 30, opts: { sound: false }, seenIntro: true }),
+    'engage.maru.v1': JSON.stringify({ runs: [{ id: 'a', title: 'The lifeboat', at: '2026-11-17T10:00:00.000Z', grades: [] }], taken: 9, seen: ['The lifeboat'], best: { Compassion: 'C' } }),
+    'engage.xeno.v1': JSON.stringify({ jars: [{ id: 'M', seed: 1 }, { world: 'Proxima b', seed: 2 }] }),
+    'engage.oneswitch': 'on',
+    'engage.asked-to-keep': '1',
+    'another-tool': 'not ours',
+  };
+  const file = pack(Object.entries(raw), new Date('2026-11-19T12:00:00Z'));
+  assert.deepEqual(Object.keys(file), ['format', 'version', 'saved', 'keys']);
+  assert.equal(file.saved, '2026-11-19T12:00:00.000Z');
+  assert.deepEqual(Object.keys(file.keys), ['engage.v1', 'engage.maru.v1', 'engage.xeno.v1', 'engage.oneswitch'], 'another tool’s key, or this browser’s own, went into the file');
+  assert.equal(file.keys['engage.oneswitch'], 'on');
+  assert.equal(rawOf(file.keys['engage.oneswitch']), 'on', 'a key that keeps text gets text back');
+  assert.equal(rawOf(file.keys['engage.v1']), raw['engage.v1']);
+  assert.ok(carried('engage.contact.v1') && !carried('engage.asked-to-keep') && !carried('engagement'));
+  assert.equal(fileName(new Date('2026-11-19T12:00:00Z')), 'engage-records-2026-11-19.json');
+  assert.equal(contents(file), '2 log entries, 2 creatures in jars, 9 simulations');
+  // Read back, through text as it would be from a file.
+  const back = unpack(JSON.stringify(file));
+  assert.deepEqual(back.file.keys, file.keys);
+  assert.match(unpack('not json').why, /isn’t a copy of Engage’s records/);
+  assert.match(unpack(JSON.stringify({ format: 'something else', version: 1, keys: {} })).why, /isn’t a copy/);
+  assert.match(unpack(JSON.stringify({ ...file, version: 2 })).why, /newer Engage/);
+  assert.deepEqual(Object.keys(unpack(JSON.stringify({ ...file, keys: { ...file.keys, 'other.thing': 1 } })).file.keys), Object.keys(file.keys), 'a key that isn’t Engage’s came back');
+  // Replace: the copy as it is, and Engage's keys it doesn't have let go.
+  const now = { 'engage.v1': { at: 0, log: [entry('2026-11-19T09:00:00Z', 3, 'Sirius')], ly: 8, opts: { sound: true }, seenIntro: true, ship: { name: 'Calypso', registry: '' } }, 'engage.survey.v1': { best: 3, seen: 5 }, 'engage.xeno.v1': { jars: [{ id: 'M', seed: 1 }] } };
+  const replace = plan(back.file, now, 'replace');
+  assert.deepEqual(replace.remove, ['engage.survey.v1']);
+  assert.deepEqual(replace.write, back.file.keys);
+  // Add: the logs put together, newest first, without doubles; here's settings and ship stay; counts go up by what was added.
+  const add = plan(back.file, now, 'add').write;
+  assert.deepEqual(add['engage.v1'].log.map(e => e.title), ['Sirius', 'Altair', 'Vega']);
+  assert.equal(add['engage.v1'].ly, 8 + 2);
+  assert.deepEqual([add['engage.v1'].at, add['engage.v1'].opts, add['engage.v1'].ship.name], [0, { sound: true }, 'Calypso']);
+  assert.deepEqual(add['engage.xeno.v1'].jars, [{ id: 'M', seed: 1 }, { world: 'Proxima b', seed: 2 }], 'a jar kept twice');
+  assert.equal(add['engage.maru.v1'].taken, 9, 'a key not here is taken as it is');
+  assert.equal('engage.survey.v1' in add, false, 'a key only here is left alone');
+  // Added twice, nothing doubles.
+  const twice = plan(back.file, add, 'add').write;
+  assert.equal(twice['engage.v1'].log.length, 3);
+  assert.equal(twice['engage.v1'].ly, 10);
+  // Two records of the Kobayashi Maru and first contact: runs put together, counts and bests as they should be.
+  const maru = plan({ keys: { 'engage.maru.v1': { runs: [{ id: 'b', title: 'Died trying', at: '2026-11-18T10:00:00.000Z' }, { id: 'a', title: 'The lifeboat', at: '2026-11-17T10:00:00.000Z' }], taken: 4, seen: ['Died trying', 'The lifeboat'], best: { Compassion: 'A', Nerve: 'B' }, officer: { taken: 1, passed: '2026-11-18T11:00:00.000Z' } } } },
+    { 'engage.maru.v1': JSON.parse(raw['engage.maru.v1']) }, 'add').write['engage.maru.v1'];
+  assert.deepEqual(maru.runs.map(r => r.id), ['a', 'b']);
+  assert.equal(maru.taken, 10, 'nine here and one the copy adds');
+  assert.deepEqual(maru.seen, ['The lifeboat', 'Died trying']);
+  assert.deepEqual(maru.best, { Compassion: 'A', Nerve: 'B' });
+  assert.equal(maru.officer.passed, '2026-11-18T11:00:00.000Z');
+  const contact = plan({ keys: { 'engage.contact.v1': { runs: [{ id: 'x', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-18T10:00:00.000Z' }], met: 1, contacts: 1, best: { decoded: 9, of: 10 }, friends: [{ people: 'Mipen', seed: 4 }] } } },
+    { 'engage.contact.v1': { runs: [{ id: 'y', title: 'Ships passing', outcome: 'alone', people: 'Qaethuk', at: '2026-11-17T10:00:00.000Z' }], met: 1, contacts: 0, best: { decoded: 3, of: 10 } } }, 'add').write['engage.contact.v1'];
+  assert.deepEqual([contact.runs.map(r => r.id), contact.met, contact.contacts, contact.best, contact.friends.map(f => f.people)], [['y', 'x'], 2, 1, { decoded: 9, of: 10 }, ['Mipen']]);
+  // The lab's shelf holds 40: what is here stays, and the copy fills what room is left.
+  const full = { jars: Array.from({ length: 39 }, (_, n) => ({ id: 'M', seed: n + 1 })) };
+  const more = { jars: [{ id: 'H', seed: 1 }, { id: 'H', seed: 2 }, { id: 'M', seed: 1 }] };
+  assert.equal(plan({ keys: { 'engage.xeno.v1': more } }, { 'engage.xeno.v1': full }, 'add').write['engage.xeno.v1'].jars.length, 40);
+  assert.equal(jarsLeft(full, more), 1);
+  // Hails: the later of the two to each ship.
+  assert.deepEqual(plan({ keys: { 'engage.missions.v1': { hails: { v1: 5, v2: 9 } } } }, { 'engage.missions.v1': { hails: { v1: 7 } } }, 'add').write['engage.missions.v1'].hails, { v1: 7, v2: 9 });
+});

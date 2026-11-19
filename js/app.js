@@ -14,6 +14,7 @@ import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
 import { cleanName, cleanRegistry, fullName, shipOf, withRegistry } from './myship.js';
+import { carried, contents, fileName, fromRaw, jarsLeft, pack, plan, rawOf, unpack } from './records.js';
 import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, story, supplementals } from './voyage.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
@@ -246,6 +247,7 @@ async function start() {
     $('intro').hidden = false; behind(); $('intro-go').focus({ preventScroll: true });
   }
   bind();
+  restored();
   watch(KEY, adopt);
   // Night vision switched in tonight's sky, in another tab or on the page before this one (Back can bring this
   // page back whole, as it was left).
@@ -1023,6 +1025,98 @@ async function copyKept() {
   });
 }
 
+// ---------- Ship's records ----------
+
+// Everything lives in one browser on one device. Save a copy downloads one dated file of everything Engage keeps
+// (js/records.js); Restore from a copy reads one back, says what is in it, and offers Add to what's here or
+// Replace, each asked twice on the button itself (the Artifact viewer refuses confirm dialogs). The page then loads
+// again with what was restored, and says so.
+const RESTORED = 'engage.restored'; // for this tab: the line to say once the page is back
+let found = null; // a copy read from a file, waiting for Add or Replace
+
+function keysNow() {
+  const out = [];
+  try {
+    for (let n = 0; n < localStorage.length; n++) {
+      const key = localStorage.key(n);
+      if (carried(key)) out.push([key, localStorage.getItem(key)]);
+    }
+  } catch { /* nothing can be read */ }
+  return out;
+}
+
+function saveCopy() {
+  if (!trip) save(); // the ship as she is now
+  const file = pack(keysNow());
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 1)], { type: 'application/json' }));
+  a.download = fileName();
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  $('records-said').textContent = `Saved ${contents(file)}, as ${a.download}.`;
+}
+
+async function readCopy(input) {
+  const f = input.files?.[0];
+  input.value = ''; // the same file can be chosen again
+  if (!f) return;
+  let text = '';
+  try { text = await f.text(); } catch { /* unreadable */ }
+  const got = unpack(text);
+  found = got.file || null;
+  $('records-found').hidden = !found;
+  $('records-said').textContent = got.why || '';
+  if (!found) return;
+  const saved = Date.parse(found.saved);
+  const left = jarsLeft(fromRaw(localStorage.getItem('engage.xeno.v1')), found.keys['engage.xeno.v1']);
+  $('records-what').textContent = `This copy${Number.isFinite(saved) ? `, saved ${new Date(saved).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })},` : ''} holds ${contents(found)}.`
+    + (left ? ` Added to what’s here, ${left} of its creatures won’t fit on the lab’s shelf of 40.` : '');
+  for (const id of ['records-add', 'records-replace']) disarm($(id));
+  $('records-found').scrollIntoView({ block: 'nearest' });
+}
+
+const RESTORE_WORDS = { 'records-add': ['Add to what’s here', 'Tap again to add it'], 'records-replace': ['Replace what’s here', 'Tap again to replace everything here'] };
+function disarm(b) { delete b.dataset.armed; b.textContent = RESTORE_WORDS[b.id][0]; }
+
+function restore(b) {
+  if (!found) return;
+  if (!b.dataset.armed) {
+    for (const id of Object.keys(RESTORE_WORDS)) disarm($(id));
+    b.dataset.armed = '1';
+    b.textContent = RESTORE_WORDS[b.id][1];
+    setTimeout(() => disarm(b), 4000);
+    return;
+  }
+  const now = Object.fromEntries(keysNow().map(([key, raw]) => [key, fromRaw(raw)]));
+  const how = b.id === 'records-add' ? 'add' : 'replace';
+  const { write, remove } = plan(found, now, how);
+  try {
+    for (const key of remove) localStorage.removeItem(key);
+    for (const [key, value] of Object.entries(write)) localStorage.setItem(key, rawOf(value));
+  } catch {
+    disarm(b);
+    $('records-said').textContent = 'This browser’s storage is full or blocked, so the copy couldn’t be restored in full. Clearing the log makes room.';
+    return;
+  }
+  try { sessionStorage.setItem(RESTORED, `${how === 'add' ? 'Added' : 'Restored'} from your copy: ${contents(found)}.`); } catch { /* said nowhere */ }
+  found = null;
+  location.reload();
+}
+
+// Back after a restore: Bridge settings opens on the line that says what came back.
+function restored() {
+  let line = null;
+  try { line = sessionStorage.getItem(RESTORED); sessionStorage.removeItem(RESTORED); } catch { /* no storage */ }
+  if (!line) return;
+  openSheet('settings', $('open-settings'));
+  showPhone();
+  $('records-said').textContent = line;
+  $('records-io').scrollIntoView({ block: 'start' });
+  say(line);
+}
+
 // ---------- Back from another room ----------
 
 // Every room's Back is a plain link to the bridge, which loads afresh: the log entry you were reading when you
@@ -1420,6 +1514,10 @@ function bind() {
     });
   }
   $('opt-night').addEventListener('change', e => setNight(e.target.checked));
+  $('records-save').addEventListener('click', saveCopy);
+  $('records-restore').addEventListener('click', () => $('records-file').click());
+  $('records-file').addEventListener('change', e => readCopy(e.target));
+  for (const id of ['records-add', 'records-replace']) $(id).addEventListener('click', e => restore(e.currentTarget));
   // Her name and registry are kept as they are typed, tidied (the field itself is tidied once it is left).
   const named = () => {
     const name = cleanName($('ship-name').value);
