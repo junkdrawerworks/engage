@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS, SEEDS as LAB_SEEDS, CENSUS, READINGS, RECORDS, takeCensus, rarityFor, recordFor, sizeText, gText, bench, BENCH, STEPS, benchPos, benchValue, readingsOf, changedParts, fileFor, compare, neighbours } from '../js/xeno-gen.js';
 import { CLASSES, byId, LAB_WORLDS, grows, worldByName } from '../js/classes.js';
 import { widthFor } from '../js/physics.js';
+import { drawScene } from '../js/xeno-art.js';
 import { SPECIMENS, specimensFor } from '../js/species.js';
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i * 37 + 1);
@@ -424,6 +425,44 @@ test('a slider changes only what its reading decides', () => {
   assert.deepEqual(changedParts(m.body, at(2.5)), ['legs']);
   assert.deepEqual(changedParts(m.body, m.body), []);
   assert.deepEqual(changedParts(m.body, bench({ id: 'M', seed: 42 }, { ...readingsOf(m), g: 0.3, pressure: 20 }).body), ['body']);
+});
+
+// A 2D context that keeps a log of every call, and of the state each one that draws is made with.
+function recorder() {
+  const st = { lineCap: 'butt', lineJoin: 'miter', lineWidth: 1, strokeStyle: '#000', fillStyle: '#000', globalAlpha: 1, shadowBlur: 0, shadowColor: 'rgba(0,0,0,0)', font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalCompositeOperation: 'source-over' };
+  const stack = [], log = [];
+  const r = v => (typeof v === 'number' ? Math.round(v * 1000) / 1000 : typeof v === 'string' ? v : '#');
+  return new Proxy({}, {
+    get(_, k) {
+      if (k === 'log') return log;
+      if (k in st) return st[k];
+      if (k === 'save') return () => { stack.push({ ...st }); log.push('save'); };
+      if (k === 'restore') return () => { Object.assign(st, stack.pop() || {}); log.push('restore'); };
+      if (typeof k !== 'string') return undefined;
+      if (k.startsWith('create')) return (...a) => ({ addColorStop: (...b) => log.push(`stop ${b.map(r)}`), id: log.push(`${k} ${a.map(r)}`) });
+      if (k === 'measureText') return t => ({ width: String(t).length * 6 });
+      return (...a) => log.push(`${k} ${a.map(r)}${/^(stroke|fill)/.test(k) ? ` | ${Object.values(st).map(r)}` : ''}`);
+    },
+    set(_, k, v) { st[k] = v; return true; },
+  });
+}
+
+test('the bench’s glow leaves every creature drawn as it was before the bench', () => {
+  // Every call the tank makes, and the line caps, widths and colours each stroke and fill is made with, for 20
+  // specimens of each class and one for each real planet, as they were drawn before the bench: lighting up a part
+  // must not change how the parts after it are drawn (it once made the fur and scales of every walker square-ended).
+  const h = createHash('sha1');
+  for (const c of [...CLASSES.flatMap(k => Array.from({ length: 20 }, (_, i) => grow(k.id, i * 41 + 1))), ...LAB_WORLDS.map(({ world }) => growFor(world, 7))]) {
+    const g = recorder(); drawScene(g, c, 400, 300, 1.3, 1); h.update(g.log.join('\n'));
+  }
+  assert.equal(h.digest('hex').slice(0, 12), '9254de46d065');
+  // And a lit part glows, and only while it is lit.
+  const c = grow('M', 42), g = recorder();
+  c.body.pulse = { legs: 0.5 };
+  drawScene(g, c, 400, 300, 1.3, 1);
+  const lit = g.log.filter(l => /^stroke /.test(l) && !/\| .*rgba\(0,0,0,0\)/.test(l));
+  assert.ok(lit.length >= c.body.legs * 2, 'the legs did not glow');
+  assert.ok(lit.length < g.log.filter(l => /^stroke /.test(l)).length / 2, 'the glow spread past the legs');
 });
 
 test('the bench’s sliders: where a reading sits and what each place reads', () => {
