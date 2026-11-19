@@ -22,6 +22,24 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 .views button[aria-pressed="true"] { background: rgba(134, 216, 255, 0.14); color: var(--cyan); box-shadow: 0 0 0 1px rgba(134, 216, 255, 0.35) inset; }
 .scale { margin: 6px 0 0; font-size: 12px; color: var(--dim); }
 
+/* The timeline: a slider from 1972 to 2100 under the map, the selected ship's log as ticks under it. */
+.timeline { margin: 10px 0 0; }
+.tl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; }
+.tl-date { margin: 0; font: 600 15px/1.2 var(--display); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.tl-now { height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(134, 216, 255, 0.45); background: rgba(134, 216, 255, 0.08); color: var(--cyan); font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; }
+.tl-track { position: relative; }
+/* The ticks line up with the thumb's centre, which travels 12 px in from each end. */
+.tl-ticks { position: relative; height: 24px; margin: -4px 12px 0; }
+.tl-tick { position: absolute; top: 0; width: 24px; height: 24px; margin-left: -12px; padding: 0; border: 0; background: none; }
+.tl-tick::before { content: ''; position: absolute; left: 11px; top: 2px; width: 2px; height: 11px; border-radius: 1px; background: var(--ship); opacity: 0.75; }
+.tl-tick.on::before, .tl-tick:hover::before { opacity: 1; height: 15px; box-shadow: 0 0 6px var(--ship); }
+.tl-ends { display: flex; justify-content: space-between; font: 500 11px/1 var(--display); letter-spacing: 0.08em; color: var(--dim); }
+.tl-event { margin: 8px 0 0; padding: 10px 12px; border-left: 3px solid var(--ship); background: rgba(255, 255, 255, 0.03); border-radius: 0 12px 12px 0; font-size: 14px; color: #cdd5e3; }
+.tl-event b { display: block; font: 600 11px/1.5 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ship); }
+.log .when { padding: 0; margin: 0; border: 0; background: none; text-align: left; color: inherit; cursor: pointer; align-self: start; min-height: 24px; }
+.log .when time { text-decoration: underline dotted; text-underline-offset: 3px; }
+.log .when:hover time { color: var(--text); }
+
 /* The fleet */
 .fleet { display: flex; gap: 6px; overflow-x: auto; margin: 10px -16px 0; padding: 2px 16px 10px; scroll-snap-type: x proximity; scrollbar-width: thin; }
 .ship-tab { flex: none; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 8px; padding: 8px 12px 8px 10px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); text-align: left; scroll-snap-align: center; }
@@ -91,7 +109,8 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
   .top { padding: calc(20px + var(--safe-t)) max(24px, var(--safe-r)) 14px max(24px, var(--safe-l)); }
   .title h1 { font-size: 26px; }
   .missions main { padding: 0 max(24px, var(--safe-r)) 0 max(24px, var(--safe-l)); }
-  .board { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: 'map file' 'scale file' 'fleet file'; grid-template-rows: auto auto 1fr; gap: 0 24px; align-items: start; }
+  .board { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: 'map file' 'time file' 'scale file' 'fleet file'; grid-template-rows: auto auto auto 1fr; gap: 0 24px; align-items: start; }
+  .timeline { grid-area: time; }
   .map-wrap { grid-area: map; margin: 4px 0 0; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
   .scale { grid-area: scale; }
   .fleet { grid-area: fleet; flex-wrap: wrap; overflow: visible; margin: 12px 0 0; padding: 0; }

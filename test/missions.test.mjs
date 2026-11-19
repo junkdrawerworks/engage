@@ -246,3 +246,32 @@ test('each ship is in the constellation NASA names for her', async () => {
   // file has her heading toward Sagittarius.
   assert.deepEqual(['v1', 'v2', 'nh'].map(id => constellationIn(meta, shipDir(id, jd))), ['Ophiuchus', 'Pavo', 'Sagittarius']);
 });
+
+test('before 2020 the ships follow their tracks from launch, through each planet they passed', () => {
+  // Each flyby lands on the planet: the path is pinned there on the day of closest approach.
+  for (const [id, planet, day] of [['v1', 'jupiter', '1979-03-05'], ['v2', 'uranus', '1986-01-24'], ['v2', 'neptune', '1989-08-25'], ['nh', 'pluto', '2015-07-14'], ['p11', 'saturn', '1979-09-01']]) {
+    const jd = at(`${day}T12:00:00Z`), p = readings(id, jd).pos, q = planetAt(planet, jd);
+    assert.ok(Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < 0.01, `${id} misses ${planet}`);
+  }
+  // NASA's own numbers: the Pale Blue Dot from about 6 billion km (40 AU), Voyager 1 overtaking Pioneer 10 on
+  // 17 February 1998, and the heliopause at 121.6 AU and 119 AU.
+  assert.ok(Math.abs(readings('v1', at('1990-02-14T12:00:00Z')).sunAU - 40.1) < 0.6);
+  assert.ok(readings('v1', at('1998-01-17')).sunAU < readings('p10', at('1998-01-17')).sunAU, 'Voyager 1 passed Pioneer 10 early');
+  assert.ok(readings('v1', at('1998-03-17')).sunAU > readings('p10', at('1998-03-17')).sunAU, 'Voyager 1 never passed Pioneer 10');
+  assert.ok(Math.abs(readings('v1', at('2012-08-25')).sunAU - 121.6) < 0.3);
+  assert.ok(Math.abs(readings('v2', at('2018-11-05')).sunAU - 119) < 0.3);
+  // And on to 2100, coasting: Voyager 1 at about 432 AU.
+  assert.ok(Math.abs(readings('v1', at('2100-01-01')).sunAU - 432) < 1);
+  // No jumps anywhere along the way, and the curve meets the yearly states smoothly in 2020.
+  for (const id of ['v1', 'v2', 'nh', 'p10', 'p11']) {
+    assert.equal(trackUntil(id, at('1972-01-01')).length, 1, `${id} has a path before launch`);
+    let prev = null;
+    for (let jd = at('1972-03-10'); jd < at('2021-01-01'); jd += 1) {
+      const p = readings(id, jd).pos;
+      if (prev) assert.ok(Math.hypot(p[0] - prev[0], p[1] - prev[1], p[2] - prev[2]) < 0.03, `${id} jumps on ${dateOf(jd).toISOString().slice(0, 10)}`);
+      prev = p;
+    }
+    const a = stateAt(id, 2458849.5 - 1e-6).pos, b = stateAt(id, 2458849.5).pos;
+    assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6, `${id} jumps in 2020`);
+  }
+});

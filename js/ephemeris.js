@@ -143,6 +143,52 @@ const TRACKS = {
 };
 const parseTrack = s => s.split(';').map(p => { const [d, x, y, z] = p.split(' '); return [jdIso(d), +x, +y, +z]; });
 
+// Where each one passed close to a planet, at the moment of closest approach (UTC dates, from NASA's mission pages).
+// The tracks above are months apart while the ships were among the planets, so the path is pinned to the planet on
+// those days: every flyby was within a few hundred thousand km, nothing at this scale. The planets' places are
+// JPL's elements below, so on the map the ship meets the planet's dot.
+const FLYBYS = {
+  v1: [['1979-03-05', 'jupiter'], ['1980-11-12', 'saturn']],
+  v2: [['1979-07-09', 'jupiter'], ['1981-08-26', 'saturn'], ['1986-01-24', 'uranus'], ['1989-08-25', 'neptune']],
+  nh: [['2007-02-28', 'jupiter'], ['2015-07-14', 'pluto']],
+  p10: [['1973-12-04', 'jupiter']],
+  p11: [['1974-12-03', 'jupiter'], ['1979-09-01', 'saturn']],
+};
+// The points a probe's path runs through before the yearly states take over: the track, the flybys, and the first
+// yearly state. Worked out once each.
+const pastPoints = {};
+function pointsFor(id) {
+  if (pastPoints[id]) return pastPoints[id];
+  const first = STATES[id][0][0];
+  const pins = FLYBYS[id].map(([d, planet]) => { const jd = jdIso(d) + 0.5; return [jd, ...planetAt(planet, jd)]; });
+  const pts = [...parseTrack(TRACKS[id]).filter(p => !pins.some(q => Math.abs(q[0] - p[0]) < 20)), ...pins]
+    .filter(p => p[0] < first).sort((a, b) => a[0] - b[0]);
+  pts.push(STATES[id][0].slice(0, 4));
+  return (pastPoints[id] = pts);
+}
+// Before 2020: a smooth curve through those points (cubic Hermite, each point's slope from its neighbours, and the
+// first yearly state's own velocity at the end, so the two join without a kink). Before the first point, the first.
+function pastState(id, jd) {
+  const pts = pointsFor(id), n = pts.length;
+  if (jd <= pts[0][0]) return { pos: pts[0].slice(1), vel: [0, 0, 0] };
+  let i = 0;
+  while (i < n - 2 && pts[i + 1][0] < jd) i++;
+  const slope = k => {
+    if (k === n - 1) return STATES[id][0].slice(4, 7);
+    const a = pts[Math.max(k - 1, 0)], b = pts[k + 1];
+    return [1, 2, 3].map(c => (b[c] - a[c]) / (b[0] - a[0]));
+  };
+  const a = pts[i], b = pts[i + 1], h = b[0] - a[0], t = (jd - a[0]) / h, ma = slope(i), mb = slope(i + 1);
+  const h00 = 2 * t ** 3 - 3 * t ** 2 + 1, h10 = t ** 3 - 2 * t ** 2 + t, h01 = -2 * t ** 3 + 3 * t ** 2, h11 = t ** 3 - t ** 2;
+  const d00 = (6 * t ** 2 - 6 * t) / h, d10 = 3 * t ** 2 - 4 * t + 1, d01 = (-6 * t ** 2 + 6 * t) / h, d11 = 3 * t ** 2 - 2 * t;
+  const pos = [], vel = [];
+  for (let k = 0; k < 3; k++) {
+    pos.push(h00 * a[k + 1] + h10 * h * ma[k] + h01 * b[k + 1] + h11 * h * mb[k]);
+    vel.push(d00 * a[k + 1] + d10 * ma[k] + d01 * b[k + 1] + d11 * mb[k]);
+  }
+  return { pos, vel };
+}
+
 // The James Webb Space Telescope, every 10 days from 1 October 2026: [x, y, z] in km from Earth's centre.
 // It loops around the Sun–Earth L2 point, 1.5 million km beyond Earth, once every six months or so.
 const JWST_START = 2461314.5, JWST_STEP = 10;
@@ -169,7 +215,7 @@ export function stateAt(id, jd) {
   const rows = STATES[id];
   const first = rows[0], last = rows[rows.length - 1];
   if (jd >= last[0]) return coast(last, jd);
-  if (jd <= first[0]) return coast(first, jd);
+  if (jd < first[0]) return pastState(id, jd);
   let i = Math.min(Math.floor((jd - first[0]) / 365.25), rows.length - 2);
   while (rows[i][0] > jd) i--;
   while (rows[i + 1][0] < jd) i++;
@@ -189,10 +235,21 @@ function coast(row, jd) {
   return { pos: [0, 1, 2].map(k => row[k + 1] + row[k + 4] * dt), vel: row.slice(4, 7) };
 }
 
-// Where a probe has been from launch until a date, for drawing its path.
+// Where a probe has been from launch until a date, for drawing its path: the points it passed through, with the
+// curve between them filled in every 30 days while it was among the planets, then the yearly states.
+const pathPoints = {};
+function pathFor(id) {
+  if (pathPoints[id]) return pathPoints[id];
+  const pts = pointsFor(id), out = [];
+  for (let k = 0; k < pts.length - 1; k++) {
+    out.push(pts[k]);
+    for (let t = pts[k][0] + 30; t < pts[k + 1][0] - 10; t += 30) out.push([t, ...pastState(id, t).pos]);
+  }
+  for (const r of STATES[id]) out.push(r.slice(0, 4));
+  return (pathPoints[id] = out);
+}
 export function trackUntil(id, jd) {
-  const pts = [...parseTrack(TRACKS[id]), ...STATES[id].map(r => [r[0], r[1], r[2], r[3]])]
-    .filter(p => p[0] < jd).map(p => p.slice(1));
+  const pts = pathFor(id).filter(p => p[0] < jd).map(p => p.slice(1));
   pts.push(stateAt(id, jd).pos);
   return pts;
 }

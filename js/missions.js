@@ -104,13 +104,15 @@ function choose(id, fromMap = false) {
 
 function fillFile(ship) {
   document.body.style.setProperty('--ship', ship.color);
-  $('ship-agency').textContent = `${ship.agency} · ${ship.status === 'silent' ? 'Out of contact' : 'On mission'}`;
+  $('ship-agency').dataset.for = '';
   $('ship-name').textContent = ship.full || ship.name;
   $('ship-tagline').textContent = ship.tagline;
   $('ship-where').textContent = ship.where;
   $('ship-now').textContent = ship.now;
+  // Each date goes to that day on the timeline.
   $('ship-log').innerHTML = ship.log.map(([d, t]) =>
-    `<li><time datetime="${d}">${esc(fmtDate(new Date(d + 'T12:00:00Z'), { timeZone: 'UTC' }))}</time><span>${esc(t)}</span></li>`).join('');
+    `<li><button type="button" class="when" data-day="${d}" aria-label="Show ${esc(fmtDate(new Date(d + 'T12:00:00Z'), { timeZone: 'UTC' }))} on the map"><time datetime="${d}">${esc(fmtDate(new Date(d + 'T12:00:00Z'), { timeZone: 'UTC' }))}</time></button><span>${esc(t)}</span></li>`).join('');
+  buildTicks(ship);
   $('ship-bound').textContent = ship.bound.text;
   const course = $('ship-course');
   course.hidden = !ship.bound.star;
@@ -217,10 +219,13 @@ async function loadBounds() {
     tick(true);
   } catch { /* no catalogue here: the row stays hidden */ }
 }
-const skyCache = new Map(); // ship and day -> constellation: she takes years to cross one
+const skyCache = new Map(); // ship and day -> constellation: she takes years to cross one, so a day's answer is kept
 function constellationOf(id, jd) {
   const key = `${id}:${Math.floor(jd)}`;
-  if (!skyCache.has(key)) skyCache.set(key, constellationIn(skyMeta, shipDir(id, jd)));
+  if (!skyCache.has(key)) {
+    if (skyCache.size > 500) skyCache.clear(); // a drag along the timeline visits thousands of days
+    skyCache.set(key, constellationIn(skyMeta, shipDir(id, jd)));
+  }
   return skyCache.get(key);
 }
 // Which of the Deep Space Network's dishes could hear her: worked out again each minute, not ten times a second.
@@ -240,41 +245,67 @@ function tick(force = false) {
   const nowMs = Date.now();
   if (!force && nowMs - lastText < 100) return;
   lastText = nowMs;
-  const jd = jdOf(nowMs);
-  $('clock').textContent = `Stardate ${stardate(new Date(nowMs))}`;
+  // Everything on the file is for the timeline's moment (now, unless it has been moved); a hail always goes now.
+  const tMs = at ?? nowMs, jd = jdOf(tMs), live = at === null;
+  $('clock').textContent = live ? `Stardate ${stardate(new Date(nowMs))}` : fmtDate(new Date(tMs), { timeZone: 'UTC' });
   const ship = byId(sel);
-  const r = readings(sel, jd);
-  // Webb's loop round L2 is charted for October 2026 to December 2027. On any other date she is somewhere on it, so
-  // her file gives round figures for the L2 point and says so, and not a place to the kilometre.
-  const adrift = ship.near && !jwstTracked(jd);
-  const round = km => `about ${int(Math.round(km / 1e5) * 1e5)} km`;
-  $('sun-km').textContent = adrift ? round(r.sunAU * AU_KM) : `${int(r.sunAU * AU_KM)} km`;
-  $('sun-au').textContent = adrift ? `${r.sunAU.toFixed(2)} AU` : `${r.sunAU.toFixed(r.sunAU < 2 ? 4 : 3)} AU`;
-  const earthKm = r.earthAU * AU_KM;
-  $('earth-km').textContent = adrift ? round(earthKm) : `${int(earthKm)} km`;
-  $('earth-au').textContent = adrift ? 'the L2 point. Her loop round it isn’t charted for this date: she is 1.2 to 1.8 million km out'
-    : ship.near ? `${(earthKm / 384400).toFixed(2)} times as far as the Moon` : `${r.earthAU.toFixed(3)} AU`;
-  if (ship.near) {
-    $('speed').textContent = `${r.speedKmS.toFixed(1)} km/s`;
-    $('speed-h').textContent = adrift ? 'round the Sun with Earth' : `round the Sun with Earth, and ${jwstAroundL2(jd).toFixed(2)} km/s round L2`;
+  const status = statusAt(ship, tMs);
+  if ($('ship-agency').dataset.for !== `${sel}:${status}:${live}`) {
+    $('ship-agency').dataset.for = `${sel}:${status}:${live}`;
+    $('ship-agency').textContent = `${ship.agency} · ${status}`;
+    // Where she is and what she's doing are written for today: on another date they say so.
+    $('ship-where').textContent = `${live ? '' : 'Today: '}${ship.where}`;
+    $('status-title').textContent = live ? 'Ship’s status' : 'Ship’s status today';
+  }
+  const up = launchedBy(ship, tMs);
+  const r = up ? readings(sel, jd) : null;
+  const rNow = live && r ? r : readings(sel, jdOf(nowMs));
+  if (!up) {
+    // Before she was launched there is nothing to read but the day she goes.
+    $('sun-km').textContent = 'Not launched yet';
+    $('sun-au').textContent = `launches ${fmtDate(new Date(ship.launched + 'T12:00:00Z'), { timeZone: 'UTC' })}`;
+    for (const id of ['earth-km', 'speed', 'signal', 'age']) $(id).textContent = '—';
+    for (const id of ['earth-au', 'speed-h', 'signal-note', 'dishes']) $(id).textContent = '';
+    $('sky-row').hidden = true;
   } else {
-    $('speed').textContent = `${r.speedKmS.toFixed(2)} km/s`;
-    $('speed-h').textContent = `${int(Math.round(r.speedKmS * 36) * 100)} km/h, relative to the Sun`;
+    // Webb's loop round L2 is charted for October 2026 to December 2027. On any other date she is somewhere on it, so
+    // her file gives round figures for the L2 point and says so, and not a place to the kilometre. In her first
+    // month she was still on her way out.
+    const adrift = ship.near && !jwstTracked(jd);
+    const outbound = ship.near && tMs < Date.UTC(2022, 0, 24);
+    const round = km => `about ${int(Math.round(km / 1e5) * 1e5)} km`;
+    $('sun-km').textContent = adrift ? round(r.sunAU * AU_KM) : `${int(r.sunAU * AU_KM)} km`;
+    $('sun-au').textContent = adrift ? `${r.sunAU.toFixed(2)} AU` : `${r.sunAU.toFixed(r.sunAU < 2 ? 4 : 3)} AU`;
+    const earthKm = r.earthAU * AU_KM;
+    $('earth-km').textContent = adrift ? round(earthKm) : `${int(earthKm)} km`;
+    $('earth-au').textContent = outbound ? 'the L2 point, where she arrived on 24 January 2022. Her month-long trip out isn’t charted here'
+      : adrift ? 'the L2 point. Her loop round it isn’t charted for this date: she is 1.2 to 1.8 million km out'
+      : ship.near ? `${(earthKm / 384400).toFixed(2)} times as far as the Moon` : `${r.earthAU.toFixed(3)} AU`;
+    if (ship.near) {
+      $('speed').textContent = `${r.speedKmS.toFixed(1)} km/s`;
+      $('speed-h').textContent = adrift ? 'round the Sun with Earth' : `round the Sun with Earth, and ${jwstAroundL2(jd).toFixed(2)} km/s round L2`;
+    } else {
+      $('speed').textContent = `${r.speedKmS.toFixed(2)} km/s`;
+      $('speed-h').textContent = `${int(Math.round(r.speedKmS * 36) * 100)} km/h, relative to the Sun`;
+    }
+    $('signal').textContent = adrift ? 'about 5 seconds' : lightTime(r.lightSeconds);
+    $('signal-note').textContent = adrift ? 'one way, at the speed of light: 4 to 6 seconds, depending where she is on her loop' : 'one way, at the speed of light';
+    // Who could hear her is about now; on another date the line is left out.
+    $('dishes').textContent = live ? dishText(ship, nowMs) : '';
+    $('sky-row').hidden = !skyMeta;
+    if (skyMeta) {
+      const con = constellationOf(sel, jd);
+      $('sky-con').textContent = con || '';
+      const tense = live ? 'she’s in' : tMs > nowMs ? 'she’ll be in then' : 'she was in then';
+      $('sky-note').textContent = `${con ? `the constellation ${tense}. ` : ''}${ship.near ? 'Too faint to see by eye.' : 'Far too faint for any telescope to see.'}`;
+      $('sky-link').hidden = !live;
+      const href = `${BRIDGE}tonight.html#ship=${sel}`;
+      if ($('sky-link').getAttribute('href') !== href) $('sky-link').href = href;
+    }
+    $('age').textContent = missionAge(new Date(ship.launched + 'T12:00:00Z'), new Date(tMs));
   }
-  $('signal').textContent = adrift ? 'about 5 seconds' : lightTime(r.lightSeconds);
-  $('signal-note').textContent = adrift ? 'one way, at the speed of light: 4 to 6 seconds, depending where she is on her loop' : 'one way, at the speed of light';
-  $('dishes').textContent = dishText(ship, nowMs);
-  $('sky-row').hidden = !skyMeta;
-  if (skyMeta) {
-    const con = constellationOf(sel, jd);
-    $('sky-con').textContent = con || '';
-    $('sky-note').textContent = `${con ? `the constellation she’s in. ` : ''}${ship.near ? 'Too faint to see by eye.' : 'Far too faint for any telescope to see.'}`;
-    const href = `${BRIDGE}tonight.html#ship=${sel}`;
-    if ($('sky-link').getAttribute('href') !== href) $('sky-link').href = href;
-  }
-  $('age').textContent = missionAge(new Date(ship.launched + 'T12:00:00Z'), new Date(nowMs));
-  $('hail-note').textContent = hailText(ship, r, nowMs);
-  const state = hailState(saved.hails[sel], r.lightSeconds * 1000, nowMs, ship.status === 'silent');
+  $('hail-note').textContent = hailText(ship, rNow, nowMs);
+  const state = hailState(saved.hails[sel], rNow.lightSeconds * 1000, nowMs, ship.status === 'silent');
   if ($('hail').dataset.state !== `${sel}:${state}`) {
     $('hail').dataset.state = `${sel}:${state}`;
     $('hail').textContent = hailLabel(ship, state);
@@ -282,13 +313,14 @@ function tick(force = false) {
   }
 
   // The round-number moments: the one coming, and a light-day mark gone by in the last two months. A page left open
-  // past the next one works them out again.
-  if (marks?.next && jd > marks.next.jd) marks = milestones(sel, jd);
+  // past the next one works them out again. They are about now, so on another date they are left out.
+  const jdNow = jdOf(nowMs);
+  if (marks?.next && jdNow > marks.next.jd) marks = milestones(sel, jdNow);
   const n = $('next'), gone = $('passed');
-  n.hidden = !marks?.next;
-  gone.hidden = !marks?.passed;
+  n.hidden = !live || !marks?.next;
+  gone.hidden = !live || !marks?.passed;
   if (marks?.next) {
-    const days = marks.next.jd - jd;
+    const days = marks.next.jd - jdNow;
     const when = fmtDate(dateOf(marks.next.jd));
     n.innerHTML = `<b>Next milestone</b> ${esc(when)}${days < 400 ? ` (${days < 1 ? 'today' : `in ${plural(Math.ceil(days), 'day')}`})` : ''}: ${esc(milestoneText(ship, marks.next))}.`;
   }
@@ -298,17 +330,75 @@ function tick(force = false) {
   }
 
   const warp = $('ship-warp');
-  const w9 = r.lightSeconds / warpSpeed(9);
-  warp.textContent = ship.near
-    ? `At full impulse, a quarter of light speed, you’d reach her from Earth in ${shortSpan(r.lightSeconds * 4)}.`
-    : `At warp 9 you’d catch her in ${shortSpan(w9)}. She has been flying for ${missionAge(new Date(ship.launched + 'T12:00:00Z'), new Date(nowMs)).split(',')[0]}.`;
+  warp.hidden = !up;
+  if (up) {
+    const w9 = r.lightSeconds / warpSpeed(9);
+    warp.textContent = ship.near
+      ? `At full impulse, a quarter of light speed, you’d reach her from Earth in ${shortSpan(r.lightSeconds * 4)}.`
+      : `At warp 9 you’d catch her in ${shortSpan(w9)}. She ${live || tMs < nowMs ? 'has been' : 'will have been'} flying for ${missionAge(new Date(ship.launched + 'T12:00:00Z'), new Date(tMs)).split(',')[0]}.`;
+  }
 
   for (const s of SHIPS) {
     const el = $('fleet').querySelector(`[data-sub="${s.id}"]`);
     if (!el) continue;
-    const rs = s.id === sel ? r : readings(s.id, jd);
+    if (!launchedBy(s, tMs)) { el.textContent = `launches ${s.launched.slice(0, 4)}`; continue; }
+    const rs = s.id === sel && r ? r : readings(s.id, jd);
     el.textContent = s.near ? (jwstTracked(jd) ? `${(rs.earthAU * AU_KM / 1e6).toFixed(2)} million km` : 'about 1.5 million km') : `${rs.sunAU.toFixed(1)} AU`;
   }
+  showEvent(ship, tMs);
+}
+
+// ---------- The timeline ----------
+
+// A slider under the map from 1972 to 2100 moves every ship, the planets and the readings; Now brings it back. The
+// room opens on now, and hails always go now. Each step is a day, at noon UTC.
+const T0 = Date.UTC(1972, 0, 1), T1 = Date.UTC(2100, 11, 31), DAY = 864e5, NOON = DAY / 2;
+let at = null; // the timeline's moment in ms, or null for now
+const dayIndex = ms => Math.floor((ms - T0) / DAY);
+const launchedBy = (ship, ms) => ms >= Date.parse(ship.launched + 'T00:00:00Z');
+// What the eyebrow says of her on a date: before launch, after (a silent ship once her last signal came), or ahead.
+function statusAt(ship, ms) {
+  if (!launchedBy(ship, ms)) return 'Not launched yet';
+  const silentBy = ship.silentSince && ms >= Date.parse(ship.silentSince + 'T00:00:00Z');
+  if (at === null) return ship.status === 'silent' ? 'Out of contact' : 'On mission';
+  if (ms > Date.now()) return silentBy ? 'Out of contact' : 'Where she’ll be';
+  return silentBy ? 'Out of contact' : 'On mission';
+}
+function setAt(ms) {
+  at = ms === null || dayIndex(ms) === dayIndex(Date.now()) ? null : Math.min(Math.max(ms, T0 + NOON), T1 + NOON);
+  syncTimeline();
+  tick(true);
+}
+function syncTimeline() {
+  const ms = at ?? Date.now(), i = dayIndex(ms), max = dayIndex(T1);
+  const tl = $('tl');
+  if (+tl.value !== i) tl.value = String(i);
+  tl.style.setProperty('--fill', `${(i / max * 100).toFixed(2)}%`);
+  const text = at === null ? `Now, ${fmtDate(new Date(ms))}` : fmtDate(new Date(ms), { timeZone: 'UTC' });
+  $('tl-date').textContent = text;
+  tl.setAttribute('aria-valuetext', text);
+  $('tl-now').hidden = at === null;
+}
+// The selected ship's mission log as ticks along the slider: tapping one goes to that day.
+function buildTicks(ship) {
+  const max = dayIndex(T1);
+  $('tl-ticks').innerHTML = ship.log.map(([d, t]) => {
+    const pct = (dayIndex(Date.parse(d + 'T12:00:00Z')) / max * 100).toFixed(2);
+    return `<button type="button" class="tl-tick" data-day="${d}" style="left:${pct}%" aria-label="${esc(fmtDate(new Date(d + 'T12:00:00Z'), { timeZone: 'UTC' }))}: ${esc(t)}"></button>`;
+  }).join('');
+}
+const goTo = day => setAt(Date.parse(day + 'T12:00:00Z'));
+// On a day in the selected ship's mission log, the entry is shown over the map; the Pale Blue Dot also draws her line
+// of sight back to Earth.
+let event = null;
+function showEvent(ship, ms) {
+  const day = at === null ? null : new Date(ms).toISOString().slice(0, 10);
+  const e = day && ship.log.find(([d]) => d === day);
+  event = e ? { ship: ship.id, day, text: e[1], look: e[2] || null } : null;
+  const el = $('tl-event');
+  const html = event ? `<b>${esc(fmtDate(new Date(day + 'T12:00:00Z'), { timeZone: 'UTC' }))} · ${esc(ship.name)}</b> ${esc(event.text)}` : '';
+  if (el.dataset.for !== html) { el.dataset.for = html; el.innerHTML = html; el.hidden = !event; }
+  for (const b of $('tl-ticks').children) b.classList.toggle('on', b.dataset.day === day);
 }
 
 // ---------- The map ----------
@@ -362,7 +452,7 @@ function nearXY(p, frame) {
 
 function draw(now) {
   const nowMs = Date.now();
-  const jd = jdOf(nowMs);
+  const jd = jdOf(at ?? nowMs);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.clearRect(0, 0, W, H);
   shipsOnMap = [];
@@ -418,7 +508,8 @@ function drawSun(jd, now, nowMs) {
   }
 
   // Where each ship has been, then where it is.
-  const order = SHIPS.filter(s => !s.near).sort((a, b) => (a.id === sel) - (b.id === sel));
+  const tMs = at ?? nowMs;
+  const order = SHIPS.filter(s => !s.near && launchedBy(s, tMs)).sort((a, b) => (a.id === sel) - (b.id === sel));
   for (const s of order) {
     const on = s.id === sel;
     const pts = trackUntil(s.id, jd);
@@ -443,11 +534,23 @@ function drawSun(jd, now, nowMs) {
   }
   // Webb rides along with Earth at this scale.
   const webb = byId('jwst');
-  const [ex, ey] = sunXY(readings('jwst', jd).pos);
-  shipsOnMap.push({ id: 'jwst', x: ex, y: ey });
-  ctx.fillStyle = webb.color; ctx.beginPath(); ctx.arc(ex, ey, 1.6, 0, Math.PI * 2); ctx.fill();
+  if (launchedBy(webb, tMs)) {
+    const [ex, ey] = sunXY(readings('jwst', jd).pos);
+    shipsOnMap.push({ id: 'jwst', x: ex, y: ey });
+    ctx.fillStyle = webb.color; ctx.beginPath(); ctx.arc(ex, ey, 1.6, 0, Math.PI * 2); ctx.fill();
+  }
+  // The Pale Blue Dot, on its day: her line of sight back to Earth.
+  if (event?.look === 'earth' && event.ship === sel && launchedBy(byId(sel), tMs)) {
+    const [sx, sy] = sunXY(readings(sel, jd).pos), [hx, hy] = sunXY(earthAt(jd));
+    ctx.strokeStyle = 'rgba(127, 184, 255, 0.8)'; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(hx, hy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.stroke();
+    // Written beside the middle of the line, on the side away from the Sun.
+    const mx = (sx + hx) / 2, my = (sy + hy) / 2, out = mx >= W / 2;
+    label('Looking back at Earth', mx + (out ? 10 : -10), my, '#9cc8ff', out ? 'left' : 'right', 11);
+  }
 
-  drawHail(jd, now, nowMs, p => sunXY(p), earthAt(jd));
+  if (at === null) drawHail(jd, now, nowMs, p => sunXY(p), earthAt(jd));
   $('scale').textContent = 'Seen from above the planets. Distance from the Sun is stretched so everything fits; dashed paths are ships that have gone silent.';
 }
 
@@ -485,6 +588,7 @@ function drawNear(jd, now, nowMs) {
   const webb = byId('jwst');
   const [t0, t1] = jwstSpan();
   const charted = jwstTracked(jd);
+  const flying = launchedBy(webb, at ?? nowMs);
   for (const [from, to, alpha] of charted ? [[t0, t1, 0.25], [jd, jd + 90, 0.8]] : []) {
     ctx.beginPath();
     let first = true;
@@ -496,13 +600,15 @@ function drawNear(jd, now, nowMs) {
     if (alpha < 0.5) ctx.setLineDash([3, 3]);
     ctx.stroke(); ctx.setLineDash([]);
   }
-  const [wx, wy] = nearXY(jwstFromEarth(jd), frame);
-  const [ax, ay] = nearXY(jwstFromEarth(jd + 3), nearFrame(jd + 3));
-  marker(webb, wx, wy, charted ? Math.atan2(ay - wy, ax - wx) : -Math.PI / 2, sel === 'jwst', now);
-  shipsOnMap.push({ id: 'jwst', x: wx, y: wy });
-  label('James Webb', wx + 10, wy - 12, webb.color, 'left', 12);
+  if (flying) {
+    const [wx, wy] = nearXY(jwstFromEarth(jd), frame);
+    const [ax, ay] = nearXY(jwstFromEarth(jd + 3), nearFrame(jd + 3));
+    marker(webb, wx, wy, charted ? Math.atan2(ay - wy, ax - wx) : -Math.PI / 2, sel === 'jwst', now);
+    shipsOnMap.push({ id: 'jwst', x: wx, y: wy });
+    label('James Webb', wx + 10, wy - 12, webb.color, 'left', 12);
+  }
 
-  drawHail(jd, now, nowMs, p => nearXY(p, frame), [0, 0, 0], true);
+  if (at === null) drawHail(jd, now, nowMs, p => nearXY(p, frame), [0, 0, 0], true);
   $('scale').textContent = charted
     ? 'Seen from above, turning with Earth so the Sun stays to the left. The bright line is where Webb goes in the next three months. The other ships are billions of km off the map.'
     : 'Seen from above, turning with Earth so the Sun stays to the left. Webb’s loop round L2 is charted here for October 2026 to December 2027 only, so for this date she is marked at L2 itself: she is really up to 800,000 km from it. The other ships are billions of km off the map.';
@@ -603,16 +709,28 @@ function bind() {
     for (const s of shipsOnMap) { const d = Math.hypot(s.x - x, s.y - y); if (d < bestD) { best = s; bestD = d; } }
     if (best && best.id !== sel) choose(best.id, true);
   });
+  $('tl').addEventListener('input', e => setAt(T0 + +e.target.value * DAY + NOON));
+  $('tl-now').addEventListener('click', () => setAt(null));
+  $('tl-ticks').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) goTo(b.dataset.day); });
+  $('ship-log').addEventListener('click', e => {
+    const b = e.target.closest('[data-day]');
+    if (!b) return;
+    goTo(b.dataset.day);
+    document.querySelector('.map-wrap').scrollIntoView({ block: 'nearest', behavior: still.matches ? 'auto' : 'smooth' });
+  });
   addEventListener('resize', resize);
   addEventListener('hashchange', () => { const id = location.hash.slice(1); if (byId(id) && id !== sel) choose(id); });
 }
 
 buildFleet();
 buildGolden();
+$('tl').max = String(dayIndex(T1));
 loadBounds();
 resize();
 bind();
 choose(sel);
+syncTimeline();
+setInterval(() => { if (at === null) syncTimeline(); }, 60000); // the slider keeps up with today on a page left open
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.missions = { get sel() { return sel; }, get view() { return view; }, get hails() { return saved.hails; }, readings, choose, nearLabels, get draws() { return draws; } };
+window.missions = { get at() { return at; }, setAt, goTo, get sel() { return sel; }, get view() { return view; }, get hails() { return saved.hails; }, readings, choose, nearLabels, get draws() { return draws; } };

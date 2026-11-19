@@ -1802,6 +1802,61 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await day.close();
 }
 
+// The timeline under the long missions' map: from 1972 to 2100, every ship and reading moves with it, the selected
+// ship's log is a row of ticks, and a date in her log goes to that day. The room opens on now; a hail always goes now.
+{
+  const tl = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'UTC' });
+  const p = await tl.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.clock.setFixedTime(new Date('2026-11-19T17:00:00Z'));
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions && !document.getElementById('sky-row').hidden);
+  assert.equal(await p.evaluate(() => missions.at), null);
+  assert.equal(await p.locator('#tl-date').innerText(), 'Now, 19 November 2026');
+  assert.equal(await p.locator('#tl-now').isHidden(), true);
+  assert.equal(await p.locator('.tl-tick').count(), 7, 'Voyager 1’s seven log entries are not ticks on the timeline');
+  // A date in her mission log: the Pale Blue Dot, 40 AU out, with the entry over the map.
+  await p.locator('#ship-log .when[data-day="1990-02-14"]').click();
+  assert.equal(await p.locator('#clock').innerText(), '14 FEBRUARY 1990');
+  assert.match(await p.locator('#tl-event').innerText(), /^14 FEBRUARY 1990 · VOYAGER 1\nTurned around and took the Pale Blue Dot/);
+  assert.match(await p.locator('#sun-au').innerText(), /^40\.\d{3} AU$/);
+  assert.match(await p.locator('#ship-where').innerText(), /^Today: In interstellar space/);
+  assert.equal(await p.locator('#status-title').innerText(), 'SHIP’S STATUS TODAY');
+  assert.deepEqual(await p.evaluate(() => [document.getElementById('dishes').textContent, document.getElementById('passed').hidden, document.getElementById('sky-link').hidden]), ['', true, true], 'today’s lines are shown for 1990');
+  assert.equal(await p.locator('.tl-tick.on').getAttribute('data-day'), '1990-02-14');
+  assert.equal(await p.evaluate(() => location.hash), '#v1');
+  // A hail sent from 1990 goes now, at today's distance.
+  await p.click('#hail');
+  assert.ok(Math.abs(await p.evaluate(() => Date.now() - missions.hails.v1)) < 5000);
+  assert.match(await p.locator('#hail-note').innerText(), /It reaches her 20 Nov at 5:00/);
+  // Before she was launched, and Pioneer 10 still talking in 1980.
+  const day = iso => p.evaluate(d => Math.floor((Date.parse(d) - Date.UTC(1972, 0, 1)) / 864e5), iso);
+  await p.locator('#tl').fill(String(await day('1975-06-01T12:00:00Z')));
+  assert.equal(await p.locator('#ship-agency').innerText(), 'NASA · NOT LAUNCHED YET');
+  assert.equal(await p.locator('#sun-km').innerText(), 'Not launched yet');
+  assert.equal(await p.locator('.ship-tab[data-id="v1"] .t-sub').innerText(), 'launches 1977');
+  assert.match(await p.locator('.ship-tab[data-id="p10"] .t-sub').innerText(), /^\d+\.\d AU$/);
+  await p.locator('.ship-tab[data-id="p10"]').click();
+  await p.locator('#tl').fill(String(await day('1980-06-01T12:00:00Z')));
+  assert.equal(await p.locator('#ship-agency').innerText(), 'NASA · ON MISSION', 'Pioneer 10 was silent in 1980');
+  assert.match(await p.locator('#sun-au').innerText(), /^2\d\.\d{3} AU$/);
+  // On to 2100: Voyager 1 coasting at about 432 AU.
+  await p.locator('.ship-tab[data-id="v1"]').click();
+  await p.locator('#tl').fill(await p.locator('#tl').getAttribute('max'));
+  assert.equal(await p.locator('#tl-date').innerText(), '31 December 2100');
+  assert.match(await p.locator('#sun-au').innerText(), /^43\d\.\d{3} AU$/);
+  assert.equal(await p.locator('#ship-agency').innerText(), 'NASA · WHERE SHE’LL BE');
+  // Now brings the room back to today, as it opened.
+  await p.click('#tl-now');
+  assert.equal(await p.evaluate(() => missions.at), null);
+  assert.equal(await p.locator('#tl-now').isHidden(), true);
+  assert.match(await p.locator('#clock').innerText(), /^STARDATE /);
+  assert.equal(await p.locator('#tl-event').isHidden(), true);
+  assert.match(await p.locator('#dishes').innerText(), /could hear her now/);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the timeline makes the page scroll sideways');
+  await tl.close();
+}
+
 // Which of NASA's three dish sites could hear each ship, from where she is in the sky, and the constellation she is
 // in, with a link that marks her in tonight's sky. At 17:00 UTC on 19 November 2026 Voyager 1 is up at Goldstone and
 // Madrid, and Canberra next has her at 10:30 pm; Voyager 2 is too far south for any site but Canberra.

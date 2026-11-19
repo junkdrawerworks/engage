@@ -12,7 +12,8 @@ export const SHIPS = [
       ['1977-09-05', 'Launched from Cape Canaveral, sixteen days after her twin, on a faster path.'],
       ['1979-03-05', 'Jupiter. Found volcanoes erupting on its moon Io, the first active volcanoes seen beyond Earth.'],
       ['1980-11-12', 'Saturn, and a close pass over Titan’s thick orange haze. Titan’s gravity flung her up and out of the planets’ plane for good.'],
-      ['1990-02-14', 'Turned around and took the Pale Blue Dot: Earth as a speck, from 6 billion km away.'],
+      // The third item: on this day, the timeline draws her line of sight back to Earth.
+      ['1990-02-14', 'Turned around and took the Pale Blue Dot: Earth as a speck, from 6 billion km away.', 'earth'],
       ['1998-02-17', 'Overtook Pioneer 10 to become the farthest human-made object.'],
       ['2012-08-25', 'Crossed the heliopause at 121.6 AU, the first ship to reach interstellar space.'],
       ['2024-04-20', 'Making sense again after five months of gibberish, fixed from 22 light-hours away by moving code around a failed memory chip.'],

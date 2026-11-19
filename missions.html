@@ -46,6 +46,18 @@
         </div>
         <p class="clock" id="clock" aria-live="off"></p>
       </div>
+      <div class="timeline" id="timeline">
+        <div class="tl-row">
+          <p class="tl-date" id="tl-date"></p>
+          <button type="button" class="tl-now" id="tl-now" hidden>Now</button>
+        </div>
+        <div class="tl-track">
+          <input type="range" id="tl" min="0" max="47116" step="1" value="0" aria-label="Date on the map">
+          <div class="tl-ticks" id="tl-ticks"></div>
+        </div>
+        <div class="tl-ends" aria-hidden="true"><span>1972</span><span>2100</span></div>
+        <p class="tl-event" id="tl-event" hidden></p>
+      </div>
       <p class="scale" id="scale"></p>
 
       <div class="fleet" id="fleet" role="tablist" aria-label="Ships"></div>
@@ -76,7 +88,7 @@
         <p class="next" id="passed" hidden></p>
         <p class="next" id="next" hidden></p>
 
-        <h3>Ship’s status</h3>
+        <h3 id="status-title">Ship’s status</h3>
         <p id="ship-now"></p>
 
         <h3>Mission log</h3>
@@ -100,7 +112,7 @@
       </article>
     </section>
 
-    <p class="source">Positions from NASA JPL’s Horizons system, worked out for this moment in your browser. The probes follow the paths NASA tracks them on; the planets use JPL’s orbital elements.</p>
+    <p class="source">Positions from NASA JPL’s Horizons system, worked out in your browser for the moment on the map. The probes follow the paths NASA tracks them on, and coast on in a straight line after 2040; the planets use JPL’s orbital elements, made for 1800 to 2050 and close enough beyond.</p>
   </main>
 
   <footer class="jd-foot">
