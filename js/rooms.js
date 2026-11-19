@@ -64,7 +64,7 @@ export function roomList(base = '', away = '') {
 // What's new off the bridge since the last visit: the rooms not in `known`, the ids of those the bridge has already
 // told of (none for a save from before it kept them, which is taken to know them all).
 export const newRooms = known => (Array.isArray(known) ? ROOMS.filter(r => !known.includes(r.id)) : []);
-// The line that says so, with a link to each: "New since your last visit: the System view and the Away team."
+// The line that says so, with a link to each: "New since your last visit: System view and Away team."
 export function whatsNew(rooms, base = '', away = '') {
   const links = rooms.map(r => `<a href="${base}${r.href}"${away} data-room="${r.id}">${r.name.replace(/ /g, '\u00a0')}</a>`);
   const list = links.length > 1 ? `${links.slice(0, -1).join(', ')} and ${links[links.length - 1]}` : links[0] || '';
