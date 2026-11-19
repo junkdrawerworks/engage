@@ -275,3 +275,32 @@ test('before 2020 the ships follow their tracks from launch, through each planet
     assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6, `${id} jumps in 2020`);
   }
 });
+
+test('a hail’s latest change, the line that says it landed, and her answer', async () => {
+  const { hailChange, whenLanded, newsLine, replyText, typedChars } = await import('../js/ships.js');
+  const H = 3600e3;
+  assert.equal(hailChange(undefined, 10 * H, 0), null);
+  assert.deepEqual(hailChange(0, 10 * H, 5 * H), { stage: 'sent', at: 0 });
+  assert.deepEqual(hailChange(0, 10 * H, 15 * H), { stage: 'arrived', at: 10 * H });
+  assert.deepEqual(hailChange(0, 10 * H, 25 * H), { stage: 'answered', at: 20 * H });
+  assert.deepEqual(hailChange(0, 10 * H, 25 * H, true), { stage: 'arrived', at: 10 * H }, 'a silent ship answered');
+  // Overnight is from 9 pm to 6 am, said once it's morning; otherwise the moment.
+  const fmt = d => `at ${d.getHours()}`;
+  const local = (d, h, m = 0) => +new Date(2026, 10, d, h, m);
+  assert.equal(whenLanded(local(18, 23), local(19, 8), fmt), 'overnight');
+  assert.equal(whenLanded(local(19, 3), local(19, 8), fmt), 'overnight');
+  assert.equal(whenLanded(local(19, 3), local(19, 4), fmt), 'at 3');
+  assert.equal(whenLanded(local(19, 14), local(19, 15), fmt), 'at 14');
+  assert.equal(whenLanded(local(19, 14), local(19, 14, 1), fmt), 'just now');
+  const v2 = byId('v2');
+  assert.equal(newsLine(v2, { stage: 'arrived', at: local(18, 23) }, local(19, 8), fmt), 'Your hail reached Voyager 2 overnight.');
+  assert.equal(newsLine(v2, { stage: 'answered', at: local(19, 14) }, local(19, 15), fmt), 'Voyager 2’s answer to your hail came in at 14.');
+  // Her answer comes from her file and the numbers, at her real downlink rate: 160 bits a second is 20 letters.
+  const text = replyText(v2, { when: 'today at 9:00 am', au: '144.5', km: '0', light: '20 hours', constellation: 'Pavo' });
+  assert.equal(text, 'Voyager 2 to Earth. Your hail reached me today at 9:00 am, 144.5 AU from the Sun and 20 hours out from you. Seen from you, I am in Pavo. Only the big dish at Canberra can reach me this far south, so I am glad you got through. I am sending this at 160 bits a second. Voyager 2 out.');
+  assert.match(replyText(byId('jwst'), { when: 'just now', km: '1,512,000', light: '5 seconds' }), /^Webb to Earth\. Your hail reached me just now, 1,512,000 km out from you\. .* 28 million bits a second\. Webb out\.$/);
+  assert.equal(typedChars(160, 1000), 20);
+  assert.equal(typedChars(160, -5), 0);
+  // Every ship that can answer has a rate and a line; the silent ones have none.
+  for (const s of SHIPS) assert.equal(!!s.reply, s.status !== 'silent', `${s.name}’s answer`);
+});

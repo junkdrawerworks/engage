@@ -38,6 +38,7 @@
 
   <main>
     <section class="board">
+      <p class="hail-news" id="hail-news" hidden><button type="button" class="news-go" id="news-go" hidden></button><span class="tally" id="tally"></span></p>
       <div class="map-wrap">
         <canvas id="map" aria-label="Map of the Solar System with the ships on it"></canvas>
         <div class="views" role="group" aria-label="Map view">
@@ -81,6 +82,12 @@
           <button class="primary" id="hail" type="button">Hail her</button>
           <p id="hail-note"></p>
           <p class="sr" id="hail-said" role="status"></p>
+          <div class="reply" id="reply" hidden>
+            <p class="reply-head" id="reply-head"></p>
+            <p class="reply-text" id="reply-text" aria-hidden="true"></p>
+            <p class="sr" id="reply-full"></p>
+            <p class="reply-note" id="reply-note"></p>
+          </div>
         </div>
         <p class="unsaved" id="hail-unsaved" role="status" hidden></p>
         <p class="share-row"><button class="text-button" id="share-ship" type="button">Share her file</button></p>

@@ -1689,14 +1689,14 @@ assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.m
 // The day after, with the hail arrived and her answer still crossing, it still can't be wiped; once the answer could be home, it can.
 await page.evaluate(() => { missions.hails.v1 = Date.now() - 30 * 3600e3; });
 await page.waitForFunction(() => document.getElementById('hail').textContent === 'Waiting for her answer');
-assert.match(await text('#hail-note'), /If she answered at once/);
+assert.match(await text('#hail-note'), /She answers at once, and her answer lands /);
 await page.click('#hail');
 assert.ok(Math.abs(await page.evaluate(() => Date.now() - missions.hails.v1) - 30 * 3600e3) < 5000, 'a tap wiped a hail whose answer was still due');
 await page.evaluate(() => { missions.hails.v1 = Date.now() - 60 * 3600e3; });
 await page.waitForFunction(() => document.getElementById('hail').textContent === 'Hail her again');
 // Sent two and a half days ago: every moment in the card is a day and a month (it used to name a weekday for some,
 // a date for others, with the hour in capitals).
-assert.match(await text('#hail-note'), new RegExp(`^Your hail, sent \\d{1,2} [A-Z][a-z]{2} at \\d{1,2}:\\d\\d\\u202f[ap]m, reached her ${WHEN}, and an answer could have been back ${WHEN}\\.`));
+assert.match(await text('#hail-note'), new RegExp(`^Your hail, sent \\d{1,2} [A-Z][a-z]{2} at \\d{1,2}:\\d\\d\\u202f[ap]m, reached her ${WHEN}, and her answer came back ${WHEN}\\.`));
 assert.doesNotMatch(await text('#hail-note'), /[A-Z][a-z]+day at|[AP]M/);
 await page.click('#hail');
 assert.ok(await page.evaluate(() => Date.now() - JSON.parse(localStorage.getItem('engage.missions.v1')).hails.v1) < 5000, 'a new hail could not be sent after the answer was due');
@@ -1855,6 +1855,71 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   assert.match(await p.locator('#dishes').innerText(), /could hear her now/);
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the timeline makes the page scroll sideways');
   await tl.close();
+}
+
+// Hails that land: the room opens on the ship whose hail landed while you were away, says so over the map with a
+// tally, puts a dot on another ship's tab when hers lands, and once twice the light-time has passed shows what she
+// sent back, typed out at her downlink rate the first time and whole after that. Voyager 2's hail, sent at 2 am on
+// 18 November, reached her at about 10 pm (20 light-hours) and her answer is due at about 6 pm on the 19th.
+{
+  const H = 3600e3, T = Date.parse('2026-11-19T08:00:00Z');
+  const land = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'UTC' });
+  await land.addInitScript(t => {
+    if (!localStorage.getItem('engage.missions.v1')) localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { v2: t - 30 * 3600e3, v1: t - 3600e3, p10: t - 40 * 3600e3 } }));
+  }, T);
+  const p = await land.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.clock.setFixedTime(new Date(T));
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions);
+  // Pioneer 10's hail reached her earlier than Voyager 2's, so Voyager 2's is the news, and her file is the one open.
+  assert.equal(await p.evaluate(() => missions.sel), 'v2', 'the room did not open on the ship whose hail landed overnight');
+  assert.equal(await p.locator('#news-go').innerText(), 'Your hail reached Voyager 2 overnight.');
+  assert.equal(await p.locator('#tally').innerText(), 'HAILS SENT 3, ANSWERED 0');
+  assert.equal(await p.locator('.ship-tab[data-id="p10"]').getAttribute('class').then(c => c.includes('ping')), true, 'Pioneer 10’s landed hail has no dot');
+  assert.equal(await p.locator('.ship-tab.ping').count(), 1, 'a tab with nothing new has a dot');
+  assert.equal(await p.locator('#reply').isHidden(), true, 'an answer showed before it was due');
+  // Pioneer 10's file clears her dot; she is silent and sends nothing back.
+  await p.locator('.ship-tab[data-id="p10"]').click();
+  assert.equal(await p.locator('.ship-tab.ping').count(), 0);
+  assert.equal(await p.locator('#reply').isHidden(), true, 'a silent ship answered');
+  // Evening: Voyager 2's answer is in. The room opens on her with the news, and types her answer out.
+  await p.clock.setFixedTime(new Date(T + 11 * H));
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions && !document.getElementById('reply').hidden);
+  assert.equal(await p.evaluate(() => missions.sel), 'v2');
+  assert.match(await p.locator('#news-go').innerText(), /^Voyager 2’s answer to your hail came in today at 6:\d\d\u202fpm\.$/);
+  assert.equal(await p.locator('#tally').innerText(), 'HAILS SENT 3, ANSWERED 1');
+  assert.match(await p.locator('#hail-note').innerText(), /and her answer came back today at 6:\d\d\u202fpm\./);
+  const full = await p.locator('#reply-full').textContent();
+  assert.match(full, /^Voyager 2 to Earth\. Your hail reached me 18 Nov at 10:\d\d\u202fpm, 144\.\d AU from the Sun and 20 hours out from you\..* Canberra .* I am sending this at 160 bits a second\. Voyager 2 out\.$/);
+  assert.ok((await p.locator('#reply-text').textContent()).length < full.length, 'her answer did not type out');
+  assert.match(await p.locator('#reply-note').innerText(), /160 bits a second\. The real Voyager 2 answers only NASA\.$/);
+  // Seen once, it is whole the next time, and the answer is counted only once.
+  await p.reload();
+  await p.waitForFunction(() => window.missions && !document.getElementById('reply').hidden);
+  assert.equal(await p.locator('#reply-text').textContent(), full);
+  assert.equal(await p.locator('#tally').innerText(), 'HAILS SENT 3, ANSWERED 1');
+  // A hail that lands while another ship's file is open puts a dot on her tab, and the news line opens her file.
+  await p.evaluate(() => { missions.choose('nh'); });
+  await p.click('#hail');
+  assert.equal(await p.locator('#tally').innerText(), 'HAILS SENT 4, ANSWERED 1');
+  await p.evaluate(() => { missions.choose('v1'); });
+  await p.clock.setFixedTime(new Date(T + 11 * H + 10 * H));
+  await p.waitForFunction(() => document.querySelector('.ship-tab[data-id="nh"]').classList.contains('ping'), null, { timeout: 10000 });
+  assert.match(await p.locator('#news-go').innerText(), /^Your hail reached New Horizons (just now|today at)/);
+  await p.click('#news-go');
+  assert.equal(await p.evaluate(() => missions.sel), 'nh');
+  assert.equal(await p.locator('.ship-tab[data-id="nh"]').getAttribute('class').then(c => c.includes('ping')), false);
+  // A hail before any is answered says nothing over the map but the tally; a first visit says nothing at all.
+  const fresh = await land.browser().newContext({ viewport: { width: 390, height: 844 } });
+  const q = await fresh.newPage();
+  await q.goto(base + 'missions.html');
+  await q.waitForFunction(() => window.missions);
+  assert.equal(await q.locator('#hail-news').isHidden(), true, 'a first visit has news of hails');
+  assert.equal(await q.evaluate(() => missions.sel), 'v1');
+  await fresh.close();
+  await land.close();
 }
 
 // Which of NASA's three dish sites could hear each ship, from where she is in the sky, and the constellation she is

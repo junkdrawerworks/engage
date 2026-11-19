@@ -48,6 +48,16 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 .t-name { font: 600 15px/1.2 var(--display); letter-spacing: 0.03em; white-space: nowrap; }
 .t-sub { font: 500 12px/1.2 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ship-tab:hover { border-color: var(--line-strong); }
+/* A dot on a tab whose hail has landed since you last looked. */
+.ship-tab { position: relative; }
+.t-ping { display: none; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.ship-tab.ping .t-ping { display: block; }
+
+/* Over the map: the latest hail to land, and the tally. */
+.hail-news { margin: 2px 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; font-size: 14px; color: var(--muted); }
+.news-go { min-height: 40px; padding: 8px 12px 8px 26px; position: relative; border-radius: 12px; border: 1px solid rgba(134, 216, 255, 0.35); background: rgba(134, 216, 255, 0.07); color: var(--text); font: inherit; text-align: left; }
+.news-go::before { content: ''; position: absolute; left: 11px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+.tally { font: 500 12px/1.4 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); font-variant-numeric: tabular-nums; }
 .ship-tab[aria-selected="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); }
 
 /* The ship's file */
@@ -76,6 +86,12 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 .hail .primary { width: 100%; }
 .hail .primary.waiting { background: none; border: 1px solid rgba(134, 216, 255, 0.45); color: var(--cyan); box-shadow: none; }
 .hail p { margin: 10px 0 0; font-size: 14px; }
+/* Her answer, typed out as it comes in. */
+.reply { margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid rgba(134, 216, 255, 0.25); }
+.hail .reply-head { margin: 0; font: 600 11px/1.5 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); }
+.hail .reply-text { margin: 6px 0 0; font: 500 14px/1.55 var(--display); letter-spacing: 0.02em; color: var(--text); white-space: pre-wrap; min-height: 1.55em; }
+.reply-text.typing::after { content: '▍'; color: var(--cyan); }
+.hail .reply-note { font-size: 12px; color: var(--dim); }
 .next { margin: 12px 0 0 !important; padding: 10px 12px; border-left: 3px solid var(--ship); background: rgba(255, 255, 255, 0.03); border-radius: 0 12px 12px 0; font-size: 14px; }
 .next b { display: block; font: 600 11px/1.5 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ship); }
 
@@ -109,7 +125,8 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
   .top { padding: calc(20px + var(--safe-t)) max(24px, var(--safe-r)) 14px max(24px, var(--safe-l)); }
   .title h1 { font-size: 26px; }
   .missions main { padding: 0 max(24px, var(--safe-r)) 0 max(24px, var(--safe-l)); }
-  .board { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: 'map file' 'time file' 'scale file' 'fleet file'; grid-template-rows: auto auto auto 1fr; gap: 0 24px; align-items: start; }
+  .board { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: 'news file' 'map file' 'time file' 'scale file' 'fleet file'; grid-template-rows: auto auto auto auto 1fr; gap: 0 24px; align-items: start; }
+  .hail-news { grid-area: news; }
   .timeline { grid-area: time; }
   .map-wrap { grid-area: map; margin: 4px 0 0; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
   .scale { grid-area: scale; }

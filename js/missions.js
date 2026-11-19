@@ -1,6 +1,6 @@
 // Long missions: where the Voyagers, New Horizons, Webb and the Pioneers are right now, on a map and in numbers,
 // with a hail you can send and watch crawl out to them at the speed of light.
-import { SHIPS, byId, hailSent, hailState, milestoneText, GOLDEN_RECORD, dishLine } from './ships.js';
+import { SHIPS, byId, hailSent, hailState, milestoneText, GOLDEN_RECORD, dishLine, hailChange, newsLine, replyText, typedChars } from './ships.js';
 import {
   AU_KM, LIGHT_DAY_AU, jdOf, dateOf, readings, trackUntil, planetAt, earthAt, semiMajor,
   jwstFromEarth, jwstSpan, jwstAroundL2, jwstTracked, moonAt, milestones,
@@ -19,9 +19,12 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 
 const saved = load();
-let sel = byId(location.hash.slice(1)) ? location.hash.slice(1) : 'v1';
+// The room opens on the ship in the address, or else on the one whose hail last changed (it reached her or her answer
+// came in since you last looked, or else the latest sent), or else on Voyager 1.
+let sel = byId(location.hash.slice(1)) ? location.hash.slice(1) : latestHail() || 'v1';
 let view = byId(sel).near ? 'earth' : 'sun';
-let lastText = 0;
+let lastText = 0, lastSettle = 0;
+let changes = []; // the latest change to each ship's hail, worked out every couple of seconds (settle)
 let marks = null; // the selected ship's milestones: the next one, and a light-day mark just passed (see ephemeris.js)
 
 function load() {
@@ -31,7 +34,50 @@ function load() {
   // Each hail is the moment it was sent; anything else in there is left out, and so is a moment still to come.
   const now = Date.now();
   const hails = s.hails && typeof s.hails === 'object' ? Object.fromEntries(Object.entries(s.hails).filter(([, t]) => hailSent(t, now))) : {};
-  return { ...s, hails };
+  // The tally: how many hails have gone out (at least as many as are on file) and how many answers have come back.
+  // `counted` is which hail each ship's last counted answer was to, so none is counted twice; `seen` is the last
+  // change to each ship's hail you have looked at ("arrived@sent-time"), for the line over the map and the tabs' dots.
+  const nat = v => (Number.isInteger(v) && v >= 0 ? v : 0);
+  const sent = Math.max(nat(s.sent), Object.keys(hails).length);
+  const plain = o => (o && typeof o === 'object' && !Array.isArray(o) ? o : {});
+  return { ...s, hails, sent, answered: Math.min(nat(s.answered), sent), counted: plain(s.counted), seen: plain(s.seen) };
+}
+
+// ---------- Hails that land ----------
+
+function silentShip(id) { return byId(id)?.status === 'silent'; }
+function lightMsOf(id, ms) { return readings(id, jdOf(ms)).lightSeconds * 1000; }
+// The latest change to each ship's hail by now: [{ id, stage, at, key }].
+function hailChanges(nowMs) {
+  return Object.entries(saved.hails).filter(([id]) => byId(id)).map(([id, t]) => {
+    const ch = hailChange(t, lightMsOf(id, nowMs), nowMs, silentShip(id));
+    return ch && { id, ...ch, key: `${ch.stage}@${t}` };
+  }).filter(Boolean);
+}
+// The ship to open on: the latest hail news you haven't seen, or else the latest change of all.
+function latestHail() {
+  const all = hailChanges(Date.now()).sort((a, b) => b.at - a.at);
+  return (all.find(c => c.stage !== 'sent' && saved.seen[c.id] !== c.key) || all[0])?.id || null;
+}
+// A change you haven't looked at yet: her hail reached her, or her answer came in, since you last had her file open.
+const unseen = c => c.stage !== 'sent' && saved.seen[c.id] !== c.key;
+// Counts each answer that has come back, once, and keeps the news of the latest unseen change for the line over the
+// map. Run as the page opens and every couple of seconds after.
+let news = null; // { id, stage, at, key }
+function settle(nowMs) {
+  let changed = false;
+  const all = hailChanges(nowMs);
+  for (const c of all) {
+    if (c.stage === 'answered' && saved.counted[c.id] !== saved.hails[c.id]) {
+      saved.counted[c.id] = saved.hails[c.id];
+      saved.answered = Math.min(saved.answered + 1, saved.sent);
+      changed = true;
+    }
+  }
+  const fresh = all.filter(unseen).sort((a, b) => b.at - a.at)[0];
+  if (fresh && (!news || fresh.at > news.at || fresh.key !== news.key && fresh.id === news.id)) news = fresh;
+  if (changed) save();
+  return all;
 }
 // Keeps the hails. When the browser won't take them, a line under Hail her says so: the page promises a hail will
 // still be on its way tomorrow. Returns whether it worked.
@@ -81,7 +127,7 @@ function missionAge(launch, now) {
 function buildFleet() {
   $('fleet').innerHTML = SHIPS.map(s => `
     <button type="button" role="tab" class="ship-tab${s.status === 'silent' ? ' silent' : ''}" data-id="${s.id}" style="--c:${s.color}">
-      <i aria-hidden="true"></i><span class="t-name">${esc(s.name)}</span><span class="t-sub" data-sub="${s.id}"></span>
+      <i aria-hidden="true"></i><span class="t-name">${esc(s.name)}<span class="sr t-new"></span></span><span class="t-sub" data-sub="${s.id}"></span><b class="t-ping" aria-hidden="true"></b>
     </button>`).join('');
   $('fleet').addEventListener('click', e => {
     const b = e.target.closest('[data-id]');
@@ -162,7 +208,9 @@ function hail() {
   const ship = byId(sel);
   const state = hailState(saved.hails[sel], readings(sel, jdOf(now)).lightSeconds * 1000, now, ship.status === 'silent');
   if (state === 'idle' || state === 'done') {
+    settle(now); // an answer that came back is counted before its hail is replaced
     saved.hails[sel] = now;
+    saved.sent += 1;
     save();
   }
   pulses.push({ id: sel, t: performance.now() });
@@ -204,8 +252,8 @@ function hailText(ship, r, nowMs) {
     return `Your hail, sent ${sentText}, is ${pct < 1 ? pct.toFixed(3) : pct < 10 ? pct.toFixed(1) : Math.floor(pct)}% of the way there. It reaches her ${lt < 6e4 ? `in ${shortSpan((arrive - nowMs) / 1000)}` : fmtWhen(new Date(arrive))}.`;
   }
   if (ship.status === 'silent') return `Your hail, sent ${sentText}, reached her ${lt < 6e4 ? 'already' : fmtWhen(new Date(arrive))}. Nothing came back: she has no power left to answer.`;
-  if (nowMs < back) return `Your hail reached her ${lt < 6e4 ? 'already' : fmtWhen(new Date(arrive))}. If she answered at once, the reply lands ${lt < 6e4 ? `in ${shortSpan((back - nowMs) / 1000)}` : fmtWhen(new Date(back))}.`;
-  return `Your hail, sent ${sentText}, reached her ${fmtWhen(new Date(arrive))}, and an answer could have been back ${fmtWhen(new Date(back))}. That’s how long every question to her takes.`;
+  if (nowMs < back) return `Your hail reached her ${lt < 6e4 ? 'already' : fmtWhen(new Date(arrive))}. She answers at once, and her answer lands ${lt < 6e4 ? `in ${shortSpan((back - nowMs) / 1000)}` : fmtWhen(new Date(back))}.`;
+  return `Your hail, sent ${sentText}, reached her ${fmtWhen(new Date(arrive))}, and her answer came back ${fmtWhen(new Date(back))}. That’s how long every question to her takes.`;
 }
 
 // ---------- Where she is in the sky ----------
@@ -237,6 +285,55 @@ function dishText(ship, nowMs) {
     dishes = { key, text: dishLine(watch, { silent: ship.status === 'silent', south: shipDir(ship.id, jdOf(nowMs))[2] < 0, fmt: fmtWhen }) };
   }
   return dishes.text;
+}
+
+// ---------- Her answer, and the news over the map ----------
+
+// Her answer, once twice the light-time has passed: written from her file and the numbers when your hail reached
+// her, and typed out at her real downlink rate the first time you see it. A silent ship sends nothing.
+let reply = { key: '', text: '', sky: false, start: 0 };
+function showReply(ship, change, fresh, nowMs) {
+  const box = $('reply');
+  const on = change?.stage === 'answered' && !!ship.reply;
+  box.hidden = !on;
+  if (!on) return;
+  const sent = saved.hails[ship.id], key = `${ship.id}@${sent}`;
+  // Written again, keeping its place in the typing, once the constellations come in.
+  if (reply.key !== key || (!reply.sky && skyMeta)) {
+    const lt = lightMsOf(ship.id, nowMs), arrive = sent + lt;
+    const r = readings(ship.id, jdOf(arrive));
+    const text = replyText(ship, {
+      when: fmtWhen(new Date(arrive)), au: r.sunAU.toFixed(1), km: int(r.earthAU * AU_KM), light: shortSpan(r.lightSeconds),
+      constellation: skyMeta ? constellationOf(ship.id, jdOf(arrive)) : null,
+    });
+    reply = { key, text, sky: !!skyMeta, start: reply.key === key ? reply.start : fresh && !still.matches ? nowMs : -Infinity };
+    $('reply-head').textContent = `Her answer, in ${fmtWhen(new Date(sent + 2 * lt))}`;
+    $('reply-full').textContent = text;
+    $('reply-note').textContent = `Written from her file and the numbers when your hail reached her, and typed out as fast as she sends: ${ship.reply.rate}. The real ${ship.near ? 'Webb' : ship.name} answers only ${ship.near ? 'her mission team' : 'NASA'}.`;
+  }
+  const shown = reply.text.slice(0, typedChars(ship.reply.bps, nowMs - reply.start));
+  if ($('reply-text').textContent !== shown) $('reply-text').textContent = shown;
+  $('reply-text').classList.toggle('typing', shown.length < reply.text.length);
+}
+
+// The line over the map: the latest hail to land since you last looked, and the tally. A dot on each tab whose hail
+// has news you haven't seen.
+function showNews(all, nowMs) {
+  const tally = saved.sent ? `Hails sent ${saved.sent}, answered ${saved.answered}` : '';
+  const line = news ? newsLine(byId(news.id), news, nowMs, fmtWhen) : '';
+  const box = $('hail-news');
+  box.hidden = !tally && !line;
+  if ($('news-go').textContent !== line) $('news-go').textContent = line;
+  $('news-go').hidden = !line;
+  if ($('tally').textContent !== tally) $('tally').textContent = tally;
+  const pinged = new Set(all.filter(unseen).map(c => c.id));
+  for (const b of $('fleet').children) {
+    const on = pinged.has(b.dataset.id) && b.dataset.id !== sel;
+    if (b.classList.contains('ping') !== on) {
+      b.classList.toggle('ping', on);
+      b.querySelector('.t-new').textContent = on ? ', news of your hail' : '';
+    }
+  }
 }
 
 // ---------- Numbers on the file ----------
@@ -305,6 +402,13 @@ function tick(force = false) {
     $('age').textContent = missionAge(new Date(ship.launched + 'T12:00:00Z'), new Date(tMs));
   }
   $('hail-note').textContent = hailText(ship, rNow, nowMs);
+  // What has happened to the hails: answers counted, the selected ship's news marked as seen, her answer shown.
+  if (force || nowMs - lastSettle > 2000) { lastSettle = nowMs; changes = settle(nowMs); }
+  const mine = changes.find(c => c.id === sel && c.key.endsWith(`@${saved.hails[sel]}`)) || null;
+  const fresh = !!mine && unseen(mine);
+  if (fresh) { saved.seen[sel] = mine.key; save(); }
+  showReply(ship, mine, fresh, nowMs);
+  showNews(changes, nowMs);
   const state = hailState(saved.hails[sel], rNow.lightSeconds * 1000, nowMs, ship.status === 'silent');
   if ($('hail').dataset.state !== `${sel}:${state}`) {
     $('hail').dataset.state = `${sel}:${state}`;
@@ -699,7 +803,8 @@ function bind() {
   $('hail').addEventListener('click', hail);
   $('share-ship').addEventListener('click', e => shareShip(e.currentTarget));
   // A hail sent from another tab is on its way here too, and the next one sent here won't write over it.
-  watch(KEY, () => { saved.hails = load().hails; tick(true); });
+  watch(KEY, () => { Object.assign(saved, load()); tick(true); });
+  $('news-go').addEventListener('click', () => { if (news) choose(news.id); });
   $('view-sun').addEventListener('click', () => { setView('sun'); if (byId(sel).near) choose('v1'); });
   $('view-earth').addEventListener('click', () => { setView('earth'); if (!byId(sel).near) choose('jwst'); });
   canvas.addEventListener('click', e => {
@@ -733,4 +838,4 @@ syncTimeline();
 setInterval(() => { if (at === null) syncTimeline(); }, 60000); // the slider keeps up with today on a page left open
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.missions = { get at() { return at; }, setAt, goTo, get sel() { return sel; }, get view() { return view; }, get hails() { return saved.hails; }, readings, choose, nearLabels, get draws() { return draws; } };
+window.missions = { get at() { return at; }, setAt, goTo, get sel() { return sel; }, get view() { return view; }, get hails() { return saved.hails; }, get tally() { return { sent: saved.sent, answered: saved.answered }; }, get news() { return news; }, readings, choose, nearLabels, get draws() { return draws; } };

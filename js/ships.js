@@ -21,6 +21,9 @@ export const SHIPS = [
     bound: { star: 'Gliese 445', text: 'She’s heading out of the Solar System toward Ophiuchus. In about 40,000 years she’ll pass 1.6 light years from the red dwarf Gliese 445.' },
     record: 'Carries the Golden Record: sounds and pictures of Earth, and music from Bach to Chuck Berry.',
     golden: true,
+    // What she sends back to a hail: her downlink rate (NASA's Voyager spacecraft page: 160 bits a second) and a line
+    // of her own from her file.
+    reply: { bps: 160, rate: '160 bits a second', news: 'My power falls about 4 watts a year, so NASA turns me down a little at a time.' },
   },
   {
     id: 'v2', name: 'Voyager 2', color: '#86d8ff', status: 'active',
@@ -40,6 +43,7 @@ export const SHIPS = [
     bound: { star: 'Ross 248', text: 'She’s heading toward Pavo, the Peacock. In about 40,000 years she’ll pass 1.7 light years from the red dwarf Ross 248, and in 296,000 years, 4.3 light years from Sirius.' },
     record: 'Carries the other copy of the Golden Record.',
     golden: true,
+    reply: { bps: 160, rate: '160 bits a second', news: 'Only the big dish at Canberra can reach me this far south, so I am glad you got through.' },
   },
   {
     id: 'nh', name: 'New Horizons', color: '#c9a6ff', status: 'active',
@@ -55,6 +59,8 @@ export const SHIPS = [
     ],
     bound: { text: 'She’s heading toward Sagittarius, the direction of the centre of the galaxy. No star lies close to her path.' },
     record: 'Carries some of the ashes of Clyde Tombaugh, who found Pluto in 1930.',
+    // About 1,000 bits a second at Arrokoth in 2019 (the mission's own pages at pluto.jhuapl.edu); she is farther out now.
+    reply: { bps: 1000, rate: 'about 1,000 bits a second, as at Arrokoth, and slower now I am farther out', news: 'I sleep spinning between check-ins, and I have power to keep working into the 2040s.' },
   },
   {
     id: 'jwst', name: 'James Webb', full: 'James Webb Space Telescope', color: '#ffd27a', status: 'active',
@@ -70,6 +76,9 @@ export const SHIPS = [
     ],
     bound: { text: 'She isn’t going anywhere. L2 keeps pace with Earth, so she circles the Sun with us once a year.' },
     near: true,
+    // 28 million bits a second, on her Ka-band downlink (NASA's Webb blog, August 2023, and its Webb and the Deep
+    // Space Network page).
+    reply: { bps: 28e6, rate: '28 million bits a second', news: 'My sunshield keeps me colder than −223 °C, and I am looking at galaxies whose light left them 13 billion years ago.' },
   },
   {
     id: 'p10', name: 'Pioneer 10', color: '#9aa7bd', status: 'silent', silentSince: '2003-01-23',
@@ -250,3 +259,42 @@ export function dishLine(watch, { silent = false, south = false, fmt }) {
   if (silent) parts.unshift('Nobody listens for her any more.');
   return parts.join(' ');
 }
+
+// ---------- Hails that land ----------
+
+// The latest thing that has happened to a hail by `now`: { stage, at } where stage is 'sent', 'arrived' or
+// 'answered' (an answer can only come from a ship that isn't silent), or null with no hail.
+export function hailChange(sent, lightMs, now, silent = false) {
+  if (!Number.isFinite(sent) || sent > now) return null;
+  if (!silent && now >= sent + 2 * lightMs) return { stage: 'answered', at: sent + 2 * lightMs };
+  if (now >= sent + lightMs) return { stage: 'arrived', at: sent + lightMs };
+  return { stage: 'sent', at: sent };
+}
+
+// "overnight", "just now" or the moment, for when a hail landed, as a line over the map says it.
+export function whenLanded(at, now, fmt) {
+  if (now - at < 120000) return 'just now';
+  const t = new Date(at), n = new Date(now), h = t.getHours();
+  const yesterday = new Date(n); yesterday.setDate(n.getDate() - 1);
+  const overnight = n.getHours() >= 6 && ((t.toDateString() === n.toDateString() && h < 6) || (t.toDateString() === yesterday.toDateString() && h >= 21));
+  return overnight ? 'overnight' : fmt(t);
+}
+
+// The line over the map when a hail has landed since you last looked: it reached her, or her answer came in.
+export function newsLine(ship, change, now, fmt) {
+  const when = whenLanded(change.at, now, fmt);
+  return change.stage === 'answered' ? `${ship.name}’s answer to your hail came in ${when}.` : `Your hail reached ${ship.name} ${when}.`;
+}
+
+// What she sends back, written from her own file and the numbers when your hail reached her. `p` has `when` (the
+// moment it arrived, in words), `au` and `km` (how far from the Sun and from Earth then), `light` (how long the hail
+// took, in words) and, if known, `constellation`.
+export function replyText(ship, p) {
+  const name = ship.near ? 'Webb' : ship.name;
+  const where = ship.near ? `${p.km} km out from you` : `${p.au} AU from the Sun and ${p.light} out from you`;
+  const sky = p.constellation ? ` Seen from you, I am in ${p.constellation}.` : '';
+  return `${name} to Earth. Your hail reached me ${p.when}, ${where}.${sky} ${ship.reply.news} I am sending this at ${ship.reply.rate}. ${name} out.`;
+}
+
+// How many characters of an answer have come in after `ms`, at her downlink rate (8 bits a character).
+export const typedChars = (bps, ms) => Math.floor(Math.max(0, ms) / 1000 * bps / 8);
