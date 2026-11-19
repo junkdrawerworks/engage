@@ -1,7 +1,7 @@
 // The xenobiology lab: pick a planet class, grow a creature for it, read how the world shaped it, and keep the ones you like.
 import { CLASSES, byId, label, grows, worldByName } from './classes.js';
 import { Globe, paint } from './planet-art.js';
-import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText, tempText, STARS, bench, BENCH, STEPS, benchPos, benchValue, four, readingsOf, changedParts, fileFor } from './xeno-gen.js';
+import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText, tempText, STARS, bench, BENCH, STEPS, benchPos, benchValue, four, readingsOf, changedParts, fileFor, compare } from './xeno-gen.js';
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
@@ -336,17 +336,58 @@ function undoLetGo() {
   save(); renderJars(); renderKeep();
 }
 
+// ---------- Side by side ----------
+
+// Compare picks two jars, and the panel above the shelf shows both creatures with a row for each field note and a
+// sentence from the difference that matters most. `pair` is the two ({ id, seed } or { world, seed }); its link,
+// #pair=M-42&lava-world-7, opens the same two for anyone, jars or none.
+let comparing = false, picked = [], pair = null;
+const specLink = j => (j.world ? `world=${encodeURIComponent(j.world)}-${j.seed}` : `${encodeURIComponent(j.id)}-${j.seed}`);
+const pairLink = p => `pair=${p.map(specLink).join('&')}`;
+function showPair(p, scroll) {
+  pair = p;
+  const [a, b] = p.map(growJar);
+  const { rows, sentence } = compare(a, b);
+  $('pair-pics').innerHTML = [a, b].map((c, k) => `<button class="pair-pic" type="button" data-pair="${k}" aria-label="Grow the ${esc(c.name.common)} in the tank">
+    <canvas width="480" height="360" aria-hidden="true"></canvas>
+    <span class="jar-name">${esc(c.name.common)}</span><span class="jar-cls">${esc(c.world ? c.world.name : label(c.cls))}</span></button>`).join('');
+  $('pair-pics').querySelectorAll('canvas').forEach((cv, k) => drawScene(cv.getContext('2d'), [a, b][k], cv.width, cv.height, 0, 1));
+  $('pair-table').innerHTML = `<caption class="sr">The ${esc(a.name.common)} and the ${esc(b.name.common)}, reading by reading</caption>`
+    + rows.map(r => `<tr${r.alike ? ' class="alike"' : ''}><th scope="row">${r.label}${r.alike ? ' <span class="alike-tag">Alike</span>' : ''}</th><td>${esc(r.a)}</td><td>${esc(r.b)}</td></tr>`).join('');
+  $('pair-why').textContent = sentence;
+  $('pair').hidden = false;
+  try { history.replaceState(null, '', `#${pairLink(p)}`); } catch { /* fine */ }
+  if (scroll) $('pair').scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
+}
+function closePair() {
+  pair = null;
+  $('pair').hidden = true;
+  if (current) try { history.replaceState(null, '', mode === 'bench' ? location.hash : `#${linkOf(current)}`); } catch { /* fine */ }
+}
+function setComparing(on) {
+  comparing = on;
+  picked = [];
+  renderJars();
+}
+
 function renderJars() {
   const list = saved.jars;
   $('jars-wrap').hidden = !list.length && !gone;
+  if (list.length < 2 && comparing) { comparing = false; picked = []; }
+  $('compare').hidden = list.length < 2;
+  $('compare').textContent = comparing ? 'Done' : 'Compare two';
+  $('compare').setAttribute('aria-pressed', String(comparing));
+  $('compare-hint').hidden = !comparing;
+  $('jars').classList.toggle('comparing', comparing);
   $('jars-n').textContent = `${list.length} of ${JAR_MAX}`;
   $('jar-undo').hidden = !gone;
   if (gone) $('jar-undo-text').textContent = `Let the ${gone.name} go.`;
   $('jars').innerHTML = list.map((j, k) => {
     const c = growJar(j);
-    return `<li class="jar"><button class="jar-open" type="button" data-k="${k}"><canvas width="300" height="225" aria-hidden="true"></canvas>
+    const on = comparing && picked.some(p => sameJar(p, j));
+    return `<li class="jar"><button class="jar-open" type="button" data-k="${k}"${comparing ? ` aria-pressed="${on}"` : ''}><canvas width="300" height="225" aria-hidden="true"></canvas>
       <span class="jar-name">${esc(c.name.common)}</span><span class="jar-cls">${esc(c.world ? c.world.name : label(c.cls))}</span></button>
-      <button class="jar-drop" type="button" data-drop="${k}" aria-label="Let the ${esc(c.name.common)} go">
+      <button class="jar-drop" type="button" data-drop="${k}" aria-label="Let the ${esc(c.name.common)} go"${comparing ? ' hidden' : ''}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></li>`;
   }).join('');
   $('jars').querySelectorAll('.jar-open canvas').forEach((cv, k) => {
@@ -400,6 +441,10 @@ function hashText() {
 // reading missing or out of reach is the creature's own.
 function fromHash() {
   const t = hashText();
+  if (/^pair=/i.test(t)) { // two creatures, each with its number
+    const two = t.slice(5).split('&').map(x => (/-\d{1,4}$/.test(x) ? creatureFrom(x) : null));
+    return two.length === 2 && two.every(Boolean) ? { pair: two.map(({ id, world, seed }) => (world ? { world, seed } : { id, seed })) } : null;
+  }
   if (!/^bench=/i.test(t)) return creatureFrom(t);
   const [who, ...rest] = t.slice(6).split('&');
   const h = creatureFrom(who);
@@ -422,7 +467,7 @@ function creatureFrom(text) {
   const cls = CLASSES.find(c => c.id.toLowerCase() === m[1].toLowerCase());
   return cls ? { id: cls.id, seed } : null;
 }
-const open = (h, animate = true) => (h.bench ? toBench(h.world ? { world: h.world, seed: h.seed } : { id: h.id, seed: h.seed }, h.bench) : h.world ? showWorld(h.world, h.seed, animate) : show(h.id, h.seed, animate));
+const open = (h, animate = true) => (h.pair ? (put(growJar(h.pair[0]), animate), showPair(h.pair, true)) : h.bench ? toBench(h.world ? { world: h.world, seed: h.seed } : { id: h.id, seed: h.seed }, h.bench) : h.world ? showWorld(h.world, h.seed, animate) : show(h.id, h.seed, animate));
 
 buildStrip();
 buildSliders();
@@ -443,6 +488,25 @@ $('send').addEventListener('click', e => {
   });
 });
 $('jar-undo-go').addEventListener('click', undoLetGo);
+$('compare').addEventListener('click', () => setComparing(!comparing));
+$('pair-close').addEventListener('click', closePair);
+$('pair-pics').addEventListener('click', e => {
+  const b = e.target.closest('[data-pair]');
+  if (!b || !pair) return;
+  const keep = pair;
+  put(growJar(pair[Number(b.dataset.pair)]), true);
+  try { history.replaceState(null, '', `#${pairLink(keep)}`); } catch { /* fine */ }
+  $('tank').scrollIntoView({ block: 'center', behavior: still.matches ? 'auto' : 'smooth' });
+});
+$('pair-send').addEventListener('click', e => {
+  if (!pair) return;
+  const [a, b] = pair.map(growJar);
+  share(e.currentTarget, {
+    title: 'Two creatures side by side, from Engage’s xenobiology lab',
+    text: `The ${a.name.common} and the ${b.name.common}, side by side in Engage’s xenobiology lab.`,
+    url: `${LIVE}xeno.html#${pairLink(pair)}`,
+  });
+});
 $('tab-grow').addEventListener('click', () => tab('grow'));
 $('tab-bench').addEventListener('click', () => tab('bench'));
 // The tabs take the arrow keys, as tabs do.
@@ -479,6 +543,17 @@ $('jars').addEventListener('click', e => {
   const list = saved.jars;
   if (drop) { letGo(list[Number(drop.dataset.drop)]); return; }
   const tile = e.target.closest('[data-k]');
+  if (tile && comparing) { // pick it, or put it back; the second pick puts the two side by side
+    const j = list[Number(tile.dataset.k)];
+    picked = picked.some(p => sameJar(p, j)) ? picked.filter(p => !sameJar(p, j)) : [...picked, j];
+    if (picked.length === 2) {
+      const p = picked.map(({ id, world, seed }) => (world ? { world, seed } : { id, seed }));
+      comparing = false; picked = [];
+      renderJars();
+      showPair(p, true);
+    } else renderJars();
+    return;
+  }
   if (tile) {
     const j = list[Number(tile.dataset.k)];
     put(growJar(j), true);
@@ -497,13 +572,13 @@ watch(KEY, () => {
 window.addEventListener('hashchange', () => {
   const h = fromHash();
   if (!h && location.hash.length > 1) $('link-note').hidden = false; // a link that names nothing the lab knows: say so, and leave the tank as it is
-  if (h?.bench) open(h);
+  if (h?.bench || h?.pair) open(h);
   else if (h && (mode === 'bench' || !current || h.seed !== current.seed || (h.world ? h.world !== current.world?.name : !!current.world || h.id !== current.classId))) open(h);
 });
 window.addEventListener('resize', () => { if (still.matches) frame(performance.now()); });
 still.addEventListener?.('change', () => frame(performance.now()));
 
-window.xeno = { show, showWorld, tab, get mode() { return mode; }, get readings() { return readings; }, get current() { return current; }, get jars() { return saved.jars; }, get draws() { return draws; } };
+window.xeno = { show, showWorld, tab, get mode() { return mode; }, get readings() { return readings; }, get pair() { return pair; }, get current() { return current; }, get jars() { return saved.jars; }, get draws() { return draws; } };
 
 // A link that names nothing the lab knows (a class it hasn't got, a planet it has no readings for, a link cut off on
 // its way) still opens the lab, on a new creature, with a line to say that is what happened.

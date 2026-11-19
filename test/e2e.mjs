@@ -2732,6 +2732,7 @@ await page.waitForFunction(() => window.xeno?.current);
 {
   const { benchPos, benchValue } = await import('../js/xeno-gen.js');
   const g25 = benchValue('g', benchPos('g', 2.5)); // 2.5 g, as near as the slider goes
+  await page.goto(base + 'maru.html');
   await page.goto(base + 'xeno.html#M-42');
   await page.waitForFunction(() => window.xeno?.current);
   const before = await page.evaluate(() => ({ name: xeno.current.name.common, legs: xeno.current.body.legs, g: xeno.current.env.g }));
@@ -2795,13 +2796,65 @@ await page.waitForFunction(() => window.xeno?.current);
   await page.getByRole('button', { name: 'Class K: Thin air, needs domes' }).click();
   assert.deepEqual(await page.evaluate(() => [xeno.mode, xeno.current.classId]), ['grow', 'K']);
   for (const [link, want] of [['#bench=M-42&g=junk&light=pink', [1.235, 'red']], ['#bench=world=Proxima%20b-7&g=0.38', [0.38, 'red']]]) {
-    await page.goto(base + 'xeno.html#M-1');
+    await page.goto(base + 'maru.html'); // (a page apart: a long run of address changes in one page is slowed by the browser)
     await page.goto(base + 'xeno.html' + link);
     await page.reload();
     await page.waitForFunction(() => window.xeno?.current);
     assert.deepEqual(await page.evaluate(() => [xeno.mode, Math.round(xeno.readings.g * 1000) / 1000, xeno.readings.star]), ['bench', ...want], link);
   }
   assert.match(await text('#specimen .eyebrow'), /FROM PROXIMA B’S SPECIMEN 0007/);
+}
+// Side by side: Compare picks two jars and the panel above the shelf shows both, a row for each field note and a
+// sentence from the difference. Its link opens the same two for anyone, with no jars at all.
+{
+  await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
+  await page.goto(base + 'maru.html');
+  await page.goto(base + 'xeno.html#M-42');
+  await page.waitForFunction(() => window.xeno?.current);
+  for (const [id, seed] of [['M', 42], ['K', 8371], ['O', 5]]) { await page.evaluate(([c, n]) => xeno.show(c, n, false), [id, seed]); await page.click('#keep'); }
+  assert.equal(await shown('#compare'), true);
+  await page.click('#compare');
+  assert.equal(await shown('#compare-hint'), true);
+  assert.equal(await page.locator('#jars .jar-drop:visible').count(), 0, 'the let-go buttons stayed while picking two');
+  await page.click('#jars .jar:nth-child(2) .jar-open'); // the Class K walker
+  assert.equal(await page.getAttribute('#jars .jar:nth-child(2) .jar-open', 'aria-pressed'), 'true');
+  assert.equal(await page.evaluate(() => xeno.current.classId), 'O', 'picking a jar opened it in the tank');
+  await page.click('#jars .jar:nth-child(3) .jar-open'); // the Class M walker
+  assert.equal(await shown('#pair'), true);
+  assert.equal(await shown('#compare-hint'), false);
+  assert.equal(new URL(page.url()).hash, '#pair=K-8371&M-42');
+  assert.deepEqual(await page.locator('#pair-table th').allInnerTexts(), ['GRAVITY', 'AIR', 'LIGHT', 'HEAT']);
+  assert.deepEqual(await page.locator('#pair-table tr:nth-child(2) td').allInnerTexts(), ['0.017 atm', '1.1 atm']);
+  assert.equal(await text('#pair-why'), 'Air: 0.017 atm against 1.1 atm. That is why one breathes through sacs along its back and the other breathes much as we do.');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the pair scrolls sideways on a phone');
+  // Each picture grows its creature in the tank; the pair stays.
+  await page.click('#pair-pics [data-pair="0"]');
+  assert.deepEqual(await page.evaluate(() => [xeno.current.classId, xeno.current.seed]), ['K', 8371]);
+  assert.equal(await shown('#pair'), true);
+  await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
+  await page.click('#pair-send');
+  const link = await page.evaluate(() => window.shared.url);
+  assert.equal(link, 'https://engage.junkdrawer.works/xeno.html#pair=K-8371&M-42');
+  await page.click('#pair-close');
+  assert.equal(await shown('#pair'), false);
+  assert.equal(new URL(page.url()).hash, '#K-8371');
+  // The link, opened with no jars: the first creature in the tank and the two side by side. A creature for a real
+  // planet pairs too; a link short of a number names nothing.
+  await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
+  for (const [hash, want] of [[link.split('#')[1], ['K', 8371, 'M-42']], ['pair=world=Proxima%20b-7&lava-world-7', ['M', 7, 'lava-world-7']]]) {
+    await page.goto(base + 'maru.html'); // (a page apart: a long run of address changes in one page is slowed by the browser)
+    await page.goto(base + 'xeno.html#' + hash);
+    await page.reload();
+    await page.waitForFunction(() => window.xeno?.current);
+    assert.equal(await shown('#pair'), true, hash);
+    assert.equal(await page.locator('#jars .jar').count(), 0);
+    assert.deepEqual(await page.evaluate(() => [xeno.current.classId, xeno.current.seed, xeno.pair[1].world ? '' : `${xeno.pair[1].id}-${xeno.pair[1].seed}`]), want, hash);
+  }
+  assert.match(await text('#pair-pics'), /Proxima b/);
+  await page.goto(base + 'maru.html');
+  await page.goto(base + 'xeno.html#pair=M-42&K');
+  await page.waitForFunction(() => window.xeno?.current);
+  assert.deepEqual([await shown('#pair'), await shown('#link-note')], [false, true]);
 }
 await page.goto(base);
 await bridgeReady();

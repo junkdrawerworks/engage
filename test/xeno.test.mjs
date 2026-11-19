@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS, SEEDS as LAB_SEEDS, CENSUS, READINGS, RECORDS, takeCensus, rarityFor, recordFor, sizeText, gText, bench, BENCH, STEPS, benchPos, benchValue, readingsOf, changedParts, fileFor } from '../js/xeno-gen.js';
+import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS, SEEDS as LAB_SEEDS, CENSUS, READINGS, RECORDS, takeCensus, rarityFor, recordFor, sizeText, gText, bench, BENCH, STEPS, benchPos, benchValue, readingsOf, changedParts, fileFor, compare } from '../js/xeno-gen.js';
 import { CLASSES, byId, LAB_WORLDS, grows, worldByName } from '../js/classes.js';
 import { widthFor } from '../js/physics.js';
 import { SPECIMENS, specimensFor } from '../js/species.js';
@@ -468,5 +468,32 @@ test('with no star, a creature on land isn’t said to taste the water', () => {
     assert.match(light.text, /^With no star, the only light is what living things make\. It has no eyes/);
     assert.equal(light.label, 'Light · none');
     assert.equal(b.body.eyes, 0);
+  }
+});
+
+// ---------- Side by side ----------
+
+test('two creatures side by side: a row for each field note, and a sentence from the difference', () => {
+  const at = g => bench({ id: 'M', seed: 42 }, { ...readingsOf(grow('M', 42)), g });
+  // The idea's own example: thin legs in weak gravity, eight thick ones in strong.
+  const { rows, sentence } = compare(at(0.4), at(2.5));
+  assert.deepEqual(rows.map(r => [r.label, r.a, r.b, r.alike]), [['Gravity', '0.4 g', '2.5 g', false], ['Air', '1.1 atm', '1.1 atm', true], ['Light', 'red dwarf', 'red dwarf', true], ['Heat', '−7 °C', '−7 °C', true]]);
+  assert.match(sentence, /^Gravity: 0\.4 g against 2\.5 g\. That is why one stands [\d.]+ m tall on two thin legs and the other stands \d+ cm tall on eight thick legs\.$/);
+  // Thin air against Earth's: breathing sacs.
+  assert.equal(compare(grow('K', 8371), grow('M', 42)).sentence, 'Air: 0.017 atm against 1.1 atm. That is why one breathes through sacs along its back and the other breathes much as we do.');
+  // A swimmer and a walker differ because one lives in the water, whatever the readings say.
+  assert.match(compare(grow('O', 5), grow('M', 5)).sentence, /^One lives in the .+ and the other in the .+, and that, more than any reading, is why one is a swimmer .+ long and the other stands .+ tall/);
+  // The same creature twice is alike in every row.
+  const same = compare(grow('M', 42), grow('M', 42));
+  assert.ok(same.rows.every(r => r.alike));
+  assert.equal(same.sentence, 'Their worlds read alike, so what tells them apart is chance.');
+  // Any two, from any classes and real planets: four rows with a reading on each side, and one plain sentence.
+  const pool = [...all.filter((_, i) => i % 13 === 0), ...LAB_WORLDS.map(({ world }) => growFor(world, 7))];
+  for (let i = 0; i < pool.length; i++) {
+    const a = pool[i], b = pool[(i * 7 + 3) % pool.length], c = compare(a, b);
+    assert.equal(c.rows.length, 4);
+    for (const r of c.rows) assert.ok(r.a && r.b && !/undefined/.test(r.a + r.b), `${a.classId}-${a.seed} / ${b.classId}-${b.seed}: ${JSON.stringify(r)}`);
+    assert.match(c.sentence, /^[A-Z][^]*\.$/);
+    assert.doesNotMatch(c.sentence, /undefined|NaN|  /, c.sentence);
   }
 });

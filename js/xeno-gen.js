@@ -714,6 +714,86 @@ export function fileFor({ g, pressure, star, temp }, habitat, own) {
   return byId.get(best.id);
 }
 
+// ---------- Two jars side by side ----------
+
+// What a body looks like, in the words "one ... and the other ...": each for one reading, so the sentence can say
+// what that reading did to each. (`NUM` is the field notes' words for numbers.)
+const looksFor = {
+  gravity(c) {
+    const b = c.body, z = sizeText(b.size);
+    if (b.plan === 'walker') return `stands ${z} tall on ${NUM[b.legs]} ${b.build === 'lanky' ? 'thin ' : b.build === 'squat' ? 'thick ' : ''}legs`;
+    if (b.plan === 'flyer') return `flies on wings ${z} across`;
+    if (b.plan === 'swimmer') return `is a swimmer ${z} long`;
+    if (b.plan === 'floater') return b.build === 'squat' ? `spreads into a disc ${z} across` : `floats as a gas bag ${z} across`;
+    if (b.plan === 'burrower') return `is a digger ${z} long`;
+    if (b.plan === 'plant') return `grows ${z} tall`;
+    return b.crystals ? `is a dome of rock ${z} across` : `is a mite ${z} long`;
+  },
+  air(c) {
+    const b = c.body, { pressure, density } = c.env;
+    if (b.plan === 'flyer') return 'takes to the air';
+    if (b.plan === 'plant') return 'breathes through its leaves';
+    if (b.crystals || (pressure === 0 && c.env.habitat !== 'under-ice')) return 'doesn’t breathe at all';
+    if (b.plan === 'swimmer') return 'breathes through gills';
+    if (b.plan === 'floater') return 'hangs in the clouds';
+    if (b.sacs) return 'breathes through sacs along its back';
+    return density > 2 ? 'gets by on small lungs' : 'breathes much as we do';
+  },
+  light(c) {
+    const b = c.body, { star, dark } = c.env;
+    if (b.plan === 'plant') return star === 'red' ? 'has near-black leaves' : star === 'orange' ? 'has orange-red leaves' : star === 'none' ? 'grows in the dark' : 'has green leaves';
+    if (!b.eyes) return 'has no eyes';
+    const n = b.eyes > 2 ? `${NUM[b.eyes]} ` : '';
+    if (b.crystals) return `sees through ${n}lenses of crystal`;
+    if (b.eyeSize > 1.5) return `has ${n}huge eyes${b.color.l <= 26 ? ' and near-black skin' : ''}`;
+    if (b.eyeSize > 1.2) return `has ${n}large eyes tuned toward red`;
+    if (b.eyeSize < 1) return 'has small eyes under a heavy brow';
+    return dark ? 'has no eyes' : `sees much as we do, with ${NUM[b.eyes]} eyes`;
+  },
+  heat(c) {
+    const b = c.body, { temp } = c.env;
+    if (b.crystals) return 'is built of rock, not water';
+    if (c.env.habitat === 'under-ice') return 'lives round the warm vents under the ice';
+    if (b.covering === 'fur') return 'wears thick fur';
+    if (b.sail) return 'carries a sail on its back to shed heat';
+    if (temp < 262) return 'keeps its blood from freezing with salt';
+    if (temp < 283) return 'keeps warm under a layer of fat';
+    if (temp > 305) return b.plan === 'swimmer' ? 'has broad gills and never hurries' : 'keeps out of the heat of the day';
+    return 'needs no tricks against heat or cold';
+  },
+};
+// How different two creatures' readings are, a step being a factor of two in gravity, three in air and 1.4 in heat
+// (as fileFor counts them), or a different star, or one in the dark and one in the light.
+const L10 = x => Math.log10(Math.max(x, 1e-4));
+const apart = {
+  gravity: (a, b) => Math.abs(L10(a.env.g) - L10(b.env.g)) / 0.3,
+  air: (a, b) => (a.env.pressure === 0) !== (b.env.pressure === 0) ? 2 : Math.abs(L10(a.env.pressure) - L10(b.env.pressure)) / 0.5,
+  light: (a, b) => (a.env.dark !== b.env.dark ? 2 : a.env.star !== b.env.star ? 1.5 : 0),
+  heat: (a, b) => Math.abs(L10(a.env.temp) - L10(b.env.temp)) / 0.15,
+};
+const ALIKE = 0.15; // closer than this, a reading is the same for both
+
+// Two creatures side by side: a row for each field note, with each one's reading and whether they are alike, and
+// one sentence from the difference that matters most, saying what it did to each body.
+export function compare(a, b) {
+  const value = (c, k) => c.notes.find(n => n.k === k).label.split(' · ').slice(1).join(' · ');
+  const rows = ['gravity', 'air', 'light', 'heat'].map(k => ({ k, label: k.charAt(0).toUpperCase() + k.slice(1), a: value(a, k), b: value(b, k), alike: apart[k](a, b) < ALIKE }));
+  // Two kinds of place (the sea and dry land) make two kinds of body whatever the readings, so that comes first;
+  // otherwise the biggest difference whose two bodies read differently.
+  const order = rows.filter(r => !r.alike).sort((x, y) => apart[y.k](a, b) - apart[x.k](a, b));
+  const places = a.body.plan !== b.body.plan && a.env.habitat !== b.env.habitat;
+  let sentence = '';
+  for (const r of places ? [] : order) {
+    const one = looksFor[r.k](a), other = looksFor[r.k](b);
+    if (one === other) continue;
+    sentence = `${r.label}: ${r.a} against ${r.b}. That is why one ${one} and the other ${other}.`;
+    break;
+  }
+  if (!sentence && places) sentence = `One lives in the ${a.env.place} and the other in the ${b.env.place}, and that, more than any reading, is why one ${looksFor.gravity(a)} and the other ${looksFor.gravity(b)}.`;
+  if (!sentence) sentence = order.length ? 'Their worlds differ, but not enough to change their bodies: what tells them apart is chance.' : 'Their worlds read alike, so what tells them apart is chance.';
+  return { rows, sentence };
+}
+
 export function summary(c) {
   return `${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.world ? c.world.name : label(c.cls)}`;
 }
