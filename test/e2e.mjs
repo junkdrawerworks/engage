@@ -4738,8 +4738,48 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#open-log');
   assert.equal(await p.locator('#story').innerText(), 'First day out: two stars, one new species, one failed exam.');
   // It heads the log, above the records.
-  assert.deepEqual(await p.locator('#entries > *').evaluateAll(els => els.slice(0, 2).map(el => el.id)), ['story', 'records']);
+  const heads = await p.locator('#entries > *').evaluateAll(els => els.map(el => el.id));
+  assert.ok(heads[0] === 'story' && heads.indexOf('records') > 0, heads.join());
   await told.close();
+}
+
+// The service record, at the head of the captain's log: a row for each room that keeps a record, read from it, each
+// leading to its room. Each room kept its own record and none knew the others; nothing gave a reason to open a
+// second room. It only reads: nothing new is saved.
+{
+  const career = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await career.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await career.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#service').count(), 0, 'a service record with nothing on it');
+  await p.evaluate(() => engage.closeSheets());
+  const rows = () => p.locator('#service li a').evaluateAll(as => as.map(a => [a.querySelector('b').textContent, a.querySelector('span').textContent, a.getAttribute('href')]));
+  // One arrival: the card is there, and says what the other rooms are waiting for.
+  await p.evaluate(() => { engage.jump('Vega'); engage.closeSheets(); });
+  await p.tap('#open-log');
+  assert.deepEqual(await rows(), [
+    ['Kobayashi Maru', 'Not sat yet', 'maru.html'], ['First contact', 'No one met yet', 'contact.html'], ['Cover your tracks', 'Not played yet', 'survey.html#drill'],
+    ['Xenobiology lab', 'No creatures kept yet', 'xeno.html'], ['Long missions', 'No ships hailed yet', 'missions.html'],
+  ]);
+  await p.evaluate(() => engage.closeSheets());
+  const before = await p.evaluate(() => Object.keys(localStorage).sort());
+  await p.evaluate(() => {
+    localStorage.setItem('engage.maru.v1', JSON.stringify({ runs: [{ title: 'The lifeboat', outcome: 'escaped', grades: [], at: new Date().toISOString(), id: 'a' }], taken: 1, seen: ['The lifeboat'], best: { Compassion: 'C', Judgment: 'B', Restraint: 'B', Nerve: 'A' } }));
+    localStorage.setItem('engage.survey.v1', JSON.stringify({ best: 4, streak: 1, seen: 9 }));
+    localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { v1: Date.now() - 60000, nh: Date.now() - 120000 } }));
+  });
+  await p.tap('#open-log');
+  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed']);
+  // It sits under the voyage's sentence and over the log's own records, and every row is a 44 px tap.
+  assert.deepEqual(await p.locator('#entries > *').evaluateAll(els => els.slice(0, 3).map(el => el.id)), ['story', 'service', 'records']);
+  assert.ok((await p.locator('#service li a').evaluateAll(as => as.map(a => a.getBoundingClientRect().height))).every(h => h >= 44));
+  assert.deepEqual(await p.evaluate(() => Object.keys(localStorage).sort()), [...before, 'engage.maru.v1', 'engage.missions.v1', 'engage.survey.v1'].sort(), 'the service record saved something of its own');
+  await Promise.all([p.waitForNavigation(), p.locator('#service a[data-room="survey"]').tap()]);
+  assert.match(p.url(), /survey\.html#drill$/);
+  await career.close();
 }
 
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the

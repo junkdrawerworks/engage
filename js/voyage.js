@@ -126,3 +126,34 @@ export function story(rec, { log = [], supps = [], now = Date.now() } = {}) {
   const when = [...log.map(entryTime), ...supps.map(s => s.t)].filter(Number.isFinite);
   return `${sinceSaid(Math.max(0, now - (when.length ? Math.min(...when) : now)))}: ${parts.join(', ')}.`;
 }
+
+// ---------- The service record ----------
+
+// The career in one card at the head of the captain's log, beside the log's own records: a row for each room that
+// keeps a record, read from it, each leading to its room. A room with nothing on record yet says so, so the card is
+// also a list of what there is still to do. Rows: { room, name, href, line } (line is '' with nothing on record),
+// with `none` to say instead.
+export function serviceRecord(rec, now = Date.now()) {
+  const maru = obj(rec.maru), runs = list(maru.runs);
+  const seen = new Set([...(Array.isArray(maru.seen) ? maru.seen : []), ...runs.map(r => r.title)].filter(t => text(t, 40)));
+  const best = obj(maru.best);
+  const grades = ['Compassion', 'Judgment', 'Restraint', 'Nerve'].map(g => (LETTERS.test(best[g]) ? best[g] : '–'));
+  const passed = !!text(obj(maru.officer).passed, 40);
+  const contact = obj(rec.contact);
+  const made = Math.max(count(contact.contacts), list(contact.runs).filter(r => r.outcome === 'contact' && !r.second).length);
+  const survey = obj(rec.survey);
+  const n = tally(rec, [], now);
+  const taken = n.failed + n.rewritten;
+  return [
+    { room: 'maru', name: 'Kobayashi Maru', href: 'maru.html', none: 'Not sat yet',
+      line: taken ? `${Math.min(seen.size, 9)} of 9 endings · best ${grades.join(' ')}${passed ? ' · Officer’s Test passed' : ''}` : '' },
+    { room: 'contact', name: 'First contact', href: 'contact.html', none: 'No one met yet',
+      line: n.met ? `${capital(some(n.met, 'people', 'peoples'))} met · ${made === 1 ? 'one contact' : `${words(made)} contacts`} made` : '' },
+    { room: 'survey', name: 'Cover your tracks', href: 'survey.html#drill', none: 'Not played yet',
+      line: count(survey.seen) ? `Best streak ${count(survey.best)}` : '' },
+    { room: 'xeno', name: 'Xenobiology lab', href: 'xeno.html', none: 'No creatures kept yet',
+      line: n.jars ? (n.jars === 1 ? 'One creature in a jar' : `${capital(words(n.jars))} creatures in jars`) : '' },
+    { room: 'missions', name: 'Long missions', href: 'missions.html', none: 'No ships hailed yet',
+      line: n.hails ? `${capital(some(n.hails, 'ship'))} hailed` : '' },
+  ];
+}

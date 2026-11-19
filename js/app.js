@@ -13,7 +13,7 @@ import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
-import { readRecords, story, supplementals } from './voyage.js';
+import { readRecords, serviceRecord, story, supplementals } from './voyage.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -1074,7 +1074,17 @@ function drawEntries() {
   const q = $('log-search').value.trim();
   $('log-by-day').setAttribute('aria-pressed', String(logView === 'day'));
   $('log-by-star').setAttribute('aria-pressed', String(logView === 'star'));
-  $('entries').innerHTML = (q ? '' : storyHtml() + recordsHtml()) + (logView === 'star' ? starsHtml(q) : daysHtml(q));
+  $('entries').innerHTML = (q ? '' : storyHtml() + serviceHtml() + recordsHtml()) + (logView === 'star' ? starsHtml(q) : daysHtml(q));
+}
+
+// The service record: the career in one card, read from every room's record, each row leading to its room. It is
+// there once anything is on record anywhere, and a room with nothing yet says so.
+function serviceHtml() {
+  const rows = serviceRecord(records);
+  if (!state.log.length && rows.every(r => !r.line)) return '';
+  const chev = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record</h3><ul>${rows.map(r =>
+    `<li><a href="${ROOM_BASE}${r.href}"${AWAY} data-room="${r.room}"><b>${esc(r.name)}</b><span${r.line ? '' : ' class="none"'}>${esc(r.line || r.none)}</span>${chev}</a></li>`).join('')}</ul></section>`;
 }
 
 // The whole voyage in one sentence, at the head of the log: "Fourteen months out: nine stars, one new species, one

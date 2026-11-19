@@ -210,6 +210,17 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .past.star[open] summary span:last-child { display: block; }
 /* The voyage in one sentence, at the head of the log. */
 .entries .story { margin: 8px 0 4px; font: 500 16px/1.4 var(--display); letter-spacing: 0.02em; color: var(--sun); }
+/* The service record: a row for each room's record, each leading to it. */
+.service { margin: 8px 0 10px; padding: 10px 12px 4px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.02); }
+.service h3 { margin: 0 0 2px; font: 600 10px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.service ul { list-style: none; margin: 0; padding: 0; }
+.service li + li { border-top: 1px solid var(--line); }
+.service a { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 10px; min-height: 44px; padding: 6px 0; color: var(--text); text-decoration: none; }
+.service a b { font: 600 14px/1.25 var(--display); letter-spacing: 0.02em; }
+.service a span { grid-column: 1; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.service a span.none { color: var(--dim); }
+.service .chev { grid-column: 2; grid-row: 1 / span 2; width: 16px; height: 16px; fill: none; stroke: var(--dim); stroke-width: 2; }
+.service a:hover b, .service a:focus-visible b { text-decoration: underline; text-underline-offset: 3px; }
 /* A line another room adds to the log when something there finishes, between the arrivals. */
 .entries .supp { margin: 8px 0; padding: 4px 0 4px 14px; border-left: 2px solid var(--line-strong); font-size: 13px; }
 .entries .supp a { display: block; color: var(--muted); text-decoration: none; padding: 6px 0; }

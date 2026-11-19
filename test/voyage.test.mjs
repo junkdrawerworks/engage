@@ -131,3 +131,34 @@ test('the log in one sentence: how long since it began, and what every room has 
     ['First day out', 'One day out', 'Thirteen days out', 'Two weeks out', 'Eight weeks out', 'Two months out', '22 months out', 'Two years out']);
   assert.equal(words(21), '21');
 });
+
+test('the service record: a row for each room’s record, saying what is on it or that nothing is yet', async () => {
+  const { serviceRecord } = await import('../js/voyage.js');
+  const { ENDINGS } = await import('../js/maru-sim.js');
+  assert.equal(ENDINGS.length, 9, 'the service record counts the Kobayashi Maru’s endings out of nine');
+  const empty = serviceRecord({});
+  assert.deepEqual(empty.map(r => [r.name, r.line, r.none, r.href]), [
+    ['Kobayashi Maru', '', 'Not sat yet', 'maru.html'],
+    ['First contact', '', 'No one met yet', 'contact.html'],
+    ['Cover your tracks', '', 'Not played yet', 'survey.html#drill'],
+    ['Xenobiology lab', '', 'No creatures kept yet', 'xeno.html'],
+    ['Long missions', '', 'No ships hailed yet', 'missions.html'],
+  ]);
+  const now = at('2026-11-19T12:00:00Z');
+  const rows = serviceRecord({
+    maru: { runs: [{ title: 'The lifeboat' }, { title: 'Died trying' }], seen: ['The lifeboat', 'Held the line'], taken: 5, best: { Compassion: 'A', Judgment: 'B', Nerve: 'C', Restraint: 'x' }, officer: { taken: 1, passed: '2026-11-18T10:00:00.000Z' } },
+    contact: { runs: [{ title: 'First contact', outcome: 'contact', people: 'Qaethuk' }, { title: 'Ships passing', outcome: 'alone', people: 'Mipen' }], met: 2, contacts: 1 },
+    survey: { best: 7, streak: 0, seen: 12 },
+    xeno: { jars: [{ id: 'M', seed: 1 }, { id: 'H', seed: 2 }] },
+    missions: { hails: { v1: now - 1000, v2: now + 3600000 } },
+  }, now);
+  assert.deepEqual(rows.map(r => r.line), [
+    '3 of 9 endings · best A B – C · Officer’s Test passed',
+    'Two peoples met · one contact made',
+    'Best streak 7',
+    'Two creatures in jars',
+    'One ship hailed',
+  ]);
+  // Played but never right: a streak of nought is still a record.
+  assert.equal(serviceRecord({ survey: { best: 0, seen: 3 } })[2].line, 'Best streak 0');
+});
