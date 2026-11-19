@@ -144,9 +144,15 @@ ${maruJs}
 await writeFile(join(out, 'maru.html'), maruOut);
 console.log(`maru.html: ${(maruOut.length / 1024).toFixed(0)} KB`);
 
-// Long missions, as its own single file. Links back to the bridge go to the live site.
+// Long missions, as its own single file. Links back to the bridge go to the live site. It reads only the
+// constellations' boundaries from the catalogue's file, so only those are inline.
+const { constellations, bounds } = JSON.parse(data['data/stars.json']);
+const boundsShim = `window.fetch = async url => {
+  if (String(url).endsWith('stars.json')) return { json: async () => (${JSON.stringify({ constellations, bounds })}) };
+  throw new Error('not bundled: ' + url);
+};`;
 const missionsHtml = await read('missions.html');
-const missionsJs = await bundle(['physics', 'ships', 'ephemeris', 'store', 'onscreen', 'share', 'missions'], liveBridge('missions'));
+const missionsJs = await bundle(['physics', 'ships', 'ephemeris', 'astro', 'store', 'onscreen', 'share', 'missions'], liveBridge('missions'));
 const missionsOut = `<title>Long missions</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -159,6 +165,7 @@ ${bridgeLinks(pageBody(missionsHtml), 'missions.html')}
 <script type="module">
 const __m = {};
 document.body.classList.add('missions');
+${boundsShim}
 ${missionsJs}
 </script>
 `;
@@ -228,7 +235,7 @@ console.log(`contact.html: ${(contactOut.length / 1024).toFixed(0)} KB`);
 
 // The warp scale, as its own single file, with the stars inline for impulse power. Links back to the bridge go to the live site.
 const warpHtml = await read('warp.html');
-const warpJs = await bundle(['physics', 'destinations', 'deepsky', 'catalog', 'impulse', 'ephemeris', 'warp-scale', 'wake', 'store', 'share', 'myship', 'warp'], liveBridge('warp'));
+const warpJs = await bundle(['physics', 'destinations', 'deepsky', 'ephemeris', 'astro', 'catalog', 'impulse', 'warp-scale', 'wake', 'store', 'share', 'myship', 'warp'], liveBridge('warp'));
 const warpOut = `<title>Warp scale</title>
 <meta name="theme-color" content="#05070d">
 <style>

@@ -8,8 +8,10 @@ import { CHARTS } from './charts.js';
 import { LY_PER_PC, apparentMag, formatLy, formatYear, stardate } from './physics.js';
 import {
   jdOf, frame, toLocal, altAz, fromAltAz, sunDir, planetSky, moonSky, moonPhaseName, whereToLook, limitingMag, nextDark,
-  phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone, daylightNote, tonightPlan, planLines, showersOn, radiantDir,
+  phonePose, SKIES, NAKED_EYE_PLANETS, CITIES, placeForZone, daylightNote, tonightPlan, planLines, showersOn, radiantDir, shipDir,
 } from './astro.js';
+import { byId as shipById } from './ships.js';
+import { readings, AU_KM } from './ephemeris.js';
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
 import { backCloses, swipeDown } from './sheets.js';
@@ -41,7 +43,8 @@ let pose = null;         // where the phone is pointing, smoothed
 let sensing = false, gotReading = false;
 let compassOffset = null; // iPhones give alpha from wherever they started, and the compass separately
 let offsetMin = 0;       // minutes ahead of now
-let sel = null;          // { kind: 'star', i } | { kind: 'sight', id } | { kind: 'planet', name } | { kind: 'moon' } | { kind: 'sun' } | { kind: 'shower' }
+let sel = null;          // { kind: 'star', i } | { kind: 'sight', id } | { kind: 'planet', name } | { kind: 'moon' } | { kind: 'sun' } | { kind: 'shower' } | { kind: 'ship', id }
+let probe = null;        // the ship long missions sent a link for (tonight.html#ship=v1): marked on the sky from then on
 let dirty = true, aimAnim = null, testNow = null;
 let placed = [];         // where things were drawn last frame, for taps: { x, y, r, hit }
 
@@ -245,7 +248,9 @@ function compute() {
   const shower = showersOn(date, tzOf())[0] || null;
   if (shower) shower.local = toLocal(f, radiantDir(shower.shower));
   else if (sel?.kind === 'shower') closeSheets(); // the slider has run on past its last night
-  sky = { date, f, sun, sunAlt, moon, moonL, moonAlt, lim, nightLim, local, lines, planets, shower };
+  // The ship a link from long missions asked for, where she is from Earth at this moment.
+  const ship = probe ? { id: probe, local: toLocal(f, shipDir(probe, jd)), r: readings(probe, jd) } : null;
+  sky = { date, f, sun, sunAlt, moon, moonL, moonAlt, lim, nightLim, local, lines, planets, shower, ship };
   updateHud();
   if (!$('list').hidden) renderList();
   if (!$('card').hidden && sel) fillCard(sel); // keeps the card up to date without turning the view back to it
@@ -297,12 +302,17 @@ function faceSomethingGood() {
 // A link like tonight.html#sight=orion opens a cluster's, a nebula's or a galaxy's card, and one to a star the bridge
 // flies to for one of them (#star=Alcyone) opens that one's.
 function starFromLink() {
-  const m = location.hash.match(/^#(star|sight)=(.+)$/);
+  const m = location.hash.match(/^#(star|sight|ship)=(.+)$/);
   if (!m) return;
   let name = '';
   try { name = decodeURIComponent(m[2]); } catch { return; }
   let s;
-  if (m[1] === 'sight') {
+  if (m[1] === 'ship') {
+    if (!shipById(name)) return;
+    probe = name;
+    compute();
+    s = { kind: 'ship', id: name };
+  } else if (m[1] === 'sight') {
     if (!sightById.has(name)) return;
     s = { kind: 'sight', id: name };
   } else {
@@ -454,6 +464,7 @@ function draw() {
   for (const t of tags) drawTag(t);
   for (const x of sights) drawSight(x);
   drawRadiant();
+  drawShip();
 
   // Bright stars' own names, small, where there's room.
   for (const q of placed) {
@@ -821,6 +832,23 @@ function roundRect(x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 
+// A ship on a long mission, when a link from her file asked for her: a small diamond in her colour where she is, far
+// too faint to see, with her name.
+function drawShip() {
+  const sh = sky.ship;
+  if (!sh) return;
+  const p = project(sh.local);
+  if (!p || p.z < 0.05) return;
+  const ship = shipById(sh.id), r = 6;
+  ctx.save();
+  ctx.strokeStyle = saved.night ? '#ffffff' : ship.color; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(p.x, p.y - r); ctx.lineTo(p.x + r, p.y); ctx.lineTo(p.x, p.y + r); ctx.lineTo(p.x - r, p.y); ctx.closePath(); ctx.stroke();
+  ctx.restore();
+  labelBoxes.push({ x: p.x - r, y: p.y - r, w: r * 2, h: r * 2 });
+  label(ship.name, p.x, p.y, r + 6, 'planet');
+  placed.push({ x: p.x, y: p.y, r: 22, hit: { kind: 'ship', id: sh.id }, rank: -35 });
+}
+
 // Where the selected thing is in your local sky.
 function selLocal(s = sel) {
   if (!s) return null;
@@ -829,6 +857,7 @@ function selLocal(s = sel) {
   if (s.kind === 'planet') return sky.planets.find(p => p.name === s.name).local;
   if (s.kind === 'moon') return sky.moonL;
   if (s.kind === 'shower') return sky.shower.local;
+  if (s.kind === 'ship') return sky.ship.local;
   return sky.sun;
 }
 
@@ -868,6 +897,7 @@ function nameOf(s) {
   if (s.kind === 'sight') return sightById.get(s.id).name;
   if (s.kind === 'planet') return PLANET_NAMES[s.name];
   if (s.kind === 'shower') return sky.shower.shower.name;
+  if (s.kind === 'ship') return shipById(s.id).name;
   return s.kind === 'moon' ? 'The Moon' : 'The Sun';
 }
 
@@ -971,6 +1001,14 @@ function fillCard(s) {
     sub = `${Math.round(sky.moon.lit * 100)}% lit · ${Math.round(sky.moon.km).toLocaleString('en-US')} km away`;
     line = sky.moon.lit > 0.6 ? 'A bright moon washes out the faintest stars, so fewer of the tags are visible tonight.' : 'A thin moon leaves the sky dark for the faint stars.';
     facts = 'Its light takes 1.3 seconds to reach you.';
+  } else if (s.kind === 'ship') {
+    const ship = shipById(s.id), r = sky.ship.r, km = r.earthAU * AU_KM;
+    const con = cat.constellationToward(shipDir(s.id, jdOf(sky.date)));
+    kind = 'Long missions'; title = ship.full || ship.name;
+    sub = [ship.near ? `${(km / 1e6).toFixed(1)} million km away` : `${(km / 1e9).toFixed(1)} billion km away`, con ? `in ${con}` : ''].filter(Boolean).join(' · ');
+    line = ship.near ? 'Too faint to see by eye: the mark is where she is.' : 'Far too faint for any telescope to see: the mark is where she is.';
+    const sec = r.lightSeconds;
+    facts = `A signal from her takes ${sec < 60 ? `${sec.toFixed(1)} seconds` : sec < 3600 ? `${Math.round(sec / 60)} minutes` : `${Math.floor(sec / 3600)} hours ${Math.round(sec / 60) % 60} minutes`} to reach you.`;
   } else if (s.kind === 'shower') {
     const { shower: sh, peak } = sky.shower;
     const md = ([m, d]) => dayOf(new Date(Date.UTC(2026, m - 1, d, 12)), 'UTC');
@@ -996,7 +1034,7 @@ function fillCard(s) {
   $('card-been').hidden = !been;
   // A star can be sent: its link turns this sky to it and opens this card. (The planets and the Moon have no link.)
   $('card-share').hidden = !linkName(s);
-  setText('card-share', s.kind === 'sight' ? `Share this ${{ open: 'cluster', globular: 'cluster', galaxy: 'galaxy', core: 'place' }[x.o.kind] || 'nebula'}` : 'Share this star');
+  setText('card-share', s.kind === 'ship' ? 'Share where she is' : s.kind === 'sight' ? `Share this ${{ open: 'cluster', globular: 'cluster', galaxy: 'galaxy', core: 'place' }[x.o.kind] || 'nebula'}` : 'Share this star');
   // Doors to the other rooms that know this thing: its rung on the warp scale, and for a planet or the Moon the
   // survey file it is the Solar System's example of.
   const rung = s.kind === 'star' ? PLACES.find(p => p.sky === cat.names[s.i])?.id : s.kind === 'sight' ? x.o.rung : ['moon', 'mars', 'jupiter'].find(id => id === (s.kind === 'moon' ? 'moon' : s.kind === 'planet' && s.name));
@@ -1004,6 +1042,7 @@ function fillCard(s) {
   const doors = [
     rung && [`${BRIDGE}warp.html${s.kind === 'star' || s.kind === 'sight' ? '' : '?warp=9'}#${rung}`, s.kind === 'star' || s.kind === 'sight' ? 'Race there on the warp scale' : 'How long at warp 9'],
     file && [`${BRIDGE}survey.html#${encodeURIComponent(file.id)}`, `${fileLabel(file)} survey file`],
+    s.kind === 'ship' && [`${BRIDGE}missions.html#${s.id}`, 'Her file in long missions'],
   ].filter(Boolean).map(([href, text]) => `<a href="${href}"${BRIDGE.startsWith('http') ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`).join('');
   if ($('card-doors').dataset.for !== doors) { $('card-doors').dataset.for = doors; $('card-doors').innerHTML = doors; }
   $('card-share-row').hidden = !doors && !linkName(s);
@@ -1012,7 +1051,7 @@ function fillCard(s) {
 }
 // What a link to a card carries after its "#": a star's catalogue name, when that name leads back to this star, or a
 // cluster's, nebula's or galaxy's id.
-const linkName = s => (s.kind === 'sight' ? `sight=${s.id}` : s.kind === 'star' && cat.byName.get(cat.names[s.i]) === s.i ? `star=${encodeURIComponent(cat.names[s.i])}` : '');
+const linkName = s => (s.kind === 'ship' ? `ship=${s.id}` : s.kind === 'sight' ? `sight=${s.id}` : s.kind === 'star' && cat.byName.get(cat.names[s.i]) === s.i ? `star=${encodeURIComponent(cat.names[s.i])}` : '');
 function shareStar(button) {
   const hash = sel && linkName(sel);
   if (!hash) return null;
@@ -1406,6 +1445,8 @@ function hooks() {
     // The meteor shower marked on the sky, if one is: its name, where its radiant is on screen, and whether it was drawn.
     get shower() { const sh = sky.shower; return sh ? { name: sh.shower.name, alt: altAz(sh.local).alt, drawn: placed.some(q => q.hit.kind === 'shower') } : null; },
     get plan() { return plan; },
+    // The ship a link from long missions marked: where she is on screen, and whether she was drawn.
+    get ship() { const q = placed.find(x => x.hit.kind === 'ship'); return sky.ship ? { id: sky.ship.id, alt: altAz(sky.ship.local).alt, drawn: !!q, x: q?.x, y: q?.y } : null; },
     // The constellations named on the sky in the last frame drawn.
     // The names written beside planets, the Moon, bright stars and the shower in the last frame, each with its box on
     // screen, and the planets' and the Moon's discs.

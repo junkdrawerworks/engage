@@ -1,11 +1,12 @@
 // Long missions: where the Voyagers, New Horizons, Webb and the Pioneers are right now, on a map and in numbers,
 // with a hail you can send and watch crawl out to them at the speed of light.
-import { SHIPS, byId, hailSent, hailState, milestoneText, GOLDEN_RECORD } from './ships.js';
+import { SHIPS, byId, hailSent, hailState, milestoneText, GOLDEN_RECORD, dishLine } from './ships.js';
 import {
   AU_KM, LIGHT_DAY_AU, jdOf, dateOf, readings, trackUntil, planetAt, earthAt, semiMajor,
   jwstFromEarth, jwstSpan, jwstAroundL2, jwstTracked, moonAt, milestones,
 } from './ephemeris.js';
 import { warpSpeed, stardate, plural } from './physics.js';
+import { shipDir, dishWatch, constellationIn } from './astro.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { LIVE, share } from './share.js';
@@ -123,6 +124,7 @@ function fillFile(ship) {
   race.hidden = ship.id !== 'v1';
   race.href = `${BRIDGE}warp.html?warp=9#voyager`;
   if (BRIDGE.startsWith('http')) { race.target = '_blank'; race.rel = 'noopener'; }
+  if (BRIDGE.startsWith('http')) { $('sky-link').target = '_blank'; $('sky-link').rel = 'noopener'; }
   $('ship-record').textContent = ship.record || '';
   $('ship-record').hidden = !ship.record;
   $('golden').hidden = !ship.golden;
@@ -204,6 +206,34 @@ function hailText(ship, r, nowMs) {
   return `Your hail, sent ${sentText}, reached her ${fmtWhen(new Date(arrive))}, and an answer could have been back ${fmtWhen(new Date(back))}. That’s how long every question to her takes.`;
 }
 
+// ---------- Where she is in the sky ----------
+
+// The constellation a ship is in, by the IAU boundaries in the star catalogue's file, fetched once (the offline copy
+// keeps it). Until it is in, or if it never comes, the row stays hidden.
+let skyMeta = null;
+async function loadBounds() {
+  try {
+    skyMeta = await fetch('data/stars.json').then(r => r.json());
+    tick(true);
+  } catch { /* no catalogue here: the row stays hidden */ }
+}
+const skyCache = new Map(); // ship and day -> constellation: she takes years to cross one
+function constellationOf(id, jd) {
+  const key = `${id}:${Math.floor(jd)}`;
+  if (!skyCache.has(key)) skyCache.set(key, constellationIn(skyMeta, shipDir(id, jd)));
+  return skyCache.get(key);
+}
+// Which of the Deep Space Network's dishes could hear her: worked out again each minute, not ten times a second.
+let dishes = { key: '', text: '' };
+function dishText(ship, nowMs) {
+  const key = `${ship.id}:${Math.floor(nowMs / 60000)}`;
+  if (dishes.key !== key) {
+    const watch = dishWatch(ship.id, new Date(nowMs));
+    dishes = { key, text: dishLine(watch, { silent: ship.status === 'silent', south: shipDir(ship.id, jdOf(nowMs))[2] < 0, fmt: fmtWhen }) };
+  }
+  return dishes.text;
+}
+
 // ---------- Numbers on the file ----------
 
 function tick(force = false) {
@@ -233,6 +263,15 @@ function tick(force = false) {
   }
   $('signal').textContent = adrift ? 'about 5 seconds' : lightTime(r.lightSeconds);
   $('signal-note').textContent = adrift ? 'one way, at the speed of light: 4 to 6 seconds, depending where she is on her loop' : 'one way, at the speed of light';
+  $('dishes').textContent = dishText(ship, nowMs);
+  $('sky-row').hidden = !skyMeta;
+  if (skyMeta) {
+    const con = constellationOf(sel, jd);
+    $('sky-con').textContent = con || '';
+    $('sky-note').textContent = `${con ? `the constellation she’s in. ` : ''}${ship.near ? 'Too faint to see by eye.' : 'Far too faint for any telescope to see.'}`;
+    const href = `${BRIDGE}tonight.html#ship=${sel}`;
+    if ($('sky-link').getAttribute('href') !== href) $('sky-link').href = href;
+  }
   $('age').textContent = missionAge(new Date(ship.launched + 'T12:00:00Z'), new Date(nowMs));
   $('hail-note').textContent = hailText(ship, r, nowMs);
   const state = hailState(saved.hails[sel], r.lightSeconds * 1000, nowMs, ship.status === 'silent');
@@ -570,6 +609,7 @@ function bind() {
 
 buildFleet();
 buildGolden();
+loadBounds();
 resize();
 bind();
 choose(sel);

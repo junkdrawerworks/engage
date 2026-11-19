@@ -228,3 +228,24 @@ export const GOLDEN_RECORD = {
   // A few of the 115, from NASA's list.
   somePictures: ['the Sun', 'cells dividing', 'a family portrait', 'the Snake River and the Grand Tetons, by Ansel Adams', 'dolphins', 'Jane Goodall with chimpanzees', 'the Great Wall of China', 'the Taj Mahal', 'the Sydney Opera House', 'the Golden Gate Bridge', 'the radio telescope at Westerbork in the Netherlands', 'a string quartet', 'a sunset with birds'],
 };
+
+// One line under a ship's Signal reading: which of the Deep Space Network's three sites could hear her now, from
+// geometry alone (dishWatch() in astro.js), and which is next. `fmt` writes a moment ("today at 2:20 pm"); `south`
+// is whether she is south of the sky's equator, for a site she never rises high enough at. It says "could": the real
+// schedule is the network's, and a silent ship has nothing to send.
+export function dishLine(watch, { silent = false, south = false, fmt }) {
+  const list = names => (names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
+  const up = watch.filter(w => w.up), down = watch.filter(w => !w.up);
+  const next = down.filter(w => w.rise).sort((a, b) => a.rise - b.rise)[0];
+  const never = down.filter(w => w.always === 'down').map(w => w.name);
+  const allDay = up.length && up.every(w => w.always === 'up');
+  const ifSo = silent ? ', if she called' : '';
+  const parts = [];
+  if (up.length === 3) parts.push(`All three dish sites, ${list(up.map(w => w.name))}, could hear her now${ifSo}.`);
+  else if (up.length) parts.push(`${list(up.map(w => w.name))} could hear her now${allDay ? ', and all day' : ''}${ifSo}.`);
+  else parts.push('No dish could hear her right now.');
+  if (next) parts.push(`${next.name} next, ${fmt(next.rise)}.`);
+  if (never.length) parts.push(`She is too far ${south ? 'south' : 'north'} for ${list(never)}.`);
+  if (silent) parts.unshift('Nobody listens for her any more.');
+  return parts.join(' ');
+}

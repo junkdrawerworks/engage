@@ -3,6 +3,7 @@
 import { LY_PER_PC, physical, starColor } from './physics.js';
 import { DESTINATIONS } from './destinations.js';
 import { ADDED, PLACED } from './deepsky.js';
+import { constellationIn } from './astro.js';
 
 const NOMINAL_PC = 1000;
 
@@ -76,38 +77,8 @@ export function buildCatalog(bin, meta) {
       return Math.hypot(dx, dy, dz);
     },
     // The constellation a direction falls in, by the IAU boundaries.
-    constellationToward(dir) {
-      const lon = Math.atan2(dir[1], dir[0]) * 180 / Math.PI;
-      const lat = Math.asin(Math.max(-1, Math.min(1, dir[2]))) * 180 / Math.PI;
-      for (const [c, ring] of meta.bounds) if (inside(ring, lon, lat)) return meta.constellations[c][1];
-      return null;
-    },
+    constellationToward: dir => constellationIn(meta, dir),
   };
-}
-
-// Point in a boundary ring on the sky. The ring is unwrapped across RA 12h; one that circles a pole is closed over it.
-function inside(ring, lon, lat) {
-  const pts = [[ring[0][0], ring[0][1]]];
-  for (let k = 1; k < ring.length; k++) {
-    let x = ring[k][0];
-    x += Math.round((pts[k - 1][0] - x) / 360) * 360;
-    pts.push([x, ring[k][1]]);
-  }
-  const span = pts[pts.length - 1][0] - pts[0][0];
-  if (Math.abs(span) > 300) {
-    const pole = pts.reduce((s, p) => s + p[1], 0) > 0 ? 90 : -90;
-    pts.push([pts[pts.length - 1][0], pole], [pts[0][0], pole]);
-  }
-  for (const shift of [-360, 0, 360]) {
-    const x = lon + shift;
-    let hit = false;
-    for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) {
-      const [xa, ya] = pts[a], [xb, yb] = pts[b];
-      if ((ya > lat) !== (yb > lat) && x < (xb - xa) * (lat - ya) / (yb - ya) + xa) hit = !hit;
-    }
-    if (hit) return true;
-  }
-  return false;
 }
 
 // Where to write each constellation's name on a sky map: one point per constellation, the mean direction of the

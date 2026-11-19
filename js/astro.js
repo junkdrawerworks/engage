@@ -2,7 +2,7 @@
 // Earth and a moment, and finds the Sun, the Moon and the planets. Pure functions, so test/tonight.test.mjs can check them.
 // Star directions are the catalogue's (the equator and equinox of 2000); the local frame allows for the third of a
 // degree the Earth's axis has swung round since, so the Moon and planets sit where they should among the stars.
-import { planetAt, earthAt, moonAt } from './ephemeris.js';
+import { planetAt, earthAt, moonAt, readings, jwstFromEarth } from './ephemeris.js';
 
 const DEG = Math.PI / 180;
 const OBLIQUITY = 23.4393 * DEG;
@@ -430,4 +430,74 @@ export function phonePose(alpha, beta, gamma, screenAngle = 0) {
     right: X.map((v, k) => ct * v - st * Y[k]),
     up: Y.map((v, k) => ct * v + st * X[k]),
   };
+}
+
+// The constellation a direction (a unit vector in the catalogue's axes) falls in, by the IAU boundaries in
+// data/stars.json, given that file's contents (the catalogue uses it, and long missions without loading the stars).
+export function constellationIn(meta, dir) {
+  const lon = Math.atan2(dir[1], dir[0]) * 180 / Math.PI;
+  const lat = Math.asin(Math.max(-1, Math.min(1, dir[2]))) * 180 / Math.PI;
+  for (const [c, ring] of meta.bounds) if (inside(ring, lon, lat)) return meta.constellations[c][1];
+  return null;
+}
+
+// Point in a boundary ring on the sky. The ring is unwrapped across RA 12h; one that circles a pole is closed over it.
+function inside(ring, lon, lat) {
+  const pts = [[ring[0][0], ring[0][1]]];
+  for (let k = 1; k < ring.length; k++) {
+    let x = ring[k][0];
+    x += Math.round((pts[k - 1][0] - x) / 360) * 360;
+    pts.push([x, ring[k][1]]);
+  }
+  const span = pts[pts.length - 1][0] - pts[0][0];
+  if (Math.abs(span) > 300) {
+    const pole = pts.reduce((s, p) => s + p[1], 0) > 0 ? 90 : -90;
+    pts.push([pts[pts.length - 1][0], pole], [pts[0][0], pole]);
+  }
+  for (const shift of [-360, 0, 360]) {
+    const x = lon + shift;
+    let hit = false;
+    for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) {
+      const [xa, ya] = pts[a], [xb, yb] = pts[b];
+      if ((ya > lat) !== (yb > lat) && x < (xb - xa) * (lat - ya) / (yb - ya) + xa) hit = !hit;
+    }
+    if (hit) return true;
+  }
+  return false;
+}
+
+// ---------- The ships on long missions, in your sky ----------
+
+// Which way a ship lies from Earth's centre, in the catalogue's axes (the equator and equinox of 2000), at a Julian
+// date. From Earth's surface the difference is nothing for the probes and a quarter of a degree for Webb.
+export function shipDir(id, jd) {
+  const v = id === 'jwst' ? jwstFromEarth(jd) : (() => { const p = readings(id, jd).pos, e = earthAt(jd); return p.map((x, k) => x - e[k]); })();
+  const l = Math.hypot(...v) || 1;
+  return eclipticToEquatorial(v.map(x => x / l));
+}
+
+// The three sites of NASA's Deep Space Network, the dishes that talk to distant spacecraft, each at its 70-metre
+// antenna: latitude and longitude (east, here as degrees west negative) from the DSN Telecommunications Link Design
+// Handbook, 810-005, module 301, Rev. N (April 2022), Table 5. The site names are the ones NASA uses.
+export const DSN = [
+  { name: 'Goldstone', lat: 35.425901, lon: 243.110462 - 360 },
+  { name: 'Madrid', lat: 40.431210, lon: 355.751991 - 360 },
+  { name: 'Canberra', lat: -35.402424, lon: 148.981267 },
+];
+// The lowest a DSN dish can point: about 6° above the horizon, the antennas' mechanical limit (810-005, module 301,
+// section 2.2.2; its coverage figures use 6.0° for receiving).
+export const DISH_LIMIT = 6;
+
+// Which of the three sites could hear a ship at a moment, and when the others next could, from geometry alone (the
+// real schedule is the network's). For each site: { name, alt (degrees), up, rise: a Date or null, always: 'up' |
+// 'down' | null }, `always` saying where she stays when she neither rises past the limit nor sinks below it in the
+// next `hours`.
+export function dishWatch(id, from, hours = 24) {
+  const dir = jd => shipDir(id, jd);
+  const jd = jdOf(from);
+  return DSN.map(site => {
+    const alt = altAz(toLocal(frame(site.lat, site.lon, jd), dir(jd))).alt;
+    const { rise, always } = riseSet(dir, site.lat, site.lon, from, { h0: DISH_LIMIT, hours });
+    return { name: site.name, alt, up: alt >= DISH_LIMIT, rise, always };
+  });
 }

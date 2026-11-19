@@ -1802,6 +1802,44 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await day.close();
 }
 
+// Which of NASA's three dish sites could hear each ship, from where she is in the sky, and the constellation she is
+// in, with a link that marks her in tonight's sky. At 17:00 UTC on 19 November 2026 Voyager 1 is up at Goldstone and
+// Madrid, and Canberra next has her at 10:30 pm; Voyager 2 is too far south for any site but Canberra.
+{
+  const dish = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'UTC' });
+  const p = await dish.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.clock.setFixedTime(new Date('2026-11-19T17:00:00Z'));
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions && !document.getElementById('sky-row').hidden);
+  assert.equal(await p.locator('#dishes').innerText(), 'Goldstone and Madrid could hear her now. Canberra next, today at 10:30\u202fpm.');
+  assert.equal(await p.locator('#sky-con').innerText(), 'Ophiuchus');
+  assert.match(await p.locator('#sky-note').innerText(), /^the constellation she’s in\. Far too faint for any telescope to see\.$/);
+  await p.locator('.ship-tab[data-id="v2"]').click();
+  assert.equal(await p.locator('#dishes').innerText(), 'Canberra could hear her now. She is too far south for Goldstone and Madrid.');
+  assert.equal(await p.locator('#sky-con').innerText(), 'Pavo');
+  await p.locator('.ship-tab[data-id="p10"]').click();
+  assert.match(await p.locator('#dishes').innerText(), /^Nobody listens for her any more\. .*, if she called\./);
+  await p.locator('.ship-tab[data-id="v1"]').click();
+  assert.equal(await p.locator('#sky-link').getAttribute('href'), './tonight.html#ship=v1');
+  await Promise.all([p.waitForNavigation(), p.locator('#sky-link').click()]);
+  await p.waitForFunction(() => window.tonight && !document.getElementById('card').hidden);
+  assert.equal(await p.locator('#card-kind').innerText(), 'LONG MISSIONS');
+  assert.equal(await p.locator('#card-title').innerText(), 'Voyager 1');
+  assert.match(await p.locator('#card-sub').innerText(), /^2\d\.\d billion km away · in Ophiuchus$/);
+  assert.match(await p.locator('#card-line').innerText(), /^Far too faint for any telescope to see/);
+  assert.equal(await p.locator('#card-doors a').getAttribute('href'), './missions.html#v1');
+  assert.equal(await p.locator('#card-course').isHidden(), true, 'a ship has a course to set');
+  // Her mark is on the sky where she is, when she is up: turned to her, it is drawn and can be tapped.
+  const ship = await p.evaluate(() => window.tonight.ship);
+  assert.equal(ship.id, 'v1');
+  if (ship.alt > 0) assert.ok(ship.drawn, 'Voyager 1 is up but has no mark');
+  await p.evaluate(() => { const t = window.tonight; t.place(-35.3, 149.1, 'Canberra', 'Australia/Sydney'); t.look(0, 0, 80); });
+  await p.waitForTimeout(100);
+  assert.equal((await p.evaluate(() => window.tonight.ship)).drawn, false, 'Voyager 1 is drawn under the ground from Canberra');
+  await dish.close();
+}
+
 // Impulse power, in the warp scale room: the whole sky round the ship, dead ahead in the middle. Opening the throttle
 // to nine tenths of light speed squeezes the forward half of the sky within 26° of dead ahead, makes an hour aboard
 // 2 hours 18 minutes at home, and shifts the light ahead to the blue and behind to the red. The heading is the place

@@ -200,3 +200,49 @@ test('the Golden Record has what NASA lists, and only the Voyagers carry it', ()
   assert.equal(g.pictures, 115);
   assert.deepEqual(SHIPS.filter(s => s.golden).map(s => s.id), ['v1', 'v2']);
 });
+
+test('the Deep Space Network’s dishes are where NASA’s handbook puts them', async () => {
+  const { DSN, DISH_LIMIT } = await import('../js/astro.js');
+  // DSN 810-005, module 301, Rev. N, Table 5: DSS 14, DSS 63 and DSS 43, the 70-metre dishes.
+  const dms = (d, m, s) => Math.sign(d || 1) * (Math.abs(d) + m / 60 + s / 3600);
+  const want = { Goldstone: [dms(35, 25, 33.24312), dms(243, 6, 37.66244) - 360], Madrid: [dms(40, 25, 52.3551), dms(355, 45, 7.16924) - 360], Canberra: [-dms(35, 24, 8.72724), dms(148, 58, 52.56231)] };
+  for (const site of DSN) {
+    assert.ok(Math.abs(site.lat - want[site.name][0]) < 1e-5 && Math.abs(site.lon - want[site.name][1]) < 1e-5, `${site.name} is not where the handbook puts it`);
+  }
+  assert.equal(DISH_LIMIT, 6);
+});
+
+test('which dish could hear a ship follows her place in the sky', async () => {
+  const { dishWatch, shipDir, frame, toLocal, altAz, DSN, gmst } = await import('../js/astro.js');
+  const { dishLine } = await import('../js/ships.js');
+  const now = new Date('2026-11-19T17:00:00Z'), jd = jdOf(now);
+  // Voyager 1's height at Goldstone, worked out again the plain way: her right ascension and declination from Earth,
+  // and the hour angle from sidereal time. The two agree to within the Earth's axis having swung since 2000.
+  const d = shipDir('v1', jd), ra = Math.atan2(d[1], d[0]), dec = Math.asin(d[2]);
+  const g = DSN[0], lat = g.lat * Math.PI / 180, ha = (gmst(jd) + g.lon) * Math.PI / 180 - ra;
+  const plain = Math.asin(Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(ha)) * 180 / Math.PI;
+  const alt = altAz(toLocal(frame(g.lat, g.lon, jd), d)).alt;
+  assert.ok(Math.abs(alt - plain) < 0.5, `Goldstone sees her ${alt.toFixed(2)}° up, the plain way ${plain.toFixed(2)}°`);
+  const fmt = t => t.toISOString().slice(11, 16);
+  const v1 = dishWatch('v1', now);
+  assert.equal(dishLine(v1, { fmt }), 'Goldstone and Madrid could hear her now. Canberra next, 22:30.');
+  // Voyager 2 is so far south that only Canberra ever sees her: Goldstone and Madrid never do, all day.
+  const v2 = dishWatch('v2', now);
+  assert.deepEqual(v2.slice(0, 2).map(w => w.always), ['down', 'down']);
+  assert.match(dishLine(v2, { fmt, south: shipDir('v2', jd)[2] < 0 }), /^Canberra could hear her now\. She is too far south for Goldstone and Madrid\.$/);
+  for (let h = 0; h < 24; h++) assert.ok(dishWatch('v2', new Date(+now + h * 3600e3)).slice(0, 2).every(w => !w.up), 'Voyager 2 rose at Goldstone or Madrid');
+  // The words for the rest: nobody up, and a silent ship.
+  const none = [{ name: 'Goldstone', up: false, rise: new Date('2026-11-19T20:05:00Z') }, { name: 'Madrid', up: false, rise: new Date('2026-11-20T03:00:00Z') }, { name: 'Canberra', up: false, rise: null, always: 'down' }];
+  assert.equal(dishLine(none, { fmt, south: false }), 'No dish could hear her right now. Goldstone next, 20:05. She is too far north for Canberra.');
+  assert.equal(dishLine(v1, { fmt, silent: true }), 'Nobody listens for her any more. Goldstone and Madrid could hear her now, if she called. Canberra next, 22:30.');
+});
+
+test('each ship is in the constellation NASA names for her', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { constellationIn, shipDir } = await import('../js/astro.js');
+  const meta = JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url), 'utf8'));
+  const jd = at('2026-11-19T12:00:00Z');
+  // NASA's Voyager FAQ: Voyager 1 is aiming toward Ophiuchus, Voyager 2 toward Sagittarius and Pavo. New Horizons'
+  // file has her heading toward Sagittarius.
+  assert.deepEqual(['v1', 'v2', 'nh'].map(id => constellationIn(meta, shipDir(id, jd))), ['Ophiuchus', 'Pavo', 'Sagittarius']);
+});
