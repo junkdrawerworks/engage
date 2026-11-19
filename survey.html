@@ -64,26 +64,49 @@
       <div class="drill-intro" id="drill-intro">
         <p>Your ship has found a world nobody is supposed to know about. Before the survey is filed, swap its record for an ordinary one: pick the class whose file it would pass for.</p>
       </div>
-      <div class="drill-grid">
-        <div class="viewer small">
-          <canvas class="globe" id="drill-globe" aria-hidden="true"></canvas>
-          <p class="tag" id="drill-tag"></p>
+      <div class="rounds" role="group" aria-label="Round">
+        <button type="button" data-round="files" aria-pressed="true">Standard</button>
+        <button type="button" data-round="sensors" aria-pressed="false">Sensors only</button>
+        <button type="button" data-round="reverse" aria-pressed="false">The other way</button>
+        <button type="button" data-round="exam" aria-pressed="false">Today’s exam</button>
+      </div>
+      <p class="exam-head" id="exam-head" hidden></p>
+      <div id="drill-play">
+        <div class="drill-grid">
+          <div class="viewer small" id="drill-view">
+            <canvas class="globe" id="drill-globe" aria-hidden="true"></canvas>
+            <p class="tag" id="drill-tag"></p>
+          </div>
+          <div class="viewer small blind" id="drill-blind" hidden>
+            <p id="blind-head">No picture</p>
+            <p class="tag" id="blind-text">The cameras are down. Go by the numbers.</p>
+          </div>
+          <div class="sensor">
+            <p class="eyebrow" id="sensor-head">Sensor log</p>
+            <dl id="readings"></dl>
+          </div>
         </div>
-        <div class="sensor">
-          <p class="eyebrow">Sensor log</p>
-          <dl id="readings"></dl>
+        <p class="prompt" id="prompt">Which file would it pass for?</p>
+        <div class="choices" id="choices"></div>
+        <div class="verdict" id="verdict" hidden>
+          <p class="verdict-head" id="verdict-head"></p>
+          <p class="verdict-record" id="verdict-record" hidden></p>
+          <p id="verdict-text"></p>
+          <div class="verdict-actions">
+            <a class="secondary" id="verdict-file" href="#">Read the file</a>
+            <button class="primary" id="drill-next" type="button">Next world</button>
+          </div>
         </div>
       </div>
-      <p class="prompt" id="prompt">Which file would it pass for?</p>
-      <div class="choices" id="choices"></div>
-      <div class="verdict" id="verdict" hidden>
-        <p class="verdict-head" id="verdict-head"></p>
-        <p class="verdict-record" id="verdict-record" hidden></p>
-        <p id="verdict-text"></p>
+      <div class="exam-result" id="exam-result" hidden>
+        <p class="eyebrow">Today’s exam</p>
+        <p class="exam-score" id="exam-score"></p>
+        <ol class="exam-marks" id="exam-marks"></ol>
+        <p class="exam-line" id="exam-line"></p>
         <div class="verdict-actions">
-          <a class="secondary" id="verdict-file" href="#">Read the file</a>
-          <button class="primary" id="drill-next" type="button">Next world</button>
+          <button class="primary" id="exam-share" type="button">Share your result</button>
         </div>
+        <p class="exam-again">The same five worlds come up for everyone today. Tomorrow brings five more; the other rounds are open meanwhile.</p>
       </div>
       <p class="score" id="score"></p>
       <div class="files-used" id="files-used" hidden>

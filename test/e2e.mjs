@@ -1149,6 +1149,79 @@ world = await page.evaluate(() => survey.world.cls.id);
 await page.click('#verdict-file');
 assert.equal(await shown('#files'), true, 'reading the file did not open it');
 assert.equal(await page.evaluate(() => location.hash.slice(1)), world);
+// Cover your tracks' other rounds. Sensors only: no picture, and no word on air, water or life, which are the files'
+// own. The other way: a file and four worlds, by their numbers alone. Neither changes how the streak is kept.
+{
+  const p = await ctx.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'survey.html#drill');
+  await p.waitForFunction(() => window.survey?.world);
+  await p.click('[data-round="sensors"]');
+  assert.equal(await p.evaluate(() => survey.world.kind), 'sensors');
+  assert.equal(await p.locator('#drill-view').isVisible(), false, 'sensors only showed the picture');
+  assert.deepEqual(await p.locator('#readings dt').allTextContents(), ['Width', 'Mass', await p.evaluate(() => (['J', 'T', 'hot-jupiter', 'ice-giant', 'sub-neptune'].includes(survey.world.cls.id) ? 'Temperature' : 'Surface')), 'Year']);
+  const streak0 = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.survey.v1')).streak);
+  await p.click(`#choices [data-id="${await p.evaluate(() => survey.world.cls.id)}"]`);
+  assert.match(await p.locator('#verdict-head').textContent(), /Record filed/);
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.survey.v1')).streak), streak0 + 1);
+  await p.click('[data-round="reverse"]');
+  const rev = await p.evaluate(() => ({ id: survey.world.cls.id, worlds: survey.world.worlds.map(w => w.cls.id) }));
+  assert.equal(await p.locator('#choices .choice').count(), 4);
+  assert.equal(await p.locator('#choices canvas').count(), 0, 'the other way round showed the worlds’ pictures, which match their files’');
+  assert.equal(await p.locator('#drill-view').isVisible(), false);
+  assert.match(await p.locator('#prompt').textContent(), /^Which of these worlds would pass for the .+ file\?$/);
+  const slip = rev.worlds.find(id => id !== rev.id);
+  await p.click(`#choices [data-id="${slip}"]`);
+  assert.match(await p.locator('#verdict-head').textContent(), /^That world wouldn’t pass for /);
+  assert.equal(await p.locator('#choices .right').getAttribute('data-id'), rev.id);
+  const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.survey.v1')));
+  assert.equal(saved.streak, 0);
+  assert.equal(saved.round, 'reverse', 'the round played last was not kept');
+  assert.ok(saved.mixed[`${slip}>${rev.id}`] >= 1, 'a slip the other way round went on the record the wrong way about');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the other way round scrolls sideways on a phone');
+
+  // Today's exam: the same five worlds for everyone today. It is left part-way and picked up again, then finished; it
+  // leaves the streak alone, and once it's done the page shows the result and the line to send, not another world.
+  const { exam: examFor, today: dayNow } = await import('../js/quiz.js');
+  const want = examFor(dayNow()).map(q => q.cls.id);
+  await p.click('[data-round="exam"]');
+  assert.equal(new URL(p.url()).hash, '#exam');
+  assert.equal(await p.locator('#exam-head').textContent(), 'Today’s exam · World 1 of 5');
+  const marks = [true, false, true, true, true];
+  const take = async right => {
+    const w = await p.evaluate(() => ({ id: survey.world.cls.id, offered: survey.world.kind === 'reverse' ? survey.world.worlds.map(x => x.cls.id) : survey.world.choices.map(x => x.id) }));
+    await p.click(`#choices [data-id="${right ? w.id : w.offered.find(id => id !== w.id)}"]`);
+    return w.id;
+  };
+  const got = [await take(true)];
+  await p.click('#drill-next');
+  got.push(await take(false));
+  {
+    const q = await ctx.newPage();
+    await q.goto(base + 'survey.html#exam');
+    await q.waitForFunction(() => window.survey?.world);
+    assert.equal(await q.locator('#exam-head').textContent(), 'Today’s exam · World 3 of 5', 'an exam left part-way started again');
+    await q.close();
+  }
+  for (const right of marks.slice(2)) { await p.click('#drill-next'); got.push(await take(right)); }
+  assert.deepEqual(got, want, 'today’s exam asked other worlds than everyone else’s');
+  assert.equal(await p.locator('#drill-next').textContent(), 'See how you did');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.survey.v1')).streak), 0, 'the exam counted on the streak');
+  await p.click('#drill-next');
+  assert.equal(await p.locator('#exam-result').isVisible(), true);
+  assert.equal(await p.locator('#drill-play').isVisible(), false);
+  assert.equal(await p.locator('#exam-score').textContent(), '4 of 5 filed');
+  assert.deepEqual(await p.locator('#exam-marks li').evaluateAll(l => l.map(x => x.className)), ['ok', 'bad', 'ok', 'ok', 'ok']);
+  assert.match(await p.locator('#exam-line').textContent(), /^Cover your tracks, \d+ [A-Z][a-z]{2}: 4 of 5 filed$/);
+  await p.reload();
+  await p.waitForFunction(() => window.survey);
+  assert.equal(await p.locator('#exam-result').isVisible(), true, 'a finished exam could be taken again');
+  await p.click('[data-round="files"]');
+  assert.equal(await p.evaluate(() => survey.world.kind), 'files');
+  assert.equal(await p.locator('#drill-view').isVisible(), true);
+  await p.close();
+}
+
 // A picture nobody can see isn't drawn. Five rooms animate a canvas, and each kept drawing it sixty times a second
 // with the canvas scrolled out of sight (a long file read to its end, the notebook under a viewscreen); the survey's
 // globe, painted pixel by pixel, kept a whole processor core busy that way. Each room now stops drawing while its

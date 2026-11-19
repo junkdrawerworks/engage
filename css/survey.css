@@ -87,6 +87,27 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .choice:disabled { cursor: default; opacity: 0.5; }
 .choice.right { opacity: 1; border-color: #6fe3a4; background: rgba(111, 227, 164, 0.1); }
 .choice.wrong { opacity: 1; border-color: #ff7a6b; background: rgba(255, 122, 107, 0.1); }
+/* The rounds: the quiz as it was, the numbers alone, the other way round, and today's exam. */
+.rounds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-width: 520px; margin: 4px auto 10px; }
+.rounds button { min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); font: 600 11px/1.1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+.rounds button[aria-pressed="true"] { border-color: rgba(255, 181, 74, 0.55); background: rgba(255, 181, 74, 0.12); color: var(--amber); }
+.exam-head { margin: 0 0 6px; text-align: center; font: 600 12px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); }
+.viewer.blind { display: grid; place-content: center; gap: 6px; width: 100%; min-height: 110px; border-radius: 18px; border: 1px dashed var(--line-strong); text-align: center; aspect-ratio: auto; }
+.viewer.blind[hidden] { display: none; }
+.viewer.blind::before, .viewer.blind::after { display: none; }
+.viewer.blind p:first-child { margin: 0; font: 600 18px/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.viewer.blind .tag { position: static; padding: 0 18%; text-transform: none; letter-spacing: 0.02em; font: 400 13px/1.35 var(--body, inherit); color: var(--muted); }
+.worlds-pick .c-sub { font-size: 13px; line-height: 1.45; text-align: left; font-variant-numeric: tabular-nums; }
+.worlds-pick .c-k { display: inline-block; width: 4.4em; font: 600 10px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.exam-result { max-width: 520px; margin: 8px auto 0; padding: 16px; border-radius: 18px; border: 1px solid var(--line-strong); background: var(--panel-solid); text-align: center; }
+.exam-score { margin: 4px 0 10px; font: 600 26px/1.1 var(--display); letter-spacing: 0.03em; }
+.exam-marks { list-style: none; margin: 0 0 10px; padding: 0; display: flex; justify-content: center; gap: 6px; }
+.exam-marks li { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; font: 600 16px/1 var(--display); }
+.exam-marks li.ok { border: 1px solid #6fe3a4; color: #6fe3a4; background: rgba(111, 227, 164, 0.1); }
+.exam-marks li.bad { border: 1px solid #ff7a6b; color: #ff7a6b; background: rgba(255, 122, 107, 0.1); }
+.exam-marks .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.exam-line { margin: 0 0 12px; color: #cdd5e3; }
+.exam-again { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
 .verdict { margin-top: 12px; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--line-strong); background: var(--panel-solid); }
 .verdict p { margin: 0 0 10px; color: #cdd5e3; }
 .verdict-head { font: 600 17px/1.25 var(--display); letter-spacing: 0.02em; }
@@ -122,6 +143,8 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
   .drill-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 24px; }
   .viewer.small { width: min(100%, 380px); }
   .choices { grid-template-columns: repeat(4, 1fr); }
+  .rounds { grid-template-columns: repeat(4, auto); justify-content: center; max-width: none; }
+  .viewer.blind { aspect-ratio: 1; border-radius: 50%; width: min(100%, 380px); }
   #drill { max-width: 900px; margin: 0 auto; }
 }
 

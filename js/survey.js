@@ -5,7 +5,7 @@ import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { Pace } from './pace.js';
-import { tallies, isFile, isSlip, record as onRecord, filesUsed, caughtOutLine } from './quiz.js';
+import { tallies, isFile, isSlip, record as onRecord, filesUsed, caughtOutLine, question, exam, EXAM, today, examLine, examSaved, ROUNDS } from './quiz.js';
 import { LIVE, share } from './share.js';
 import { planetByName, standable, systemFor } from './worlds.js';
 
@@ -30,14 +30,16 @@ let paintId = 0;
 
 // The quiz's streak, its best and how many worlds have been seen: whole numbers from nought up, or else nought. And
 // when the best was made (a moment in milliseconds, or nought), for the line the captain's log gives it. `filed` and
-// `mixed` are the files used and the slips made (js/quiz.js), which an older save doesn't have.
+// `mixed` are the files used and the slips made (js/quiz.js), `round` the round last played and `exam` today's exam
+// so far ({ day, marks }), none of which an older save has.
 function load() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* start again */ }
   if (!s || typeof s !== 'object') s = {};
   const count = x => (Number.isInteger(x) && x >= 0 ? x : 0);
   const streak = count(s.streak);
-  return { best: Math.max(count(s.best), streak), streak, seen: count(s.seen), bestAt: count(s.bestAt), filed: tallies(s.filed, isFile), mixed: tallies(s.mixed, isSlip) };
+  return { best: Math.max(count(s.best), streak), streak, seen: count(s.seen), bestAt: count(s.bestAt), filed: tallies(s.filed, isFile), mixed: tallies(s.mixed, isSlip),
+    round: ROUNDS.includes(s.round) || s.round === 'exam' ? s.round : 'files', exam: examSaved(s.exam) };
 }
 // Keeps the streak and the best. When the browser won't take them, a line under the score says so. Returns whether
 // it worked.
@@ -270,64 +272,103 @@ function buildStrip() {
 
 // ---------- Cover your tracks ----------
 
-const GROUPS = [
-  ['D', 'K', 'P', 'R'],
-  ['M', 'L', 'H', 'O', 'super-earth'],
-  ['N', 'Y', 'lava-world'],
-  ['J', 'T', 'hot-jupiter', 'ice-giant', 'sub-neptune'],
-];
-const groupOf = id => GROUPS.find(g => g.includes(id));
-const pick = list => list[Math.floor(Math.random() * list.length)];
-const shuffle = list => { for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; } return list; };
+// The round being played: one of ROUNDS (js/quiz.js), or 'exam', today's five worlds. `drill` is the question on
+// screen; in the exam, `examAt` is which of the five it is.
+let examAt = 0;
+const isExam = () => saved.round === 'exam';
 
 function newWorld() {
-  let c;
-  do c = pick(CLASSES); while (drill && c.id === drill.cls.id);
-  const world = {
-    cls: c,
-    seed: 1 + Math.floor(Math.random() * 9999),
-    ...quizReadings(c), // width, mass, temp and year
-    maps: {}, // its two painted maps, dropped with it
-    survey: `${pick(['Unlogged world', 'Unnamed planet', 'Uncharted world'])} · Sector ${100 + Math.floor(Math.random() * 900)}`,
-  };
-  // Three other files to choose from: at least one that's easy to confuse with it.
-  const near = shuffle(groupOf(c.id).filter(id => id !== c.id)).slice(0, 2);
-  const others = shuffle(CLASSES.map(x => x.id).filter(id => id !== c.id && !near.includes(id)));
-  world.choices = shuffle([c.id, ...near, ...others].slice(0, 4).map(id => byId.get(id)));
-  return world;
+  if (isExam()) {
+    const day = today();
+    if (saved.exam?.day !== day) { saved.exam = { day, marks: [] }; save(); }
+    examAt = saved.exam.marks.length;
+    if (examAt >= EXAM) return null;
+    return { ...exam(day)[examAt], maps: {} };
+  }
+  return { ...question(saved.round, Math.random, drill ? [drill.cls.id] : []), maps: {} };
 }
 
+const numbers = w => [
+  ['Width', widthText(w.width)],
+  ['Mass', massText(w.mass)],
+  [GAS.has(w.cls.art) && w.cls.art !== 'venus' ? 'Temperature' : 'Surface', tempText(w.temp, GAS.has(w.cls.art) && w.cls.art !== 'venus')],
+  ['Year', yearText(w.year)],
+];
+const PROMPTS = {
+  files: 'Which file would it pass for?',
+  sensors: 'Sensors only, no picture. Which file would it pass for?',
+};
+
 function renderDrill() {
+  document.querySelectorAll('[data-round]').forEach(b => b.setAttribute('aria-pressed', b.dataset.round === saved.round ? 'true' : 'false'));
+  $('exam-head').hidden = !isExam();
+  $('exam-result').hidden = true;
+  if (!drill) return renderExamResult();
+  $('drill-play').hidden = false;
   const w = drill;
   const c = w.cls, t = c.typical;
-  const gas = GAS.has(c.art) && c.art !== 'venus';
-  show(drillGlobe, c.art, w.seed, w.maps);
-  $('drill-tag').textContent = w.survey;
-  const rows = [
-    ['Width', widthText(w.width)],
-    ['Mass', massText(w.mass)],
-    [gas ? 'Temperature' : 'Surface', tempText(w.temp, gas)],
-    ['Year', yearText(w.year)],
-    ['Air', t.air],
-    ['Water', t.water],
-    ['Life', t.life],
-  ];
-  $('readings').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
-  $('choices').innerHTML = w.choices.map(x => `
-    <button class="choice" type="button" data-id="${esc(x.id)}">
-      <canvas width="112" height="112" aria-hidden="true"></canvas>
-      <span class="c-name">${esc(label(x))}</span>
-      <span class="c-sub">${esc(x.short)}</span>
-    </button>`).join('');
-  $('choices').querySelectorAll('.choice').forEach(b => {
-    const x = byId.get(b.dataset.id);
-    const g = new Globe(b.querySelector('canvas'));
-    g.setMap(mapFor(x.art, SEEDS[x.art] || 1, 128));
-    g.draw(0.8, 112);
-  });
+  if (isExam()) $('exam-head').textContent = `Today’s exam · World ${examAt + 1} of ${EXAM}`;
+  const reverse = w.kind === 'reverse', blind = w.kind === 'sensors';
+  // No picture with sensors only, nor the other way round, where the file's painting would match its world's.
+  $('drill-view').hidden = blind || reverse;
+  $('drill-blind').hidden = !(blind || reverse);
+  $('blind-head').textContent = reverse ? label(c) : 'No picture';
+  $('blind-text').textContent = reverse ? `${c.short}. Which world would pass for it? Go by the numbers.` : 'The cameras are down. Go by the numbers.';
+  if (reverse) {
+    // The file asked about, and the readings it allows.
+    $('sensor-head').textContent = `The ${label(c)} file`;
+    $('readings').innerHTML = [
+      ['Width', `${range(t.width, num)} × Earth`],
+      ['Mass', `${range(t.mass, num)} × Earth`],
+      [GAS.has(c.art) && c.art !== 'venus' ? 'Temperature' : 'Surface', tempText(t.temp, GAS.has(c.art) && c.art !== 'venus')],
+      ['Year', yearText(t.year)],
+    ].map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
+    $('prompt').textContent = `Which of these worlds would pass for the ${label(c)} file?`;
+    $('choices').className = 'choices worlds-pick';
+    // Four worlds by their numbers alone: width, mass, temperature and year.
+    const short = x => [['Width', `${num(x.width)} × Earth`], ['Mass', `${num(x.mass)} × Earth`], ['Temp', `${Math.round(x.temp).toLocaleString('en-US')} K`], ['Year', x.year ? days(x.year) : 'none']];
+    $('choices').innerHTML = w.worlds.map((x, k) => `
+      <button class="choice" type="button" data-id="${esc(x.cls.id)}" aria-label="World ${k + 1}: ${esc(numbers(x).map(([a, b]) => `${a} ${b}`).join(', '))}">
+        <span class="c-name">World ${k + 1}</span>
+        <span class="c-sub">${short(x).map(([a, v]) => `<span class="c-k">${a}</span> ${esc(v)}`).join('<br>')}</span>
+      </button>`).join('');
+  } else {
+    if (!blind) show(drillGlobe, c.art, w.seed, w.maps);
+    $('drill-tag').textContent = w.survey;
+    $('sensor-head').textContent = 'Sensor log';
+    // With sensors only there is no word on the air, water or life: the files' own words, they'd give it away.
+    const rows = blind ? numbers(w) : [...numbers(w), ['Air', t.air], ['Water', t.water], ['Life', t.life]];
+    $('readings').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
+    $('prompt').textContent = PROMPTS[w.kind];
+    $('choices').className = 'choices';
+    $('choices').innerHTML = w.choices.map(x => `
+      <button class="choice" type="button" data-id="${esc(x.id)}">
+        <canvas width="112" height="112" aria-hidden="true"></canvas>
+        <span class="c-name">${esc(label(x))}</span>
+        <span class="c-sub">${esc(x.short)}</span>
+      </button>`).join('');
+    $('choices').querySelectorAll('.choice').forEach(b => {
+      const x = byId.get(b.dataset.id);
+      const g = new Globe(b.querySelector('canvas'));
+      g.setMap(mapFor(x.art, SEEDS[x.art] || 1, 128));
+      g.draw(0.8, 112);
+    });
+  }
   $('verdict').hidden = true;
   $('prompt').hidden = false;
   $('drill-intro').hidden = saved.seen > 0;
+  renderScore();
+}
+
+// Today's exam, once its five worlds are filed: the score, a mark for each, and the line to send.
+function renderExamResult() {
+  $('drill-play').hidden = true;
+  $('exam-head').hidden = true;
+  const { day, marks } = saved.exam;
+  $('exam-result').hidden = false;
+  $('exam-score').textContent = `${marks.filter(Boolean).length} of ${EXAM} filed`;
+  $('exam-marks').innerHTML = marks.map((m, k) => `<li class="${m ? 'ok' : 'bad'}"><span aria-hidden="true">${m ? '✓' : '✗'}</span><span class="vh">World ${k + 1}: ${m ? 'filed' : 'caught'}</span></li>`).join('');
+  $('exam-line').textContent = examLine(day, marks);
   renderScore();
 }
 
@@ -336,15 +377,21 @@ function answer(id) {
   drill.answered = true;
   const c = drill.cls;
   const right = id === c.id;
+  const reverse = drill.kind === 'reverse';
   saved.seen++;
+  // Today's exam is its own score: it leaves the streak alone.
   const bestBefore = saved.best;
-  saved.streak = right ? saved.streak + 1 : 0;
-  saved.best = Math.max(saved.best, saved.streak);
-  if (saved.best > bestBefore) saved.bestAt = Date.now();
-  onRecord(saved, c.id, id);
+  if (isExam()) saved.exam.marks.push(right);
+  else {
+    saved.streak = right ? saved.streak + 1 : 0;
+    saved.best = Math.max(saved.best, saved.streak);
+    if (saved.best > bestBefore) saved.bestAt = Date.now();
+  }
+  // The other way round, a slip is the world picked filed under the file asked about.
+  if (reverse) onRecord(saved, id, c.id); else onRecord(saved, c.id, id);
   save();
   // A new best streak is said in the verdict, not left to the small score line under it.
-  const record = right && streakRecord(bestBefore, saved.streak);
+  const record = right && !isExam() && streakRecord(bestBefore, saved.streak);
   $('verdict-record').hidden = !record;
   $('verdict-record').textContent = record ? `Best streak yet: ${saved.streak}` : '';
   $('choices').querySelectorAll('.choice').forEach(b => {
@@ -353,15 +400,27 @@ function answer(id) {
     else if (b.dataset.id === id) b.classList.add('wrong');
   });
   const picked = byId.get(id);
-  $('verdict-head').textContent = right ? 'Record filed. Nobody will look twice.' : `That file wouldn’t fool anyone. It’s ${c.inText || label(c)}.`;
+  $('verdict-head').textContent = right ? 'Record filed. Nobody will look twice.'
+    : reverse ? `That world wouldn’t pass for ${label(c)}. It’s ${picked.inText || label(picked)}.`
+      : `That file wouldn’t fool anyone. It’s ${c.inText || label(c)}.`;
   $('verdict-head').className = `verdict-head ${right ? 'ok' : 'bad'}`;
-  $('verdict-text').textContent = right ? c.tell : `${c.tell} ${hint(picked)}.`;
+  $('verdict-text').textContent = right ? c.tell : reverse ? `${picked.tell} ${hint(c)}.` : `${c.tell} ${hint(picked)}.`;
   $('verdict-file').href = `#${c.id}`;
+  $('drill-next').textContent = isExam() && saved.exam.marks.length >= EXAM ? 'See how you did' : 'Next world';
   $('verdict').hidden = false;
   $('prompt').hidden = true;
   renderScore();
   $('drill-next').focus({ preventScroll: true });
   $('verdict').scrollIntoView({ block: 'nearest', behavior: still.matches ? 'auto' : 'smooth' });
+}
+
+function setRound(r) {
+  if (r === saved.round && drill && !drill.answered) return;
+  saved.round = r;
+  save();
+  drill = newWorld();
+  renderDrill();
+  try { history.replaceState(null, '', r === 'exam' ? '#exam' : '#drill'); } catch { /* fine */ }
 }
 
 // What the wrong pick would have needed to look like, in a few words.
@@ -436,7 +495,7 @@ function setMode(m, push = true) {
   } else if (m === 'drill') {
     if (!drill || drill.answered) drill = newWorld();
     renderDrill();
-    if (push) try { history.replaceState(null, '', '#drill'); } catch { /* fine */ }
+    if (push) try { history.replaceState(null, '', isExam() ? '#exam' : '#drill'); } catch { /* fine */ }
     document.title = 'Cover your tracks · Planetary survey · Engage';
   } else {
     openFile(at, push);
@@ -450,6 +509,7 @@ function hashText() {
 function fromHash() {
   const h = hashText();
   if (h === 'drill') return setMode('drill', false);
+  if (h === 'exam') { if (saved.round !== 'exam') { saved.round = 'exam'; drill = null; } return setMode('drill', false); }
   if (h === 'yours') return setMode('yours', false);
   const i = order.findIndex(c => c.id.toLowerCase() === h.toLowerCase());
   if (i >= 0) at = i;
@@ -462,6 +522,8 @@ function bind() {
   $('prev').addEventListener('click', () => openFile(at - 1));
   $('next').addEventListener('click', () => openFile(at + 1));
   $('choices').addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) answer(b.dataset.id); });
+  document.querySelectorAll('[data-round]').forEach(b => b.addEventListener('click', () => setRound(b.dataset.round)));
+  $('exam-share').addEventListener('click', e => share(e.currentTarget, { title: 'Cover your tracks, from Engage’s planetary survey', text: `${examLine(saved.exam.day, saved.exam.marks)}. Today’s five worlds in Engage’s planetary survey.`, url: `${LIVE}survey.html#exam` }));
   $('drill-next').addEventListener('click', () => { drill = newWorld(); renderDrill(); window.scrollTo({ top: 0, behavior: still.matches ? 'auto' : 'smooth' }); });
   $('verdict-file').addEventListener('click', e => {
     e.preventDefault();
@@ -527,4 +589,4 @@ bind();
 fromHash();
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, get world() { return drill; }, answer, get cached() { return maps.size; }, get draws() { return (globe.draws || 0) + (drillGlobe.draws || 0); }, get globeScale() { return pace.scale; } };
+window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, round: setRound, get world() { return drill; }, answer, get cached() { return maps.size; }, get draws() { return (globe.draws || 0) + (drillGlobe.draws || 0); }, get globeScale() { return pace.scale; } };

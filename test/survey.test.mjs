@@ -112,3 +112,41 @@ test('a restored copy adds its files used and slips without doubling them', () =
   const again = plan({ keys: { 'engage.survey.v1': theirs } }, { 'engage.survey.v1': merged }, 'add').write['engage.survey.v1'];
   assert.deepEqual([again.filed, again.mixed], [merged.filed, merged.mixed]);
 });
+
+// ---------- Cover your tracks: the rounds and today's exam ----------
+import { question, exam, examLine, examSaved, rng, ROUNDS, EXAM, GROUPS } from '../js/quiz.js';
+
+test('each round asks a fair question: four files, or four worlds of different files, with the answer among them', () => {
+  assert.deepEqual(ROUNDS, ['files', 'sensors', 'reverse']);
+  const r = rng(7);
+  for (let n = 0; n < 600; n++) {
+    const kind = ROUNDS[n % 3];
+    const q = question(kind, r, ['M']);
+    assert.notEqual(q.cls.id, 'M', 'a file it was told to avoid came up');
+    const offered = kind === 'reverse' ? q.worlds.map(w => w.cls.id) : q.choices.map(c => c.id);
+    assert.equal(new Set(offered).size, 4);
+    assert.ok(offered.includes(q.cls.id));
+    // At least one look-alike from its own group, so it can't be told by a glance at the kind of world.
+    assert.ok(offered.some(id => id !== q.cls.id && GROUPS.find(g => g.includes(q.cls.id)).includes(id)), `${kind} ${q.cls.id}: ${offered}`);
+    if (kind === 'reverse') for (const w of q.worlds) assert.ok(w.width > 0 && w.mass > 0 && w.temp > 0);
+    else assert.ok(q.width > 0 && q.seed >= 1 && q.seed <= 9999 && /Sector \d{3}$/.test(q.survey));
+  }
+});
+
+test('today’s exam is the same five worlds for everyone that day, each of a different file', () => {
+  const a = exam('2026-11-19'), b = exam('2026-11-19'), c = exam('2026-11-20');
+  assert.equal(a.length, EXAM);
+  assert.deepEqual(a.map(q => [q.kind, q.cls.id, q.seed, q.width]), b.map(q => [q.kind, q.cls.id, q.seed, q.width]));
+  assert.notDeepEqual(a.map(q => q.cls.id), c.map(q => q.cls.id));
+  for (const day of ['2026-11-19', '2026-11-20', '2027-01-01', '2026-02-28']) {
+    const e = exam(day);
+    assert.equal(new Set(e.map(q => q.cls.id)).size, 5, day);
+    assert.deepEqual(e.map(q => q.kind).sort(), ['files', 'files', 'reverse', 'sensors', 'sensors'], day);
+  }
+  assert.equal(examLine('2026-11-19', [true, false, true, true, true]), 'Cover your tracks, 19 Nov: 4 of 5 filed');
+});
+
+test('a saved exam that makes no sense is dropped', () => {
+  assert.deepEqual(examSaved({ day: '2026-11-19', marks: [true, false] }), { day: '2026-11-19', marks: [true, false] });
+  for (const bad of [null, 3, { day: 'today', marks: [] }, { day: '2026-11-19', marks: [1] }, { day: '2026-11-19', marks: [true, true, true, true, true, true] }, { day: '2026-11-19' }]) assert.equal(examSaved(bad), null);
+});
