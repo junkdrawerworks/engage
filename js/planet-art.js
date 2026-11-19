@@ -89,6 +89,17 @@ function tint(c, turn) {
 // colour [r,g,b], glow (light of its own, 0..1 as rgb), cloud cover 0..1.
 // `look` describes the sphere: atmosphere colour and thickness, light, cloud colour, and the halo.
 
+// Craters at three sizes: a dark floor, a bright rim. `k` thins them out.
+function craters(n, x, y, z, c, floor, rim, k = 1) {
+  for (const [f, a] of [[5, 1], [11, 0.8], [23, 0.5]]) {
+    const [d, s] = n.cell(x * f + f, y * f, z * f);
+    const r = (0.08 + s * 0.2) * k;
+    if (d < r) c = mix(c, hex(floor), (0.25 + 0.25 * (1 - d / r)) * a);
+    else if (d < r * 1.3) c = mix(c, hex(rim), 0.35 * a * (1 - (d - r) / (r * 0.3)));
+  }
+  return c;
+}
+
 const STYLES = {
   earth: {
     look: { atm: [110, 170, 255], atmK: 0.9, cloud: [255, 255, 255], spin: 1 },
@@ -355,6 +366,128 @@ const STYLES = {
           if (e < 1) c = mix(c, hex('#13275e'), smooth(1, 0.4, e));
           c = mix(c, hex('#eef6ff'), smooth(0.55, 0.75, n.fbm(x * 4, y * 18, z * 4, 3) + 0.2) * 0.8);
         }
+        return [c, null, 0];
+      };
+    },
+  },
+
+  // The survey's moons and dwarf planets (js/moons.js), each after the spacecraft pictures of it.
+  // Craters: dark floors and bright rims, at three sizes, as on the rocky planetoids.
+  moon: {
+    look: { atm: null, atmK: 0, cloud: [0, 0, 0], spin: 1 },
+    make(n) {
+      const pal = stops([[0, '#3a3a3c'], [0.5, '#8a8a88'], [1, '#c9c8c2']]);
+      return (x, y, z) => {
+        let c = ramp(pal, 0.6 + n.fbm(x * 2, y * 2, z * 2, 6) * 0.6);
+        c = mix(c, hex('#4b4b4e'), smooth(0.0, -0.25, n.fbm(x * 1.1 + 3, y * 1.1, z * 1.1, 4)) * 0.75); // the maria
+        c = craters(n, x, y, z, c, '#5a5a5c', '#e2e0da');
+        return [c, null, 0];
+      };
+    },
+  },
+  io: {
+    look: { atm: null, atmK: 0, cloud: [0, 0, 0], spin: 1 },
+    make(n) {
+      const pal = stops([[0, '#8a5a1c'], [0.35, '#d4a638'], [0.65, '#e9d27a'], [1, '#f4efd0']]);
+      return (x, y, z) => {
+        let c = ramp(pal, 0.5 + n.fbm(x * 2.2, y * 2.2, z * 2.2, 5) * 0.9);
+        c = mix(c, hex('#b8562a'), smooth(0.15, 0.4, n.fbm(x * 3 + 7, y * 3, z * 3, 4)) * 0.6);
+        c = mix(c, hex('#7a3a20'), smooth(0.65, 0.9, Math.abs(y)) * 0.5); // the redder poles
+        const [d, k] = n.cell(x * 6, y * 6, z * 6); // volcanoes: black calderas in rings of red and white
+        if (d < 0.14 + k * 0.08) c = mix(c, hex('#1c1410'), 0.85);
+        else if (d < 0.3 + k * 0.1) c = mix(c, k > 0.5 ? hex('#c0402a') : hex('#f6f2e4'), 0.4);
+        return [c, null, 0];
+      };
+    },
+  },
+  europa: {
+    look: { atm: null, atmK: 0, cloud: [0, 0, 0], spin: 1 },
+    make(n) {
+      return (x, y, z) => {
+        let c = mix(hex('#cdbfa8'), hex('#f1ece2'), smooth(-0.4, 0.4, n.fbm(x * 2, y * 2, z * 2, 5)));
+        c = mix(c, hex('#a8835e'), smooth(0.2, 0.5, n.fbm(x * 3 + 4, y * 3, z * 3, 4)) * 0.5);
+        // The cracks: long reddish-brown bands.
+        const crack = Math.max(smooth(0.72, 0.9, n.ridged(x * 2.5, y * 2.5, z * 2.5, 3) / 0.95), smooth(0.8, 0.95, n.ridged(x * 6 + 9, y * 6, z * 6, 2) / 0.95) * 0.7);
+        c = mix(c, hex('#8a4a2c'), crack * 0.75);
+        return [c, null, 0];
+      };
+    },
+  },
+  ganymede: {
+    look: { atm: null, atmK: 0, cloud: [0, 0, 0], spin: 1 },
+    make(n) {
+      return (x, y, z) => {
+        const old = smooth(0.05, -0.15, n.fbm(x * 1.4, y * 1.4, z * 1.4, 5));
+        const grooves = Math.sin((x * 20 + z * 12 + n.fbm(x * 2, y * 2, z * 2, 3) * 8)) * 0.5 + 0.5;
+        let c = mix(mix(hex('#9a8f80'), hex('#c8c0b2'), grooves * 0.5), hex('#4e4438'), old);
+        c = mix(c, hex('#e8e6e2'), smooth(0.78, 0.9, Math.abs(y)) * 0.6); // frosty poles
+        c = craters(n, x, y, z, c, '#3e362e', '#f0ece6', 0.6);
+        return [c, null, 0];
+      };
+    },
+  },
+  titan: {
+    look: { atm: [235, 165, 80], atmK: 1.3, cloud: [0, 0, 0], spin: 0.4 },
+    make(n) {
+      const pal = stops([[0, '#8a5a24'], [0.5, '#c68a3c'], [1, '#e2b066']]);
+      return (x, y, z) => {
+        const w = n.fbm(x * 1.2, y * 2.5, z * 1.2, 4);
+        let c = ramp(pal, 0.5 + w * 0.3 + n.fbm(x * 2, y * 2, z * 2, 3) * 0.15);
+        c = mix(c, hex('#6e4a22'), smooth(0.62, 0.8, y) * 0.45); // the darker hood over the north pole
+        return [c, null, 0];
+      };
+    },
+  },
+  enceladus: {
+    look: { atm: null, atmK: 0, cloud: [0, 0, 0], spin: 1 },
+    make(n) {
+      return (x, y, z) => {
+        let c = mix(hex('#dfe8ee'), hex('#fbfdff'), smooth(-0.4, 0.4, n.fbm(x * 2, y * 2, z * 2, 5)));
+        c = craters(n, x, y, z, c, '#c4ced6', '#ffffff', 0.5);
+        // The "tiger stripes" near the south pole: four long blue-grey cracks.
+        const stripe = y < -0.55 ? smooth(0.8, 0.95, Math.cos((x * 9 + z * 3 + n.fbm(x * 3, y * 3, z * 3, 2) * 1.5) * Math.PI) ) : 0;
+        c = mix(c, hex('#7f9fb4'), stripe * smooth(-0.55, -0.7, y) * 0.8);
+        return [c, null, 0];
+      };
+    },
+  },
+  triton: {
+    look: { atm: null, atmK: 0, cloud: [0, 0, 0], spin: 1 },
+    make(n) {
+      return (x, y, z) => {
+        // "Cantaloupe" ground in the north, a pinkish cap of frost in the south with dark streaks.
+        let c = mix(hex('#b8b0a6'), hex('#d8d2c6'), smooth(-0.3, 0.3, n.fbm(x * 6, y * 6, z * 6, 4)));
+        const cap = smooth(0.0, -0.25, y + n.fbm(x * 2, y * 2, z * 2, 3) * 0.15);
+        c = mix(c, hex('#ead2c4'), cap);
+        c = mix(c, hex('#5e5048'), cap * smooth(0.55, 0.8, n.fbm(x * 9 + 3, y * 2, z * 9, 3)) * 0.7);
+        return [c, null, 0];
+      };
+    },
+  },
+  ceres: {
+    look: { atm: null, atmK: 0, cloud: [0, 0, 0], spin: 1 },
+    make(n) {
+      const pal = stops([[0, '#2a2928'], [0.5, '#4f4d4a'], [1, '#7a7773']]);
+      return (x, y, z) => {
+        let c = ramp(pal, 0.55 + n.fbm(x * 2, y * 2, z * 2, 6) * 0.7);
+        c = craters(n, x, y, z, c, '#222120', '#8e8a84');
+        // Occator's bright salt.
+        const d = Math.hypot(x - 0.55, y - 0.35, z - 0.76);
+        if (d < 0.05) c = mix(c, hex('#f4f2ec'), smooth(0.05, 0.015, d));
+        return [c, null, 0];
+      };
+    },
+  },
+  pluto: {
+    look: { atm: [120, 170, 255], atmK: 0.25, cloud: [0, 0, 0], spin: 1 },
+    make(n) {
+      const pal = stops([[0, '#3a2418'], [0.4, '#8a5a3a'], [0.75, '#c49a72'], [1, '#e8d6bc']]);
+      return (x, y, z) => {
+        let c = ramp(pal, 0.55 + n.fbm(x * 2, y * 2, z * 2, 5) * 0.8);
+        c = mix(c, hex('#2e1a12'), smooth(-0.15, -0.45, y + n.fbm(x * 3, y * 3, z * 3, 3) * 0.2) * 0.7); // the dark belt
+        // The heart: a pale plain of nitrogen ice, two lobes.
+        const h = Math.min(Math.hypot(x - 0.25, y - 0.1, z - 0.96), Math.hypot(x - 0.55, y + 0.05, z - 0.83) * 1.2);
+        c = mix(c, hex('#f2ece2'), smooth(0.42, 0.3, h + n.fbm(x * 5, y * 5, z * 5, 3) * 0.08));
         return [c, null, 0];
       };
     },

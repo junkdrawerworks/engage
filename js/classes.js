@@ -22,6 +22,7 @@
 // The giants have none because no "if it is rock" width can be worked out for them.
 
 import { massFor } from './physics.js';
+import { MOONS } from './moons.js';
 
 export const CLASSES = [
   {
@@ -275,10 +276,13 @@ export const grows = w => !!w && w.mass > 0 && w.teq > 0 && !!w.sun;
 // A real world by its name, with the file it is on: { world, cls }. Capitals and the kind of apostrophe don't matter,
 // since the name travels in links.
 const plain = s => String(s).toLowerCase().replace(/[’']/g, "'").trim();
+// Europa and Enceladus, from the survey's moons (js/moons.js), are found by name too, with the file they'd be filed
+// under, so the lab can grow for them.
 export function worldByName(name) {
   const n = plain(name);
   for (const cls of CLASSES) for (const world of cls.worlds) if (plain(world.name) === n) return { world, cls };
-  return null;
+  const moon = MOONS.find(m => grows(m) && plain(m.name) === n);
+  return moon ? { world: moon, cls: byId.get(moon.cls) } : null;
 }
 // Every world the lab grows for: [{ world, cls }].
 export const LAB_WORLDS = CLASSES.flatMap(cls => cls.worlds.filter(grows).map(world => ({ world, cls })));

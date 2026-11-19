@@ -1,5 +1,6 @@
 // The planetary survey: flip through the planet classes, or match an unlogged world to the file it would pass for.
 import { CLASSES, byId, label, quizReadings, grows, streakRecord } from './classes.js';
+import { MOONS } from './moons.js';
 import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -93,7 +94,8 @@ const GAS = new Set(['jovian', 'ultra', 'subneptune', 'hotjupiter', 'icegiant', 
 
 // ---------- Survey files ----------
 
-const order = CLASSES;
+// The planet classes, then the moons and dwarf planets (js/moons.js), which Cover your tracks leaves out.
+const order = [...CLASSES, ...MOONS];
 const maps = new Map(); // `${art}:${seed}:${w}` → map
 
 function mapFor(art, seed, w) {
@@ -123,17 +125,19 @@ async function show(target, art, seed, holder = null) {
   if (map) { maps.set(sharp, map); target.setMap(map); }
 }
 
-const SEEDS = { earth: 3, forest: 2, mars: 1, desert: 1, venus: 1, ocean: 2, ice: 1, rock: 2, demon: 1, jovian: 1, ultra: 1, rogue: 1, superearth: 1, subneptune: 1, lava: 1, hotjupiter: 1, icegiant: 4 };
+const SEEDS = { earth: 3, forest: 2, mars: 1, desert: 1, venus: 1, ocean: 2, ice: 1, rock: 2, demon: 1, jovian: 1, ultra: 1, rogue: 1, superearth: 1, subneptune: 1, lava: 1, hotjupiter: 1, icegiant: 4, moon: 2, io: 3, europa: 2, ganymede: 1, titan: 1, enceladus: 1, triton: 2, ceres: 1, pluto: 1 };
 
 function openFile(i, push = true) {
   at = (i + order.length) % order.length;
   const c = order[at];
   show(globe, c.art, SEEDS[c.art] || 1);
-  $('badge').innerHTML = c.letter
-    ? `<span class="badge-k">Class</span><span class="badge-l">${esc(c.letter)}</span>`
-    : '<span class="badge-k">No Starfleet</span><span class="badge-k">letter</span>';
+  $('badge').innerHTML = c.of !== undefined
+    ? `<span class="badge-k">Filed as</span><span class="badge-l">${esc(byId.get(c.cls).letter)}</span>`
+    : c.letter
+      ? `<span class="badge-k">Class</span><span class="badge-l">${esc(c.letter)}</span>`
+      : '<span class="badge-k">No Starfleet</span><span class="badge-k">letter</span>';
   $('counter').textContent = `File ${at + 1} of ${order.length}`;
-  $('file').innerHTML = fileHtml(c);
+  $('file').innerHTML = c.of !== undefined ? moonHtml(c) : fileHtml(c);
   document.querySelectorAll('#strip .chip').forEach((b, k) => {
     b.setAttribute('aria-current', k === at ? 'true' : 'false');
     if (k === at) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: still.matches ? 'auto' : 'smooth' });
@@ -193,14 +197,52 @@ function fileHtml(c) {
   `;
 }
 
+// A moon's or dwarf planet's file: its own readings, the class it would be filed under and why, and the lab.
+const moonWidth = m => `${m.km.toLocaleString('en-US')} km across (${num(m.width)} × Earth)`;
+const moonMass = m => `${Number(m.mass.toPrecision(2))} × Earth`;
+const signed = x => `${x < 0 ? '−' : ''}${Math.abs(x)}`;
+const moonTemp = ([a, b]) => (a === b ? tempText(a) : `${a}–${b} K (${signed(celsius(a))} to ${signed(celsius(b))} °C)`);
+function moonHtml(m) {
+  const cls = byId.get(m.cls);
+  const rows = [
+    ['Width', moonWidth(m)],
+    ['Mass', moonMass(m)],
+    ['Gravity', `${num(m.mass / m.width ** 2)} × Earth’s`],
+    ['Surface', moonTemp(m.temp)],
+    m.of ? ['Orbit', `Round ${m.of} every ${m.orbit < 10 ? `${m.orbit.toFixed(1)} days` : days(m.orbit)}`] : ['Year', days(m.year)],
+    ['Air', m.air],
+    ['Water', m.water],
+    ['Life', m.life],
+  ];
+  const life = grows(m)
+    ? `<a class="fly" href="${XENO}#world=${encodeURIComponent(m.name)}"${AWAY}>Grow a creature for ${esc(m.name)} <span aria-hidden="true">→</span></a>`
+    : m.id === 'titan'
+      ? '<p class="none">Life in Titan’s seas would be made of methane, not water, and the lab has no rules for that yet.</p>'
+      : `<a class="fly" href="${XENO}#${esc(cls.id)}"${AWAY}>Grow a creature for ${esc(label(cls))} <span aria-hidden="true">→</span></a>`;
+  return `
+    <p class="eyebrow">${m.of ? `A moon of ${esc(m.of)}` : 'A dwarf planet'}</p>
+    <h2>${esc(m.name)}</h2>
+    <p class="real">${esc(m.short)}</p>
+    <p class="about">${esc(m.about)}</p>
+    <dl class="readings">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+    <h3>Starfleet would file it as</h3>
+    <p>${esc(m.fits)}</p>
+    <a class="fly" href="#${esc(cls.id)}">Read the ${esc(label(cls))} file <span aria-hidden="true">→</span></a>
+    <h3>Life</h3>
+    ${life}
+    <p class="share-row"><button class="text-button" type="button" data-share>Share this file</button></p>
+  `;
+}
+
 function buildStrip() {
   const strip = $('strip');
   let html = '';
   order.forEach((c, k) => {
     if (k === 0) html += '<p class="strip-group">Starfleet</p>';
     if (!c.letter && order[k - 1]?.letter) html += '<p class="strip-group">Real, unnamed</p>';
+    if (c.of !== undefined && order[k - 1]?.of === undefined) html += '<p class="strip-group">Moons and dwarf planets</p>';
     html += `<button class="chip" type="button" data-i="${k}" aria-label="${esc(label(c))}: ${esc(c.short)}">
-      <canvas width="96" height="96" aria-hidden="true"></canvas><span>${esc(c.letter || c.name)}</span></button>`;
+      <canvas width="96" height="96" aria-hidden="true"></canvas><span>${esc(c.letter || c.name.replace(/^The /, ''))}</span></button>`;
   });
   strip.innerHTML = html;
   strip.addEventListener('click', e => {

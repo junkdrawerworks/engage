@@ -237,7 +237,8 @@ function make(classId, seed, world) {
 
 // The field notes of a creature grown for a real planet: the same four, each opening with what is measured and what
 // is the lab's guess, and a fifth with what the survey file says of the planet itself.
-const fig = x => String(Math.round(x * 100 + 1e-6) / 100);
+// (Under a hundredth, two figures: Enceladus is 0.000018 times as heavy as Earth, not 0.)
+const fig = x => (x < 0.01 ? String(Number(x.toPrecision(2))) : String(Math.round(x * 100 + 1e-6) / 100));
 const fileOf = cls => (cls.letter ? label(cls) : cls.name.toLowerCase());
 function worldNotes(c) {
   const { world: w, env, cls } = c;
@@ -252,10 +253,14 @@ function worldNotes(c) {
       return { ...n, text: `How much air ${w.name} has isn’t known, so the lab used the ${fileOf(cls)} file’s. ${n.text}` };
     }
     if (n.k === 'heat') {
-      const lead = env.habitat === 'under-ice' ? `Its star’s light alone would warm ${w.name} to ${tempText(w.teq)}, so the lab froze its sea over.`
+      const lead = env.habitat === 'under-ice' ? `${w.of ? 'The Sun’s' : 'Its star’s'} light alone would warm ${w.name} to ${tempText(w.teq)}, so the lab froze its sea over.`
         : `The lab took the temperature its star’s light alone would give ${w.name}${env.pressure >= 0.1 ? '; air would add to that, as Earth’s adds more than 30 degrees' : ''}.`;
-      return { ...n, text: `${lead} ${n.text}` };
+      // A moon's sea is kept warm mostly by its planet's tides, not by a core of its own.
+      const text = w.of ? n.text.replace('heat from the planet’s core', `heat from inside it, where ${w.of}’s tides knead it`) : n.text;
+      return { ...n, text: `${lead} ${text}` };
     }
+    // And a moon goes round its planet, and the planet round the Sun itself.
+    if (n.k === 'light' && w.of) return { ...n, text: n.text.replace(/^Its world circles a yellow star like the Sun,/, `${w.name} circles ${w.of}, and ${w.of} the Sun,`) };
     return n;
   }), { k: 'known', label: 'What we really know', text: w.note }];
 }

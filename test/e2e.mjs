@@ -1083,6 +1083,31 @@ await bridgeReady();
 assert.equal(await text('#target-name'), 'Proxima Centauri', 'set course did not choose the star');
 assert.equal(new URL(page.url()).search, '', 'the course link stayed in the address');
 
+// Moons and dwarf planets are a third group of files: Europa has its real readings, the class it would be filed under,
+// that class's file a tap away, and a creature grown under its ice. Titan, whose seas are methane, has none yet.
+await page.goto(base + 'survey.html#europa');
+await page.waitForFunction(() => window.survey && document.querySelector('#file h2'));
+assert.equal(await text('#file h2'), 'Europa');
+assert.equal(await text('#counter'), 'FILE 20 OF 26');
+assert.equal(await page.locator('#badge').innerText(), 'FILED AS\nP');
+assert.deepEqual(await page.locator('#strip .strip-group').allInnerTexts(), ['STARFLEET', 'REAL, UNNAMED', 'MOONS AND DWARF PLANETS']);
+assert.match(await text('#file .readings'), /3,122 km across/);
+assert.match(await text('#file .readings'), /Round Jupiter every 3\.6 days/);
+assert.equal(await page.title(), 'Europa · Planetary survey · Engage');
+await page.locator('#file a', { hasText: 'Read the Class P file' }).click();
+await page.waitForFunction(() => /Class P/.test(document.querySelector('#file h2').textContent));
+await page.goto(base + 'survey.html#titan');
+await page.waitForFunction(() => document.querySelector('#file h2')?.textContent === 'Titan');
+assert.match(await text('#file .readings'), /94 K \(−179 °C\)/);
+assert.equal(await page.locator('#file a', { hasText: 'Grow a creature' }).count(), 0, 'Titan grows a creature from rules for water');
+assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a moon’s file scrolls sideways on a phone');
+await page.goto(base + 'survey.html#enceladus');
+await page.waitForFunction(() => document.querySelector('#file h2')?.textContent === 'Enceladus');
+await Promise.all([page.waitForNavigation(), page.locator('#file a', { hasText: 'Grow a creature for Enceladus' }).click()]);
+await page.waitForFunction(() => window.xeno?.current);
+assert.deepEqual(await page.evaluate(() => [xeno.current.world?.name, xeno.current.env.habitat]), ['Enceladus', 'under-ice']);
+assert.match(await text('#specimen'), /Enceladus circles Saturn/);
+
 await page.goto(base + 'survey.html#drill');
 await page.waitForFunction(() => window.survey?.world);
 let world = await page.evaluate(() => survey.world.cls.id);
@@ -1099,6 +1124,7 @@ assert.match(await text('#score'), /streak 0 · best 1/i);
 // kept for good stay at the 17 survey files' own (two sizes each) however long the quiz runs.
 for (let n = 0; n < 60; n++) {
   await page.click('#drill-next');
+  assert.equal(await page.evaluate(() => [survey.world.cls, ...survey.world.choices].some(c => c.of !== undefined)), false, 'a moon came up in Cover your tracks');
   await page.evaluate(() => survey.answer(survey.world.cls.id));
   if (n % 20 === 0) await page.waitForTimeout(400); // let a sharp map finish painting now and then, as it would at a person's pace
 }
