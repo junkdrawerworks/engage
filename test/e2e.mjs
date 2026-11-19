@@ -5352,6 +5352,8 @@ await page.emulateMedia({ reducedMotion: null });
   await p.evaluate(() => systemView.place(3));
   assert.equal(await p.locator('#place-filed').innerText(), 'It would go on the Class P file: frozen over.');
   assert.equal(await p.locator('#place-links a').first().getAttribute('href'), 'survey.html#P');
+  // The slider's lit track ends at its thumb, as the warp slider's does, not at the stylesheet's default.
+  assert.equal(await p.locator('#place-au').evaluate(el => el.style.getPropertyValue('--fill')), `${Number(await p.locator('#place-au').inputValue()) / 10}%`);
   // A star with no known planets still takes a placed one, from the log's link.
   await p.goto(base + 'system.html#star=Vega&place');
   await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Vega');

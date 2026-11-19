@@ -329,6 +329,7 @@ function renderPlace() {
   $('place-lead').textContent = `Put a planet anywhere round ${view.title} and see what the survey would make of it. Here a planet gets the sunlight Earth does ${auText(Math.sqrt(view.star.lum))} out.`;
   $('place-out').textContent = auText(au);
   $('place-au').value = String(Math.round(view.t));
+  $('place-au').style.setProperty('--fill', `${Math.round(view.t) / 10}%`); // the lit part of the track ends at the thumb
   $('place-au').setAttribute('aria-valuetext', `${auText(au)} from ${view.title}`);
   if (!$('sizes').querySelector('input')) {
     $('sizes').insertAdjacentHTML('beforeend', SIZES.map(s => `<label><input type="radio" name="size" value="${s.id}"${s.id === view.size ? ' checked' : ''}><span>${esc(s.name)}</span></label>`).join(''));
