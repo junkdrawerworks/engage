@@ -144,6 +144,12 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .row .meta { grid-column: 1 / -1; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row.here .dist { color: var(--amber); }
 .row .dist.unmeasured { font: 400 12px/1 var(--body); color: var(--muted); }
+/* A voyage in Set course: its stops in full, wrapped, and the one under way marked. */
+.row.voyage .stops { white-space: normal; line-height: 1.4; }
+.row.voyage .stops span { white-space: nowrap; }
+.row.voyage .stops .flown { color: var(--dim); text-decoration: line-through; text-decoration-color: rgba(147, 160, 184, 0.5); }
+.row.voyage.on .name { color: var(--amber); }
+.leave-voyage { font-size: 13px; min-height: 44px; }
 .empty { color: var(--muted); padding: 16px 4px; }
 
 .stats { margin: 0 0 4px; color: var(--muted); font-size: 14px; flex: none; }
@@ -263,6 +269,10 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .arrival .entry .typed { white-space: pre-wrap; }
 .arrival-actions { display: flex; gap: 10px; padding-top: 12px; flex: none; }
 .arrival-actions button { flex: 1; }
+/* On a voyage the main button names the next leg, on two lines: how far, then the star. */
+.arrival-actions .leg { height: auto; min-height: 48px; padding: 6px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; }
+.arrival-actions .leg .leg-of { font-size: 10px; letter-spacing: 0.14em; opacity: 0.78; }
+.arrival-actions .leg .leg-to { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .primary, .secondary { height: 48px; border-radius: 14px; font: 600 15px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; padding: 0 16px; }
 .primary { border: 0; color: #1d1204; background: linear-gradient(180deg, #ffd08a, var(--amber) 45%, var(--amber-deep)); }
 .secondary { border: 1px solid rgba(255, 210, 122, 0.45); color: var(--sun); background: transparent; }

@@ -827,6 +827,76 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   await page.click('#clear-log');
 }
 
+// Voyages: named routes at the top of Set course, each with its stops, how far and how long at the helm's warp.
+// Taking one sets course for its first stop; each arrival on it says its leg in the log, the main button names the
+// next leg and sets course for it at once, a detour leaves the voyage waiting, and the last leg ticks it off.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await ctx2.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#intro-go');
+  await p.evaluate(() => engage.speed(30));
+  await p.tap('#choose');
+  assert.equal(await p.locator('#list .group').first().innerText(), 'VOYAGES');
+  const first = p.locator('#list [data-voyage="neighbours"]');
+  assert.match(await first.innerText(), /The neighbours[\s\S]*Proxima Centauri · Alpha Centauri · Barnard’s Star · Wolf 359 · Lalande 21185 · Sirius · Sol[\s\S]*7 stops · .* at warp 9/);
+  await first.tap();
+  assert.ok(await p.locator('#picker').evaluate(el => el.hidden));
+  assert.equal(await p.locator('#target-name').innerText(), 'Proxima Centauri');
+  assert.equal(await p.locator('#target-sub').innerText(), 'The neighbours · leg 1 of 7');
+  const arrive = async () => { await p.tap('#engage'); await p.waitForFunction(() => !document.getElementById('arrival').hidden && !engage.trip, null, { timeout: 30000 }); };
+  await arrive();
+  assert.match(await p.locator('#arrival-entry').innerText(), /VOYAGE\s+Leg 1 of 7 of The neighbours\. Next, Alpha Centauri\./);
+  assert.equal(await p.locator('#arrival-next').getAttribute('aria-label'), 'Next leg: Alpha Centauri (0.19 ly)');
+  // On two lines that each fit: how far, then the star.
+  assert.deepEqual(await p.locator('#arrival-next > span').allInnerTexts(), ['NEXT LEG · 0.19 LY', 'ALPHA CENTAURI']);
+  assert.ok(await p.locator('#arrival-next .leg-to').evaluate(el => el.scrollWidth <= el.clientWidth));
+  await p.tap('#arrival-next');
+  assert.ok(await p.locator('#arrival').evaluate(el => el.hidden) && await p.locator('#picker').evaluate(el => el.hidden), 'Next leg opened a sheet');
+  assert.equal(await p.locator('#target-name').innerText(), 'Alpha Centauri');
+  // A detour: Vega instead. The voyage waits, and the button still names the next leg, from here.
+  await p.evaluate(() => engage.target('Vega'));
+  await arrive();
+  assert.doesNotMatch(await p.locator('#arrival-entry').innerText(), /Leg \d/);
+  assert.match(await p.locator('#arrival-next').getAttribute('aria-label'), /^Next leg: Alpha Centauri \(26\.9 ly\)$/);
+  // Set course shows it under way: the leg next, the stop flown struck through, the rest of the way, and a way out.
+  await p.tap('#arrival .close');
+  await p.tap('#choose');
+  assert.match(await p.locator('#list [data-voyage="neighbours"] .name').innerText(), /leg 2 of 7/);
+  assert.deepEqual(await p.locator('#list [data-voyage="neighbours"] .stops .flown').allInnerTexts(), ['Proxima Centauri ·']);
+  assert.match(await p.locator('#list [data-voyage="neighbours"] .meta:not(.stops)').innerText(), /^The rest · /);
+  assert.equal(await p.locator('#list [data-leave]').innerText(), 'Leave The neighbours');
+  await p.locator('#list [data-voyage="neighbours"]').tap();
+  assert.equal(await p.locator('#target-name').innerText(), 'Alpha Centauri');
+  // The rest of the way, leg by leg: each arrival moves it on, the last flies it and ticks it off.
+  for (let leg = 2; leg <= 7; leg++) {
+    await arrive();
+    assert.match(await p.locator('#arrival-entry dl').innerText(), new RegExp(`^VOYAGE\\s+Leg ${leg} of 7`));
+    if (leg < 7) await p.tap('#arrival-next');
+  }
+  assert.match(await p.locator('#arrival-entry').innerText(), /Leg 7 of 7: The neighbours is flown\./);
+  assert.ok((await p.locator('#arrival-entry .firsts span').allInnerTexts()).includes('Voyage flown: The neighbours'));
+  assert.equal(await p.locator('#arrival-next').innerText(), 'NEXT DESTINATION');
+  assert.equal(await p.evaluate(() => engage.state.voyage), null);
+  assert.ok(!('voyage' in JSON.parse(await p.evaluate(() => localStorage.getItem('engage.v1')))), 'a flown voyage was kept as under way');
+  assert.equal(await p.evaluate(() => engage.state.at), 0, 'the neighbours did not end at home');
+  await p.tap('#arrival-next');
+  assert.match(await p.locator('#list [data-voyage="neighbours"] .name').innerText(), /flown/);
+  // Under way, it is kept across a reload; Leave takes it away and keeps the course.
+  await p.locator('#list [data-voyage="atlas"]').tap();
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await p.locator('#target-sub').innerText(), 'Starfleet’s atlas · leg 1 of 6');
+  await p.tap('#choose');
+  await p.tap('#list [data-leave]');
+  assert.equal(await p.evaluate(() => engage.state.voyage), null);
+  assert.equal(await p.locator('#list [data-leave]').count(), 0);
+  assert.equal(await p.locator('#target-name').innerText(), '40 Eridani');
+  await ctx2.close();
+}
+
 // The planetary survey: flip through the files, set course from one, and play the drill.
 await page.goto(base + 'survey.html#K');
 await page.waitForFunction(() => window.survey);

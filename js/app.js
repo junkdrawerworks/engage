@@ -15,6 +15,7 @@ import { linesForVisit, readContacts } from './contacts.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
 import { cleanName, cleanRegistry, fullName, shipOf, withRegistry } from './myship.js';
 import { carried, contents, fileName, fromRaw, jarsLeft, pack, plan, rawOf, unpack } from './records.js';
+import { VOYAGES, arrivedAt, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from './voyages.js';
 import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, story, supplementals } from './voyage.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
@@ -54,6 +55,7 @@ function defaults() {
   return {
     at: 0, offset: homeOffset(), yaw: START_YAW, pitch: START_PITCH, fov: 60 * DEG,
     target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, sound: true, clock: false }, seenIntro: false, ship: null,
+    voyage: null, // the voyage under way, if one is (see js/voyages.js)
   };
 }
 
@@ -93,6 +95,7 @@ function tidy() {
   if (!(num(state.ly) && state.ly >= 0)) state.ly = state.log.reduce((sum, e) => sum + (num(e.ly) ? e.ly : 0), 0);
   for (const k of Object.keys(d.opts)) if (typeof state.opts[k] !== 'boolean') state.opts[k] = d.opts[k];
   state.ship = shipOf(state); // her name and registry, from Bridge settings, or null
+  state.voyage = tidyVoyage(state.voyage);
 }
 
 // Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
@@ -102,8 +105,8 @@ function tidy() {
 let unsaved = null;
 function save() {
   viewMoved = false;
-  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship } = state;
-  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}) }) || null;
+  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage } = state;
+  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}) }) || null;
   return !unsaved;
 }
 
@@ -158,6 +161,7 @@ function unsavedNote(id, full, blocked) {
 }
 
 const starPos = i => [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]];
+const findStar = name => cat.byName.get(name);
 const camAbs = () => (trip ? trip.cam : starPos(state.at).map((v, k) => v + state.offset[k]));
 const holdAU = i => notesFor(cat, i)?.hold?.au ?? holdDistanceAU(cat.radius[i]);
 // How far from star i the ship stops (parsecs), coming from `dStar` away: its usual holding distance, or where the
@@ -481,7 +485,9 @@ function showTarget() {
     sub.textContent = 'Tap a star on the viewscreen, or pick from the list';
   } else {
     name.textContent = titleFor(cat, i);
-    sub.textContent = metaFor(i);
+    // The next leg of a voyage under way says so, in place of what kind of star it is.
+    const v = state.voyage && i === nextStop(state.voyage, findStar) ? voyageById(state.voyage.id) : null;
+    sub.textContent = v ? `${v.name} · leg ${state.voyage.leg + 1} of ${v.stops.length}` : metaFor(i);
   }
   $('engage').disabled = i == null || !!trip;
   updateTrip();
@@ -721,6 +727,15 @@ function arrive() {
   // Each entry carries the moment of arrival, in milliseconds: a date of its own, and a name no other entry has.
   entry.id = Date.now();
   while (state.log.some(e => e.id === entry.id)) entry.id++;
+  // The stop a voyage was bound for: the entry says which leg this was, and the voyage goes on to the next one, or
+  // is flown. Anywhere else is a detour, and the voyage waits.
+  const leg = arrivedAt(state.voyage, T.i, findStar);
+  if (leg) {
+    state.voyage = leg.voyage;
+    entry.voyage = leg.tag;
+    const next = leg.voyage ? nextStop(leg.voyage, findStar) : null;
+    entry.sections.unshift(['Voyage', legLine(leg.tag, next === 0 ? 'home to Sol' : next != null ? inTextFor(cat, next) : '')]);
+  }
   state.log.unshift(entry);
   state.ly += T.ly;
   if (save()) askToKeep(); // once ever: the first entry kept is worth keeping
@@ -883,8 +898,11 @@ function showArrival(entry, again = false) {
   const firsts = entry === state.log[0] ? arrivalFirsts(state.log, recordOpts()) : [];
   // The arrival that takes the mission to five years closes it (with the clock on).
   if (state.opts.clock && entry === state.log[0] && missions(state.log).at(-1)?.closed) firsts.push('Five-year mission complete');
+  // And the arrival that flies a voyage's last leg ticks it off.
+  if (entry === state.log[0] && entry.voyage && entry.voyage.leg === entry.voyage.of) firsts.push(`Voyage flown: ${voyageById(entry.voyage.id)?.name}`);
   if (firsts.length) $('arrival-entry').querySelector('h3').insertAdjacentHTML('afterend', `<p class="firsts">${firsts.map(t => `<span>${esc(t)}</span>`).join(' ')}</p>`);
   unsavedNote('arrival-unsaved', 'The log is full: this entry won’t be kept.', 'This browser isn’t letting the bridge save: this entry won’t be kept.');
+  nextButton();
   openSheet('arrival');
   $('scrim').hidden = true; // keep the view of the new star clear
   $('arrival-entry').scrollTop = 0;
@@ -894,6 +912,23 @@ function showArrival(entry, again = false) {
   const heading = $('arrival-entry').querySelector('h3');
   heading.tabIndex = -1;
   heading.focus({ preventScroll: true });
+}
+
+// The arrival's main button: the next leg of a voyage under way, named with how far it is, or else Set course.
+function nextButton() {
+  const b = $('arrival-next');
+  const i = state.voyage ? nextStop(state.voyage, findStar) : null;
+  b.classList.toggle('leg', i != null && i !== state.at);
+  if (i == null || i === state.at) {
+    b.textContent = 'Next destination';
+    b.removeAttribute('aria-label');
+    delete b.dataset.leg;
+    return;
+  }
+  const far = nominal(i) ? '' : formatLy(lyFromShip(i));
+  b.innerHTML = `<span class="leg-of">Next leg${far ? ` · ${far}` : ''}</span><span class="leg-to">${esc(titleFor(cat, i))}</span>`;
+  b.setAttribute('aria-label', `Next leg: ${titleFor(cat, i)}${far ? ` (${far})` : ''}`);
+  b.dataset.leg = i;
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -1400,6 +1435,7 @@ function renderList() {
   };
   let html = '';
   if (!q) {
+    html += voyagesHtml();
     // Away from home, what is near the ship comes first: the stars with notes are nearly all the Sun's neighbours.
     // Not at a star nobody has measured the distance to: the ship is at a nominal place there, nothing can be said
     // to be near it, and the five rows under this heading each read "distance not measured".
@@ -1429,6 +1465,52 @@ function renderList() {
   $('list').innerHTML = html;
 }
 
+// The voyages, at the top of Set course: each with its stops, how far they add up to from here and how long that is
+// at the helm's warp. The one under way says which leg is next and counts only what is left; a flown one says so.
+function voyagesHtml() {
+  const done = flown(state.log), cam = camAbs();
+  const rows = VOYAGES.map(v => {
+    const on = state.voyage?.id === v.id;
+    const leg = on ? state.voyage.leg : setOut(v, state.at, findStar).leg;
+    const ly = routeLength(v, leg, cam, findStar, starPos) * LY_PER_PC;
+    const badge = on ? `leg ${leg + 1} of ${v.stops.length}` : done.has(v.id) ? 'flown' : '';
+    // Each stop stays whole on its line, with the dot after it, so no line starts with one.
+    const stops = v.stops.map((name, k) => {
+      const i = findStar(name);
+      return i === undefined ? '' : `<span${on && k < leg ? ' class="flown"' : ''}>${esc(titleFor(cat, i))}${k < v.stops.length - 1 ? ' ·' : ''}</span>`;
+    }).filter(Boolean).join(' ');
+    return `<button class="row voyage${on ? ' on' : ''}" type="button" data-voyage="${v.id}" title="${esc(v.line)}">
+      <span class="name">${esc(v.name)}${badge ? `<span class="badge">${badge}</span>` : ''}</span>
+      <span class="dist">${formatLy(ly)}</span>
+      <span class="meta stops">${stops}</span>
+      <span class="meta">${on ? 'The rest' : `${v.stops.length} stops`} · ${formatDuration(tripYears(ly, state.warp))} at warp ${warpSaid(state.warp)}</span></button>`;
+  }).join('');
+  const leave = state.voyage ? `<button class="text-button leave-voyage" type="button" data-leave>Leave ${esc(voyageById(state.voyage.id).name)}</button>` : '';
+  return `<p class="group">Voyages</p>${rows}${leave}`;
+}
+
+// A voyage taken from Set course: the helm is set for its next stop. One already under way carries on from there.
+function startVoyage(id) {
+  const v = voyageById(id);
+  if (!v) return;
+  if (state.voyage?.id !== id) state.voyage = setOut(v, state.at, findStar);
+  const i = nextStop(state.voyage, findStar);
+  sound.blip(990);
+  $('search').blur();
+  closeSheets();
+  setTarget(i);
+  if (i != null) say(`${v.name}. ${v.line} Leg ${state.voyage.leg + 1} of ${v.stops.length}: ${titleFor(cat, i)}.`);
+}
+
+function leaveVoyage() {
+  state.voyage = null;
+  save();
+  showTarget();
+  renderList();
+  say('Voyage left. The course stays laid in.');
+  $('search').focus({ preventScroll: true });
+}
+
 // ---------- Input ----------
 
 function bind() {
@@ -1445,6 +1527,9 @@ function bind() {
   $('list').addEventListener('click', e => {
     const b = e.target.closest('[data-star]');
     if (b) pick(b);
+    const v = e.target.closest('[data-voyage]');
+    if (v) startVoyage(v.dataset.voyage);
+    if (e.target.closest('[data-leave]')) leaveVoyage();
   });
   // Enter, or Go on a phone's keyboard, takes the first star in the list.
   $('search').addEventListener('keydown', e => {
@@ -1488,7 +1573,12 @@ function bind() {
   $('look-home').addEventListener('click', lookHome);
   $('arrival-home').addEventListener('click', lookHome);
   // The log entry goes away as Set course opens, so focus comes back to the destination button instead.
-  $('arrival-next').addEventListener('click', () => { $('search').value = ''; renderList(); openSheet('picker', $('choose')); });
+  // On a voyage it sets course for the next leg instead, straight away.
+  $('arrival-next').addEventListener('click', e => {
+    const leg = e.currentTarget.dataset.leg;
+    if (leg != null) { sound.blip(990); closeSheets(); setTarget(Number(leg)); return; }
+    $('search').value = ''; renderList(); openSheet('picker', $('choose'));
+  });
   $('scrim').addEventListener('click', closeSheets);
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeSheets));
   // A click made with Enter or Space has no count of presses; one made with a finger or a mouse does.

@@ -3,6 +3,8 @@
 process.env.TZ = 'UTC'; // the day headings follow the calendar where the captain is: here, Greenwich
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { VOYAGES, arrivedAt, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from '../js/voyages.js';
+import { DESTINATIONS } from '../js/destinations.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from '../js/logbook.js';
 
 const at = iso => Date.parse(iso);
@@ -295,4 +297,54 @@ test('ship’s records: everything Engage keeps in one file, read back, and adde
   assert.equal(jarsLeft(full, more), 1);
   // Hails: the later of the two to each ship.
   assert.deepEqual(plan({ keys: { 'engage.missions.v1': { hails: { v1: 5, v2: 9 } } } }, { 'engage.missions.v1': { hails: { v1: 7 } } }, 'add').write['engage.missions.v1'].hails, { v1: 7, v2: 9 });
+});
+
+// Voyages: named routes in Set course, flown leg by leg.
+test('every stop on a voyage is a star with notes in the log, and the routes are four to six', () => {
+  assert.ok(VOYAGES.length >= 4 && VOYAGES.length <= 6);
+  const noted = new Set(DESTINATIONS.map(d => d.star));
+  for (const v of VOYAGES) {
+    assert.ok(v.stops.length >= 5, v.id);
+    for (const s of v.stops) assert.ok(noted.has(s), `${v.name}: ${s} has no notes`);
+    assert.equal(new Set(v.stops).size, v.stops.length, `${v.name} calls at a star twice`);
+    assert.ok(v.line && v.name);
+  }
+  assert.deepEqual(voyageById('neighbours').stops, ['Proxima Centauri', 'Rigil Kentaurus', "Barnard's Star", 'Wolf 359', 'Lalande 21185', 'Sirius', 'Sol']);
+});
+
+test('a voyage is flown leg by leg: a detour waits, the right star moves it on, and the last leg flies it', () => {
+  const names = ['Sol', 'Proxima Centauri', 'Rigil Kentaurus', "Barnard's Star", 'Wolf 359', 'Lalande 21185', 'Sirius', 'Vega'];
+  const find = n => (names.includes(n) ? names.indexOf(n) : undefined);
+  const v = voyageById('neighbours');
+  let voyage = setOut(v, 0, find);
+  assert.deepEqual(voyage, { id: 'neighbours', leg: 0 });
+  assert.equal(nextStop(voyage, find), 1);
+  // Setting out from its first stop, that leg counts as flown.
+  assert.deepEqual(setOut(v, 1, find), { id: 'neighbours', leg: 1 });
+  assert.equal(arrivedAt(voyage, 7, find), null, 'a detour to Vega moved the voyage on');
+  const log = [];
+  for (let leg = 1; leg <= 7; leg++) {
+    const star = nextStop(voyage, find);
+    const got = arrivedAt(voyage, star, find);
+    assert.deepEqual(got.tag, { id: 'neighbours', leg, of: 7 });
+    assert.equal(got.done, leg === 7);
+    log.unshift({ star, voyage: got.tag });
+    voyage = got.voyage;
+    assert.equal(flown(log).has('neighbours'), leg === 7);
+  }
+  assert.equal(voyage, null, 'the voyage was still under way after its last leg');
+  assert.equal(arrivedAt(null, 1, find), null);
+  assert.equal(legLine({ id: 'neighbours', leg: 2, of: 7 }, 'Barnard’s Star'), 'Leg 2 of 7 of The neighbours. Next, Barnard’s Star.');
+  assert.equal(legLine({ id: 'neighbours', leg: 7, of: 7 }, ''), 'Leg 7 of 7: The neighbours is flown.');
+});
+
+test('a voyage’s length is its legs from where the ship is, and a damaged save holds no voyage', () => {
+  const pos = { a: [1, 0, 0], b: [1, 2, 0], c: [4, 6, 0] };
+  const find = n => n;
+  const v = { stops: ['a', 'b', 'c'] };
+  assert.equal(routeLength(v, 0, [0, 0, 0], find, n => pos[n]), 1 + 2 + 5);
+  assert.equal(routeLength(v, 2, [1, 2, 0], find, n => pos[n]), 5);
+  assert.deepEqual(tidyVoyage({ id: 'atlas', leg: 3 }), { id: 'atlas', leg: 3 });
+  for (const bad of [null, 'atlas', { id: 'nowhere', leg: 0 }, { id: 'atlas', leg: 6 }, { id: 'atlas', leg: -1 }, { id: 'atlas', leg: 1.5 }]) assert.equal(tidyVoyage(bad), null, JSON.stringify(bad));
+  assert.equal(flown([{ voyage: { id: 'nowhere', leg: 3, of: 3 } }, null, { voyage: { id: 'atlas', leg: 5, of: 6 } }]).size, 0);
 });

@@ -53,7 +53,7 @@ async function bundle(order, patch = (name, src) => src) {
 }
 const pageBody = page => page.slice(page.indexOf('<body') , page.indexOf('</body>')).replace(/^<body[^>]*>/, '').replace(/<script type="module" src="[^"]+"><\/script>/, '');
 
-const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'ships', 'log', 'search', 'share', 'store', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'logbook', 'voyage', 'myship', 'records', 'app'];
+const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'ships', 'log', 'search', 'share', 'store', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'logbook', 'voyage', 'myship', 'records', 'voyages', 'app'];
 const js = await bundle(ORDER, async (name, src) => {
   if (name !== 'app') return src;
   for (const [from, to] of [
