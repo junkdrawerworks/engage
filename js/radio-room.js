@@ -81,16 +81,15 @@ function drawMap() {
   g.beginPath(); g.arc(mid, mid, edge, 0, Math.PI * 2); g.stroke();
   // Distance rings every 20 light years, labelled where each crosses the line straight down from the Sun. The labels'
   // places are kept, so no star's name is written over one.
-  const boxes = [];
-  g.font = '500 10px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+  // (The labels are written after the stars, so no dot covers one.)
+  const boxes = [], ringLabels = [];
+  g.font = '500 10px "Chakra Petch", sans-serif';
   for (let d = 20; d <= MAP_LY; d += 20) {
     g.strokeStyle = 'rgba(140, 180, 255, 0.12)'; g.setLineDash([2, 4]);
     g.beginPath(); g.arc(mid, mid, d * k, 0, Math.PI * 2); g.stroke();
     g.setLineDash([]);
     const text = `${d} ly`, w = g.measureText(text).width, y = mid + d * k - 2;
-    g.strokeStyle = 'rgba(2, 4, 10, 0.9)'; g.lineWidth = 3; g.lineJoin = 'round'; g.strokeText(text, mid, y);
-    g.fillStyle = 'rgba(114, 127, 151, 0.95)'; g.fillText(text, mid, y);
-    g.lineWidth = 1;
+    ringLabels.push([text, y]);
     boxes.push([mid - w / 2 - 2, y - 11, mid + w / 2 + 2, y + 1]);
   }
   // The year on the dial: a band from where its last broadcasts are to where its first are.
@@ -112,6 +111,13 @@ function drawMap() {
     g.beginPath(); g.arc(x, y, lit ? 2.2 : 1.1, 0, Math.PI * 2); g.fill();
     dots.push({ x, y, star: i });
   }
+  // The rings' distances, over the stars.
+  g.font = '500 10px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'bottom'; g.lineJoin = 'round';
+  for (const [text, y] of ringLabels) {
+    g.strokeStyle = 'rgba(2, 4, 10, 0.9)'; g.lineWidth = 3; g.strokeText(text, mid, y);
+    g.fillStyle = 'rgba(114, 127, 151, 0.95)'; g.fillText(text, mid, y);
+  }
+  g.lineWidth = 1;
   // Names: the three named for the year, the star picked, and the stars with notes.
   const three = new Set(pickThree(cat, hearing(cat, view.year, t), { known, named: i => properName(cat.names[i]) }).map(s => s.star));
   g.font = '500 11px "IBM Plex Sans", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle';
