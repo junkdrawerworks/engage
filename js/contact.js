@@ -623,7 +623,7 @@ function screenState(now) {
   const last = said[said.length - 1];
   const ids = last ? last.ids : [];
   const mood = ids.includes('fight') ? 'wary' : (ids.includes('yes') || ids.includes('story')) ? 'glad' : 'calm';
-  const closed = !!g.over && g.over !== 'contact' && shown >= g.log.length;
+  const closed = !!g.over && g.over !== 'contact' && g.over !== 'friends' && shown >= g.log.length; // made friends, first or second time: they stay on screen
   const pic = !g.over && g.beat >= 1 && g.beat <= 4 && said.some(l => l.ids.includes('danger')) ? g.danger : null;
   return { speaking: Math.max(0, Math.min(1, (speakingUntil - now) / 300)), mood, pic, closed };
 }

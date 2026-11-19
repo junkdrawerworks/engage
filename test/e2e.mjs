@@ -2369,6 +2369,8 @@ await bridgeReady();
   assert.equal(await p.locator('#book li[data-id="meet"] select').inputValue(), 'meet');
   while (!(await p.evaluate(() => contact.game.over))) { await p.evaluate(() => { contact.say(); contact.send(); }); await settle(); }
   assert.equal(await p.evaluate(() => contact.game.over), 'friends');
+  // Friends made: their captain stays on the viewscreen, as after a first contact, and the channel isn't closed.
+  assert.match(await p.locator('#screen').getAttribute('aria-label'), /^Viewscreen: their captain/, 'second contact made shows the channel closed');
   await p.click('#send');
   assert.equal(await p.locator('#eval-title').innerText(), 'Second contact');
   assert.equal(await p.locator('#eval-eyebrow').innerText(), 'SECOND CONTACT · DEBRIEF');
