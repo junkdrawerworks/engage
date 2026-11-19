@@ -3764,9 +3764,9 @@ await page.emulateMedia({ reducedMotion: null });
   await p.goto(base);
   await bridgeReady(p);
   const groups = () => p.locator('#list .group').allInnerTexts();
-  // At home Set course is as it was: there is nothing nearer the ship than what Next door lists.
+  // At home Set course is as it was (under the voyages): there is nothing nearer the ship than what Next door lists.
   await p.tap('#choose');
-  assert.deepEqual(await groups(), ['HOME', 'NEXT DOOR', 'WORTH THE TRIP', 'LONG HAULS']);
+  assert.deepEqual(await groups(), ['VOYAGES', 'HOME', 'NEXT DOOR', 'WORTH THE TRIP', 'LONG HAULS']);
   await p.evaluate(() => engage.closeSheets());
   // Denebola has no notes. Its entry says what is around it, between the star and the look home.
   await p.evaluate(() => engage.jump('Denebola'));
@@ -3777,8 +3777,8 @@ await page.emulateMedia({ reducedMotion: null });
   // The headings were written from Earth: away from it, the first group of destinations is the Sun's neighbours,
   // not "Next door".
   await p.tap('#arrival-next');
-  assert.deepEqual(await groups(), ['NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS', 'WORTH THE TRIP', 'LONG HAULS']);
-  const rows = await p.locator('#list .group').first().locator('xpath=following-sibling::*').evaluateAll(els => {
+  assert.deepEqual(await groups(), ['VOYAGES', 'NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS', 'WORTH THE TRIP', 'LONG HAULS']);
+  const rows = await p.locator('#list .group').nth(1).locator('xpath=following-sibling::*').evaluateAll(els => {
     const out = [];
     for (const el of els) { if (!el.matches('.row')) break; out.push([el.querySelector('.name').firstChild.textContent, el.querySelector('.dist').textContent]); }
     return out;
@@ -3806,7 +3806,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.evaluate(() => engage.jump('Sirius'));
   assert.match(await p.locator('#arrival-entry dt:text-is("The sky from here") + dd').innerText(), /^Apart from its companion Gliese 244B, the brightest star in this sky is Procyon, magnitude −1\.3\. The nearest is Gliese 280B, 5\.2 light years away\.$/);
   await p.tap('#arrival-next');
-  assert.match((await p.locator('#list .row').first().innerText()).replace(/\s+/g, ' '), /^Gliese 244B ?companion \d+ AU White dwarf$/);
+  assert.match((await p.locator('#list .row:not(.voyage)').first().innerText()).replace(/\s+/g, ' '), /^Gliese 244B ?companion \d+ AU White dwarf$/);
   assert.equal(await p.locator('#list .row .badge', { hasText: 'companion' }).count(), 1);
   await p.evaluate(() => engage.closeSheets());
   // Far out, the viewscreen has few stars on it and the log says why: HIP 3 is 1,443 light years from home, and
@@ -3815,16 +3815,16 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.locator('#arrival-entry dt:text-is("The sky from here") + dd').innerText(),
     'On the charts, the brightest star in this sky is Deneb, magnitude 0.3, and the nearest is HIP 116626, 182 light years away. The charts are thin this far out. They hold only the stars bright enough to see from Earth, so the real sky here has far more than the viewscreen shows.');
   await p.tap('#arrival-next');
-  assert.deepEqual((await groups()).slice(0, 3), ['NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS']);
-  assert.match((await p.locator('#list .row').first().innerText()).replace(/\s+/g, ' '), /^HIP 116626 182 ly /);
+  assert.deepEqual((await groups()).slice(0, 4), ['VOYAGES', 'NEAREST TO THE SHIP', 'HOME', 'THE SUN’S NEIGHBOURS']);
+  assert.match((await p.locator('#list .row:not(.voyage)').first().innerText()).replace(/\s+/g, ' '), /^HIP 116626 182 ly /);
   await p.evaluate(() => engage.closeSheets());
   // At a star nobody has measured the distance to, nothing is said to be nearest: the ship's place there is only
   // nominal, and the heading used to stand over five rows that each read "distance not measured".
   await p.evaluate(() => engage.jump('ρ Cassiopeiae'));
   assert.equal(await p.locator('#arrival-entry dt:text-is("The sky from here")').count(), 0);
   await p.tap('#arrival-next');
-  assert.deepEqual((await groups()).slice(0, 2), ['HOME', 'THE SUN’S NEIGHBOURS'], 'Set course named the stars nearest a ship whose own place is not known');
-  assert.equal(await p.locator('#list .row .dist').first().innerText(), 'distance not measured');
+  assert.deepEqual((await groups()).slice(0, 3), ['VOYAGES', 'HOME', 'THE SUN’S NEIGHBOURS'], 'Set course named the stars nearest a ship whose own place is not known');
+  assert.equal(await p.locator('#list .row:not(.voyage) .dist').first().innerText(), 'distance not measured');
   await p.evaluate(() => engage.closeSheets());
   await p.tap('#open-settings');
   assert.match(await p.locator('#settings .about').innerText(), /beyond 80 light years the charts hold only the stars bright enough to see from Earth/);
