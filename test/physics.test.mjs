@@ -717,9 +717,13 @@ test('nebulae and clusters: their stars, and where the ship holds', async () => 
     assert.ok(view > 44 && view < 54, `${o.name} takes ${view.toFixed(1)}° from where the ship holds`);
     assert.match(d.hold.label, new RegExp(`^holding ${Math.round(hold * 10) / 10 >= 10 ? Math.round(hold) : (Math.round(hold * 10) / 10)} light years out`), o.name);
   }
-  // The log says what it estimates: the Trapezium's width and brightness are the catalogue's, with an "about".
+  // The Trapezium's brightest is described as it was measured, not by the catalogue's colour, which the nebula's dust
+  // reddens to a 6,000 K star's; the Hyades' giant has only the catalogue's estimates, said with an "about".
   const i = cat.byName.get('θ¹ Orionis');
   const e = composeEntry(cat, i, { cam: at('Sol'), holdAU: 1770000, warp: 9, fromTitle: 'Sol', tripLy: 1344, date: new Date('2026-10-08T00:00:00Z') });
   assert.match(e.intro, /^We’ve dropped out of warp at the Orion Nebula, 1,344 ly from Sol, and are holding 28 light years out, with the whole nebula ahead\.$/);
-  assert.match(e.sections[0][1], /^The Trapezium: .*, about [\d,.]+ times the Sun’s width, and about/);
+  assert.equal(e.sections[0][1], 'The Trapezium: four young stars, the brightest, θ¹ Orionis C, a blue-white type O7 whose light makes the nebula glow. 39,000 K at the surface, 10 times the Sun’s width, and 220,000 times the Sun’s brightness.');
+  const h = cat.byName.get('θ¹ Tauri');
+  const hy = composeEntry(cat, h, { cam: at('Sol'), holdAU: 1010000, warp: 9, fromTitle: 'Sol', tripLy: 154, date: new Date('2026-10-08T00:00:00Z') });
+  assert.match(hy.sections[0][1], /^Yellow giant θ¹ Tauri, spectral type G7, one of the cluster’s brightest stars\. 4,\d\d0 K at the surface, about [\d.]+ times the Sun’s width, and about [\d,.]+ times the Sun’s brightness\./);
 });

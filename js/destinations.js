@@ -324,8 +324,11 @@ export const DESTINATIONS = [
     ],
   },
   {
-    star: 'θ¹ Orionis', title: 'The Orion Nebula', inText: 'the Orion Nebula', aka: 'the Trapezium', find: ['M42', 'Orion Nebula', 'Trapezium', 'Theta Orionis', 'Great Nebula'], group: 'deep', estimate: true,
-    kind: 'The Trapezium: four young stars, the brightest a blue-white type O7 whose light makes the nebula glow',
+    star: 'θ¹ Orionis', title: 'The Orion Nebula', inText: 'the Orion Nebula', aka: 'the Trapezium', find: ['M42', 'Orion Nebula', 'Trapezium', 'Theta Orionis', 'Great Nebula'], group: 'deep',
+    // θ¹ Orionis C, the brightest: 39,000 K (Simón-Díaz et al. 2006, A&A 448, 351) and about 220,000 Suns at the
+    // nebula's distance, so about 10 times the Sun's width. (The catalogue's colour, reddened by the nebula's dust,
+    // would make it a 6,000 K star.)
+    kind: 'The Trapezium: four young stars, the brightest, θ¹ Orionis C, a blue-white type O7 whose light makes the nebula glow', temp: 39000, lum: 220000, radius: 10.3,
     planets: 'None known. Hundreds of the young stars round it have discs of dust and gas where planets may be forming, which the Hubble Space Telescope photographed in the 1990s.',
     hold: { au: 1770000, label: 'holding 28 light years out, with the whole nebula ahead' },
     notes: [
