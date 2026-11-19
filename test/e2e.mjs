@@ -4139,7 +4139,9 @@ await page.emulateMedia({ reducedMotion: null });
   const tags = () => p.evaluate(() => {
     const c = document.getElementById('view'), g = c.getContext('2d'), k = c.width / c.clientWidth;
     const lin = v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-    return window.tonight.tags().map(t => {
+    // (The clusters, nebulae and galaxies are tags too, drawn as the plain stars' are under the red light.)
+    const boxes = [...window.tonight.tags(), ...window.tonight.sights().filter(x => x.box).map(x => ({ name: x.name, ...x.box }))];
+    return boxes.map(t => {
       const d = g.getImageData(Math.round((t.x + 6) * k), Math.round((t.y + 3) * k), Math.round((t.w - 8) * k), Math.round(15 * k)).data;
       let red = 0, blue = 0;
       for (let i = 0; i < d.length; i += 4) { if (d[i] > red) { red = d[i]; blue = d[i + 2]; } }
