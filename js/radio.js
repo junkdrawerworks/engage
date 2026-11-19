@@ -56,13 +56,17 @@ export function pickThree(cat, list, { known = () => false, named = () => false 
 export const properName = name => !/^(HIP|HD|HR|HYG|Gliese|GJ|Wolf|Ross|LHS|LP|G) ?[0-9]/.test(name) && !/^[0-9]+ [A-Z]/.test(name);
 
 // What was on the air in the years before the long missions' moments begin, from 1936 to 1956: [year, what]. Each
-// is a broadcast that went out that year (dates from the BBC's and the networks' own histories).
+// is a broadcast that went out that year. 1936, 1937, 1941 and 1947 were checked on 19 November 2026 against
+// Wikipedia ("First day of BBC television", "1937 in British television", "1947 World Series") and the Television
+// Academy's "July 1, 1941: The Day Commercial Television Was Born"; the BBC's 1936 service is the first regular
+// *high-definition* one, since Berlin's 180-line service began in 1935. The other five are well-known dates not
+// looked up again.
 export const ON_AIR = [
-  [1936, 'the Berlin Olympics were televised, and the BBC opened the world’s first regular television service'],
+  [1936, 'the Berlin Olympics were televised, and the BBC opened the world’s first regular high-definition television service'],
   [1937, 'the BBC televised the coronation procession of George VI'],
   [1938, 'Orson Welles’s radio play The War of the Worlds'],
   [1939, 'NBC televised the opening of the New York World’s Fair'],
-  [1941, 'the first television advertisement, for a Bulova clock, in New York'],
+  [1941, 'the first paid television advertisement, for a Bulova clock, in New York'],
   [1947, 'the first televised World Series'],
   [1951, 'the first episode of I Love Lucy'],
   [1953, 'the coronation of Elizabeth II, watched live by millions'],

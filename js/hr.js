@@ -3,7 +3,7 @@
 // Checked by test/hr.test.mjs.
 import { LY_PER_PC, apparentMag } from './physics.js';
 
-// The wall's edges: 50,000 K on the left to 2,000 K on the right, a millionth of the Sun's light at the bottom to a
+// The wall's edges: 50,000 K on the left to 2,000 K on the right, a hundred-thousandth of the Sun's light at the bottom to a
 // million Suns at the top, both on a log scale. Each step across is the same ratio of temperature, each step up the
 // same ratio of light.
 export const T_HOT = 50000, T_COOL = 2000, L_DIM = 1e-5, L_BRIGHT = 1e6;
@@ -129,7 +129,7 @@ export const SUN_LIFE = [
   { age: 12.15, temp: 4902, lum: 2.2, said: '12.15 billion years: a subgiant, swelling and cooling.' },
   { age: 12.233, temp: 3107, lum: 2350, said: '12.23 billion years: a red giant 166 times as wide as today, out past where Venus circles now, and 2,350 times as bright.' },
   { age: 12.234, temp: 4724, lum: 41, said: 'Then the helium at its heart catches fire, and it settles down, smaller, for about 100 million years.' },
-  { age: 12.365, temp: 3160, lum: 3000, said: '12.37 billion years: a red giant again, the biggest it will ever be, shedding its outer layers.' },
+  { age: 12.365, temp: 3160, lum: 3000, said: '12.37 billion years: a red giant again, 180 times as wide as today and brighter than before, shedding its outer layers.' },
   { age: 12.37, temp: 120000, lum: 3500, off: true, said: 'Its outer layers drift off as a glowing nebula, like the Ring Nebula, and the bare core blazes at 120,000 K.' },
   { age: null, star: 'Gliese 166B', said: 'What is left is a white dwarf about the size of the Earth, cooling for billions of years, as 40 Eridani B, beside Vulcan’s sun, is doing now.' },
 ];
