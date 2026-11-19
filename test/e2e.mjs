@@ -4482,6 +4482,73 @@ await page.emulateMedia({ reducedMotion: null });
   await c.close();
 }
 
+// A long captain's log comes a day at a time, under a heading for each day ("Wednesday 18 November · 6 arrivals"),
+// with the time of each arrival beside its stardate, and the newest 50 arrivals first. At 500 entries it was one
+// flat list of closed cards, and every entry from the same day carried the same stardate.
+{
+  const long = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await long.addInitScript(() => {
+    if (localStorage.getItem('engage.v1')) return;
+    // 120 arrivals, one every twenty minutes, the newest an hour ago: newest first, as the bridge keeps them.
+    const now = Date.now(), log = [];
+    for (let n = 0; n < 120; n++) {
+      const id = now - 3600000 - n * 20 * 60000;
+      log.push({ id, star: 1 + (n % 40), title: `Star ${120 - n}`, stardate: '2026.880', intro: `Arrival ${120 - n}.`, sections: [['Star', 'A star.']], ly: 1 });
+    }
+    localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false }, log, at: 1 }));
+  });
+  const p = await long.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-log');
+  const { dayHeading, clockTime } = await import('../js/logbook.js');
+  const heads = await p.locator('#entries .day').allInnerTexts();
+  const days = await p.evaluate(() => { const by = new Map(); for (const e of engage.state.log) { const d = new Date(e.id).toDateString(); by.set(d, (by.get(d) || 0) + 1); } return [...by]; });
+  assert.ok(days.length >= 2, 'the log spans two days');
+  // Each day of the newest 50 is headed, with the whole day's count of arrivals.
+  assert.ok(heads.length >= 1 && heads.length <= days.length);
+  const first = await p.evaluate(() => engage.state.log[0].id);
+  assert.equal(heads[0], (await p.evaluate(([t, n]) => {
+    const d = new Date(t);
+    return `${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')} · ${n} ${n === 1 ? 'arrival' : 'arrivals'}`;
+  }, [first, days[0][1]])).toUpperCase());
+  assert.equal(typeof dayHeading, 'function');
+  assert.equal(await p.locator('#entries .past').count(), 50, 'the log opens on its newest 50 arrivals');
+  // The newest arrival has the time it was made beside its stardate.
+  assert.equal(await p.locator('#entries .past .sd').first().innerText(), `${clockTime(first)}\n2026.880`);
+  // Show earlier adds 50 more, says how many are left, and goes away when there are none.
+  assert.equal(await p.locator('[data-more]').innerText(), 'Show earlier · 50 more of 70');
+  await p.tap('[data-more]');
+  assert.equal(await p.locator('#entries .past').count(), 100);
+  assert.equal(await p.evaluate(() => document.activeElement.closest('.past')?.dataset.k), '50', 'the keyboard’s place goes to the first entry it brought');
+  assert.equal(await p.locator('[data-more]').innerText(), 'Show earlier · 20 more of 20');
+  await p.tap('[data-more]');
+  assert.equal(await p.locator('#entries .past').count(), 120);
+  assert.equal(await p.locator('[data-more]').count(), 0);
+  // Every arrival is under the heading of its own day.
+  const placed = await p.evaluate(() => [...document.querySelectorAll('#entries .past')].map(d => {
+    let h = d.previousElementSibling;
+    while (h && !h.matches('.day')) h = h.previousElementSibling;
+    return [new Date(engage.state.log[Number(d.dataset.k)].id).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }), h.textContent];
+  }));
+  assert.ok(placed.every(([d, h]) => h.includes(d)), 'an arrival under another day’s heading');
+  // Closed and opened again, the log is back to its newest 50.
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#entries .past').count(), 50);
+  // Coming back from a room to an entry further back than the first 50: it is shown, open, and in view.
+  const mark = await p.evaluate(() => { const e = engage.state.log[73]; return { sheet: 'log', id: e.id, stardate: e.stardate, star: e.star, scroll: 0, at: Date.now() }; });
+  await p.evaluate(m => sessionStorage.setItem('engage.return', JSON.stringify(m)), mark);
+  await p.goto(base);
+  await bridgeReady(p);
+  assert.equal(await p.locator('#entries .past').count(), 100);
+  assert.equal(await p.locator('.past[data-k="73"]').evaluate(d => d.open), true);
+  assert.equal(await p.locator('.past[open]').count(), 1);
+  assert.ok(await p.locator('.past[data-k="73"] summary').evaluate(el => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }), 'the entry come back to is out of sight');
+  await long.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

@@ -12,6 +12,7 @@ import { ROOMS, inWords, roomList } from './rooms.js';
 import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
+import { PAGE, byDay, clockTime, dayHeading, newest, timeline } from './logbook.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -931,6 +932,7 @@ function shipLink(ship, style) {
 
 function renderLog() {
   save(); // try again: room may have been made since
+  shown = PAGE; // the log opens on its newest arrivals
   drawLog();
 }
 
@@ -999,7 +1001,7 @@ let leaving = null;
 function noteLeaving(id, e) {
   const a = e.target.closest('a[href]');
   if (!a || a.target || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-  const entry = id === 'arrival-entry' ? arrived : state.log[[...$('entries').querySelectorAll('.past')].indexOf(a.closest('.past'))];
+  const entry = id === 'arrival-entry' ? arrived : state.log[Number(a.closest('.past')?.dataset.k)];
   if (!entry) return;
   leaving = { at: performance.now(), mark: { sheet: id === 'arrival-entry' ? 'arrival' : 'log', id: entry.id ?? null, stardate: entry.stardate, star: entry.star, scroll: $(id).scrollTop } };
 }
@@ -1031,9 +1033,10 @@ function returnTo(coursed) {
     $('arrival-entry').scrollTop = scroll;
     return;
   }
+  shown = Math.max(PAGE, Math.ceil((k + 1) / PAGE) * PAGE); // an entry further back than the log first shows is shown too
   drawLog();
   openSheet('log', $('open-log'));
-  const past = $('entries').querySelectorAll('.past')[k];
+  const past = $('entries').querySelector(`.past[data-k="${k}"]`);
   past.open = true;
   $('entries').scrollTop = scroll;
   // Other entries may have been open above it when the page was left: if that leaves this one out of sight, show it.
@@ -1050,11 +1053,43 @@ function drawLog() {
   $('stats').textContent = state.log.length
     ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} travelled`
     : 'Nothing logged yet. Choose a star and engage.';
-  $('entries').innerHTML = recordsHtml() + state.log.map(e => `
-    <details class="past">
-      <summary><b>${esc(e.title)}</b><span class="sd">${esc(e.stardate)}</span><span>${esc(e.intro)}</span></summary>
+  $('entries').innerHTML = recordsHtml() + daysHtml();
+}
+
+// The log under a heading for each day ("Wednesday 18 November · 6 arrivals"), each arrival with the time it was
+// made beside its stardate: a day's arrivals used to carry one stardate between them, in one flat list. It opens on
+// the newest 50 arrivals, and Show earlier adds 50 more.
+let shown = PAGE;
+function daysHtml() {
+  const all = timeline(state.log);
+  const counts = new Map(byDay(all).map(d => [d.key, d]));
+  const now = Date.now();
+  let html = byDay(newest(all, shown)).map(day => {
+    const whole = counts.get(day.key);
+    const head = day.key === 'undated' ? 'Undated' : dayHeading(day.t, whole.arrivals, whole.supps, now);
+    return `<h3 class="day">${esc(head)}</h3>${day.items.map(itemHtml).join('')}`;
+  }).join('');
+  const left = state.log.length - shown;
+  if (left > 0) html += `<button class="text-button more" type="button" data-more>Show earlier · ${Math.min(left, PAGE)} more of ${left}</button>`;
+  return html;
+}
+
+// Show earlier: 50 more arrivals, and the keyboard's place on the first of them.
+function showEarlier() {
+  const first = shown;
+  shown += PAGE;
+  const top = $('entries').scrollTop;
+  drawLog();
+  $('entries').scrollTop = top;
+  $('entries').querySelector(`.past[data-k="${first}"] summary`)?.focus({ preventScroll: true });
+}
+
+function itemHtml({ entry: e, k, t }) {
+  return `
+    <details class="past" data-k="${k}">
+      <summary><b>${esc(e.title)}</b><span class="sd">${t ? esc(clockTime(t)) : ''}<small>${esc(e.stardate)}</small></span><span>${esc(e.intro)}</span></summary>
       <div class="entry">${entryHtml(e, false)}</div>
-    </details>`).join('');
+    </details>`;
 }
 
 // The log's records, at the head of the entries (they scroll away with them, so a phone on its side keeps room for
@@ -1178,6 +1213,7 @@ function bind() {
   // sheet closes on the helm with that star chosen.
   for (const id of ['entries', 'arrival-entry']) {
     $(id).addEventListener('click', e => {
+      if (e.target.closest('[data-more]')) { showEarlier(); return; }
       noteLeaving(id, e);
       const b = e.target.closest('[data-share]');
       if (b) shareCourse(b);

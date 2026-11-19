@@ -195,6 +195,11 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .past summary .sd { font: 500 12px/1.2 var(--display); color: var(--dim); letter-spacing: 0.06em; text-align: right; }
 .past[open] summary span:last-child { display: none; } /* the entry opens with the same line */
 .past .entry { padding: 0 14px 12px; }
+/* A long log: a heading over each day's arrivals, the time of each beside its stardate, and Show earlier at the foot. */
+.entries .day { margin: 18px 0 4px; font: 600 11px/1.3 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.entries .day:first-of-type { margin-top: 8px; }
+.past summary .sd small { display: block; font-size: 11px; margin-top: 2px; }
+.entries .more { display: block; min-height: 44px; margin: 4px auto 8px; }
 
 .arrival { max-height: 62vh; max-height: 62dvh; }
 .arrival .entry { overflow-y: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px 8px; flex: 1 1 auto; min-height: 0; }
