@@ -3,9 +3,12 @@
 // and your lane on the warp scale. A ship with no name is spoken of as before ("a starship", "your bow"). Pure but
 // for readShip(); checked by test/voyage.test.mjs.
 
-// A name as typed, tidied: letters, numbers, spaces and a few marks, at most 30 characters. '' for none.
+// A name as typed, tidied: letters, numbers, spaces and a few marks, at most 30 characters. '' for none. A prefix
+// typed in small letters is put in capitals: a phone's keyboard makes "uss enterprise" "Uss Enterprise", and that
+// mustn't become the USS Uss Enterprise.
 export function cleanName(text) {
-  return String(text ?? '').replace(/[^\p{L}\p{N} .'’-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 30).trim();
+  return String(text ?? '').replace(/[^\p{L}\p{N} .'’-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 30).trim()
+    .replace(/^(?:uss|iss|iks|irw|hms|ss)(?= )/i, p => p.toUpperCase());
 }
 
 // A registry as typed, tidied: capitals, numbers and dashes, at most 12 ("NCC-1701-D"). '' for none.

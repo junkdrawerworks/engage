@@ -220,6 +220,12 @@ test('your ship: a name and a registry, tidied, and the USS in front unless she 
   assert.deepEqual(shipOf({ ship: { name: 'Calypso', registry: 5 } }), { name: 'Calypso', registry: '' });
   const calypso = { name: 'Calypso', registry: 'NCC-74210' };
   assert.deepEqual([fullName(calypso), shortName(calypso), withRegistry(calypso)], ['USS Calypso', 'Calypso', 'USS Calypso, NCC-74210']);
+  // A prefix typed in small letters, or as a phone's keyboard capitalises it, is still her prefix.
+  assert.equal(cleanName('uss enterprise'), 'USS enterprise');
+  assert.equal(fullName({ name: cleanName('Uss Enterprise') }), 'USS Enterprise');
+  assert.equal(fullName({ name: cleanName('Iks Rotarran') }), 'IKS Rotarran');
+  assert.equal(cleanName('Ussuri'), 'Ussuri', 'a name that only starts like a prefix is left alone');
+  assert.equal(fullName({ name: cleanName('Ussuri') }), 'USS Ussuri');
   const botany = { name: 'SS Botany Bay', registry: '' };
   assert.deepEqual([fullName(botany), shortName(botany), withRegistry(botany)], ['SS Botany Bay', 'Botany Bay', 'SS Botany Bay']);
 });
