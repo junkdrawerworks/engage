@@ -371,6 +371,7 @@ function renderPlace() {
     <p class="doors">${[
       p.course && [`${BRIDGE}?course=${encodeURIComponent(p.course)}`, 'Set course on the bridge'],
       p.sky && [`${BRIDGE}tonight.html#star=${encodeURIComponent(p.sky)}`, 'In your sky tonight'],
+      p.sight && [`${BRIDGE}tonight.html#sight=${p.sight}`, 'In your sky tonight'],
       p.file && [`${BRIDGE}missions.html#${p.file}`, p.fileText],
     ].filter(Boolean).map(([href, text]) => `<a class="to-file" href="${esc(href)}"${AWAY}>${esc(text)} <span aria-hidden="true">→</span></a>`).join('')}</p>
     <p class="share-row"><button class="text-button" type="button" data-share>Share this race</button></p>

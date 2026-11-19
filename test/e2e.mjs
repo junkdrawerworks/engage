@@ -2410,6 +2410,65 @@ await bridgeReady();
   await been.close();
 }
 
+// Clusters, nebulae and galaxies in tonight's sky, from the one list the bridge and the warp scale use too. New York
+// at 10 pm on 8 January 2027, a suburban sky and the Moon down: the Pleiades and the Hyades are tagged as patches at
+// their true size, a link opens a card, the Pleiades take Alcyone's place (its course and its visits), and the list
+// has them under their own heading, the ones too faint for this sky said to be.
+{
+  const deep = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await deep.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.click('#intro-go');
+  await p.evaluate(() => { engage.jump('Alcyone'); engage.closeSheets(); engage.jump('Sol'); engage.closeSheets(); });
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  await p.evaluate(() => { tonight.place(40.71, -74.01, 'New York', 'America/New_York'); tonight.at('2027-01-09T03:00:00Z'); tonight.look(190, 45, 90); });
+  await p.waitForTimeout(200);
+  const drawn = await p.evaluate(() => tonight.sights());
+  const pleiades = drawn.find(x => x.id === 'pleiades');
+  assert.ok(pleiades && pleiades.box && pleiades.been, `the Pleiades are not tagged, or not as visited: ${JSON.stringify(drawn)}`);
+  assert.ok(drawn.some(x => x.id === 'hyades'), 'the Hyades are not drawn');
+  // Its tag is beside it, not over it.
+  const b = pleiades.box;
+  assert.ok(!(pleiades.x > b.x && pleiades.x < b.x + b.w && pleiades.y > b.y && pleiades.y < b.y + b.h), 'the Pleiades’ tag covers them');
+  // Alcyone has no tag of its own any more: the Pleiades are it.
+  assert.ok(!(await p.evaluate(() => tonight.tags())).some(t => t.name === 'The Pleiades'), 'the Pleiades are tagged twice');
+  // A link from the log to Alcyone opens the Pleiades' card, with its course and when the ship was there.
+  await p.evaluate(() => { location.hash = '#star=Alcyone'; });
+  await p.waitForFunction(() => document.getElementById('card-title').textContent === 'The Pleiades');
+  assert.equal(await p.locator('#card-kind').innerText(), 'STAR CLUSTER');
+  assert.equal(await p.locator('#card-sub').innerText(), '403 light years away · in Taurus');
+  assert.match(await p.locator('#card-been').innerText(), /^You dropped out of warp here on stardate /);
+  assert.deepEqual(await p.locator('#card-course').evaluate(a => [a.hidden, a.search, a.textContent.trim()]), [false, '?course=Alcyone', 'Set course again']);
+  assert.equal(await p.locator('#card-doors a').getAttribute('href'), './warp.html#pleiades');
+  // The Orion Nebula's own link, its card and what it says about seeing it.
+  await p.evaluate(() => { location.hash = '#sight=orion'; });
+  await p.waitForFunction(() => document.getElementById('card-title').textContent === 'The Orion Nebula');
+  assert.deepEqual([await p.locator('#card-kind').innerText(), await p.locator('#card-sub').innerText()], ['NEBULA', 'M42 · 1,344 light years away · in Orion']);
+  assert.match(await p.locator('#card-look').innerText(), /^\d+° up in the south(-[a-z]+)?\. You can see it by eye from the suburbs\. Binoculars show it better\.$/);
+  assert.match(await p.locator('#card-facts').innerText(), /^1\.1° across the sky, about 25 light years wide\. The light reaching you tonight left it in 68\d\. A nebula is a captain’s favourite place/);
+  assert.equal(await p.locator('#card-course').evaluate(a => a.hidden), true, 'the Orion Nebula offers a course before the bridge can fly there');
+  assert.equal(await p.locator('#card-share').innerText(), 'Share this nebula');
+  assert.equal(await p.locator('#card-doors a').getAttribute('href'), './warp.html#orion');
+  await p.click('#card .close');
+  await p.click('#open-list');
+  const rows = await p.locator('#systems .system.sight').allInnerTexts();
+  assert.equal(rows.length, 14);
+  assert.ok(await p.locator('#systems .systems-head').isVisible());
+  const row = name => rows.find(r => r.startsWith(name)).replace(/\s+/g, ' ');
+  assert.match(row('Andromeda'), /too faint to see$/, 'Andromeda is said to be visible from the suburbs');
+  assert.match(row('The Ring Nebula'), /(needs a telescope|Below the horizon)$/);
+  // The warp scale's rung for a cluster opens its card here.
+  await p.goto(base + 'warp.html#beehive');
+  await p.waitForFunction(() => window.warpScale);
+  assert.equal(await p.locator('#place h2').innerText(), 'The Beehive');
+  await Promise.all([p.waitForNavigation(), p.getByRole('link', { name: 'In your sky tonight' }).click()]);
+  await p.waitForFunction(() => window.tonight && document.getElementById('card-title').textContent === 'The Beehive');
+  await deep.close();
+}
+
 // Records kept before the rooms kept standing ones: the Kobayashi Maru's runs and first contact's encounters with
 // nothing beside them, and a bridge log from before its entries could be acted on. Nothing in them is lost, and the
 // endings seen, best grades and runs taken, the species met, contacts made and best notebook, are filled in from them.

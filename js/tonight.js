@@ -18,6 +18,7 @@ import { PLACES } from './warp-scale.js';
 import { fileForHome, label as fileLabel } from './classes.js';
 import { linesForStar, readContacts } from './contacts.js';
 import { nowLine, variableFor } from './variables.js';
+import { DEEP_SKY, KINDS, sightById, sightDir, sightSize, sightWidthLy, seenIn } from './deepsky.js';
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -40,7 +41,7 @@ let pose = null;         // where the phone is pointing, smoothed
 let sensing = false, gotReading = false;
 let compassOffset = null; // iPhones give alpha from wherever they started, and the compass separately
 let offsetMin = 0;       // minutes ahead of now
-let sel = null;          // { kind: 'star', i } | { kind: 'planet', name } | { kind: 'moon' } | { kind: 'sun' } | { kind: 'shower' }
+let sel = null;          // { kind: 'star', i } | { kind: 'sight', id } | { kind: 'planet', name } | { kind: 'moon' } | { kind: 'sun' } | { kind: 'shower' }
 let dirty = true, aimAnim = null, testNow = null;
 let placed = [];         // where things were drawn last frame, for taps: { x, y, r, hit }
 
@@ -125,7 +126,7 @@ async function start() {
 }
 
 // The stars worth drawing (all the eye could ever see, from Earth), brightest first, and the tagged ones.
-let bright, brightMag, tags, figures;
+let bright, brightMag, tags, figures, sights;
 function prepareStars() {
   figures = constellationLabels(cat); // where each constellation's name goes
   const list = [];
@@ -156,7 +157,16 @@ function prepareStars() {
     if (!tagged.has(i)) tags.push({ i, name: titleFor(cat, i) });
   }
   for (const t of tags) { t.been = visits.has(t.i); t.mag = earthMag(t.i); t.ly = cat.distanceFrom(t.i, [0, 0, 0]) * LY_PER_PC; t.dest ??= DESTINATIONS.find(d => d.star === cat.names[t.i]); }
+  // The deep sky (js/deepsky.js): clusters, nebulae and galaxies, each tagged as itself. One the bridge flies to by a
+  // star (Alcyone for the Pleiades) takes that star's place among the tags, with its course and its visits.
+  sights = DEEP_SKY.map(o => {
+    const i = o.star ? cat.byName.get(o.star) : undefined;
+    return { o, i, dir: sightDir(o), ly: o.ly ?? cat.distanceFrom(i, [0, 0, 0]) * LY_PER_PC, been: i !== undefined && visits.has(i) };
+  });
+  const anchors = new Set(sights.map(x => x.i).filter(i => i !== undefined));
+  tags = tags.filter(t => !anchors.has(t.i));
 }
+const sightFor = i => sights.find(x => x.i === i);
 const earthMag = i => apparentMag(cat.absmag[i], cat.distanceFrom(i, [0, 0, 0]));
 const starDir = i => [cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]];
 
@@ -226,6 +236,11 @@ function compute() {
     t.alt = altAz(t.local).alt;
     t.seen = t.mag <= nightLim;
   }
+  for (const x of sights) {
+    x.local = toLocal(f, x.dir);
+    x.alt = altAz(x.local).alt;
+    x.seen = seenIn(x.o, nightLim);
+  }
   // A meteor shower that is active on this date here, and where its meteors streak away from.
   const shower = showersOn(date, tzOf())[0] || null;
   if (shower) shower.local = toLocal(f, radiantDir(shower.shower));
@@ -279,14 +294,22 @@ function faceSomethingGood() {
 }
 
 // A link like tonight.html#star=Vega, from the captain's log on the bridge, turns to that star and opens its card.
+// A link like tonight.html#sight=orion opens a cluster's, a nebula's or a galaxy's card, and one to a star the bridge
+// flies to for one of them (#star=Alcyone) opens that one's.
 function starFromLink() {
-  const m = location.hash.match(/^#star=(.+)$/);
+  const m = location.hash.match(/^#(star|sight)=(.+)$/);
   if (!m) return;
   let name = '';
-  try { name = decodeURIComponent(m[1]); } catch { return; }
-  const i = cat.byName.get(name) ?? tags.find(t => t.name === name)?.i;
-  if (i === undefined) return;
-  const s = i === 0 ? { kind: 'sun' } : { kind: 'star', i };
+  try { name = decodeURIComponent(m[2]); } catch { return; }
+  let s;
+  if (m[1] === 'sight') {
+    if (!sightById.has(name)) return;
+    s = { kind: 'sight', id: name };
+  } else {
+    const i = cat.byName.get(name) ?? tags.find(t => t.name === name)?.i;
+    if (i === undefined) return;
+    s = i === 0 ? { kind: 'sun' } : sightFor(i) ? { kind: 'sight', id: sightFor(i).o.id } : { kind: 'star', i };
+  }
   const { alt, az } = altAz(selLocal(s));
   aimAnim = null;
   view.az = az; view.alt = Math.min(Math.max(alt, -10), 80);
@@ -429,6 +452,7 @@ function draw() {
     if (p && p.z >= 0.05 && (sel?.kind === 'star' && sel.i === t.i || (t.alt >= 0 && t.seen))) ringsAhead.push({ x: p.x, y: p.y, r: (t.chart ? 19 : 9) + 2, i: t.i });
   }
   for (const t of tags) drawTag(t);
+  for (const x of sights) drawSight(x);
   drawRadiant();
 
   // Bright stars' own names, small, where there's room.
@@ -592,8 +616,8 @@ const WHITE = [1, 1, 1];
 // instead: Starfleet's in white (all of its red is kept, 5.25:1 on black, the most red light can give), the others
 // a step down (red 236 of 255, which still clears 4.5:1). Their capitals, size and cross-hairs do the rest.
 const TAG = {
-  day: { trek: '134, 216, 255', other: '255, 181, 74', sub: '200, 210, 230', subA: 0.85 },
-  night: { trek: '255, 255, 255', other: '236, 196, 180', sub: '255, 240, 236', subA: 1, otherSub: '226, 200, 190' },
+  day: { trek: '134, 216, 255', other: '255, 181, 74', sight: '201, 162, 255', sub: '200, 210, 230', subA: 0.85 },
+  night: { trek: '255, 255, 255', other: '236, 196, 180', sight: '236, 196, 180', sub: '255, 240, 236', subA: 1, otherSub: '226, 200, 190' },
 };
 let ringsAhead = []; // where this frame's whole tags put their rings: { x, y, r, i }
 let labelBoxes = [], reservedBoxes = 0; // the first few are the page's own: the header, the controls and the daylight notice
@@ -711,6 +735,86 @@ function drawTag(t) {
   placed.push({ x: p.x, y: p.y, r: 26, box, been: t.been, hit: { kind: 'star', i: t.i }, rank: trek ? -40 : -20 });
 }
 
+// A cluster, a nebula or a galaxy: a soft patch at its true size on the sky (round, or an ellipse turned as it lies
+// for one that is longer one way and whose angle is known) with a dashed edge, and a tag like the others, in violet.
+// Only one that is up and can be found by eye tonight is drawn, unless it is the one chosen: one too faint for your
+// sky, or only for a telescope, is in the list, not on the sky.
+function drawSight(x) {
+  const chosen = sel?.kind === 'sight' && sel.id === x.o.id;
+  if ((x.alt < 0 || !x.seen) && !chosen) return;
+  const p = project(x.local);
+  if (!p || p.z < 0.05) return;
+  const k = 2 / (1 + p.z) * S; // pixels per radian here
+  const [la, sa] = sightSize(x.o);
+  let a = la / 2 * k, b = sa / 2 * k, rot = 0;
+  if (x.o.pa === undefined) a = b = (a + b) / 2;
+  else {
+    // The long axis's way on screen: from the patch toward a point a little along it, east of north by its angle.
+    const ra = x.o.ra * 15 * DEG, dec = x.o.dec * DEG, pa = x.o.pa * DEG, e = 0.002;
+    const n = [-Math.sin(dec) * Math.cos(ra), -Math.sin(dec) * Math.sin(ra), Math.cos(dec)], east = [-Math.sin(ra), Math.cos(ra), 0];
+    const q = project(toLocal(sky.f, x.dir.map((v, j) => v + (n[j] * Math.cos(pa) + east[j] * Math.sin(pa)) * e)));
+    if (q) rot = Math.atan2(q.y - p.y, q.x - p.x);
+  }
+  a = Math.max(a, 8); b = Math.max(b, 8);
+  const R = Math.max(a, b);
+  if (p.x < -R - 60 || p.x > W + R + 60 || p.y < -R - 40 || p.y > H + R + 40) return;
+  const pal = saved.night ? TAG.night : TAG.day, color = pal.sight;
+  ctx.save();
+  ctx.translate(p.x, p.y); ctx.rotate(rot); ctx.scale(1, b / a);
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, a);
+  if (x.o.kind === 'dark') { glow.addColorStop(0, 'rgba(0, 0, 0, 0.35)'); glow.addColorStop(1, 'rgba(0, 0, 0, 0)'); }
+  else { glow.addColorStop(0, `rgba(${color}, 0.16)`); glow.addColorStop(1, `rgba(${color}, 0)`); }
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(0, 0, a, 0, 7); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = `rgba(${color}, 0.6)`; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, a, b, rot, 0, 7); ctx.stroke();
+  ctx.restore();
+  // The tag beside it, clear of the patch's edge where the screen allows, and never under the page's own boxes.
+  const sub = x.seen ? `${KINDS[x.o.kind]} · ${sightLy(x.ly)}` : x.o.vis > 6.5 ? 'needs a telescope' : 'too faint to see';
+  ctx.font = `600 12px ${FONT}`;
+  const tick = x.been ? 15 : 0;
+  const wName = ctx.measureText(x.o.name).width + tick;
+  ctx.font = `500 11px ${FONT}`;
+  const w = Math.max(wName, ctx.measureText(sub).width) + 14, h = 34;
+  const gap = Math.min(R, 60) + 8;
+  const spots = [[p.x + gap, p.y - h / 2], [p.x - gap - w, p.y - h / 2], [p.x - w / 2, p.y + Math.min(b, 60) + 6], [p.x - w / 2, p.y - Math.min(b, 60) - 6 - h]];
+  let box = null;
+  // (A tag pushed back onto the screen mustn't land on the patch itself, or it hides what it names.)
+  const core = Math.min(R, 60);
+  const onPatch = c => c.x < p.x + core && p.x - core < c.x + c.w && c.y < p.y + core && p.y - core < c.y + c.h;
+  for (const [bx, by] of spots) {
+    const c = { x: Math.max(6, Math.min(bx, W - 6 - w)), y: by, w, h };
+    if (c.y < 0 || c.y + h > H || overlaps(c) || (c.x !== bx && onPatch(c))) continue;
+    box = c; break;
+  }
+  if (box) {
+    labelBoxes.push(box);
+    ctx.save();
+    ctx.fillStyle = 'rgba(5, 9, 18, 0.72)';
+    roundRect(box.x, box.y, w, h, 7); ctx.fill();
+    ctx.fillStyle = `rgb(${color})`;
+    ctx.fillRect(box.x, box.y + 5, 2, h - 10);
+    ctx.font = `600 12px ${FONT}`;
+    ctx.fillText(x.o.name, box.x + 8, box.y + 15);
+    if (x.been) {
+      const mx = box.x + 8 + wName - 6, my = box.y + 10.5;
+      ctx.beginPath();
+      ctx.moveTo(mx, my - 5.5); ctx.lineTo(mx + 4.4, my + 5); ctx.lineTo(mx, my + 2.4); ctx.lineTo(mx - 4.4, my + 5);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.font = `500 11px ${FONT}`;
+    ctx.fillStyle = `rgba(${pal.otherSub || pal.sub}, ${pal.subA})`;
+    ctx.fillText(sub, box.x + 8, box.y + 28);
+    ctx.restore();
+  }
+  placed.push({ x: p.x, y: p.y, r: Math.max(22, Math.min(a, b, 80)), box, sight: true, been: x.been, hit: { kind: 'sight', id: x.o.id }, rank: -30 });
+}
+const sightLy = ly => (ly >= 1e6 ? `${(ly / 1e6).toFixed(1)} million ly` : formatLy(ly));
+// A width said roughly: "1.2 light years", "25 light years", "140,000 light years".
+const aboutLy = ly => `${ly < 9.95 ? ly.toFixed(1) : Number(ly.toPrecision(2)).toLocaleString('en-US')} light years`;
+
 function roundRect(x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -721,6 +825,7 @@ function roundRect(x, y, w, h, r) {
 function selLocal(s = sel) {
   if (!s) return null;
   if (s.kind === 'star') return toLocal(sky.f, starDir(s.i));
+  if (s.kind === 'sight') return sights.find(x => x.o.id === s.id).local;
   if (s.kind === 'planet') return sky.planets.find(p => p.name === s.name).local;
   if (s.kind === 'moon') return sky.moonL;
   if (s.kind === 'shower') return sky.shower.local;
@@ -760,6 +865,7 @@ function drawPointer() {
 
 function nameOf(s) {
   if (s.kind === 'star') { const t = tags.find(x => x.i === s.i); return t ? t.name : titleFor(cat, s.i); }
+  if (s.kind === 'sight') return sightById.get(s.id).name;
   if (s.kind === 'planet') return PLANET_NAMES[s.name];
   if (s.kind === 'shower') return sky.shower.shower.name;
   return s.kind === 'moon' ? 'The Moon' : 'The Sun';
@@ -784,9 +890,11 @@ function fillCard(s) {
   const look = whereToLook(pos);
   // A course for the star the ship is holding at is no course: the bridge would open with nothing chosen. There the
   // card says where the ship is, with a way back.
-  const here = s.kind === 'star' && s.i === shipAt;
+  const x = s.kind === 'sight' ? sights.find(y => y.o.id === s.id) : null;
+  const star = s.kind === 'star' ? s.i : x?.i; // the star a course is set for: a sight's is the one the bridge flies to
+  const here = star !== undefined && star === shipAt;
   const course = $('card-course');
-  course.hidden = s.kind !== 'star' || here;
+  course.hidden = star === undefined || here;
   $('card-here').hidden = !here;
   let kind, title, sub = '', line = '', facts = '', seeIt = '', been = '', now = '';
   const skyIn = SKIES[saved.sky].inText;
@@ -826,6 +934,30 @@ function fillCard(s) {
     setText('card-course', v ? 'Set course again' : 'Set course');
     course.setAttribute('aria-label', `Set course${v ? ' again' : ''} for ${inTextFor(cat, s.i)}`);
     if (BRIDGE.startsWith('http')) { course.target = '_blank'; course.rel = 'noopener'; }
+  } else if (s.kind === 'sight') {
+    const o = x.o, v = star !== undefined ? visits.get(star) : null;
+    kind = KINDS[o.kind]; title = o.name;
+    const con = cat.constellationToward(x.dir);
+    sub = [o.aka, `${sightLy(x.ly).replace(/ ly$/, ' light years')} away`, con && o.kind !== 'galaxy' ? `in ${con}` : ''].filter(Boolean).join(' · ');
+    line = o.about;
+    seeIt = x.seen ? `You can see it by eye ${skyIn}${night}.${o.bino ? ' Binoculars show it better.' : ''}`
+      : o.vis > 6.5 ? 'It needs a telescope.'
+      : o.vis <= limitingMag(saved.sky, -90) ? 'The Moon is washing it out tonight.' : `Too faint to pick out ${skyIn}; it needs a darker sky.`;
+    const deg = o.size[0] / 60, across = deg >= 1 ? `${+deg.toFixed(1)}°` : `${+o.size[0].toFixed(o.size[0] < 10 ? 1 : 0)}′`;
+    const wide = o.kind === 'core' ? '' : ` about ${aboutLy(sightWidthLy(o, x.ly)[0])} wide`;
+    const left = x.ly < 5000 ? `in ${formatYear(Math.floor(Number(stardate()) - x.ly))}` : `about ${sightLy(x.ly).replace(/ ly$/, '')} years ago`;
+    facts = `${across} across the sky${wide && `,${wide}`}. The light reaching you tonight left it ${left}.${o.trek ? ` ${o.trek}` : ''}`;
+    if (v) {
+      const on = v.stardate ? ` on stardate ${v.stardate}` : '';
+      been = v.n > 1 ? `You’ve dropped out of warp here ${v.n === 2 ? 'twice' : `${v.n} times`}${on && `, the last${on}`}.` : `You dropped out of warp here${on}.`;
+    }
+    if (star !== undefined) {
+      been = [been, ...linesForStar(contacts, star)].filter(Boolean).join(' ');
+      course.href = `${BRIDGE}?course=${encodeURIComponent(cat.names[star])}`;
+      setText('card-course', v ? 'Set course again' : 'Set course');
+      course.setAttribute('aria-label', `Set course${v ? ' again' : ''} for ${o.name.replace(/^The /, 'the ')}`);
+      if (BRIDGE.startsWith('http')) { course.target = '_blank'; course.rel = 'noopener'; }
+    }
   } else if (s.kind === 'planet') {
     const p = sky.planets.find(x => x.name === s.name);
     kind = 'Planet'; title = PLANET_NAMES[s.name];
@@ -853,7 +985,7 @@ function fillCard(s) {
   setText('card-kind', kind);
   setText('card-title', title);
   setText('card-sub', sub);
-  setText('card-look', `${cap(look)}${s.kind === 'star' && pos.alt > -0.5 ? '. ' + seeIt : '.'}`);
+  setText('card-look', `${cap(look)}${(s.kind === 'star' || s.kind === 'sight') && pos.alt > -0.5 ? '. ' + seeIt : '.'}`);
   setText('card-line', line);
   $('card-line').hidden = !line;
   setText('card-facts', facts);
@@ -864,12 +996,13 @@ function fillCard(s) {
   $('card-been').hidden = !been;
   // A star can be sent: its link turns this sky to it and opens this card. (The planets and the Moon have no link.)
   $('card-share').hidden = !linkName(s);
+  setText('card-share', s.kind === 'sight' ? `Share this ${{ open: 'cluster', globular: 'cluster', galaxy: 'galaxy', core: 'place' }[x.o.kind] || 'nebula'}` : 'Share this star');
   // Doors to the other rooms that know this thing: its rung on the warp scale, and for a planet or the Moon the
   // survey file it is the Solar System's example of.
-  const rung = s.kind === 'star' ? PLACES.find(p => p.sky === cat.names[s.i])?.id : ['moon', 'mars', 'jupiter'].find(id => id === (s.kind === 'moon' ? 'moon' : s.kind === 'planet' && s.name));
+  const rung = s.kind === 'star' ? PLACES.find(p => p.sky === cat.names[s.i])?.id : s.kind === 'sight' ? x.o.rung : ['moon', 'mars', 'jupiter'].find(id => id === (s.kind === 'moon' ? 'moon' : s.kind === 'planet' && s.name));
   const file = s.kind === 'moon' ? fileForHome('Moon') : s.kind === 'planet' ? fileForHome(PLANET_NAMES[s.name]) : null;
   const doors = [
-    rung && [`${BRIDGE}warp.html${s.kind === 'star' ? '' : '?warp=9'}#${rung}`, s.kind === 'star' ? 'Race there on the warp scale' : 'How long at warp 9'],
+    rung && [`${BRIDGE}warp.html${s.kind === 'star' || s.kind === 'sight' ? '' : '?warp=9'}#${rung}`, s.kind === 'star' || s.kind === 'sight' ? 'Race there on the warp scale' : 'How long at warp 9'],
     file && [`${BRIDGE}survey.html#${encodeURIComponent(file.id)}`, `${fileLabel(file)} survey file`],
   ].filter(Boolean).map(([href, text]) => `<a href="${href}"${BRIDGE.startsWith('http') ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`).join('');
   if ($('card-doors').dataset.for !== doors) { $('card-doors').dataset.for = doors; $('card-doors').innerHTML = doors; }
@@ -877,15 +1010,16 @@ function fillCard(s) {
   const tab = `${nameOf(s)} · Tonight’s sky · Engage`;
   if (document.title !== tab) document.title = tab;
 }
-// The name a link to a star's card carries: the catalogue's, when that name leads back to this star.
-const linkName = s => (s.kind === 'star' && cat.byName.get(cat.names[s.i]) === s.i ? cat.names[s.i] : '');
+// What a link to a card carries after its "#": a star's catalogue name, when that name leads back to this star, or a
+// cluster's, nebula's or galaxy's id.
+const linkName = s => (s.kind === 'sight' ? `sight=${s.id}` : s.kind === 'star' && cat.byName.get(cat.names[s.i]) === s.i ? `star=${encodeURIComponent(cat.names[s.i])}` : '');
 function shareStar(button) {
-  const name = sel && linkName(sel);
-  if (!name) return null;
+  const hash = sel && linkName(sel);
+  if (!hash) return null;
   return share(button, {
     title: `${nameOf(sel)}, in tonight’s sky`,
     text: `${nameOf(sel)} (${$('card-sub').textContent}): find it in your sky tonight.`,
-    url: `${LIVE}tonight.html#star=${encodeURIComponent(name)}`,
+    url: `${LIVE}tonight.html#${hash}`,
   });
 }
 const setText = (id, text) => { if ($(id).textContent !== text) $(id).textContent = text; };
@@ -947,6 +1081,23 @@ function renderList() {
     if (t.been) b.querySelector('.s-name').insertAdjacentHTML('beforeend', '<span class="s-been">Been there</span>');
     b.querySelector('.s-sub').textContent = `${t.chart && titleFor(cat, t.i) !== t.name ? titleFor(cat, t.i) + ' · ' : ''}${where}`;
     b.addEventListener('click', () => { const s = { kind: 'star', i: t.i }; showCard(s); if (sensing) aim(s); });
+    return b;
+  }));
+  // Then the deep sky: what can be found tonight first, the highest first, then what's too faint, then what's down.
+  const deep = sights.map(x => ({ x, state: x.alt < 0 ? 2 : x.seen ? 0 : 1 })).sort((a, b) => a.state - b.state || b.x.alt - a.x.alt);
+  const head = document.createElement('h3');
+  head.className = 'systems-head';
+  head.textContent = 'Clusters, nebulae and galaxies';
+  box.append(head, ...deep.map(({ x, state }) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `system sight s${state}${x.been ? ' been' : ''}`;
+    const where = state === 2 ? 'Below the horizon' : `${cap(whereToLook(altAz(x.local)))}${state === 1 ? (x.o.vis > 6.5 ? ', needs a telescope' : ', too faint to see') : ''}`;
+    b.innerHTML = '<i aria-hidden="true"></i><span class="s-name"></span><span class="s-sub"></span>';
+    b.querySelector('.s-name').textContent = x.o.name;
+    if (x.been) b.querySelector('.s-name').insertAdjacentHTML('beforeend', '<span class="s-been">Been there</span>');
+    b.querySelector('.s-sub').textContent = `${KINDS[x.o.kind]} · ${where}`;
+    b.addEventListener('click', () => { const s = { kind: 'sight', id: x.o.id }; showCard(s); if (sensing) aim(s); });
     return b;
   }));
 }
@@ -1244,7 +1395,11 @@ function hooks() {
     // Where a named star lands on screen, in CSS pixels.
     where(name) { const t = tags.find(x => x.name === name); const i = t ? t.i : cat.byName.get(name); B = basis(); return project(toLocal(sky.f, starDir(i))); },
     // The tags drawn last frame, with their boxes on screen.
-    tags: () => placed.filter(q => q.box).map(q => ({ name: nameOf(q.hit), been: !!q.been, ...q.box })),
+    tags: () => placed.filter(q => q.box && q.hit.kind === 'star').map(q => ({ name: nameOf(q.hit), been: !!q.been, ...q.box })),
+    // The clusters, nebulae and galaxies drawn last frame: name, where on screen, and the tag's box if it had room.
+    sights: () => placed.filter(q => q.sight).map(q => ({ id: q.hit.id, name: nameOf(q.hit), x: q.x, y: q.y, been: !!q.been, box: q.box || null })),
+    sight(id) { const x = sights.find(y => y.o.id === id); return x && { alt: x.alt, seen: x.seen, ly: x.ly }; },
+    aimSight(id) { const s = { kind: 'sight', id }; aim(s); aimAnim = null; const { alt, az } = altAz(selLocal(s)); view.az = az; view.alt = Math.min(Math.max(alt, -10), 80); dirty = true; },
     // The tags drawn last frame as a quiet ring alone: below the horizon or too faint to see.
     rings: () => placed.filter(q => q.quiet).map(q => nameOf(q.hit)),
     tag(name) { const t = tags.find(x => x.name === name); return t && { alt: t.alt, seen: t.seen, mag: t.mag }; },

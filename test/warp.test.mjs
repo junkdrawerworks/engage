@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { LANES, REAL_SHIPS, realShip, kirkSpeed, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt, customPlace, COURSE_GROUP } from '../js/warp-scale.js';
 import { SHIPS } from '../js/ships.js';
+import { DEEP_SKY, sightById } from '../js/deepsky.js';
 import { warpSpeed } from '../js/physics.js';
 import { gamma, aberrate, doppler, halfSkyDeg, hourOnEarth, greenSeenAs, speedSaid } from '../js/impulse.js';
 
@@ -125,8 +126,15 @@ test('every door from a place leads somewhere: a star in the catalogue, a ship o
     assert.ok(ship, `${p.name}: long missions has no ship ${p.file}`);
     assert.ok(p.fileText.includes(ship.name) || p.name === ship.name, `${p.name}: "${p.fileText}" does not name ${ship.name}`);
   }
-  // The eight stars and the Pleiades have tonight's sky; Voyager 1 has her own file and Pluto has New Horizons'.
-  assert.deepEqual(PLACES.filter(p => p.sky).map(p => p.id), ['proxima', 'wolf', 'vulcan', 'vega', 'trappist', 'pleiades', 'betelgeuse', 'rigel', 'deneb']);
+  // The eight stars have tonight's sky; Voyager 1 has her own file and Pluto has New Horizons'.
+  assert.deepEqual(PLACES.filter(p => p.sky).map(p => p.id), ['proxima', 'wolf', 'vulcan', 'vega', 'trappist', 'betelgeuse', 'rigel', 'deneb']);
+  // Every cluster, nebula and galaxy tonight's sky knows has its rung, and opens its card there.
+  assert.deepEqual(PLACES.filter(p => p.sight).map(p => p.sight).sort(), DEEP_SKY.map(o => o.id).sort());
+  for (const p of PLACES.filter(p => p.sight)) {
+    const o = sightById.get(p.sight);
+    assert.equal(o.rung, p.id, `${o.name}'s card races to ${o.rung}, not ${p.id}`);
+    if (o.ly) assert.equal(p.ly, o.ly, `${o.name}: the ladder says ${p.ly} ly and tonight's sky ${o.ly}`);
+  }
   assert.deepEqual(PLACES.filter(p => p.file).map(p => [p.id, p.file]), [['pluto', 'nh'], ['voyager', 'v1']]);
 });
 

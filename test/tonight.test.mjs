@@ -543,3 +543,39 @@ test('on the viewscreen a star that behaves does what it does, sped up', () => {
   assert.deepEqual(onScreenParts(algol, false), ['Dims every 2.87 days']);
   for (const v of VARIABLES) assert.ok(onScreenParts(v)[0].length <= 22, `${v.star}'s line is too long for a phone's header`);
 });
+
+// The deep sky (js/deepsky.js): every object in the constellation it is known in, with a distance, a size and a
+// rung on the warp scale, and the sky each needs to be seen in.
+test('clusters, nebulae and galaxies are where they are, and as faint as they are', async () => {
+  const { DEEP_SKY, KINDS, sightById, sightDir, sightSize, sightWidthLy, seenIn } = await import('../js/deepsky.js');
+  const { PLACES } = await import('../js/warp-scale.js');
+  const { SKIES } = await import('../js/astro.js');
+  const bin = await readFile(new URL('../data/stars.bin', import.meta.url));
+  const cat = buildCatalog(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength), JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url), 'utf8')));
+  const home = {
+    hyades: 'Taurus', pleiades: 'Taurus', beehive: 'Cancer', coalsack: 'Crux', orion: 'Orion', ring: 'Lyra', lagoon: 'Sagittarius',
+    double: 'Perseus', carina: 'Carina', omega: 'Centaurus', core: 'Sagittarius', lmc: 'Dorado', smc: 'Tucana', andromeda: 'Andromeda',
+  };
+  assert.deepEqual(DEEP_SKY.map(o => o.id), Object.keys(home));
+  assert.equal(sightById.size, DEEP_SKY.length);
+  for (const o of DEEP_SKY) {
+    assert.equal(cat.constellationToward(sightDir(o)), home[o.id], `${o.name} is not in ${home[o.id]}`);
+    assert.ok(KINDS[o.kind] && o.about.length > 80 && o.size[0] > 0 && o.vis > 0, o.name);
+    assert.ok(PLACES.some(p => p.id === o.rung), `${o.name} has no rung on the warp scale`);
+    // Its distance, or a star of the catalogue's to take it from.
+    assert.ok(o.ly > 0 || cat.byName.has(o.star), `${o.name} has no distance`);
+  }
+  // The four that can be flown to are within 3,000 light years; the far side of that is the warp scale's.
+  // The Alcyone the Pleiades are flown to is the catalogue's, 403 light years out.
+  near(cat.distanceFrom(cat.byName.get('Alcyone'), [0, 0, 0]) * 3.26156, 403, 1, 'Alcyone');
+  // True widths from distance and size: the Orion Nebula about 25 light years, the Ring about a light year.
+  near(sightWidthLy(sightById.get('orion'), 1344)[0], 25.4, 0.3, 'the Orion Nebula’s width');
+  near(sightWidthLy(sightById.get('ring'), 2577)[0], 1.2, 0.05, 'the Ring Nebula’s width');
+  near(sightSize(sightById.get('hyades'))[0] * 180 / Math.PI, 5.5, 0.01, 'the Hyades across the sky');
+  // From the city only the Pleiades and the Hyades; from the suburbs the Orion Nebula, the Carina Nebula and the
+  // Large Magellanic Cloud too; under a dark sky everything but the Ring, which needs a telescope.
+  const seen = sky => DEEP_SKY.filter(o => seenIn(o, SKIES[sky].mag)).map(o => o.id);
+  assert.deepEqual(seen('city'), ['hyades', 'pleiades']);
+  assert.deepEqual(seen('suburb'), ['hyades', 'pleiades', 'orion', 'carina', 'lmc']);
+  assert.deepEqual(seen('dark'), DEEP_SKY.map(o => o.id).filter(id => id !== 'ring'));
+});

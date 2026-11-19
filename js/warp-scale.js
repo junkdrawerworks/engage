@@ -2,6 +2,14 @@
 // long each takes, and the race clock. Pure, so test/warp.test.mjs can check it without a browser.
 import { warpSpeed, plural, formatYear } from './physics.js';
 import { readings, planetAt, earthAt, moonAt, jdOf, dateOf, whenAbove, LIGHT_DAY_AU, C_KM_S } from './ephemeris.js';
+import { sightById } from './deepsky.js';
+
+// A cluster's, a nebula's or a galaxy's rung: its distance, its card's words and its Star Trek line from the deep
+// sky's list (js/deepsky.js, where each distance has its source), and `sight`, the card tonight's sky opens for it.
+const deep = (id, group, color, kind) => {
+  const o = sightById.get(id);
+  return { id, name: o.name, group, ly: o.ly, color, kind, sight: id, about: o.about, ...(o.trek ? { trek: o.trek } : {}) };
+};
 
 export const AU_PER_LY = 63241.1;
 export const SECONDS_PER_YEAR = 31557600; // a Julian year, the one light years are measured in
@@ -58,7 +66,7 @@ export const GROUPS = [
 // The places, nearest first. Stars use the same catalogue distances as the bridge, so the helm agrees. The Solar
 // System's distances change, so `live` works them out for a date from the same orbits Long missions uses.
 // `course` is the star's name in the catalogue, for Set course on the bridge, and `sky` the name tonight's sky opens
-// a card for. `file` is the ship in js/ships.js whose file long missions has, and `fileText` what the link to it says.
+// a card for (`sight` for a cluster, a nebula or a galaxy). `file` is the ship in js/ships.js whose file long missions has, and `fileText` what the link to it says.
 export const PLACES = [
   {
     id: 'moon', name: 'The Moon', group: 'home', color: '#d8d4cc', kind: 'moon',
@@ -125,8 +133,9 @@ export const PLACES = [
     id: 'trappist', name: 'TRAPPIST-1', group: 'near', ly: 40.67, color: '#ff7a50', kind: 'star', course: 'TRAPPIST-1', sky: 'TRAPPIST-1',
     about: 'A tiny red star with seven Earth-sized planets, three of them where water could be liquid.',
   },
+  deep('hyades', 'galaxy', '#ffcf9a', 'cluster'),
   {
-    id: 'pleiades', name: 'The Pleiades', group: 'galaxy', ly: 403, color: '#bcd4ff', kind: 'cluster', course: 'Alcyone', sky: 'Alcyone',
+    id: 'pleiades', name: 'The Pleiades', group: 'galaxy', ly: 403, color: '#bcd4ff', kind: 'cluster', course: 'Alcyone', sight: 'pleiades',
     about: 'The Seven Sisters: a young cluster of hot blue stars, about 100 million years old, and easy to see on a winter night.',
   },
   {
@@ -134,13 +143,15 @@ export const PLACES = [
     about: 'A red supergiant in Orion that will explode as a supernova some time in the next 100,000 years.',
     trek: 'Home of the Betelgeusians, one of the races at the Federation council in The Voyage Home.',
   },
+  deep('coalsack', 'galaxy', '#7d7f99', 'dark'),
+  deep('beehive', 'galaxy', '#e8e0c8', 'cluster'),
   {
     id: 'rigel', name: 'Rigel', group: 'galaxy', ly: 863, color: '#c4d8ff', kind: 'star', course: 'Rigel', sky: 'Rigel',
     about: 'A blue supergiant, Orion’s foot, around 100,000 times as bright as the Sun.',
     trek: 'Rigel VII is where Captain Pike’s landing party had the deadly fight he can’t stop thinking about in The Cage.',
   },
   {
-    id: 'orion', name: 'The Orion Nebula', group: 'galaxy', ly: 1344, color: '#ff9fc6', kind: 'nebula',
+    id: 'orion', name: 'The Orion Nebula', group: 'galaxy', ly: 1344, color: '#ff9fc6', kind: 'nebula', sight: 'orion',
     about: 'A cloud where new stars are being born, faintly visible to the eye in Orion’s sword.',
     trek: 'A nebula is a captain’s favourite place to hide, the way Kirk lured Khan into the Mutara Nebula.',
   },
@@ -149,8 +160,13 @@ export const PLACES = [
     about: 'A white supergiant, the tail of the Swan. Its distance is hard to measure: the catalogue says 1,400 light years, newer estimates nearer 2,600.',
     trek: 'Farpoint Station, in the very first episode of The Next Generation, is on Deneb IV.',
   },
+  deep('ring', 'galaxy', '#9fe0d0', 'nebula'),
+  deep('lagoon', 'galaxy', '#ff8fb0', 'nebula'),
+  deep('double', 'galaxy', '#cfe0ff', 'cluster'),
+  deep('carina', 'galaxy', '#ffa0a8', 'nebula'),
+  deep('omega', 'galaxy', '#ffe6b0', 'cluster'),
   {
-    id: 'core', name: 'The galactic core', group: 'galaxy', ly: 26670, color: '#ffe2a8', kind: 'core', headline: true,
+    id: 'core', name: 'The galactic core', group: 'galaxy', ly: 26670, color: '#ffe2a8', kind: 'core', headline: true, sight: 'core',
     about: 'Sagittarius A*, a black hole four million times the Sun’s mass, at the centre of the Milky Way. The light reaching us now left it during the last ice age.',
     trek: 'In The Final Frontier the Enterprise-A gets here in what seems like days. On this scale even warp 9.975 takes about four years.',
   },
@@ -160,12 +176,13 @@ export const PLACES = [
     trek: 'Janeway reckoned 75 years to get home at maximum warp. Flying nonstop at warp 9.975 it’s just over ten, so her 75 allowed for a lot of stopping.',
   },
   {
-    id: 'lmc', name: 'The Large Magellanic Cloud', group: 'beyond', ly: 160000, color: '#d6dcff', kind: 'galaxy',
+    id: 'lmc', name: 'The Large Magellanic Cloud', group: 'beyond', ly: 160000, color: '#d6dcff', kind: 'galaxy', sight: 'lmc',
     about: 'A small galaxy in orbit round our own, a smudge in the southern sky. In 1987 a star there exploded and could be seen without a telescope.',
     trek: 'To get here you’d cross the galactic barrier at the Milky Way’s edge, which went badly for the Enterprise in Where No Man Has Gone Before.',
   },
+  deep('smc', 'beyond', '#d0d6f4', 'galaxy'),
   {
-    id: 'andromeda', name: 'Andromeda', group: 'beyond', ly: 2537000, color: '#e8dcff', kind: 'galaxy',
+    id: 'andromeda', name: 'Andromeda', group: 'beyond', ly: 2537000, color: '#e8dcff', kind: 'galaxy', sight: 'andromeda',
     about: 'The nearest big galaxy, and the farthest thing you can see with your eyes. It’s heading our way and will merge with the Milky Way in about 4.5 billion years.',
     trek: 'In By Any Other Name, the Kelvans take over the Enterprise for a 300-year trip home to Andromeda. That’s about 8,500 times light, faster than warp 9.99.',
   },
