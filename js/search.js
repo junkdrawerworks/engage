@@ -21,6 +21,7 @@ const tight = s => s.replace(/[^a-z0-9]/g, '');
 
 const NOTES = new Map(DESTINATIONS.map(d => [d.star, d]));
 const TAGS = new Map(CHARTS.map(c => [c.star, c.tag]));
+const CHART_FIND = new Map(CHARTS.map(c => [c.star, c.find || []]));
 
 // What Starfleet's charts call a star, where that isn't just the star's own name: "Vulcan" for 40 Eridani.
 export function chartTag(name) {
@@ -33,7 +34,7 @@ export function chartTag(name) {
 export function buildIndex(names, constellations = []) {
   const stars = names.map(name => {
     const d = NOTES.get(name);
-    const all = [name, d?.title, d?.aka, TAGS.get(name), ...(d?.find || [])].filter(Boolean).map(fold);
+    const all = [name, d?.title, d?.aka, TAGS.get(name), ...(d?.find || []), ...(CHART_FIND.get(name) || [])].filter(Boolean).map(fold);
     for (const p of [...all]) if (p.startsWith('the ')) all.push(p.slice(4)); // "The North Star" answers to "north star"
     const parts = [...new Set(all)];
     return { parts, tight: parts.map(tight), words: parts.map(p => p.split(' ')), known: !!(d || TAGS.has(name)) };

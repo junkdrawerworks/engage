@@ -35,6 +35,15 @@ test('Starfleet’s charts are in the index', () => {
   assert.equal(first('capella iv'), 'Capella');
   assert.equal(first('cochrane'), 'Rigil Kentaurus');
   for (const c of CHARTS) assert.equal(first(c.tag), c.star, c.tag);
+  // The other names a chart lists find its star too, and the worlds Star Trek put round the stars people can find.
+  for (const c of CHARTS) for (const f of c.find || []) assert.equal(first(f), c.star, f);
+  assert.equal(first('mintaka iii'), 'Mintaka');
+  assert.equal(first('merak ii'), 'Merak');
+  assert.equal(first('regulus v'), 'Regulus');
+  assert.equal(first('sigma draconis'), 'Alsafi');
+  assert.equal(first('gamma hydra'), 'γ Hydrae');
+  assert.equal(first('garth of izar'), 'Izar');
+  assert.ok(CHARTS.length >= 28, `${CHARTS.length} charted stars`);
 });
 
 test('names the charts don’t place find nothing', () => {
