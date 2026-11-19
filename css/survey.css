@@ -97,6 +97,14 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .verdict-actions > * { flex: 1 1 140px; display: inline-grid; place-items: center; text-decoration: none; }
 .score { margin: 12px 0 0; text-align: center; font: 500 13px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); min-height: 1em; }
 .score + .unsaved { width: fit-content; margin: 8px auto 0; }
+/* The files used: a badge for each of the 17, lit once a world has been rightly filed under it. */
+.files-used { margin: 12px auto 0; max-width: 520px; text-align: center; }
+.used-badges { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.used-badges li { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px dashed var(--line-strong); color: var(--dim); font: 600 12px/1 var(--display); letter-spacing: 0.04em; }
+.used-badges li.on { border: 1px solid rgba(255, 181, 74, 0.55); background: rgba(255, 181, 74, 0.14); color: var(--amber); }
+.used-badges .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.used-count { margin: 8px 0 0; font: 500 12px/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+.caught { margin: 6px 0 0; font-size: 14px; color: var(--muted); text-wrap: balance; }
 
 .survey .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }
 

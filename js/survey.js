@@ -5,6 +5,7 @@ import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { Pace } from './pace.js';
+import { tallies, isFile, isSlip, record as onRecord, filesUsed, caughtOutLine } from './quiz.js';
 import { LIVE, share } from './share.js';
 import { planetByName, standable, systemFor } from './worlds.js';
 
@@ -28,14 +29,15 @@ let drill = null; // the world being matched
 let paintId = 0;
 
 // The quiz's streak, its best and how many worlds have been seen: whole numbers from nought up, or else nought. And
-// when the best was made (a moment in milliseconds, or nought), for the line the captain's log gives it.
+// when the best was made (a moment in milliseconds, or nought), for the line the captain's log gives it. `filed` and
+// `mixed` are the files used and the slips made (js/quiz.js), which an older save doesn't have.
 function load() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* start again */ }
   if (!s || typeof s !== 'object') s = {};
   const count = x => (Number.isInteger(x) && x >= 0 ? x : 0);
   const streak = count(s.streak);
-  return { best: Math.max(count(s.best), streak), streak, seen: count(s.seen), bestAt: count(s.bestAt) };
+  return { best: Math.max(count(s.best), streak), streak, seen: count(s.seen), bestAt: count(s.bestAt), filed: tallies(s.filed, isFile), mixed: tallies(s.mixed, isSlip) };
 }
 // Keeps the streak and the best. When the browser won't take them, a line under the score says so. Returns whether
 // it worked.
@@ -339,6 +341,7 @@ function answer(id) {
   saved.streak = right ? saved.streak + 1 : 0;
   saved.best = Math.max(saved.best, saved.streak);
   if (saved.best > bestBefore) saved.bestAt = Date.now();
+  onRecord(saved, c.id, id);
   save();
   // A new best streak is said in the verdict, not left to the small score line under it.
   const record = right && streakRecord(bestBefore, saved.streak);
@@ -377,10 +380,20 @@ function midSentence(s) {
 // The quiz played in another tab: the streak and the best here are what that tab saved.
 watch(KEY, () => { Object.assign(saved, load()); renderScore(); });
 
+// Under the score, a badge for each of the 17 files, lit once a world has been rightly filed under it, and the slip
+// made most often.
+const SHORT = { 'super-earth': 'SE', 'sub-neptune': 'SN', 'lava-world': 'LW', 'hot-jupiter': 'HJ', 'ice-giant': 'IG' };
 function renderScore() {
   $('score').textContent = saved.seen
     ? `Streak ${saved.streak} · Best ${saved.best}`
     : '';
+  const used = new Set(filesUsed(saved.filed));
+  $('files-used').hidden = !saved.seen;
+  $('used-badges').innerHTML = CLASSES.map(c => `<li class="${used.has(c.id) ? 'on' : ''}" title="${esc(label(c))}"><span aria-hidden="true">${esc(c.letter || SHORT[c.id])}</span><span class="vh">${esc(label(c))}${used.has(c.id) ? ', used' : ''}</span></li>`).join('');
+  $('used-count').textContent = `${used.size} of ${CLASSES.length} files used`;
+  const caught = caughtOutLine(saved.mixed);
+  $('caught').hidden = !caught;
+  $('caught').textContent = caught;
 }
 
 // ---------- Your stars ----------

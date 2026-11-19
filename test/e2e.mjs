@@ -1120,6 +1120,20 @@ const wrong = await page.evaluate(() => survey.world.choices.find(c => c.id !== 
 await page.click(`#choices [data-id="${wrong}"]`);
 assert.match(await text('#verdict-head'), /wouldn’t fool anyone/);
 assert.match(await text('#score'), /streak 0 · best 1/i);
+// Under the score, the files used so far and, once a slip has been made twice, the one made most often.
+const said = sel => page.locator(sel).evaluate(el => (el.hidden ? null : el.textContent));
+assert.equal(await said('#used-count'), '1 of 17 files used');
+assert.equal(await page.locator('#used-badges li.on').count(), 1);
+assert.equal(await page.locator('#used-badges li').count(), 17);
+assert.equal(await said('#caught'), null, 'one slip was called the one made most often');
+await page.evaluate(([w, x]) => { const s = JSON.parse(localStorage.getItem('engage.survey.v1')); s.mixed[`${w}>${x}`] = 2; localStorage.setItem('engage.survey.v1', JSON.stringify(s)); }, [world, wrong]);
+{
+  const p = await ctx.newPage();
+  await p.goto(base + 'survey.html#drill');
+  await p.waitForFunction(() => window.survey?.world);
+  assert.match(await p.locator('#caught').textContent(), /^Most often caught out: .+, mistaken for .+ \(2 times\)$/);
+  await p.close();
+}
 // A long sitting: 60 more worlds. Each quiz world is painted for itself and let go with it, so the painted maps
 // kept for good stay at the 17 survey files' own (two sizes each) however long the quiz runs.
 for (let n = 0; n < 60; n++) {

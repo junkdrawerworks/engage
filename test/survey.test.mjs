@@ -76,3 +76,39 @@ test('Cover your tracks draws only from the planet classes', () => {
   assert.equal(CLASSES.length, 17);
   assert.ok(CLASSES.every(c => c.of === undefined));
 });
+
+// ---------- Cover your tracks: the files used and the slip made most often ----------
+import { tallies, isFile, isSlip, record, filesUsed, caughtOut, caughtOutLine } from '../js/quiz.js';
+import { plan } from '../js/records.js';
+
+test('each answer goes on the record: a file used, or a slip', () => {
+  const saved = { filed: {}, mixed: {} };
+  record(saved, 'M', 'M'); record(saved, 'K', 'D'); record(saved, 'K', 'D'); record(saved, 'ice-giant', 'ice-giant');
+  assert.deepEqual(saved, { filed: { M: 1, 'ice-giant': 1 }, mixed: { 'K>D': 2 } });
+  assert.deepEqual(filesUsed(saved.filed), ['M', 'ice-giant']);
+  assert.equal(caughtOutLine(saved.mixed), 'Most often caught out: Class K, mistaken for Class D (2 times)');
+});
+
+test('one slip is nothing to say, and a tie always names the same pair', () => {
+  assert.equal(caughtOut({ 'K>D': 1, 'M>L': 1 }), null);
+  assert.equal(caughtOutLine({}), '');
+  assert.deepEqual(caughtOut({ 'sub-neptune>ice-giant': 3, 'P>D': 3, 'M>L': 2 }), { truth: 'P', picked: 'D', times: 3 });
+  assert.deepEqual(caughtOut({ 'P>K': 3, 'P>D': 3 }), { truth: 'P', picked: 'K', times: 3 });
+  assert.equal(caughtOutLine({ 'super-earth>M': 4 }), 'Most often caught out: Super-Earth, mistaken for Class M (4 times)');
+});
+
+test('a saved record that was tampered with or is from before keeps only what makes sense', () => {
+  assert.deepEqual(tallies(undefined, isFile), {});
+  assert.deepEqual(tallies([3], isFile), {});
+  assert.deepEqual(tallies({ M: 2, Z: 4, K: -1, D: 1.5, H: '3', europa: 2 }, isFile), { M: 2 });
+  assert.deepEqual(tallies({ 'K>D': 2, 'K>K': 3, 'K>Z': 1, KD: 5 }, isSlip), { 'K>D': 2 });
+});
+
+test('a restored copy adds its files used and slips without doubling them', () => {
+  const here = { best: 3, seen: 5, filed: { M: 2 }, mixed: { 'K>D': 1 } };
+  const theirs = { best: 2, seen: 9, filed: { M: 1, O: 4 }, mixed: { 'K>D': 3 } };
+  const merged = plan({ keys: { 'engage.survey.v1': theirs } }, { 'engage.survey.v1': here }, 'add').write['engage.survey.v1'];
+  assert.deepEqual([merged.filed, merged.mixed, merged.best, merged.seen], [{ M: 2, O: 4 }, { 'K>D': 3 }, 3, 9]);
+  const again = plan({ keys: { 'engage.survey.v1': theirs } }, { 'engage.survey.v1': merged }, 'add').write['engage.survey.v1'];
+  assert.deepEqual([again.filed, again.mixed], [merged.filed, merged.mixed]);
+});

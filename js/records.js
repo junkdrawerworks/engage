@@ -143,7 +143,9 @@ const MERGE = {
   },
   'engage.survey.v1'(here, theirs) {
     const theirsBest = count(theirs.best) > count(here.best);
-    return { ...here, best: Math.max(count(here.best), count(theirs.best)), seen: Math.max(count(here.seen), count(theirs.seen)), ...(theirsBest && count(theirs.bestAt) ? { bestAt: theirs.bestAt } : {}) };
+    // The files used and the slips made: the larger count of each, so a copy of this same record adds nothing.
+    const most = (a, b) => { const out = { ...(obj(a) || {}) }; for (const [k, v] of Object.entries(obj(b) || {})) if (count(v) > count(out[k])) out[k] = v; return out; };
+    return { ...here, best: Math.max(count(here.best), count(theirs.best)), seen: Math.max(count(here.seen), count(theirs.seen)), ...(theirsBest && count(theirs.bestAt) ? { bestAt: theirs.bestAt } : {}), filed: most(here.filed, theirs.filed), mixed: most(here.mixed, theirs.mixed) };
   },
   'engage.missions.v1'(here, theirs) {
     const hails = { ...obj(theirs.hails) };
