@@ -185,7 +185,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   assert.equal(await p.locator('#intro').evaluate(el => el.scrollTop), 0, `the welcome card opened scrolled down past its heading on a ${viewport.width}×${viewport.height} screen`);
   const touch = await small.newCDPSession(p);
   const x = viewport.width / 2, from = viewport.height - 40, to = 40;
-  // A swipe up, and another while Take the helm is still below the screen: with fourteen rooms on the list, a phone
+  // A swipe up, and another while Take the helm is still below the screen: with fifteen rooms on the list, a phone
   // on its side takes more than one. Four at most.
   let go;
   for (let swipe = 0; swipe < 4; swipe++) {
@@ -359,7 +359,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await bridgeReady(p);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
   await p.tap('#open-settings');
-  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all fifteen rooms work with no signal.', null, { timeout: 20000 })
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all sixteen rooms work with no signal.', null, { timeout: 20000 })
     .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
   assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
   assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
@@ -5085,7 +5085,7 @@ await page.emulateMedia({ reducedMotion: null });
   // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
   // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
   // half the time once the service worker was handing the stylesheet over.
-  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html']) {
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html']) {
     assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
   }
   for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
@@ -6664,9 +6664,73 @@ await page.emulateMedia({ reducedMotion: null });
   await lc.close();
 }
 
+// Main engineering: the order before the shift and what it costs; antimatter with no deuterium to meet strains the
+// containment; the sliders set by hand hold the order while the shift runs in real time; a careful shift ends in an
+// A, the yardsticks and the record; and a core starved of deuterium is ejected.
+{
+  const ec = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await ec.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await ec.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'engineering.html');
+  await p.waitForFunction(() => window.engineering?.ready);
+  await p.evaluate(() => engineering.start(42));
+  const first = (await p.evaluate(() => engineering.shift)).orders[0];
+  assert.equal(first, 7);
+  assert.equal(await p.locator('#order-line').innerText(), 'The bridge will ask for 8 warp factors, one an hour. The first: warp 7. Set the flows, then start.');
+  assert.equal(await p.locator('#order-cost').innerText(), 'Warp 7 needs 49% of this core’s power: 490 g of antimatter an hour, 21 megatons.');
+  // Antimatter alone: the mix says so, and the strain climbs once time runs.
+  await p.locator('#flow-a').fill('50');
+  assert.match(await p.locator('#mix').innerText(), /^Mix 0\.00 to 1: antimatter with no deuterium to meet\. Containment is straining\.$/);
+  await p.evaluate(() => engineering.run(1));
+  assert.ok((await p.evaluate(() => engineering.shift.strain)) > 0.1);
+  // A fresh shift, the flows set by hand to what holds warp 7, and the shift run in real time.
+  await p.evaluate(() => engineering.start(42));
+  const f = await p.evaluate(() => engineering.flowsFor(7));
+  await p.locator('#flow-d').fill(String(Math.round(f.d * 100)));
+  await p.locator('#flow-a').fill(String(Math.round(f.a * 100)));
+  await p.locator('#flow-c').fill(String(Math.round(f.c * 100)));
+  assert.equal(await p.locator('#mix').innerText(), 'Mix one to one: every gram of antimatter meets a gram of deuterium.');
+  await p.tap('#start');
+  await p.waitForFunction(() => engineering.shift.t > 2, null, { timeout: 10000 });
+  await p.tap('#pause');
+  assert.match(await p.locator('#gauges').innerText(), /HOLDING\s+Warp 7\s+On the order/i);
+  assert.match(await p.locator('#order-hour').innerText(), /Bridge · hour 1 of 8/i);
+  assert.equal(await p.locator('#order-line').innerText(), '“Engineering, bring us to warp 7.”');
+  assert.match(await p.locator('#burned-kg').innerText(), /^\d+(\.\d)? g of antimatter$/);
+  // The rest of the shift, answering each order a second late.
+  for (let k = 0; k < 8 && !(await p.evaluate(() => engineering.shift.over)); k++) {
+    await p.evaluate(() => { engineering.set(engineering.flowsFor(engineering.reading.order)); engineering.run(12 - engineering.shift.t % 12 + 1); });
+  }
+  await p.evaluate(() => engineering.run(20));
+  assert.equal(await p.locator('#debrief').isVisible(), true);
+  assert.equal(await p.locator('#debrief-head').innerText(), 'Shift complete: A');
+  assert.match(await p.locator('#debrief-held').innerText(), /^You held the bridge’s order for (8|9)\d% of the shift\. The bridge never had to ask twice\.$/);
+  assert.deepEqual((await p.locator('#yardsticks li').allInnerTexts()).map(l => l.replace(/\d[\d,.]*/g, 'N')),
+    ['N megatons of TNT', 'N times the Hiroshima bomb', 'N times the Tsar Bomba, the largest bomb ever set off', 'N hours of all the energy the world uses']);
+  assert.equal(await p.locator('#burned').isVisible(), false);
+  let kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.engineering.v1')));
+  assert.equal(kept.shifts, 1);
+  assert.ok(kept.best > 0.8 && kept.kg > 2, JSON.stringify(kept));
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the room is wider than the phone');
+  // Another shift, starved of deuterium: the core is ejected in the first hour.
+  await p.tap('#again');
+  assert.equal(await p.locator('#debrief').isVisible(), false);
+  assert.equal(await p.locator('#out-a').innerText(), '0%');
+  await p.evaluate(() => engineering.set({ a: 0.8, d: 0.2, c: 0.4 }));
+  await p.evaluate(() => engineering.run(10));
+  assert.equal(await p.locator('#debrief-head').innerText(), 'Core ejected in hour 1');
+  kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.engineering.v1')));
+  assert.deepEqual([kept.shifts, kept.ejected], [2, 1]);
+  await p.reload();
+  await p.waitForFunction(() => window.engineering?.ready);
+  assert.equal(await p.locator('#best').innerText(), '');
+  await ec.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
-const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html'];
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html'];
 const until = async (ok, ms, what) => {
   for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
 };
@@ -6684,7 +6748,7 @@ for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await 
 const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
-const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal', 'longway.html': 'longway' };
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal', 'longway.html': 'longway', 'engineering.html': 'engineering' };
 const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
 net = 'down';
 await ctx.setOffline(true);
@@ -6749,7 +6813,7 @@ server.close();
 // a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
 // index.html; the first 8 hex of the sha1 of those).
 // Everything the ten pages and their scripts load is on the list: a file left off opens online and not offline.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
@@ -6759,7 +6823,7 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html']) {
   const html = await readFile(join(root, f), 'utf8');
   assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
   const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';

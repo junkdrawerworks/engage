@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Main engineering · Engage</title>
+  <meta name="description" content="Keep a warp core steady through one shift while the bridge asks for warp after warp: deuterium, antimatter and coolant on three sliders, and what the shift burned against real yardsticks. A kilogram of antimatter meeting a kilogram of matter gives about 43 megatons.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="Main engineering">
+  <meta property="og:description" content="Balance a warp core through a shift of orders from the bridge, and see what each warp factor costs in antimatter.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-engineering.png">
+  <meta property="og:image:alt" content="Engage, main engineering. A tall warp core glowing blue, beside the three sliders that feed it deuterium, antimatter and coolant.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/engineering.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/engineering.css">
+</head>
+<body class="survey engineering-page">
+  <noscript><p class="noscript">Main engineering needs JavaScript to run the core.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Main engineering</p>
+      <h1>Balance the warp core</h1>
+    </div>
+  </header>
+
+  <main>
+    <p class="lab-intro">One shift, eight orders from the bridge, an hour each. Feed the core antimatter and deuterium to make the power, and coolant to keep it below its rating. Antimatter with no deuterium to meet strains the containment; so does a core run too hot. Strain it to the limit and the core is ejected.</p>
+    <div class="deck" id="deck">
+      <div class="core-side">
+        <div class="core-screen"><canvas id="core" role="img" aria-label="The warp core"></canvas></div>
+        <div class="readouts">
+          <section class="order-card" aria-labelledby="order-hour">
+            <p class="eyebrow" id="order-hour">Before the shift</p>
+            <p class="order-line" id="order-line" aria-live="polite"></p>
+            <p class="order-cost" id="order-cost"></p>
+          </section>
+          <dl class="gauges" id="gauges"></dl>
+        </div>
+      </div>
+      <div class="side">
+        <section class="flows" aria-label="The core’s flows">
+          <label class="flow" for="flow-d"><span>Deuterium <output id="out-d" for="flow-d"></output></span>
+            <input type="range" id="flow-d" min="0" max="100" step="1" value="0"></label>
+          <label class="flow anti" for="flow-a"><span>Antimatter <output id="out-a" for="flow-a"></output></span>
+            <input type="range" id="flow-a" min="0" max="100" step="1" value="0"></label>
+          <label class="flow cool" for="flow-c"><span>Coolant <output id="out-c" for="flow-c"></output></span>
+            <input type="range" id="flow-c" min="0" max="100" step="1" value="0"></label>
+          <p class="mix" id="mix"></p>
+          <div class="shift-row">
+            <button type="button" class="primary" id="start">Start the shift</button>
+            <button type="button" class="secondary" id="pause" hidden>Pause</button>
+          </div>
+        </section>
+        <section class="debrief" id="debrief" hidden aria-labelledby="debrief-head">
+          <p class="eyebrow">End of the shift</p>
+          <h2 id="debrief-head" tabindex="-1"></h2>
+          <p id="debrief-held"></p>
+          <p id="debrief-burn"></p>
+          <ul class="yardsticks" id="yardsticks"></ul>
+          <p class="best" id="best"></p>
+          <button type="button" class="primary" id="again">Another shift</button>
+        </section>
+        <section class="burned" id="burned" aria-label="Burned this shift">
+          <p class="eyebrow">Burned this shift</p>
+          <p class="burned-kg" id="burned-kg"></p>
+          <p class="burned-said" id="burned-said"></p>
+        </section>
+      </div>
+    </div>
+
+    <section class="canon" aria-labelledby="canon-head">
+      <p class="eyebrow">Starfleet’s two answers</p>
+      <h2 id="canon-head">How rich a mix?</h2>
+      <div class="canon-pair">
+        <div>
+          <h3>The Technical Manual</h3>
+          <p>The Next Generation Technical Manual (1991) runs the core rich: 25 parts deuterium to one of antimatter while it idles, 10 to 1 at warp 1, leaner as the ship goes faster, and one to one only at warp 8 and above. The extra deuterium isn’t burned; it is heated into the plasma that drives the warp coils.</p>
+        </div>
+        <div>
+          <h3>The Academy exam</h3>
+          <p>In “Coming of Age” (The Next Generation, season 1, 1988), the question on Wesley Crusher’s entrance exam has one right answer: one to one. That is the ratio at which every gram of antimatter meets a gram of matter, and nothing is left over.</p>
+        </div>
+      </div>
+      <p>This core does both: it burns one to one, and any deuterium you add past that runs through it and carries heat away, at the cost of the tank.</p>
+    </section>
+
+    <p class="sources">The energy is real: a kilogram of antimatter meeting a kilogram of matter turns both into energy, E = mc² for 2 kilograms, 1.8 × 10<sup>17</sup> joules or 43 megatons of TNT. The Hiroshima bomb was about 15 kilotons and the Tsar Bomba 50 megatons; the world used just over 600 exajoules of energy in 2025 (Energy Institute, Statistical Review of World Energy 2026). The core’s size (a kilogram of antimatter an hour at full burn), the power each warp factor needs and how it heats are this game’s, not canon. The mix ratios are as fan references give the manual and the episode.</p>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/engineering.js"></script>
+</body>
+</html>

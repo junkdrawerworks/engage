@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png, og-longway.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress, temporal or longway; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png, og-longway.png, og-engineering.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress, temporal, longway or engineering; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -565,6 +565,33 @@ if (!only || only === 'longway') {
   const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('map'); return [c.toDataURL(), c.height / c.width]; });
   await wide.context().close();
   await ogCard(shot, aspect, 'Engage · Helm', 'The long way home', 'Stranded 70,000 light years out. Choose your warp and your stops.', 'Why does it take 75 years?', 'og-longway.png');
+}
+
+// Main engineering: hour 2 of a shift, the core glowing blue at warp 8.5, on the order.
+if (!only || only === 'engineering') {
+  const shift = async page => {
+    await page.goto(base + 'engineering.html');
+    await page.waitForFunction(() => window.engineering?.ready);
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => {
+      engineering.start(42);
+      for (let k = 0; k < 2; k++) { engineering.run(1); engineering.set(engineering.flowsFor(engineering.reading.order)); engineering.run(k < 1 ? 11 : 4); }
+    });
+    await page.waitForTimeout(300);
+  };
+  const page = await open({ width: 390, height: 844 }, 2);
+  await shift(page);
+  await page.evaluate(() => document.getElementById('deck').scrollIntoView());
+  await page.waitForTimeout(200);
+  await save(await page.screenshot(), 'docs/phone-engineering.png');
+  await page.context().close();
+  const wide = await open({ width: 1100, height: 760 }, 1);
+  await shift(wide);
+  const box = await wide.locator('.core-side').boundingBox();
+  const shot = await wide.screenshot({ clip: box });
+  const aspect = box.height / box.width;
+  await wide.context().close();
+  await ogCard('data:image/png;base64,' + shot.toString('base64'), aspect, 'Engage · Engineering', 'Main engineering', 'Hold the bridge’s orders through a shift, and see what each warp factor burns.', 'A kilogram of antimatter is 43 megatons', 'og-engineering.png');
 }
 
 if (!only || only === 'courses') {
