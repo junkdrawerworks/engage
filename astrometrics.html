@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Astrometrics · Engage</title>
+  <meta name="description" content="Every star Engage knows on one wall, hot to cool and dim to bright: the Hertzsprung-Russell diagram, where stars fall into families. See what the naked eye picks out, what the neighbourhood is really made of, and the Sun’s whole life.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="Astrometrics">
+  <meta property="og:description" content="17,000 real stars by colour and true brightness, and the Sun’s life from now to white dwarf.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-astrometrics.png">
+  <meta property="og:image:alt" content="Engage, astrometrics lab. Seventeen thousand stars plotted hot to cool against dim to bright, each in its own colour, in the bands of the main sequence, the giants and the white dwarfs.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/astrometrics.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/astrometrics.css">
+</head>
+<body class="survey astro-page">
+  <noscript><p class="noscript">Astrometrics needs JavaScript to plot the stars.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Astrometrics lab</p>
+      <h1>Astrometrics</h1>
+    </div>
+  </header>
+
+  <main>
+    <p class="lab-intro">Every star Engage knows, on one wall: hot on the left, cool on the right, bright at the top, dim at the bottom. Astronomers call it the Hertzsprung-Russell diagram, and on it stars fall into families.</p>
+    <div class="filters" id="filters" role="group" aria-label="Which stars"></div>
+    <div class="deck">
+      <div class="wall-side">
+        <div class="screen"><canvas id="wall" aria-hidden="true"></canvas></div>
+        <p class="lesson" id="lesson" aria-live="polite"></p>
+        <p class="left-out" id="left-out"></p>
+      </div>
+      <div class="side">
+        <article class="card" id="card" aria-live="polite"><p class="hint">Tap a star on the wall for its card.</p></article>
+        <section class="life" aria-labelledby="life-label">
+          <label class="life-label" id="life-label" for="life">The Sun’s life <output id="life-out" for="life"></output></label>
+          <input type="range" id="life" min="0" max="8" step="1" value="1">
+          <p class="life-said" id="life-said"></p>
+        </section>
+      </div>
+    </div>
+    <p class="sources">Stars: the HYG catalogue; temperatures and true brightness are worked out from each star’s colour and distance, or measured, for the stars with notes. The main sequence: Pecaut and Mamajek 2013, <i>Astrophysical Journal Supplement</i> 208, 9, as kept up to date by Mamajek. The Sun’s life: Sackmann, Boothroyd and Kraemer 1993, <i>Astrophysical Journal</i> 418, 457.</p>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/astrometrics.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away or radio; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio or astrometrics; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -473,6 +473,25 @@ if (!only || only === 'radio') {
   const [shot] = await page.evaluate(() => [document.getElementById('radio-map').toDataURL()]);
   await page.context().close();
   await ogCard(shot, 1, 'Engage · Communications', 'Subspace radio', 'Which real stars are hearing 1966, the year Star Trek went out, tonight?', 'And the real messages in flight', 'og-radio.png');
+}
+
+// Astrometrics: every star on the wall, Arcturus picked, and the Sun's life at its red giant.
+if (!only || only === 'astrometrics') {
+  const page = await open({ width: 390, height: 844 }, 2);
+  await page.goto(base + 'astrometrics.html#star=Arcturus');
+  await page.waitForFunction(() => window.astrometrics?.ready);
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(400);
+  await save(await page.screenshot(), 'docs/phone-astrometrics.png');
+  await page.context().close();
+  const wide = await open({ width: 1000, height: 900 }, 1);
+  await wide.goto(base + 'astrometrics.html#sun=4');
+  await wide.waitForFunction(() => window.astrometrics?.ready);
+  await wide.evaluate(() => document.fonts.ready);
+  await wide.waitForTimeout(400);
+  const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('wall'); return [c.toDataURL(), c.height / c.width]; });
+  await wide.context().close();
+  await ogCard(shot, aspect, 'Engage · Astrometrics lab', 'Astrometrics', '17,000 real stars by colour and true brightness.', 'And the Sun’s life, to white dwarf', 'og-astrometrics.png');
 }
 
 if (!only || only === 'courses') {

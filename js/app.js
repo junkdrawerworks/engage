@@ -43,6 +43,7 @@ const MISSIONS = SURVEY.replace('survey.html', 'missions.html');
 // The system view, where a star's planets are flown in to and a planet of your own is placed.
 const SYSTEM = SURVEY.replace('survey.html', 'system.html');
 const RADIO = SURVEY.replace('survey.html', 'radio.html');
+const ASTROMETRICS = SURVEY.replace('survey.html', 'astrometrics.html');
 // Tonight's sky, likewise.
 const TONIGHT = 'tonight.html';
 // And the warp scale.
@@ -1152,6 +1153,7 @@ function entryHtml(e, heading, staged = heading) {
     const style = staged && !still.matches ? ` style="animation: rise .5s ${(delay += 0.12).toFixed(2)}s both"` : '';
     if (label) parts.push(`<dt${style}>${esc(label)}</dt>`);
     parts.push(`<dd class="${label ? (label === 'Looking home' ? 'home' : '') : 'note'}"${style}>${esc(text)}</dd>`);
+    if (label === 'The star') parts.push(wallLink(e.star, style));
     if (label === 'Planets') parts.push(systemLink(e.star, style), surveyLinks(e.star, style));
     if (label === 'A temperate orbit') parts.push(placeLink(e.star, style));
     if (label === 'Looking home') parts.push(shipLink(e.ship, style), radioLink(e.star, style));
@@ -1206,6 +1208,14 @@ function systemLink(i, style) {
 }
 function placeLink(i, style) {
   return `<dd class="files"${style}><a href="${SYSTEM}#star=${encodeURIComponent(cat.names[i])}&amp;place"${AWAY}>Place a planet here</a></dd>`;
+}
+
+// Under the line on what kind of star it is, a link to astrometrics, with the star ringed among all the others on
+// the wall of colour against true brightness. Not for a star the wall leaves off (no colour, or no distance, on the
+// charts).
+function wallLink(i, style) {
+  if (!(i >= 0 && i < cat.count) || cat.unmeasured[i] || cat.nocolour[i]) return '';
+  return `<dd class="files"${style}><a href="${ASTROMETRICS}#star=${encodeURIComponent(cat.names[i])}"${AWAY}>Astrometrics: where this star sits</a></dd>`;
 }
 
 // Beside the line on when Earth's broadcasts reached a star, a link to subspace radio, with the dial at the year that

@@ -49,6 +49,11 @@ export function buildCatalog(bin, meta) {
   // Stars the catalogue has no distance for. tools/build-data.py parks them at exactly 1,000 parsecs, as bright as
   // they look from Earth, so they can be drawn; nothing worked out from that distance is true of them.
   const unmeasured = new Uint8Array(n);
+  // Stars the catalogue has no colour for. tools/build-data.py gives them a B-V of exactly 0.6, so they can be drawn;
+  // their temperature, and so their colour, is that stand-in's (astrometrics leaves them off its wall).
+  const nocolour = new Uint8Array(n);
+  const STAND_IN = Math.fround(0.6);
+  for (let i = 0; i < base; i++) if (raw[i * 5 + 4] === STAND_IN) nocolour[i] = 1;
   for (let i = 0; i < n; i++) {
     pos[i * 3] = raw[i * 5]; pos[i * 3 + 1] = raw[i * 5 + 1]; pos[i * 3 + 2] = raw[i * 5 + 2];
     absmag[i] = raw[i * 5 + 3];
@@ -68,7 +73,7 @@ export function buildCatalog(bin, meta) {
   for (let i = 0; i < n; i++) color.set(starColor(temp[i]), i * 3);
 
   return {
-    count: n, pos, absmag, color, radius, temp, lum, unmeasured,
+    count: n, pos, absmag, color, radius, temp, lum, unmeasured, nocolour,
     names, spect,
     constellations: meta.constellations, lines: meta.lines,
     byName,

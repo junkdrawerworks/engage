@@ -2,7 +2,7 @@
 // here: both lists are drawn from this table. `href` is the room's page beside the bridge; `button` is the id of the
 // link to it on the bridge (the round buttons, and the warp scale under the warp slider), or null for a room the
 // bridge reaches from the captain's log instead (the system view and the away team, from a star's planets; subspace
-// radio, from a star's line about Earth's broadcasts, and from Set course); `icon`
+// radio, from a star's line about Earth's broadcasts, and from Set course; astrometrics, from a star's own line); `icon`
 // is the inside of that button's 24 × 24 drawing, so the list shows the same picture as the button. Pure, checked by
 // test/bridge.test.mjs.
 
@@ -41,6 +41,11 @@ export const ROOMS = [
     id: 'missions', href: 'missions.html', button: 'open-missions', name: 'Long missions',
     line: 'Where the Voyagers and the other real ships are right now.',
     icon: '<path d="M4.6 9.6a8.2 8.2 0 0 0 9.8 9.8z"/><path d="M9.5 14.5l3-3"/><path d="M14.5 6.2a3.6 3.6 0 0 1 3.3 3.3M14.8 2.6a7.2 7.2 0 0 1 6.6 6.6"/>',
+  },
+  {
+    id: 'astrometrics', href: 'astrometrics.html', button: null, name: 'Astrometrics',
+    line: 'Every star on one wall, by colour and true brightness, and the Sun’s whole life.',
+    icon: '<path d="M4 3.5v16.5h16.5"/><circle cx="8" cy="7" r="1"/><circle cx="10.5" cy="10" r="1"/><circle cx="13.5" cy="13" r="1"/><circle cx="17" cy="16.5" r="1"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="8.5" cy="16.5" r=".8"/>',
   },
   {
     id: 'radio', href: 'radio.html', button: null, name: 'Subspace radio',

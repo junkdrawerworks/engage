@@ -352,7 +352,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await bridgeReady(p);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
   await p.tap('#open-settings');
-  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all eleven rooms work with no signal.', null, { timeout: 20000 })
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all twelve rooms work with no signal.', null, { timeout: 20000 })
     .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
   assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
   assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
@@ -5077,7 +5077,7 @@ await page.emulateMedia({ reducedMotion: null });
   // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
   // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
   // half the time once the service worker was handing the stylesheet over.
-  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html']) {
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html']) {
     assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
   }
   for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
@@ -6436,9 +6436,56 @@ await page.emulateMedia({ reducedMotion: null });
   await rc.close();
 }
 
+// Astrometrics: every star on one wall by colour and true brightness. The log links a star to its place there; a
+// filter changes the lesson; a tap gives a star's card; the slider walks the Sun through its life; and the stars with
+// no colour or no distance are counted as left off.
+{
+  const ac = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await ac.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await ac.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => { engage.jump('Arcturus'); engage.closeSheets(); engage.jump('Proxima Centauri'); });
+  assert.equal(await p.locator('#arrival-entry .files a', { hasText: 'Astrometrics' }).getAttribute('href'), 'astrometrics.html#star=Proxima%20Centauri');
+  await p.goto(base + 'astrometrics.html#star=Arcturus');
+  await p.waitForFunction(() => window.astrometrics?.ready);
+  assert.equal(await p.title(), 'Arcturus · Astrometrics · Engage');
+  assert.match(await p.locator('#card').innerText(), /^Arcturus\n[\s\S]*Orange giant[\s\S]*Among the giants: [\d,]+ K, \d+ times as bright as the Sun\./);
+  assert.match(await p.locator('#left-out').innerText(), /^[\d,]+ stars on the wall\. Left off: 758 stars the catalogue has no colour for and 419 with no measured distance/);
+  assert.match(await p.locator('#lesson').innerText(), /^[\d,]+ stars, each in its own colour\. Most lie on the main sequence/);
+  // The naked eye sees giants and hot stars; the neighbourhood is red dwarfs; Visited is the log, with home.
+  await p.tap('[data-filter="eye"]');
+  assert.match(await p.locator('#lesson').innerText(), /stars you can see without a telescope\. (9\d|8\d)% of them are giants, supergiants or main-sequence stars hotter than the Sun/);
+  await p.tap('[data-filter="near"]');
+  assert.match(await p.locator('#lesson').innerText(), /stars within 80 light years, .* (4\d|5\d)% of them are red dwarfs/);
+  await p.tap('[data-filter="visited"]');
+  assert.equal(await p.locator('#lesson').innerText(), '3 stars in your log, home among them: 2 on the main sequence, 1 giant or supergiant.');
+  assert.deepEqual((await p.evaluate(() => astrometrics.dots())).map(d => d.name).sort(), ['Arcturus', 'Proxima Centauri', 'Sol']);
+  // A tap on a dot opens its card.
+  const box = await p.locator('#wall').boundingBox();
+  const prox = (await p.evaluate(() => astrometrics.dots())).find(d => d.name === 'Proxima Centauri');
+  await p.touchscreen.tap(box.x + prox.x, box.y + prox.y);
+  assert.equal(await p.evaluate(() => astrometrics.pick), 'Proxima Centauri');
+  assert.match(await p.locator('#card').innerText(), /On the main sequence: /);
+  assert.equal(await p.locator('#card .links a').first().getAttribute('href'), './?course=Proxima%20Centauri');
+  // The Sun's life: to a red giant, then the white dwarf at the end.
+  await p.locator('#life').fill('4');
+  assert.match(await p.locator('#life-said').innerText(), /^12\.23 billion years: a red giant 166 times as wide as today/);
+  await p.locator('#life').fill('8');
+  assert.equal(await p.locator('#life-out').textContent(), 'at the end');
+  assert.match(await p.locator('#life-said').innerText(), /40 Eridani B, beside Vulcan’s sun/);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the room is wider than the phone');
+  // A star the wall leaves off says why.
+  await p.goto(base + 'astrometrics.html#star=Sirius');
+  await p.waitForFunction(() => window.astrometrics?.ready && astrometrics.pick === 'Sirius');
+  assert.match(await p.locator('#card').innerText(), /On the main sequence/);
+  await ac.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
-const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html'];
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html'];
 const until = async (ok, ms, what) => {
   for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
 };
@@ -6456,7 +6503,7 @@ for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await 
 const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
-const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio' };
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics' };
 const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
 net = 'down';
 await ctx.setOffline(true);
@@ -6521,7 +6568,7 @@ server.close();
 // a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
 // index.html; the first 8 hex of the sha1 of those).
 // Everything the ten pages and their scripts load is on the list: a file left off opens online and not offline.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
@@ -6531,7 +6578,7 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html']) {
   const html = await readFile(join(root, f), 'utf8');
   assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
   const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';
