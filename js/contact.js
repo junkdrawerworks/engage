@@ -2,7 +2,7 @@
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
 import { LIVE, share } from './share.js';
 import { oneSwitch } from './switch.js';
-import { newGame, act, debrief, fluencyOf, hint, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, answer, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -47,6 +47,8 @@ let watching = null; // an encounter someone shared, being played back: { seed, 
 // Where the ship was when the hail came in, from the bridge's save (see contacts.js): { star, place, visit }. It is
 // read when the encounter starts and kept with it, so the record says where it happened even if the ship has moved on.
 let here = null;
+// A second contact: what was carried in from the first meeting ({ heard }), or null for a first.
+let again = null;
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 // An encounter under way is kept after everything you do: its seed, what you did, your notebook's guesses and the
@@ -58,7 +60,7 @@ const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).sli
 // it finished, and can't be used to take the last move back.)
 function keepGame() {
   if (!g || lastEval || watching) return; // nothing under way, on the record already, or someone else's
-  saved.game = { id: gameId, seed: g.seed, acts: acts.slice(), tags: { ...g.tags }, reply: reply.slice(), ...(here ? { here } : {}) };
+  saved.game = { id: gameId, seed: g.seed, acts: acts.slice(), tags: { ...g.tags }, reply: reply.slice(), ...(here ? { here } : {}), ...(again ? { again } : {}) };
   save();
 }
 // The one kept, if it can be picked up: { game, reply }.
@@ -89,7 +91,30 @@ function showBrief() {
 // A place kept with an encounter, if it is one: anything else is no place.
 const placeOf = p => (p && Number.isInteger(p.star) && p.star >= 0 && typeof p.place === 'string' ? { star: p.star, place: p.place.slice(0, 60), visit: Number.isFinite(p.visit) ? p.visit : null } : null);
 
+// The people you have made contact with (kept for good, with where and the notebook of the day), and the one who
+// hails again next: the latest who hasn't yet. Each comes back once.
+const friendsOf = s => (Array.isArray(s.friends) ? s.friends.filter(f => f && typeof f === 'object' && Number.isFinite(f.seed) && typeof f.people === 'string') : []);
+const nextFriend = () => friendsOf(saved).filter(f => !f.again).pop() || null;
+// What a friend carries into second contact: the phrases heard the first time, and the guesses written then.
+const carried = f => ({ heard: Array.isArray(f.heard) ? f.heard.filter(id => typeof id === 'string') : [], tags: f.tags && typeof f.tags === 'object' ? f.tags : {} });
+
+function renderFriend() {
+  const f = nextFriend();
+  const left = keptGame();
+  $('friend').hidden = !f || !!left?.game.second;
+  if (!f) return;
+  const where = typeof f.place === 'string' && f.place ? ` at ${f.place}` : f.star === 0 ? ' in Earth orbit' : '';
+  const when = typeof f.sd === 'string' ? `, stardate ${f.sd}` : '';
+  setText($('friend-title'), `The ${f.people} are hailing again`);
+  setText($('friend-text'), `You made first contact with them${where}${when}, and your notebook from that day is open. This time something is wrong with their ship.`);
+  setText($('friend-start'), `Answer the ${f.people}`);
+  const more = friendsOf(saved).filter(x => !x.again).length - 1;
+  $('friend-more').hidden = more < 1;
+  setText($('friend-more'), `${more} more ${more === 1 ? 'ship' : 'ships'} you’ve made contact with will call after them.`);
+}
+
 function renderRecord() {
+  renderFriend();
   // The ship has dropped out of warp where the bridge left yours: "off your bow, here at Vega".
   const w = whereWords(readShipPlace());
   setText($('brief-where'), `A ship of no known design has dropped out of warp off your bow${w ? `, ${w},` : ''} and she’s hailing you.`);
@@ -122,8 +147,9 @@ function renderRecord() {
   }).join('');
 }
 
-function start(seed = Date.now()) {
-  g = newGame({ seed });
+function start(seed = Date.now(), carry = null) {
+  again = carry ? { heard: carry.heard } : null;
+  g = newGame({ seed, again: carry });
   reply = [];
   acts = [];
   gameId = newId();
@@ -145,6 +171,7 @@ function resume() {
   watching = null;
   gameId = typeof saved.game.id === 'string' ? saved.game.id : newId();
   here = placeOf(saved.game.here);
+  again = g.second ? { heard: g.carried.slice() } : null;
   open();
   shown = g.log.length;
   renderLog();
@@ -266,7 +293,7 @@ function update() {
   $('patience').innerHTML = Array.from({ length: PATIENCE }, (_, i) => `<i${i >= g.patience ? ' class="gone"' : ''}></i>`).join('');
   $('patience').setAttribute('aria-label', `Their patience: ${g.patience} of ${PATIENCE}`);
   describeScreen();
-  $('who-tag').textContent = over ? (g.over === 'contact' ? `The ${g.lang.people}` : 'Channel closed') : 'Unknown vessel';
+  $('who-tag').textContent = over ? (g.over === 'contact' || g.over === 'friends' ? `The ${g.lang.people}` : 'Channel closed') : g.second ? `The ${g.lang.people}` : 'Unknown vessel';
   document.body.classList.toggle('talking', !over && !$('sim').hidden && !watching);
   document.body.classList.toggle('replaying', !over && !!watching);
   document.querySelector('.side').classList.toggle('busy', busy);
@@ -303,7 +330,8 @@ function renderReply() {
 const OPTIONS = `<option value="">Meaning?</option>${MEANINGS.map(([id, label]) => `<option value="${id}">${esc(label)}</option>`).join('')}`;
 function renderBook() {
   // Only what's been heard on screen so far, so new phrases turn up as they're said.
-  const said = new Set(g.log.slice(0, shown).flatMap(l => (l.who === 'them' ? l.ids : [])));
+  // (A second contact's notebook comes in with the phrases from the first time.)
+  const said = new Set([...(g.carried || []), ...g.log.slice(0, shown).flatMap(l => (l.who === 'them' ? l.ids : []))]);
   const heard = g.heard.filter(id => id !== 'story' && said.has(id));
   const count = id => g.log.slice(0, shown).reduce((n, l) => n + (l.who === 'them' ? l.ids.filter(x => x === id).length : 0), 0);
   const full = reply.length >= MAX_REPLY || !!g.over || busy;
@@ -327,7 +355,7 @@ function renderBook() {
     const add = li.querySelector('.ph-add'), plus = li.querySelector('.plus'), menu = li.querySelector('select'), n = li.querySelector('.ph-n');
     if (off) add.setAttribute('aria-disabled', 'true'); else add.removeAttribute('aria-disabled');
     setText(plus, g.over ? '' : reply.includes(id) ? 'In reply' : 'Say it'); // nothing more can be said once it's over
-    setText(n, `heard ${count(id)}×`);
+    setText(n, count(id) || !g.second ? `heard ${count(id)}×` : 'from before');
     if (menu.value !== (g.tags[id] || '')) menu.value = g.tags[id] || '';
     menu.classList.toggle('tagged', !!g.tags[id]);
   }
@@ -389,28 +417,46 @@ function record() {
   firsts = null;
   delete saved.game; // finished: there is nothing left to resume
   // One encounter is one line on the record: picked up in two tabs and finished in both, it is still one.
-  if (!saved.runs.some(r => r.id === gameId)) {
+  if (!saved.runs.some(r => r.id === gameId) && g.second) recordSecond();
+  else if (!saved.runs.some(r => r.id === gameId)) {
     firsts = encounterFirsts(saved, lastEval); // against the record as it stood
     // Where it happened goes with it: the bridge's log and tonight's sky read it back for that star.
     const where = here ? { star: here.star, place: here.place, ...(here.visit != null ? { visit: here.visit } : {}), sd: stardate() } : {};
     saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString(), id: gameId, seed: g.seed, ...where });
     // A people you made contact with is kept for good, with where you met them, beyond the 30 encounters listed.
-    if (lastEval.outcome === 'contact') saved.friends = [...(Array.isArray(saved.friends) ? saved.friends : []), { seed: g.seed, people: lastEval.people, at: new Date().toISOString(), ...where }];
+    // Their notebook goes with them, the phrases heard and the guesses, for when they hail again.
+    if (lastEval.outcome === 'contact') {
+      saved.friends = [...friendsOf(saved), { seed: g.seed, people: lastEval.people, at: new Date().toISOString(), ...where, heard: g.heard.filter(id => id !== 'story'), tags: { ...g.tags } }];
+    }
     Object.assign(saved, standing({ ...saved, met: saved.met + 1, contacts: saved.contacts + (lastEval.outcome === 'contact' ? 1 : 0) })); // before the list is cut to its last 30
     saved.runs = saved.runs.slice(-30);
   }
   save();
 }
 
+// A second contact goes on the record as an encounter (not a species met: they were met before), and on the friend
+// who hailed: how it went and where, so they don't hail again and the log can tell it.
+function recordSecond() {
+  const e = lastEval;
+  const where = here ? { star: here.star, place: here.place, ...(here.visit != null ? { visit: here.visit } : {}), sd: stardate() } : {};
+  saved.runs.push({ title: e.title, outcome: e.outcome, people: e.people, decoded: e.decoded, of: e.of, at: new Date().toISOString(), id: gameId, seed: g.seed, second: true, ...where });
+  saved.runs = saved.runs.slice(-30);
+  const f = friendsOf(saved).find(x => x.seed === g.seed && !x.again);
+  if (f) f.again = { outcome: e.outcome, title: e.title, decoded: e.decoded, of: e.of, at: new Date().toISOString(), ...where };
+  const made = friendsOf(saved).filter(x => x.again?.outcome === 'friends').length;
+  firsts = { best: false, contacts: 0, seconds: e.outcome === 'friends' ? made : 0 };
+}
+
 function showEval() {
   const e = lastEval || debrief(g);
   // A shared encounter's debrief is theirs: nothing of it is on this officer's record, and the way on is to answer it.
-  $('eval-eyebrow').textContent = watching ? 'A shared encounter · Debrief' : 'Communications · Debrief';
-  $('again').textContent = watching ? 'Answer this hail yourself' : 'Answer another hail';
+  $('eval-eyebrow').textContent = watching ? 'A shared encounter · Debrief' : e.second ? 'Second contact · Debrief' : 'Communications · Debrief';
+  // A friend's shared second contact can't be answered as theirs: the way in is the same people's first hail.
+  $('again').textContent = watching ? (e.second ? 'Answer their first hail yourself' : 'Answer this hail yourself') : 'Answer another hail';
   $('eval-title').textContent = e.title;
   $('eval-summary').textContent = e.summary;
   $('eval-story').hidden = !e.story;
-  $('eval-story').innerHTML = e.story ? `“${esc(e.story)}”<small>Their new phrase for the day you met.</small>` : '';
+  $('eval-story').innerHTML = e.story ? `“${esc(e.story)}”<small>${e.second ? 'The story of the day you met, with a new ending.' : 'Their new phrase for the day you met.'}</small>` : '';
   const note = e.decoded === e.of && e.of ? 'Every phrase right. Hoshi Sato would be proud.'
     : e.decoded ? 'From your notebook, against what they really meant.' : 'You didn’t write any right guesses in the notebook. Here’s what they were saying.';
   // Said when it is made, not left for the briefing's record card: a notebook that beat the best, a contact made.
@@ -425,7 +471,7 @@ function showEval() {
   $('eval-archive').hidden = !rare;
   $('eval-archive').innerHTML = rare ? `<b>Examiners’ archive</b> ${esc(rare)}` : '';
   // Their world is somewhere out there: the lab grows what might live on a world like it, the same creature for the same people.
-  $('to-lab').hidden = e.outcome !== 'contact';
+  $('to-lab').hidden = e.outcome !== 'contact' && e.outcome !== 'friends';
   $('to-lab').href = `${LAB}#M-${1 + (g.seed >>> 0) % 9999}`;
   $('dict').innerHTML = e.rows.map(r => `<li class="${r.right ? 'right' : r.guess ? 'wrong' : 'blank'}"><span class="mark" aria-hidden="true">${r.right ? '✓' : r.guess ? '✗' : '–'}</span>
     <span class="t">“${esc(r.text)}”</span>
@@ -444,12 +490,13 @@ function showEval() {
 const DID = { listen: 'Listened again', standard: 'Spoke Standard', shields: 'Raised or lowered shields', leave: 'Broke off' };
 function watchEncounter(kept) {
   watching = { ...kept };
-  g = newGame({ seed: kept.seed });
+  g = newGame({ seed: kept.seed, again: kept.again || null });
   Object.assign(g.tags, kept.tags);
   reply = [];
   acts = [];
   gameId = '';
   here = null;
+  again = null;
   open();
   $('watching-text').innerHTML = '<b>A shared encounter, played back</b>Their ship is hailing.';
   play(g.log.slice());
@@ -483,8 +530,8 @@ function openedRun() {
 // Share this encounter: how it went in a line, and a link that plays it back for whoever opens it.
 function shareRun(button) {
   const e = lastEval || debrief(g);
-  const code = encodeRun({ seed: g.seed, acts, tags: g.tags });
-  const line = `First contact: ${e.title}, ${e.decoded} of ${e.of} phrases decoded`;
+  const code = encodeRun({ seed: g.seed, acts, tags: g.tags, again: g.second ? { heard: g.carried } : null });
+  const line = `${e.second ? 'Second contact' : 'First contact'}: ${e.title}, ${e.decoded} of ${e.of} phrases decoded`;
   const url = `${LIVE}contact.html#run=${code}`;
   return share(button, { title: 'First contact', text: line, url, copy: `${line}\n${url}` });
 }
@@ -522,7 +569,7 @@ function screenState(now) {
   const ids = last ? last.ids : [];
   const mood = ids.includes('fight') ? 'wary' : (ids.includes('yes') || ids.includes('story')) ? 'glad' : 'calm';
   const closed = !!g.over && g.over !== 'contact' && shown >= g.log.length;
-  const pic = !g.over && g.beat >= 1 && g.beat <= 4 && said.some(l => l.ids.includes('danger')) ? g.lang.danger : null;
+  const pic = !g.over && g.beat >= 1 && g.beat <= 4 && said.some(l => l.ids.includes('danger')) ? g.danger : null;
   return { speaking: Math.max(0, Math.min(1, (speakingUntil - now) / 300)), mood, pic, closed };
 }
 
@@ -547,7 +594,7 @@ const visible = (...ids) => ids.map(id => $(id));
 const sw = oneSwitch({
   key: 'engage.oneswitch',
   items() {
-    if (!$('brief').hidden) return visible('resume', 'start', 'one-switch');
+    if (!$('brief').hidden) return visible('resume', 'start', 'friend-start', 'one-switch');
     if (!$('eval').hidden) return visible('again', 'to-bridge', 'share-run', 'to-lab');
     if (busy || !g) return [];
     if (g.over) return visible('send');
@@ -561,6 +608,7 @@ $('one-switch').addEventListener('change', e => sw.set(e.target.checked));
 // ---------- Wiring ----------
 
 $('start').addEventListener('click', () => start());
+$('friend-start').addEventListener('click', () => { const f = nextFriend(); if (f) start(f.seed, carried(f)); });
 $('resume').addEventListener('click', resume);
 $('again').addEventListener('click', () => {
   if (watching) {
@@ -631,6 +679,9 @@ window.contact = {
   // Puts phrases in the reply by meaning, as if tapped in the notebook.
   pick(...ids) { for (const id of ids) if (g.heard.includes(id) && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id); update(); keepGame(); },
   hint: () => hint(g),
+  answer: () => answer(g),
+  // Puts a whole answer in the reply, as if each phrase were tapped.
+  say() { this.pick(...(answer(g) || [])); },
   tag: guess,
   debrief: () => debrief(g),
 };

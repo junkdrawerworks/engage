@@ -30,26 +30,27 @@ export function whereWords(p) {
   return p.star === 0 ? 'in Earth orbit' : p.place ? `here at ${p.place}` : '';
 }
 
-// Every contact first contact's record says was made, with where: { people, star, visit, sd }. Anything that
-// doesn't make sense is left out.
+// Every contact first contact's record says was made, with where: { people, star, visit, sd, second }. A first
+// contact and a second one with the same people are two. Anything that doesn't make sense is left out.
 const PEOPLE = /^[\p{L}’' -]{1,30}$/u;
 export function contactsMade(saved) {
   const friends = Array.isArray(saved?.friends) ? saved.friends : [];
   const out = [];
-  const one = (people, c) => {
+  const one = (people, c, second) => {
     if (!c || !Number.isInteger(c.star) || c.star < 0 || typeof c.sd !== 'string' || !/^\d{4}\.\d{3}$/.test(c.sd)) return;
-    out.push({ people, star: c.star, visit: Number.isFinite(c.visit) ? c.visit : null, sd: c.sd });
+    out.push({ people, star: c.star, visit: Number.isFinite(c.visit) ? c.visit : null, sd: c.sd, second });
   };
   for (const f of friends) {
     if (!f || typeof f !== 'object' || typeof f.people !== 'string' || !PEOPLE.test(f.people)) continue;
-    one(f.people, f);
+    one(f.people, f, false);
+    if (f.again?.outcome === 'friends') one(f.people, f.again, true);
   }
   return out;
 }
 export const readContacts = () => contactsMade(read(CONTACT_KEY));
 
 // A contact in the words of the log and of tonight's card: "First contact was made here with the Qaethuk, stardate 2026.880."
-export const contactLine = c => `First contact was made here with the ${c.people}, stardate ${c.sd}.`;
+export const contactLine = c => `${c.second ? 'Second' : 'First'} contact was made here with the ${c.people}, stardate ${c.sd}.`;
 
 // The lines for one log entry: the contacts made during that stay.
 export const linesForVisit = (contacts, entry) => contacts.filter(c => c.visit != null && c.visit === entry?.id && c.star === entry.star).map(contactLine);

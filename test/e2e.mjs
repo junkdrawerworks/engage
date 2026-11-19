@@ -2325,6 +2325,87 @@ await bridgeReady();
   await where.close();
 }
 
+// Second contact: a people you made contact with hails again from the briefing, in the same language, with the
+// notebook from the first time open, and six new moments to answer. It goes on the record as an encounter, not a
+// species met, and the friend doesn't hail again. A reload part-way keeps the carried notebook. Shared, it plays
+// back for a friend, who can then answer the same people's first hail.
+{
+  const twice = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await twice.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const settle = () => p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await p.locator('#friend').isHidden(), true, 'a friend hails before any contact is made');
+  await p.evaluate(() => contact.start(5));
+  await settle();
+  await p.evaluate(() => contact.tag('meet', 'meet'));
+  while (!(await p.evaluate(() => contact.game.over))) { await p.evaluate(() => { contact.say(); contact.send(); }); await settle(); }
+  const people = await p.evaluate(() => contact.game.lang.people);
+  await p.click('#send');
+  await p.click('#again');
+  assert.equal(await p.locator('#friend-title').innerText(), `The ${people} are hailing again`);
+  assert.equal(await p.locator('#friend-text').innerText(), 'You made first contact with them in Earth orbit, stardate ' + (await p.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')).friends[0].sd)) + ', and your notebook from that day is open. This time something is wrong with their ship.');
+  await p.click('#friend-start');
+  await settle();
+  assert.deepEqual(await p.evaluate(() => [contact.game.second, contact.game.seed]), [true, 5]);
+  assert.equal(await p.locator('#who-tag').innerText(), `THE ${people.toUpperCase()}`);
+  // The notebook is open at once: every phrase from the first time, with its guess.
+  const carried = await p.evaluate(() => contact.game.carried.filter(id => id !== 'story').length);
+  assert.ok(await p.locator('#book li').count() >= carried, 'the notebook from the first time is not open');
+  assert.equal(await p.locator('#book li[data-id="meet"] select').inputValue(), 'meet', 'the guesses from the first time were not carried in');
+  assert.ok((await p.locator('#book .ph-n').allInnerTexts()).includes('from before'));
+  // Asked to put it another way, they do; then the first moment is answered.
+  await p.evaluate(() => { contact.act('listen'); });
+  await settle();
+  await p.evaluate(() => { contact.say(); contact.send(); });
+  await settle();
+  // Reloaded part-way: the same encounter, the notebook from before still in it.
+  await p.reload();
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await p.locator('#friend').isHidden(), true, 'the friend hails again while their hail is left to resume');
+  await p.click('#resume');
+  assert.deepEqual(await p.evaluate(() => [contact.game.second, contact.game.beat]), [true, 1]);
+  assert.equal(await p.locator('#book li[data-id="meet"] select').inputValue(), 'meet');
+  while (!(await p.evaluate(() => contact.game.over))) { await p.evaluate(() => { contact.say(); contact.send(); }); await settle(); }
+  assert.equal(await p.evaluate(() => contact.game.over), 'friends');
+  await p.click('#send');
+  assert.equal(await p.locator('#eval-title').innerText(), 'Second contact');
+  assert.equal(await p.locator('#eval-eyebrow').innerText(), 'SECOND CONTACT · DEBRIEF');
+  assert.equal(await p.locator('#eval-firsts').textContent(), 'Second contact made: 1');
+  assert.equal(await p.locator('#eval-archive').isHidden(), true, 'a second contact was set against the archive of first contacts');
+  assert.equal(await p.locator('#to-lab').isVisible(), true);
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')));
+  assert.deepEqual([kept.met, kept.contacts, kept.runs.length, kept.runs[1].second, kept.runs[1].title, kept.friends[0].again.outcome], [1, 1, 2, true, 'Second contact', 'friends']);
+  // Shared: "2." and what was carried in, played back for a friend, who is offered the same people's first hail.
+  await p.evaluate(() => { delete Navigator.prototype.share; });
+  await twice.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await p.click('#share-run');
+  const [line, url] = (await p.evaluate(() => navigator.clipboard.readText())).split('\n');
+  assert.match(line, /^Second contact: Second contact, \d+ of \d+ phrases decoded$/);
+  assert.match(url, /^https:\/\/engage\.junkdrawer\.works\/contact\.html#run=2\.5\.[a-m]+\.[a-z~-]+\.[a-m]*$/);
+  await p.click('#again');
+  assert.equal(await p.locator('#friend').isHidden(), true, 'a friend hailed again after second contact');
+  assert.match(await p.locator('#runs li').first().innerText(), /^Second contact/);
+  assert.match((await p.locator('#tally').innerText()).replace(/\s+/g, ' '), /^1 SPECIES MET 1 CONTACT MADE/);
+  const other = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const r = await other.newPage();
+  r.on('pageerror', e => problems.push(e.message));
+  await r.goto(url.replace('https://engage.junkdrawer.works/', base));
+  await r.waitForFunction(() => window.contact?.watching);
+  assert.equal(await r.evaluate(() => contact.game.second), true);
+  await r.click('#skip');
+  await r.waitForFunction(() => !document.getElementById('eval').hidden, null, { timeout: 20000 });
+  assert.equal(await r.locator('#eval-title').innerText(), 'Second contact');
+  assert.equal(await r.locator('#again').innerText(), 'ANSWER THEIR FIRST HAIL YOURSELF');
+  await r.click('#again');
+  assert.deepEqual(await r.evaluate(() => [contact.game.seed, !!contact.game.second, contact.game.turn]), [5, false, 0]);
+  await other.close();
+  // The record keeps where the second contact was made: in Earth orbit, with no save from the bridge.
+  assert.equal(kept.friends[0].again.star, 0);
+  await twice.close();
+}
+
 // The warp scale: reached from under the warp slider with the helm's warp factor, a race to the galactic core run to
 // the end, another place picked from the ladder, and a link back to the bridge with a course set. (With a star chosen
 // at the helm the link races there instead: see "Doors between rooms" below.)

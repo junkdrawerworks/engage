@@ -427,4 +427,114 @@ test('the hail comes in where the bridge left the ship, and the log and tonight�
   assert.deepEqual(linesForStar(made, 0), []);
   assert.deepEqual(contactsMade({}), []);
   assert.deepEqual(contactsMade(null), []);
+  // A second contact made is told too, where it was made; one that didn't come off is not.
+  const twice = contactsMade({ friends: [
+    { seed: 5, people: 'Qaethuk', star: 12, visit: vega.id, sd: '2026.880', again: { outcome: 'friends', star: 0, visit: sol.id, sd: '2026.950' } },
+    { seed: 6, people: 'Beqen', star: 0, sd: '2026.881', again: { outcome: 'accused', star: 12, visit: vega.id, sd: '2026.951' } },
+  ] });
+  assert.deepEqual(linesForVisit(twice, sol), ['Second contact was made here with the Qaethuk, stardate 2026.950.']);
+  assert.deepEqual(linesForVisit(twice, vega), ['First contact was made here with the Qaethuk, stardate 2026.880.']);
+});
+
+// Second contact: a people you made contact with hails again, in the same language, with your notebook carried in.
+test('second contact: the same language, the notebook carried in, and solvable from what any first contact heard', async () => {
+  const { answer, ALWAYS_HEARD, SECOND_IDS } = await import('../js/contact-sim.js');
+  const play = g => { for (let n = 0; !g.over && n < 60; n++) { const a = answer(g); act(g, a ? { say: a } : 'listen'); } return g; };
+  assert.equal(SECOND_IDS.length, 6, 'six new moments');
+  for (let seed = 1; seed <= 300; seed++) {
+    const first = win(newGame({ seed }));
+    assert.equal(first.over, 'contact');
+    // Everything a first contact can have heard includes what any first contact is sure to have.
+    for (const id of ALWAYS_HEARD) assert.ok(first.heard.includes(id), `seed ${seed}: a first contact never heard ${id}`);
+    const g = newGame({ seed, again: { heard: first.heard, tags: { meet: 'meet', we: 'you', story: 'meet' } } });
+    assert.equal(g.second, true);
+    assert.deepEqual(g.lang, first.lang, 'the same people, the same language');
+    assert.notEqual(g.danger, first.lang.danger, 'their trouble is the danger you crossed together');
+    // The notebook comes in: the phrases from the first time can be said at once, with their guesses.
+    assert.deepEqual(g.tags, { meet: 'meet', we: 'you' });
+    for (const id of ALWAYS_HEARD) assert.ok(g.heard.includes(id));
+    play(g);
+    assert.equal(g.over, 'friends', `seed ${seed} ended ${g.over}`);
+    assert.equal(g.misses, 0);
+    assert.equal(g.patience, PATIENCE);
+  }
+});
+
+test('second contact: no moment is answered by its own words, "yes" is a trap twice, and half an answer is a miss', async () => {
+  const { answer, SECOND_IDS } = await import('../js/contact-sim.js');
+  const meet = seed => newGame({ seed, again: { heard: win(newGame({ seed })).heard } });
+  const to = (g, id) => { while (!g.over && SECOND_IDS[g.beat] !== id) act(g, { say: answer(g) }); return g; };
+  for (let seed = 1; seed <= 40; seed++) {
+    // Each moment's own words: said straight back, the question is asked again and nothing is lost; any one of them
+    // on its own (but weapons) is a misunderstanding. Every way each moment is put is tried.
+    for (const id of SECOND_IDS) {
+      for (let k = 0; k < 3; k++) {
+        const g = to(meet(seed), id);
+        for (let i = 0; i < k; i++) act(g, 'listen');
+        const line = g.line.filter(x => x !== 'story');
+        // (Weapons said back are weapons, as in a first contact: they cost double, echo or not.)
+        if (!line.length || line.length !== g.line.length || line.includes('fight')) continue;
+        const before = [g.beat, g.patience];
+        act(g, { say: line });
+        assert.deepEqual([g.beat, g.patience, g.over], [...before, null], `seed ${seed}: ${id} said back moved it on or cost patience`);
+        for (const one of line.filter(x => x !== 'fight')) {
+          const h = to(meet(seed), id);
+          for (let i = 0; i < k; i++) act(h, 'listen');
+          const p = h.patience;
+          act(h, { say: [one] });
+          assert.equal(SECOND_IDS[h.beat], id, `seed ${seed}: “${one}” alone answered ${id}`);
+          assert.ok(h.patience < p || h.over, `seed ${seed}: “${one}” alone on ${id} cost nothing`);
+        }
+      }
+    }
+    // "Did you fire on us?" "Yes." And "go now?" "Yes."
+    const b = to(meet(seed), 'blame'); act(b, { say: ['yes'] }); assert.equal(b.over, 'accused');
+    const s = to(meet(seed), 'soon'); act(s, { say: ['yes'] }); assert.equal(s.over, 'adrift');
+    // "Do you want this?" "No, together": either half alone is shown as half, and costs one.
+    for (const half of [['no'], ['together']]) {
+      const r = to(meet(seed), 'reward');
+      const p = r.patience;
+      act(r, { say: half });
+      assert.equal(r.patience, p - 1);
+      assert.match(r.log.filter(l => l.who === 'them').at(-2).act, /stopped halfway/, `seed ${seed}: half an answer was not shown as half`);
+    }
+    const r = to(meet(seed), 'reward'); act(r, { say: ['no', 'together'] }); assert.equal(SECOND_IDS[r.beat], 'soon');
+    // "No" is heard before it is wanted, though a perfect first contact never says it.
+    const n = to(meet(seed), 'blame');
+    assert.ok(n.heard.includes('no'));
+  }
+});
+
+test('second contact is kept and shared like a first, and is no new species on the record', async () => {
+  const { answer } = await import('../js/contact-sim.js');
+  const first = win(newGame({ seed: 77 }));
+  const g = newGame({ seed: 77, again: { heard: first.heard, tags: { go: 'go' } } });
+  const acts = [];
+  const doIt = what => { acts.push(what); act(g, what); };
+  doIt('listen');
+  while (!g.over) { const a = answer(g); doIt({ say: a }); }
+  // Picked up again, word for word.
+  const back = replay({ seed: 77, acts, tags: g.tags, again: { heard: first.heard } });
+  assert.deepEqual(back.game.log, g.log);
+  assert.equal(back.game.over, 'friends');
+  // As a link: "2.", the seed, what was carried in, what was done, the guesses.
+  const code = encodeRun({ seed: 77, acts, tags: g.tags, again: { heard: first.heard } });
+  assert.match(code, /^2\.[0-9a-z]+\.[a-m]+\.[a-m~-]+\.[a-m]*$/);
+  const kept = decodeRun(code);
+  assert.deepEqual(kept.again.heard.sort(), first.heard.filter(id => id !== 'story').sort());
+  assert.deepEqual(replay(kept).game.log, g.log);
+  // A first contact's link is read as before.
+  const f = newGame({ seed: 77 }); const fa = [];
+  while (!f.over) { const a = { say: [hint(f)] }; fa.push(a); act(f, a); }
+  assert.equal(decodeRun(encodeRun({ seed: 77, acts: fa, tags: {} })).again, undefined);
+  // The debrief is second contact's, with no archive line, and the record doesn't count it as a species met.
+  const d = debrief(g);
+  assert.deepEqual([d.title, d.second, d.outcome], ['Second contact', true, 'friends']);
+  assert.equal(d.story, g.lang.phrases.story);
+  const { archiveLine } = await import('../js/contact-sim.js');
+  assert.equal(archiveLine(d), '');
+  assert.equal(archiveLine({ ...d, outcome: 'silence' }), '');
+  const runs = [{ outcome: 'contact', decoded: 3, of: 11, people: 'Beqen' }, { outcome: 'friends', second: true, decoded: 11, of: 12, people: 'Beqen' }];
+  assert.deepEqual(standing({ runs }), { met: 1, contacts: 1, best: { decoded: 3, of: 11 } });
+  assert.equal(briefingLine({ runs }), 'Your second unknown ship. The last were the Beqen; these are not.');
 });

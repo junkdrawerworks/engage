@@ -4,6 +4,8 @@
 // out from when they say it. Each game makes up a new language from its seed: new names, new places, new images.
 // The encounter is the same shape every time: they greet you, warn you of a danger, ask you to cross it with them,
 // give you a way through, tell you when to wait and when to go. You answer with their own phrases.
+// A people you made contact with can hail again: second contact, the same language with your notebook carried in,
+// and six new moments in which the right answer is never their own words back (see SECOND).
 
 import { ARCHIVE } from './archive.js';
 
@@ -163,9 +165,10 @@ export function makeLanguage(seed) {
 }
 
 // The encounter, beat by beat. Each beat has what they say (a few ways, tried in turn when you need to hear it again),
-// what answers they hope for (`accept`), what they won't mind hearing alongside (`fits`), answers that end it another
-// way (`alt`), and what they say when you get it right. A beat that `asks` is a question put to you: their own words
-// sent straight back are heard as the question asked back, not as an answer (see reply()).
+// what answers they hope for (`accept`, any one of them; or `needs`, sets of phrases that must all be said together),
+// what they won't mind hearing alongside (`fits`), answers that end it another way (`alt`), and what they say when you
+// get it right. A beat that `asks` is a question put to you: their own words sent straight back are heard as the
+// question asked back, not as an answer (see reply()).
 const BEATS = [
   {
     id: 'hail',
@@ -232,19 +235,104 @@ const BEATS = [
 ];
 export const BEAT_IDS = BEATS.map(b => b.id);
 
+// Second contact: a people you made first contact with comes back, and this time they need you. {danger} here is
+// another of DANGERS than the one you crossed together, and it has crippled their ship. Every moment is a question,
+// and none of its answers is among the words it is asked in: "you, give?" wants "no, together", not "give" or
+// "yes". Two of them have a trap in the answer that was always safe before: "yes" to "did you fire on us?" is a
+// confession, and "yes" to "go now?" sends them off before their engines are ready.
+// What the first meeting is sure to have taught: every line it opens a beat with, and every answer it gives.
+// "No" is the one phrase a perfect first contact never hears, so the second moment says it before it is wanted.
+const SECOND = [
+  {
+    id: 'remember', asks: true,
+    lines: [
+      [['story', 'you'], 'Their ship drops out of warp beside yours. The captain holds up a picture of your two ships side by side, then points at you.'],
+      [['you', 'story', 'we'], 'The captain touches the picture, then {his} own chest, then points at you.'],
+      [['meet', 'story'], 'The captain spreads both hands toward your viewscreen, and waits.'],
+    ],
+    needs: [['yes']], fits: ['we', 'you', 'meet', 'together', 'understand'],
+    alt: { no: 'denied' },
+    ok: () => [['yes', 'we'], 'The captain laughs, and the crew behind {him} raise their cups to you.'],
+  },
+  {
+    id: 'stranded', asks: true,
+    lines: [
+      [['we', 'go', 'no'], 'The picture changes to their own ship, half her hull scorched black by {name}. The captain points at {his} engines and shakes {his} head.'],
+      [['danger', 'we', 'no'], 'Sensors confirm it: their warp core is cold, and their hull is breached in three places.'],
+      [['see', 'we', 'danger'], 'The captain sends a close picture of the damage, then lowers {his} eyes.'],
+    ],
+    needs: [['give'], ['together']], fits: ['we', 'you', 'yes', 'understand', 'see'],
+    ok: () => [['yes', 'understand'], 'Your chief engineer beams across with a repair team. On screen, the captain grips the edge of {his} console and bows {his} head.'],
+  },
+  {
+    id: 'blame', asks: true,
+    lines: [
+      [['you', 'fight'], 'An officer steps up beside the captain, points at the scorch marks on their hull, then at your ship.'],
+      [['fight', 'you', 'see'], 'The officer sends a close picture of the scorch marks. They could be weapons fire.'],
+      [['you', 'fight', 'danger'], 'The captain raises a hand for quiet, and waits for your answer.'],
+    ],
+    needs: [['no']], fits: ['we', 'understand', 'see', 'together', 'danger', 'meet'],
+    alt: { yes: 'accused' },
+    ok: () => [['understand'], 'The officer looks at the picture again, and steps back. The captain nods to you.'],
+  },
+  {
+    id: 'reward', asks: true,
+    lines: [
+      [['you', 'give'], 'With their lights back on, the captain holds up a crystal that glows from inside, and points at you.'],
+      [['give', 'you', 'we'], 'A cargo pod drifts across from their ship to yours. The captain watches your face.'],
+      [['see', 'give'], 'The captain turns the crystal so the light falls through it, then holds it out toward you.'],
+    ],
+    needs: [['no', 'together']], fits: ['we', 'you', 'understand', 'meet'],
+    ok: () => [['yes', 'together'], 'The captain laughs and closes {his} hand round the crystal. Their crew sing something across the channel instead.'],
+  },
+  {
+    id: 'soon', asks: true,
+    lines: [
+      [['danger', 'go'], '{Name} is back on long-range sensors, closing. The captain reaches for the throttle. Your engineer calls up: their engines need ten more minutes.'],
+      [['go', 'we', 'danger'], 'The captain points at {name}, then throws an arm forward.'],
+      [['we', 'go'], 'Their engines flicker. The repair readings on your screen are still amber.'],
+    ],
+    needs: [['wait']], fits: ['no', 'we', 'you', 'together', 'understand', 'danger'],
+    alt: { yes: 'adrift' },
+    ok: () => [['yes', 'wait'], 'Both ships hold still while your engineers finish. Their engines come up green, and {name} slides past.'],
+  },
+  {
+    id: 'invite', asks: true,
+    lines: [
+      [['you', 'meet', 'we'], 'A course plot arrives: from here to {home}, their world. The captain points at you, then at the plot.'],
+      [['we', 'you', 'see'], 'The captain holds up a picture of a city by a sea, lit up at night.'],
+      [['you', 'together', 'we'], 'Their ship turns toward {home} and waits for yours.'],
+    ],
+    needs: [['go']], fits: ['yes', 'together', 'we', 'you', 'meet', 'understand'],
+    alt: { no: 'declined' },
+    ok: () => [['story', 'meet'], 'Both ships turn for {home}. The captain tells the story of the day you met, and adds a new line to the end of it.'],
+  },
+];
+export const SECOND_IDS = SECOND.map(b => b.id);
+const script = g => (g.second ? SECOND : BEATS);
+
 // Fills in a stage direction for this game.
 function say(g, text) {
-  const d = DANGERS[g.lang.danger];
+  const d = DANGERS[g.danger];
   const cap = s => s[0].toUpperCase() + s.slice(1);
   return text.replaceAll('{his}', g.lang.his).replaceAll('{him}', g.lang.him)
     .replace('{pic}', d.pic).replace('{sensor}', d.sensor).replace('{gift}', d.gift).replace('{Gap}', d.gap)
-    .replaceAll('{name}', d.name).replaceAll('{Name}', cap(d.name)).replace('{dist}', g.dist);
+    .replaceAll('{name}', d.name).replaceAll('{Name}', cap(d.name)).replace('{dist}', g.dist).replaceAll('{home}', g.lang.home);
 }
 
-export function newGame({ seed = Date.now() } = {}) {
+// What a first contact is sure to have heard, whatever was said in it: each beat's opening line and its answer.
+export const ALWAYS_HEARD = [...new Set(BEATS.flatMap(b => [...b.lines[0][0], ...b.ok({ gave: true })[0], ...b.ok({ gave: false })[0]]))];
+
+// A new encounter. `again` makes it second contact: the phrases heard at the first meeting ({ heard: [ids] }, which
+// always has ALWAYS_HEARD in it) and the notebook's guesses from it ({ tags }), carried in.
+export function newGame({ seed = Date.now(), again = null } = {}) {
   const lang = makeLanguage(seed);
+  const second = !!again;
+  const keys = Object.keys(DANGERS);
   const g = {
     seed, lang, dist: 3 + Math.floor(rng(seed)() * 7),
+    // Second contact's trouble is one of the other two dangers, the same one for the same people.
+    danger: second ? keys[(keys.indexOf(lang.danger) + 1 + (seed >>> 0) % 2) % keys.length] : lang.danger,
     beat: 0, tries: [0], patience: PATIENCE, turn: 0, over: null,
     misses: 0, standard: 0, shields: false, gave: false,
     line: [], // the phrase ids of the way they last put the beat they're on
@@ -253,9 +341,20 @@ export function newGame({ seed = Date.now() } = {}) {
     tags: {}, // your guess at each, by phrase id
     log: [],
   };
-  crew(g, 'Communications', 'She’s hailing us. The translator has their words, but not what they mean.');
-  them(g, ...BEATS[0].lines[0]);
-  g.line = BEATS[0].lines[0][0];
+  if (second) {
+    g.second = true;
+    const known = new Set([...ALWAYS_HEARD, ...(Array.isArray(again.heard) ? again.heard : [])]);
+    g.carried = [...MEANINGS.map(([id]) => id), 'story'].filter(id => known.has(id));
+    g.heard = g.carried.slice();
+    const tags = again.tags && typeof again.tags === 'object' ? again.tags : {};
+    for (const id of g.heard) if (id !== 'story' && typeof tags[id] === 'string' && MEANING[tags[id]]) g.tags[id] = tags[id];
+    crew(g, 'Communications', `It’s the ${lang.people}. They remember us. Your notebook from the first time is open.`);
+  } else {
+    crew(g, 'Communications', 'She’s hailing us. The translator has their words, but not what they mean.');
+  }
+  const first = script(g)[0].lines[0];
+  them(g, ...first);
+  g.line = first[0];
   g.tries[0] = 1;
   return g;
 }
@@ -277,13 +376,13 @@ function crew(g, who, text, tone) {
 }
 
 export const phrase = (g, id) => g.lang.phrases[id];
-export const beat = g => BEATS[g.beat];
+export const beat = g => script(g)[g.beat];
 
 // Their next way of putting the current beat. Once they've used them all they start over, and their patience wears:
 // that is what waiting costs. `charged` is for a turn that has already cost patience (a reply they didn't follow,
 // Standard, weapons), so one misunderstanding never costs two.
 function again(g, out, charged = false) {
-  const b = BEATS[g.beat];
+  const b = script(g)[g.beat];
   const i = g.tries[g.beat] || 0;
   if (i >= b.lines.length) {
     const why = 'The captain waits, then says it all again, more slowly.';
@@ -304,14 +403,20 @@ function lose(g, out, why) {
 
 function end(g, out, how) {
   g.over = how;
-  const d = DANGERS[g.lang.danger];
+  const d = DANGERS[g.danger];
   const lines = {
     contact: ['Communications', 'They’re sending us their star charts. All of them. I think we’ve made a friend.', 'good'],
     alone: ['Helm', `Their ship is going on alone, into ${d.name}.`, 'bad'],
     parted: ['Helm', 'Their ship is turning away. They’re leaving.', 'bad'],
     silence: ['Communications', 'They’ve closed the channel.', 'bad'],
     hostile: ['Tactical', 'A warning shot, across our bow. They’re going to warp.', 'bad'],
-    fled: ['Helm', 'Breaking off. They’re not following.', 'bad'],
+    fled: ['Helm', g.second ? 'Breaking off. Their ship is still dead in space behind us.' : 'Breaking off. They’re not following.', 'bad'],
+    // Second contact's own endings.
+    friends: ['Helm', `Course laid in for ${g.lang.home}, alongside them. Communications says they’re sending word ahead that we’re coming.`, 'good'],
+    denied: ['Helm', 'They’re turning away. They think we’re some other ship.', 'bad'],
+    accused: ['Tactical', 'Their weapons are locked on us. They’re backing away at full impulse.', 'bad'],
+    adrift: ['Engineering', 'Their engines gave out the moment they jumped. We’ve towed them clear, but their captain has closed the channel.', 'bad'],
+    declined: ['Helm', `They’re going home to ${g.lang.home} without us.`, 'bad'],
   }[how];
   out.push(crew(g, ...lines));
 }
@@ -361,7 +466,7 @@ function reply(g, ids, out) {
   const line = { who: 'you', ids };
   g.log.push(line);
   out.push(line);
-  const b = BEATS[g.beat];
+  const b = script(g)[g.beat];
   const said = new Set(ids);
   if (said.has('fight')) {
     g.fought = true;
@@ -380,23 +485,25 @@ function reply(g, ids, out) {
     out.push(them(g, g.line, 'The captain hears {his} own words come back and nods, as if to say yes, that was the question. Then the captain asks it again, and waits for your answer.'));
     return;
   }
-  const yes = b.accept.some(id => said.has(id));
+  const needs = b.needs || b.accept.map(id => [id]);
+  const yes = needs.some(set => set.every(id => said.has(id)));
   const alt = Object.keys(b.alt || {}).find(id => said.has(id));
-  const odd = ids.some(id => !b.accept.includes(id) && !b.fits.includes(id) && id !== alt);
+  const odd = ids.some(id => !needs.some(set => set.includes(id)) && !b.fits.includes(id) && id !== alt);
   if (alt && !yes && !odd) { end(g, out, b.alt[alt]); return; }
   if (yes && !alt && !odd) {
     if (b.id === 'give' && said.has('give')) g.gave = true;
     out.push(them(g, ...b.ok(g)));
-    if (g.beat === BEATS.length - 1) { end(g, out, 'contact'); return; }
+    if (g.beat === script(g).length - 1) { end(g, out, g.second ? 'friends' : 'contact'); return; }
     g.beat++;
     g.tries[g.beat] = 0;
     again(g, out);
     return;
   }
-  // They didn't follow.
+  // They didn't follow. Half of an answer that needs two phrases is still a misunderstanding, but they show it.
   g.misses++;
-  out.push(them(g, ['understand', 'no'], g.misses === 1
-    ? 'The captain tilts {his} head and repeats your words back, slowly, like a question.'
+  const half = !odd && !alt && needs.some(set => set.length > 1 && set.some(id => said.has(id)));
+  out.push(them(g, ['understand', 'no'], half ? 'The captain waits, as if you had stopped halfway through.'
+    : g.misses === 1 ? 'The captain tilts {his} head and repeats your words back, slowly, like a question.'
     : 'The captain frowns and holds up a hand.'));
   lose(g, out);
   if (!g.over) again(g, out, true);
@@ -408,10 +515,12 @@ function reply(g, ids, out) {
 // word, so a reload changes nothing and can't take back a misunderstanding.
 // Returns the game and the reply, or null if what was kept isn't an encounter: not the right shape, or something
 // that couldn't have been done when it says it was.
+// A second contact is kept with what was carried in (`again`: { heard }, as newGame() takes it).
 const ACTS = new Set(['listen', 'standard', 'shields', 'leave']);
 export function replay(kept) {
   if (!kept || typeof kept !== 'object' || !Number.isFinite(kept.seed) || !Array.isArray(kept.acts) || kept.acts.length > 500) return null;
-  const g = newGame({ seed: kept.seed });
+  const again = kept.again && typeof kept.again === 'object' ? { heard: Array.isArray(kept.again.heard) ? kept.again.heard : [] } : null;
+  const g = newGame({ seed: kept.seed, again });
   const phrases = ids => Array.isArray(ids) && ids.length > 0 && ids.length <= MAX_REPLY && new Set(ids).size === ids.length && ids.every(id => typeof id === 'string' && id !== 'story' && g.heard.includes(id));
   for (const what of kept.acts) {
     if (g.over || !(ACTS.has(what) || (what && typeof what === 'object' && phrases(what.say)))) return null;
@@ -427,38 +536,53 @@ export function replay(kept) {
 // l, s, h and x for Listen again, Speak Standard, shields and Break off, each with a ~ before it), and your
 // notebook's guesses as pairs of letters, phrase then meaning. These links are kept working: a letter never
 // changes its meaning.
+// A second contact is written "2.", the seed, the letters of the phrases carried in from the first meeting (in
+// MEANINGS' order), then what you did and your guesses as "1." has them.
 const LETTERS = 'abcdefghijklm';
 const BUTTONS = { listen: 'l', standard: 's', shields: 'h', leave: 'x' };
 const BUTTON = Object.fromEntries(Object.entries(BUTTONS).map(([id, l]) => [l, id]));
 const letterOf = id => LETTERS[MEANINGS.findIndex(([m]) => m === id)];
 const idOf = l => MEANINGS[LETTERS.indexOf(l)]?.[0];
-export function encodeRun({ seed, acts, tags = {} }) {
+export function encodeRun({ seed, acts, tags = {}, again = null }) {
   const done = acts.map(a => (typeof a === 'string' ? `~${BUTTONS[a]}` : a.say.map(letterOf).join(''))).join('-');
   const guesses = Object.entries(tags).filter(([id, m]) => letterOf(id) && letterOf(m)).map(([id, m]) => letterOf(id) + letterOf(m)).join('');
+  if (again) {
+    const carried = MEANINGS.map(([id]) => id).filter(id => again.heard.includes(id)).map(letterOf).join('');
+    return `2.${(seed >>> 0).toString(36)}.${carried}.${done}.${guesses}`;
+  }
   return `1.${(seed >>> 0).toString(36)}.${done}.${guesses}`;
 }
 // What encodeRun() wrote, as replay() takes it, or null if it isn't an encounter that could have been played to its end.
 export function decodeRun(text) {
-  const m = /^1\.([0-9a-z]{1,7})\.([a-z~-]{1,1500})\.([a-m]{0,26})$/.exec(String(text || ''));
-  if (!m || m[3].length % 2) return null;
+  const m = /^(?:1\.([0-9a-z]{1,7})|2\.([0-9a-z]{1,7})\.([a-m]{1,13}))\.([a-z~-]{1,1500})\.([a-m]{0,26})$/.exec(String(text || ''));
+  if (!m || m[5].length % 2) return null;
   const acts = [];
-  for (const part of m[2].split('-')) {
+  for (const part of m[4].split('-')) {
     if (part.startsWith('~')) { if (!BUTTON[part.slice(1)]) return null; acts.push(BUTTON[part.slice(1)]); }
     else if (/^[a-m]{1,3}$/.test(part)) acts.push({ say: [...part].map(idOf) });
     else return null;
   }
   const tags = {};
-  for (let i = 0; i < m[3].length; i += 2) tags[idOf(m[3][i])] = idOf(m[3][i + 1]);
-  const kept = { seed: parseInt(m[1], 36), acts, tags };
+  for (let i = 0; i < m[5].length; i += 2) tags[idOf(m[5][i])] = idOf(m[5][i + 1]);
+  const kept = { seed: parseInt(m[1] ?? m[2], 36), acts, tags, ...(m[3] ? { again: { heard: [...m[3]].map(idOf) } } : {}) };
   const back = kept.seed <= 0xffffffff ? replay(kept) : null;
   return back && back.game.over ? kept : null;
 }
 
 // The debrief: what happened, what each phrase meant, and how much of it you worked out.
 export function debrief(g) {
-  const d = DANGERS[g.lang.danger];
+  const d = DANGERS[g.danger];
   const L = g.lang;
-  const ends = {
+  const ends = g.second ? {
+    friends: ['Second contact', `The ${L.people} came back, and this time they needed you. You offered help, told them the scorch marks weren’t yours, turned down their crystal, held them back until their engines were ready, and now you’re going to ${L.home} with them. Their captain, ${L.captain}, has added to the story of the day you met:`],
+    denied: ['Not them', `The ${L.people} came back to find the ship they had met, and you told them it wasn’t you. They left puzzled, their ship still crippled by ${d.name}.`],
+    accused: ['Blamed', `The scorch marks on the ${L.people}’s hull were from ${d.name}. When their officer asked whether you had fired on them, you said yes.`],
+    adrift: ['Too soon', `You told the ${L.people} to go before their repairs were done. Their engines failed in front of ${d.name}. You towed them clear, but they won’t forget whose word they took.`],
+    declined: ['Not this time', `The ${L.people} asked you to come home with them to ${L.home}, and you said no.`],
+    silence: ['The channel closes', `The ${L.people} came back for help, crippled by ${d.name}, and gave up trying to make themselves understood.`],
+    hostile: ['A warning shot', `The ${L.people} came back for help, and every time weapons came into it they got more frightened, until they fired across your bow and limped away.`],
+    fled: ['Broke off', `You left the ${L.people} where they were, their ship crippled by ${d.name}.`],
+  } : {
     contact: ['First contact', `You and the ${L.people} came through ${d.name} side by side. Their captain, ${L.captain}, has a new story to tell, and you’re in it. From now on, this is how the ${L.people} will say that two strangers became friends:`],
     alone: ['Ships passing', `You turned their offer down. The ${L.people} went through ${d.name} alone, and you never learned whether they made it.`],
     parted: ['Strangers still', `They were trying to warn you about ${d.name}, and you left before they could finish. It crossed the space where you’d been holding an hour later.`],
@@ -470,14 +594,16 @@ export function debrief(g) {
   const rows = g.heard.filter(id => id !== 'story').map(id => ({ id, text: L.phrases[id], meaning: MEANING[id], guess: g.tags[id] || null, right: g.tags[id] === id }));
   const decoded = rows.filter(r => r.right).length;
   const fluency = fluencyOf(decoded, rows.length);
-  const transcript = g.log.filter(l => l.ids).map(l => ({ who: l.who, said: l.ids.map(id => L.phrases[id]), meant: l.ids.map(id => (id === 'story' ? 'A new story: the day you met' : MEANING[id])) }));
-  return { title, summary, outcome: g.over, people: L.people, captain: L.captain, story: g.over === 'contact' ? L.phrases.story : null, rows, decoded, of: rows.length, fluency, transcript, misses: g.misses, turns: g.turn };
+  const transcript = g.log.filter(l => l.ids).map(l => ({ who: l.who, said: l.ids.map(id => L.phrases[id]), meant: l.ids.map(id => (id === 'story' ? (g.second ? 'The story of the day you met' : 'A new story: the day you met') : MEANING[id])) }));
+  const story = g.over === 'contact' || g.over === 'friends' ? L.phrases.story : null;
+  return { title, summary, outcome: g.over, second: !!g.second, people: L.people, captain: L.captain, home: L.home, story, rows, decoded, of: rows.length, fluency, transcript, misses: g.misses, turns: g.turn };
 }
 
 // How rare an encounter's ending is, from the examiners' archive (js/archive.js, written by tools/archive.mjs): how
 // often an encounter ends this way when every line is answered with phrases picked at random. Nothing for an ending
 // the archive never saw (weapons and breaking off are never picked at random).
 export function archiveLine(d) {
+  if (d.second) return ''; // the archive's trials are all first contacts
   const { trials, endings } = ARCHIVE.contact;
   const n = endings[d.outcome];
   if (!n || !trials) return '';
@@ -492,12 +618,13 @@ export function fluencyOf(decoded, of) {
 }
 
 // A communications officer's standing record, from what the page has saved: how many species have hailed (every
-// encounter is a new one), how many of those ended in first contact, and the best notebook (the largest share of
-// phrases decoded, and of two as good, the one with more phrases). The page lists only its last 30 encounters, so
+// first encounter is a new one), how many of those ended in first contact, and the best notebook (the largest share of
+// phrases decoded, and of two as good, the one with more phrases). Second contacts are none of these: the species
+// was met before, and the notebook came in half written. The page lists only its last 30 encounters, so
 // `met`, `contacts` and `best` are kept beside them; a save from before they were kept is filled in from its runs.
 // Anything in the save that doesn't make sense is ignored.
 export function standing(saved = {}) {
-  const runs = Array.isArray(saved.runs) ? saved.runs.filter(r => r && typeof r === 'object') : [];
+  const runs = Array.isArray(saved.runs) ? saved.runs.filter(r => r && typeof r === 'object' && !r.second) : [];
   const count = x => (Number.isInteger(x) && x > 0 ? x : 0);
   const notebook = x => (x && Number.isInteger(x.decoded) && Number.isInteger(x.of) && x.of > 0 && x.decoded >= 0 && x.decoded <= x.of ? { decoded: x.decoded, of: x.of } : null);
   let best = notebook(saved.best);
@@ -523,9 +650,11 @@ export function encounterFirsts(before = {}, d) {
   const best = was.met > 0 && d.decoded > 0 && !!now && (!was.best || now.decoded !== was.best.decoded || now.of !== was.best.of);
   return { best, contacts: d.outcome === 'contact' ? was.contacts + 1 : 0 };
 }
-// The same in words, for the debrief: "Your best notebook yet · First contact made: 1".
+// The same in words, for the debrief: "Your best notebook yet · First contact made: 1". A second contact made
+// says "Second contact made: 1" (`seconds`, counted by the page).
 export function firstsLine(f) {
-  return [f.best ? 'Your best notebook yet' : '', f.contacts ? `First contact${f.contacts === 1 ? '' : 's'} made: ${f.contacts}` : ''].filter(Boolean).join(' · ');
+  return [f.best ? 'Your best notebook yet' : '', f.contacts ? `First contact${f.contacts === 1 ? '' : 's'} made: ${f.contacts}` : '',
+    f.seconds ? `Second contact${f.seconds === 1 ? '' : 's'} made: ${f.seconds}` : ''].filter(Boolean).join(' · ');
 }
 
 // One line at the head of the briefing for an officer who has answered a hail before, from what the page has saved:
@@ -534,7 +663,7 @@ const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seven
 export function briefingLine(saved = {}) {
   const { met } = standing(saved);
   if (!met) return '';
-  const runs = Array.isArray(saved.runs) ? saved.runs.filter(r => r && typeof r === 'object') : [];
+  const runs = Array.isArray(saved.runs) ? saved.runs.filter(r => r && typeof r === 'object' && !r.second) : [];
   const last = runs[runs.length - 1];
   const which = met < ORDINALS.length ? `Your ${ORDINALS[met]} unknown ship.` : `Unknown ship number ${met + 1}.`;
   const people = typeof last?.people === 'string' && /^[\p{L}’' -]{1,30}$/u.test(last.people) ? last.people : '';
@@ -542,8 +671,11 @@ export function briefingLine(saved = {}) {
   return people ? `${which} The last were the ${people}; these are not.` : which;
 }
 
-// A right answer for where things stand, from what you've heard so far. For the tests and the page's hook.
-export function hint(g) {
+// A right answer for where things stand, from what you've heard so far: the phrases to say together. For the tests
+// and the page's hook. hint() is its first phrase, which is the whole answer in a first contact.
+export function answer(g) {
   if (g.over) return null;
-  return BEATS[g.beat].accept.find(id => g.heard.includes(id)) || null;
+  const b = script(g)[g.beat];
+  return (b.needs || b.accept.map(id => [id])).find(set => set.every(id => g.heard.includes(id))) || null;
 }
+export const hint = g => answer(g)?.[0] ?? null;
