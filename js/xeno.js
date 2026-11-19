@@ -376,6 +376,10 @@ function setComparing(on) {
 }
 
 function renderJars() {
+  // A name still being typed is kept first (leaving its field draws the shelf again), so the Undo line running out,
+  // or another tab's change, can't wipe it away: not every browser says a field has been left when it is taken away.
+  const typing = $('jars').querySelector('.jar-field');
+  if (typing && typing === document.activeElement) { typing.blur(); if (!typing.isConnected) return; }
   const list = saved.jars;
   $('jars-wrap').hidden = !list.length && !gone;
   if (list.length < 2 && comparing) { comparing = false; picked = []; }
