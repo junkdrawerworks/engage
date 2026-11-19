@@ -308,7 +308,11 @@ function frame(now) {
   if (trip) fly(now, dt);
   if (turn) steer(now);
   const pulsing = state.sunPulse && now - state.sunPulse < 2400;
-  if (dirty || trip || turn || pulsing || behaving()) {
+  // A star that behaves changes slowly (its fastest, a flare, rises over a fifth of a second), so for it alone the
+  // viewscreen is drawn ten times a second, not every frame: a sixth of the work, and of the battery.
+  const behaves = behaving() && now - lastBehave >= 100;
+  if (dirty || trip || turn || pulsing || behaves) {
+    if (behaves) lastBehave = now;
     sky.render(viewNow(dt));
     drawLabels(now);
     dirty = false;
@@ -327,6 +331,7 @@ const viewNow = dt => {
 // sped up, so the viewscreen is drawn every frame there. Not with reduced motion asked for: the disc keeps still.
 const behaving = () => !trip && !still.matches && !!variableFor(cat.names[state.at]);
 let behaveClock = null; // a moment to hold the disc at, in seconds, for pictures (see engage.holdBehave)
+let lastBehave = 0;      // when the disc was last drawn for its own sake
 
 // The graphics driver can reset under the page (a long freeze, waking a laptop). The browser usually hands the
 // viewscreen back on its own within a moment; if it doesn't, offer a reload instead of leaving a blank screen.
