@@ -1,9 +1,10 @@
 // The warp scale explorer: pick a place, and five ships race there from Earth at warp 9.975, your own warp, warp 5,
-// light speed and Voyager 1's real speed, on a clock that speeds up as they go.
+// light speed and a real ship's speed (Voyager 1 unless another is picked), on a clock that speeds up as they go.
 import { apparentMag, starColor, warpSpeed } from './physics.js';
 import {
   LANES, GROUPS, PLACES, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock,
   formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt, customPlace, COURSE_GROUP,
+  REAL_SHIPS, realShip, kirkSpeed,
 } from './warp-scale.js';
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
@@ -25,6 +26,7 @@ const LIGHT_KINDS = new Set(['star', 'cluster', 'nebula', 'core', 'galaxy']);
 const saved = load();
 let place = byId.get(saved.place) || byId.get('core');
 let custom = saved.warp;
+let real = saved.real; // the real ship in the bottom lane: an id in REAL_SHIPS
 // The star the helm is set for, when the bridge's Warp scale link named one that isn't on the ladder already: a rung
 // of its own at the top, for as long as the page is open. (The link that brought it carries it; nothing is saved.)
 let course = null;
@@ -40,13 +42,13 @@ function load() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { /* start again */ }
   const warp = Number(s.warp);
-  return { place: typeof s.place === 'string' ? s.place : null, warp: warp >= 1 && warp <= 9.99 ? warp : 9 };
+  return { place: typeof s.place === 'string' ? s.place : null, warp: warp >= 1 && warp <= 9.99 ? warp : 9, real: realShip(s.real).id };
 }
 // Only where you left off: nothing is lost if it can't be kept. The helm's course isn't a place to come back to
 // (the next visit has no link to say where it is), so with that chosen the last place on the ladder stays the one kept.
 function save() {
   if (!place.custom) saved.place = place.id;
-  keep(KEY, { place: saved.place || 'core', warp: custom });
+  keep(KEY, { place: saved.place || 'core', warp: custom, real });
 }
 
 const warpName = w => `Warp ${w.toFixed(2).replace(/\.?0+$/, '')}`;
@@ -59,7 +61,8 @@ const inText = p => p.name.replace(/^(The|Where) /, w => w.toLowerCase());
 
 // The address names the place and the warp factor now on the slider, so it can be copied, bookmarked or shared as it
 // stands (it used to repeat whatever "?warp=" the page was opened with, however far the slider had moved since).
-const query = () => `?warp=${custom}${course ? `&to=${encodeURIComponent(course.name)}&ly=${course.ly}` : ''}`;
+// The real ship goes in it too when it isn't Voyager 1, the one a link without it races.
+const query = () => `?warp=${custom}${real !== 'voyager' ? `&ship=${real}` : ''}${course ? `&to=${encodeURIComponent(course.name)}&ly=${course.ly}` : ''}`;
 function address() {
   try { history.replaceState(null, '', `${query()}#${place.id}`); } catch { /* fine */ }
   document.title = `${place.name} · Warp scale · Engage`;
@@ -70,9 +73,11 @@ function address() {
 function plan() {
   const now = new Date();
   const ly = distanceLy(place, now);
+  const r = realShip(real);
   const lanes = LANES.map(l => {
-    const c = laneSpeed(l, custom, now);
-    return { ...l, label: laneLabel(l), c, years: tripYears(ly, c) };
+    const c = laneSpeed(l, custom, now, real);
+    const ship = l.id === 'real' ? { label: r.label, note: r.note } : { label: laneLabel(l) };
+    return { ...l, ...ship, c, years: tripYears(ly, c) };
   });
   trip = { ly, lanes, clock: raceClock(lanes.map(l => l.years)), now };
 }
@@ -176,8 +181,8 @@ function startNote() {
 function endNote() {
   const [fast] = trip.lanes, light = trip.lanes.find(l => l.id === 'w1'), slow = trip.lanes[trip.lanes.length - 1];
   let s = `At warp 9.975 it’s ${formatSpan(fast.years)}, where light takes ${formatSpan(light.years)}.`;
-  if (slow.years > UNIVERSE) s += ` Voyager 1 would need ${Math.round(slow.years / UNIVERSE)} times the age of the universe.`;
-  else s += ` Voyager 1 would take ${formatSpan(slow.years)}.`;
+  if (slow.years > UNIVERSE) s += ` ${slow.label} would need ${Math.round(slow.years / UNIVERSE)} times the age of the universe.`;
+  else s += ` ${slow.label} would take ${formatSpan(slow.years)}.`;
   return s;
 }
 
@@ -361,6 +366,8 @@ function renderPlace() {
     <p class="about">${esc(aboutOn(p, trip.now))}</p>
     ${p.trek ? `<p class="trek"><b>Star Trek</b> ${esc(p.trek)}</p>` : ''}
     <table class="times" id="times"><caption>Leaving Earth now</caption><tbody>${rows}</tbody></table>
+    <p class="aside real-line">${esc(realShip(real).line)}</p>
+    <p class="aside kirk">${esc(kirkLine(ly))}</p>
     <p class="doors">${[
       p.course && [`${BRIDGE}?course=${encodeURIComponent(p.course)}`, 'Set course on the bridge'],
       p.sky && [`${BRIDGE}tonight.html#star=${encodeURIComponent(p.sky)}`, 'In your sky tonight'],
@@ -369,6 +376,28 @@ function renderPlace() {
     <p class="share-row"><button class="text-button" type="button" data-share>Share this race</button></p>
   `;
   markArrived(race?.done ? Infinity : 0);
+}
+
+// Your warp factor on Kirk's scale, the original series' (see kirkSpeed), beside the Next Generation's on the race.
+function kirkLine(ly) {
+  const w = warpName(custom).toLowerCase(), how = 'In the original series the warp factor cubed gave the speed (The Making of Star Trek, 1968; never said on screen)';
+  if (custom === 1) return `Kirk’s ${w} was light too. ${how}.`;
+  const k = kirkSpeed(custom);
+  return `Kirk’s ${w} was slower. ${how}: ${times(k)}, not ${times(warpSpeed(custom)).replace(' × light', '')}, so here in ${formatSpan(tripYears(ly, k))}.`;
+}
+
+// The real ship in the bottom lane, from the picker under the race.
+function setReal(id, quiet = false) {
+  real = realShip(id).id;
+  $('real-ship').value = real;
+  race = null;
+  plan();
+  if (!quiet) save();
+  address();
+  renderPlace();
+  setButton();
+  note(startNote());
+  draw(0);
 }
 
 // A link to this race: the place, and the warp factor on the slider, on the live site.
@@ -598,11 +627,14 @@ const fromLink = () => {
   const warp = Number(q.get('warp'));
   let id = '';
   try { id = decodeURIComponent(location.hash.slice(1)); } catch { /* not a place */ }
-  return { id, warp: warp >= 1 && warp <= 9.99 ? warp : null, to: q.has('to') ? customPlace(q.get('to'), Number(q.get('ly'))) : null };
+  const ship = REAL_SHIPS.find(r => r.id === q.get('ship'))?.id ?? null;
+  return { id, warp: warp >= 1 && warp <= 9.99 ? warp : null, ship, to: q.has('to') ? customPlace(q.get('to'), Number(q.get('ly'))) : null };
 };
 
 $('go').addEventListener('click', engage);
 $('custom-warp').addEventListener('input', e => setCustom(Number(e.target.value)));
+$('real-ship').append(...REAL_SHIPS.map(r => new Option(r.label, r.id)));
+$('real-ship').addEventListener('change', e => setReal(e.target.value));
 $('place').addEventListener('click', e => { const b = e.target.closest('[data-share]'); if (b) shareRace(b); });
 $('ladder').addEventListener('click', e => {
   const b = e.target.closest('[data-id]');
@@ -614,6 +646,7 @@ watch(KEY, () => {
   if (race && !race.done) return;
   const s = load(), p = byId.get(s.place);
   if (s.warp !== custom) setCustom(s.warp, true);
+  if (s.real !== real) setReal(s.real, true);
   if (p && p !== place && !place.custom) select(p.id, { quiet: true });
 });
 addEventListener('hashchange', () => { const { id } = fromLink(); if (find(id) && id !== place.id) select(id); });
@@ -621,7 +654,7 @@ addEventListener('resize', () => { if (!race || race.done) draw(race ? trip.cloc
 document.fonts?.ready.then(() => { if (!race || race.done) draw(race ? trip.clock.seconds : 0); drawSky(); });
 
 window.warpScale = {
-  select, engage, skip, setCustom, freeze,
+  select, engage, skip, setCustom, setReal, freeze,
   // Impulse power: the throttle, and where a star (by name) is drawn on the sky, for the tests.
   impulse: {
     set: setThrottle,
@@ -644,6 +677,8 @@ window.warpScale = {
 {
   const link = fromLink();
   if (link.warp) custom = link.warp;
+  if (link.ship) real = link.ship;
+  $('real-ship').value = real;
   // The helm's course: a rung of its own, or the rung the ladder has for that star already. The race starts there,
   // unless the link names another place after its "#".
   if (link.to?.custom) course = link.to;

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { sweep } from './sweep.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { LANES, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt, customPlace, COURSE_GROUP } from '../js/warp-scale.js';
+import { LANES, REAL_SHIPS, realShip, kirkSpeed, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt, customPlace, COURSE_GROUP } from '../js/warp-scale.js';
 import { SHIPS } from '../js/ships.js';
 import { warpSpeed } from '../js/physics.js';
 import { gamma, aberrate, doppler, halfSkyDeg, hourOnEarth, greenSeenAs, speedSaid } from '../js/impulse.js';
@@ -18,8 +18,41 @@ test('warp 1 is light, and the warp factors use the bridge’s scale', () => {
   assert.ok(Math.abs(laneSpeed(lane('w5')) - 213.7) < 0.1);
   assert.ok(Math.abs(laneSpeed(lane('w9975')) - 6751) < 1);
   assert.equal(laneSpeed(lane('custom'), 9), warpSpeed(9));
-  const v = laneSpeed(lane('voyager'), 9, DATE) * 299792.458;
+  const v = laneSpeed(lane('real'), 9, DATE) * 299792.458;
   assert.ok(v > 16.5 && v < 17.5, `Voyager 1 at ${v} km/s`);
+});
+
+test('the real ship in the bottom lane can be another', () => {
+  const kmS = id => laneSpeed(lane('real'), 9, DATE, id) * 299792.458;
+  assert.deepEqual(REAL_SHIPS.map(r => r.id), ['voyager', 'nh', 'parker', 'starshot', 'ark']);
+  // Voyager 1 unless another is picked, and an id nobody knows is Voyager 1 too.
+  assert.equal(kmS(), kmS('voyager'));
+  assert.equal(realShip('nonsense').id, 'voyager');
+  // New Horizons from her trajectory, slower than Voyager 1 (about 13.6 km/s in late 2026).
+  assert.ok(kmS('nh') > 13 && kmS('nh') < 14.2, `New Horizons at ${kmS('nh')} km/s`);
+  // Parker Solar Probe at 430,000 mph on 24 December 2024 (NASA): 192 km/s, 0.064% of light.
+  assert.ok(Math.abs(kmS('parker') - 192.2) < 0.1);
+  assert.ok(Math.abs(laneSpeed(lane('real'), 9, DATE, 'parker') - 0.000641) < 0.000002);
+  assert.equal(laneSpeed(lane('real'), 9, DATE, 'starshot'), 0.2);
+  assert.equal(laneSpeed(lane('real'), 9, DATE, 'ark'), 0.01);
+  // Every one of them is slower than light and faster than nothing, and has its honest line.
+  for (const r of REAL_SHIPS) {
+    const c = laneSpeed(lane('real'), 9, DATE, r.id);
+    assert.ok(c > 0 && c < 1, r.id);
+    assert.ok(r.label && r.note && r.line.length > 60, r.id);
+  }
+  // The generation ship takes 423 years to Proxima Centauri; Starshot about 21.
+  assert.equal(formatSpan(tripYears(4.23, 0.01)), '420 years');
+  assert.equal(formatSpan(tripYears(4.23, 0.2)), '21 years');
+});
+
+test('Kirk’s scale: the warp factor cubed', () => {
+  // The Making of Star Trek (1968): warp 6, the Enterprise's safe cruising speed, is 216 times light.
+  assert.equal(kirkSpeed(6), 216);
+  assert.equal(kirkSpeed(9), 729);
+  assert.equal(kirkSpeed(1), 1);
+  // Above warp 1 it is always slower than the Next Generation's scale.
+  for (let w = 1.5; w < 10; w += 0.5) assert.ok(kirkSpeed(w) < warpSpeed(w), `warp ${w}`);
 });
 
 test('the ladder runs nearest first, and every place is described', () => {

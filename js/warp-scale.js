@@ -14,8 +14,39 @@ export const LANES = [
   { id: 'custom', label: 'Your warp', warp: 9, note: 'Set it below', color: '#c9a2ff' },
   { id: 'w5', label: 'Warp 5', warp: 5, note: 'Starfleet’s speed limit after Force of Nature', color: '#86d8ff' },
   { id: 'w1', label: 'Warp 1', warp: 1, note: 'Light itself, and the Phoenix’s first flight in 2063', color: '#f4f7ff' },
-  { id: 'voyager', label: 'Voyager 1', kmS: 16.9, note: 'The fastest thing leaving the Solar System', color: '#6fe3a4' },
+  { id: 'real', label: 'Voyager 1', kmS: 16.9, note: 'The fastest thing leaving the Solar System', color: '#6fe3a4' },
 ];
+
+// The real ship in the bottom lane, picked under the race: two on their way out of the Solar System now, the fastest
+// anything has ever gone, and two ideas for crossing to the stars, each with one honest line on the place card.
+// `track` is the ship in js/ephemeris.js whose speed is worked out for the day; the others are fixed.
+//  - Parker Solar Probe: 430,000 mph (192 km/s) at her closest pass, 3.8 million miles above the Sun on 24 December
+//    2024 (NASA, "NASA's Parker Solar Probe Makes History With Closest Pass to Sun", 27 December 2024).
+//  - Breakthrough Starshot: probes pushed by lasers to 20% of light, announced 12 April 2016; on hold since 2025
+//    (Scientific American, "The Quiet Demise of Breakthrough Starshot", 16 September 2025).
+export const REAL_SHIPS = [
+  {
+    id: 'voyager', label: 'Voyager 1', track: 'v1', kmS: 16.9, note: 'The fastest thing leaving the Solar System',
+    line: 'Voyager 1’s real speed today, from her trajectory. Launched in 1977, she is the fastest thing leaving the Solar System, and she isn’t aimed at any star.',
+  },
+  {
+    id: 'nh', label: 'New Horizons', track: 'nh', kmS: 13.6, note: 'Past Pluto, on her way out',
+    line: 'New Horizons’ real speed today, from her trajectory. The fastest probe ever launched from Earth, she has slowed since, climbing away from the Sun past Pluto.',
+  },
+  {
+    id: 'parker', label: 'Parker Solar Probe', kmS: 192.2, note: 'At her fastest, 24 December 2024',
+    line: 'The fastest anything has ever gone: 192 km/s, only at her closest to the Sun on 24 December 2024 (NASA). She isn’t going anywhere: she falls back round the Sun every 88 days.',
+  },
+  {
+    id: 'starshot', label: 'Breakthrough Starshot', c: 0.2, note: 'A goal, never built',
+    line: 'Not a ship but a goal: probes of a gram or so, pushed by lasers to a fifth of light speed, announced in 2016. None was built, and the project has been on hold since 2025.',
+  },
+  {
+    id: 'ark', label: 'A generation ship', c: 0.01, note: 'An idea: 1% of light',
+    line: 'An idea, not a design: a ship the size of a town at 1% of light speed, whose crew live and die aboard, and whose descendants, many generations on, arrive.',
+  },
+];
+export const realShip = id => REAL_SHIPS.find(r => r.id === id) || REAL_SHIPS[0];
 
 export const GROUPS = [
   ['home', 'The Solar System'],
@@ -72,7 +103,7 @@ export const PLACES = [
   },
   {
     id: 'proxima', name: 'Proxima Centauri', group: 'near', ly: 4.23, color: '#ff9a6a', kind: 'star', course: 'Proxima Centauri', sky: 'Proxima Centauri',
-    about: 'The nearest star. Breakthrough Starshot hopes to send probes the weight of a paperclip here at a fifth of light speed, in about 20 years.',
+    about: 'The nearest star. Breakthrough Starshot set out in 2016 to send probes the weight of a paperclip here at a fifth of light speed, in about 20 years; it has been on hold since 2025.',
     trek: 'Zefram Cochrane’s Phoenix first broke the warp barrier in 2063. At warp 1 she’d have reached here in just over four years.',
   },
   {
@@ -180,11 +211,21 @@ export const aboutOn = (place, date = new Date()) => (place.aboutNow ? `${place.
 // How far each place is, in light years, on a date.
 export const distanceLy = (place, date = new Date()) => (place.live ? place.live(jdOf(date)) : place.ly);
 
-// Each lane's speed in multiples of light. Voyager 1's comes from its trajectory when there's a date.
-export function laneSpeed(lane, customWarp = 9, date) {
-  if (lane.id === 'voyager') return (date ? readings('v1', jdOf(date)).speedKmS : lane.kmS) / C_KM_S;
+// Each lane's speed in multiples of light. The real ship's is the one picked (Voyager 1 unless another is); Voyager 1's
+// and New Horizons' come from their trajectories when there's a date.
+export function laneSpeed(lane, customWarp = 9, date, real = 'voyager') {
+  if (lane.id === 'real') {
+    const r = realShip(real);
+    if (r.c) return r.c;
+    return (r.track && date ? readings(r.track, jdOf(date)).speedKmS : r.kmS) / C_KM_S;
+  }
   return warpSpeed(lane.id === 'custom' ? customWarp : lane.warp);
 }
+
+// Kirk's scale: in the original series a warp factor cubed gave the speed in multiples of light, so warp 6, the
+// Enterprise's safe cruising speed, was 216 times light (Stephen Whitfield and Gene Roddenberry, The Making of Star
+// Trek, 1968, from the series' writers' guide; never said on screen). The Next Generation's scale is steeper.
+export const kirkSpeed = warp => warp ** 3;
 
 export const tripYears = (ly, speedC) => ly / speedC;
 

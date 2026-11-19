@@ -18,12 +18,17 @@
 .custom input[type=range]::-moz-range-progress { background: #c9a2ff; }
 .custom input[type=range]::-webkit-slider-thumb { border-color: #c9a2ff; box-shadow: 0 0 12px rgba(201, 162, 255, 0.6); }
 .custom input[type=range]::-moz-range-thumb { border-color: #c9a2ff; }
+/* The real ship in the bottom lane: Voyager 1, New Horizons, Parker Solar Probe, or one of two ideas. */
+.real-pick { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px; }
+.real-pick .custom-label { color: #6fe3a4; }
+.real-pick select { width: 100%; min-width: 0; height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--panel-solid); color: var(--text); font: 16px var(--body); }
 
 .place { padding: 18px 18px 10px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
 .place h2 { margin: 4px 0 2px; font: 600 26px/1.1 var(--display); letter-spacing: 0.02em; }
 .place .dist { margin: 0 0 4px; color: var(--cyan); font-size: 14px; }
 .place .about { margin: 12px 0 8px; color: #cdd5e3; }
 .place .trek { margin: 0 0 10px; padding: 8px 10px; border-left: 3px solid var(--amber); background: rgba(255, 181, 74, 0.06); color: #cdd5e3; font-size: 14px; border-radius: 0 10px 10px 0; }
+.place .aside { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .place .trek b { margin-right: 4px; font: 600 11px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
 /* 44 px tall under a thumb; the margins take back what the padding adds, so the link sits where it did. */
 .place .to-file { display: inline-block; margin: -2px 0 -6px; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 16px 0; }

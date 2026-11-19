@@ -3455,9 +3455,33 @@ assert.match(page.url(), /#vulcan$/);
 await page.click('#go');
 await page.click('#go'); // skip ahead
 assert.equal(await page.evaluate(() => warpScale.done), true, 'skip ahead did not finish the race');
+// The bottom lane's real ship can be another: Parker Solar Probe at her fastest, with her honest line on the card and
+// her name in the race, the address and the race's ending. Kirk's scale is on the card beside the race.
+assert.equal(await page.inputValue('#real-ship'), 'voyager');
+assert.match(await text('#place .kirk'), /^Kirk’s warp 7\.5 was slower\. In the original series the warp factor cubed gave the speed \(The Making of Star Trek, 1968; never said on screen\): 422 × light, not 826, so here in 14 days\.$/);
+await page.selectOption('#real-ship', 'parker');
+assert.equal(await page.evaluate(() => warpScale.trip.lanes.at(-1).label), 'Parker Solar Probe');
+assert.match(await text('#place .real-line'), /^The fastest anything has ever gone: 192 km\/s, only at her closest to the Sun on 24 December 2024/);
+assert.match(await text('#times'), /Parker Solar Probe/);
+assert.match(page.url(), /\?warp=7\.5&ship=parker#vulcan$/);
+await page.click('#go');
+await page.click('#go');
+assert.match(await text('#race-note'), /Parker Solar Probe would take 25,000 years\.$/);
 await page.reload();
 await page.waitForFunction(() => window.warpScale);
 assert.equal(await page.evaluate(() => warpScale.place), 'vulcan', 'the place was not remembered');
+assert.equal(await page.inputValue('#real-ship'), 'parker', 'the real ship was not remembered');
+// A link with no ship in it keeps the one picked here, as one with no warp factor keeps yours; one with ship=nh races
+// New Horizons.
+await page.goto(base + 'warp.html?warp=9#proxima');
+await page.waitForFunction(() => window.warpScale);
+assert.equal(await page.inputValue('#real-ship'), 'parker', 'a link without a ship changed the one picked');
+await page.goto(base + 'warp.html?warp=9&ship=nh#proxima');
+await page.waitForFunction(() => window.warpScale);
+assert.deepEqual(await page.evaluate(() => [document.getElementById('real-ship').value, warpScale.trip.lanes.at(-1).label]), ['nh', 'New Horizons']);
+await page.selectOption('#real-ship', 'voyager');
+assert.match(page.url(), /\?warp=9#proxima$/);
+await page.evaluate(() => { warpScale.setCustom(7.5); warpScale.select('vulcan'); });
 await Promise.all([page.waitForNavigation(), page.click('#place .to-file')]);
 await bridgeReady();
 assert.equal(await text('#target-name'), '40 Eridani', 'Set course from the warp scale did not choose Vulcan’s sun');
