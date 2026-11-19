@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { LANES, REAL_SHIPS, realShip, kirkSpeed, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt, customPlace, COURSE_GROUP } from '../js/warp-scale.js';
 import { SHIPS } from '../js/ships.js';
-import { DEEP_SKY, sightById } from '../js/deepsky.js';
+import { DEEP_SKY, sightById, ADDED } from '../js/deepsky.js';
 import { warpSpeed } from '../js/physics.js';
 import { gamma, aberrate, doppler, halfSkyDeg, hourOnEarth, greenSeenAs, speedSaid } from '../js/impulse.js';
 
@@ -112,8 +112,11 @@ test('Jupiter and Mars are as far as their cards say', () => {
 });
 
 test('the places with Set course are stars the bridge knows', async () => {
-  const names = new Set(JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url))).names);
+  // (The catalogue's own names, and the stars the deep sky adds after them: the Ring Nebula's.)
+  const names = new Set([...JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url))).names, ...ADDED.map(a => a.name)]);
   for (const p of PLACES.filter(p => p.course)) assert.ok(names.has(p.course), p.course);
+  // Every nebula and cluster the bridge flies to has Set course on its rung, for the star the bridge flies to.
+  for (const o of DEEP_SKY.filter(o => o.star)) assert.equal(byId.get(o.rung).course, o.star, `${o.name}'s rung has no Set course`);
 });
 
 // The doors out of a place card: tonight's sky opens a card for a star by its name in the catalogue, and long
@@ -151,6 +154,10 @@ test('the helm’s course is a place of its own, or the rung the ladder already 
   assert.equal(customPlace('Vega', 25.04), byId.get('vega'));
   assert.equal(customPlace('Keid', 16.26), byId.get('vulcan'));
   assert.equal(customPlace('Alcyone', 403), byId.get('pleiades'));
+  // The helm set for a nebula or a cluster races to its rung, not to a rung named after the star the ship flies to.
+  assert.equal(customPlace('θ¹ Orionis', 1344), byId.get('orion'));
+  assert.equal(customPlace('θ¹ Tauri', 154.4), byId.get('hyades'));
+  assert.equal(customPlace('NGC 6720 central star', 2577), byId.get('ring'));
   assert.equal(customPlace('Vega', NaN), byId.get('vega'));
   // No measured distance (the bridge sends none), or a link that has been cut off or made up: no place.
   for (const [name, ly] of [['Sirius', NaN], ['Sirius', 0], ['Sirius', -4], ['Sirius', Infinity], ['Sirius', 3e6], ['', 8.6], ['   ', 8.6], [null, 8.6], ['x'.repeat(61), 8.6]]) {

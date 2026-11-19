@@ -6,9 +6,10 @@ import { sightById } from './deepsky.js';
 
 // A cluster's, a nebula's or a galaxy's rung: its distance, its card's words and its Star Trek line from the deep
 // sky's list (js/deepsky.js, where each distance has its source), and `sight`, the card tonight's sky opens for it.
+// One the bridge flies to has its star as `course`, so the card offers Set course and the helm's link finds the rung.
 const deep = (id, group, color, kind) => {
   const o = sightById.get(id);
-  return { id, name: o.name, group, ly: o.ly, color, kind, sight: id, about: o.about, ...(o.trek ? { trek: o.trek } : {}) };
+  return { id, name: o.name, group, ly: o.ly, color, kind, sight: id, about: o.about, ...(o.star ? { course: o.star } : {}), ...(o.trek ? { trek: o.trek } : {}) };
 };
 
 export const AU_PER_LY = 63241.1;
@@ -151,7 +152,7 @@ export const PLACES = [
     trek: 'Rigel VII is where Captain Pike’s landing party had the deadly fight he can’t stop thinking about in The Cage.',
   },
   {
-    id: 'orion', name: 'The Orion Nebula', group: 'galaxy', ly: 1344, color: '#ff9fc6', kind: 'nebula', sight: 'orion',
+    id: 'orion', name: 'The Orion Nebula', group: 'galaxy', ly: 1344, color: '#ff9fc6', kind: 'nebula', course: 'θ¹ Orionis', sight: 'orion',
     about: 'A cloud where new stars are being born, faintly visible to the eye in Orion’s sword.',
     trek: 'A nebula is a captain’s favourite place to hide, the way Kirk lured Khan into the Mutara Nebula.',
   },
