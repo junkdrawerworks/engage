@@ -411,7 +411,7 @@ function answer(id) {
   });
   const picked = byId.get(id);
   $('verdict-head').textContent = right ? 'Record filed. Nobody will look twice.'
-    : reverse ? `That world wouldn’t pass for ${label(c)}. It’s ${picked.inText || label(picked)}.`
+    : reverse ? `That world wouldn’t pass for ${c.inText || label(c)}. It’s ${picked.inText || label(picked)}.`
       : `That file wouldn’t fool anyone. It’s ${c.inText || label(c)}.`;
   $('verdict-head').className = `verdict-head ${right ? 'ok' : 'bad'}`;
   $('verdict-text').textContent = right ? c.tell : reverse ? `${picked.tell} ${hint(c)}.` : `${c.tell} ${hint(picked)}.`;

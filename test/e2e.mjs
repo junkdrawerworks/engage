@@ -1219,7 +1219,9 @@ assert.equal(await page.evaluate(() => location.hash.slice(1)), world);
   assert.match(await p.locator('#prompt').textContent(), /^Which of these worlds would pass for the .+ file\?$/);
   const slip = rev.worlds.find(id => id !== rev.id);
   await p.click(`#choices [data-id="${slip}"]`);
-  assert.match(await p.locator('#verdict-head').textContent(), /^That world wouldn’t pass for /);
+  // Named as it would be mid-sentence: "for a lava world", not "for Lava world".
+  const asked = await p.evaluate(() => { const c = survey.world.cls; return c.inText || (c.letter ? `Class ${c.letter}` : c.name); });
+  assert.ok((await p.locator('#verdict-head').textContent()).startsWith(`That world wouldn’t pass for ${asked}. It’s `));
   assert.equal(await p.locator('#choices .right').getAttribute('data-id'), rev.id);
   const saved = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.survey.v1')));
   assert.equal(saved.streak, 0);
