@@ -27,7 +27,7 @@
   &nbsp;
   <img src="docs/phone-scale.png" alt="The warp scale racing to the galactic core, 26,700 light years away: warp 9.975 is there after 3 years 11 months and warp 9 after 17 years 7 months, while warp 5, light and Voyager 1 are still on their way, and under the race the Real ship picker reads Voyager 1" width="250">
   &nbsp;
-  <img src="docs/phone-missions.png" alt="Long missions: a map of the Solar System with the paths of Voyager 1 and 2, New Horizons and the two Pioneers curling out past the planets, Voyager 1 nearly at the one light-day ring" width="250">
+  <img src="docs/phone-missions.png" alt="Long missions: a map of the Solar System with the paths of Voyager 1 and 2, New Horizons and the two Pioneers curling out past the planets, Voyager 1 nearly at the one light-day ring, and under it the timeline from 1972 to 2100 set to now" width="250">
   &nbsp;
   <img src="docs/phone-tonight.png" alt="Tonight's sky from New York after midnight, looking east: Orion rising with Rigel tagged Rigel VII, 40 Eridani tagged Vulcan, Aldebaran tagged Aldebaran whiskey and Capella tagged Capella IV, the constellations named in small capitals, the Pleiades, the Hyades and the Orion Nebula tagged in violet as soft patches at their true size, and the Orionid meteor shower’s radiant marked beside Betelgeuse" width="250">
 </p>
