@@ -15,6 +15,10 @@
   &nbsp;
   <img src="docs/phone-survey.png" alt="The planetary survey open at Class O, an ocean world covered in cloud, with thumbnails of the other classes below" width="250">
   &nbsp;
+  <img src="docs/phone-system.png" alt="The system view at TRAPPIST-1: its seven planets on their orbits at true spacing round a small orange star, e, f and g inside the shaded temperate zone, with e chosen" width="250">
+  &nbsp;
+  <img src="docs/phone-away.png" alt="The away team on TRAPPIST-1 e: its orange sun low over a dark horizon, two sister planets beside it and a third higher up, and the lab's pink, long-legged creature for the planet standing in front" width="250">
+  &nbsp;
   <img src="docs/phone-xeno.png" alt="The xenobiology lab grown for Class H: a tan, four-legged, sail-backed dune forager under a bright sun, next to a person for scale, with its field notes below" width="250">
   &nbsp;
   <img src="docs/phone-maru.png" alt="The Kobayashi Maru on the tactical display: your ship fires phasers at one of five Klingon cruisers circling the disabled freighter, with 150 people rescued and the hull at 51%" width="250">
@@ -62,9 +66,9 @@ It’s a static site: plain HTML, CSS and JavaScript, with no build step.
 
 ```sh
 npx serve .                   # or any static file server, then open the printed address
-npm test                      # checks the numbers, the star search, the Kobayashi Maru's rules, the xenobiology lab's rules, first contact's language and rules, the warp scale's numbers, the ships' positions and the sky overlay's astronomy, builds the single-file copies and opens each, then flies it in Chromium through the real page (needs Playwright)
+npm test                      # checks the numbers, the star search, the Kobayashi Maru's rules, the xenobiology lab's rules, first contact's language and rules, the warp scale's numbers, the planets' table and temperate zones, the ships' positions and the sky overlay's astronomy, builds the single-file copies and opens each, then flies it in Chromium through the real page (needs Playwright)
 npm install                   # once, for the screenshots: upng-js saves them with a 256-colour palette
-node tools/screenshots.mjs    # redraws docs/*.png, og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png and the shared courses' course/*.png (add `bridge`, `survey`, `maru`, `missions`, `tonight`, `xeno`, `contact`, `warp` or `courses` for only that one's)
+node tools/screenshots.mjs    # redraws docs/*.png, og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png and the shared courses' course/*.png (add `bridge`, `survey`, `maru`, `missions`, `tonight`, `xeno`, `contact`, `warp`, `system`, `away` or `courses` for only that one's)
 node tools/course-pages.mjs   # after changing a destination's title, its notes or Starfleet's line for it: rewrites course/*.html (then `node tools/screenshots.mjs courses` for their pictures)
 node tools/build-artifact.mjs # single-file copies for the Artifact viewer, in dist/ (or in a folder you name)
 node tools/archive.mjs        # after any change to the Kobayashi Maru's or first contact's rules: runs their trials with orders at random again and rewrites js/archive.js (the tests fail until it is run)

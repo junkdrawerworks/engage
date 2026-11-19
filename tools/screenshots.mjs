@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact or warp; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system or away; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -411,6 +411,55 @@ if (!only || only === 'warp') {
 // The pictures for the shared courses' own pages (course/*.html, see js/courses.js and tools/course-pages.mjs): each
 // destination as the viewscreen shows it on arrival, beside its name, how far it is and what Starfleet put there.
 // Only with `courses` named or nothing: thirty-one of them take a while.
+// The system view and the away team: TRAPPIST-1 from above, and standing on TRAPPIST-1 e.
+const ogCard = async (shot, aspect, eyebrow, title, line, meta, out) => {
+  const font = async f => (await readFile(join(root, 'fonts', f))).toString('base64');
+  const card = await open({ width: 1200, height: 630 }, 1);
+  await card.setContent(`<!doctype html><style>
+    @font-face { font-family: C; font-weight: 600; src: url(data:font/woff2;base64,${await font('chakra-petch-600.woff2')}); }
+    @font-face { font-family: P; src: url(data:font/woff2;base64,${await font('ibm-plex-sans.woff2')}); }
+    body { margin: 0; width: 1200px; height: 630px; background: radial-gradient(ellipse at 20% 0%, #13283a, #05070d 65%); color: #e8edf6; overflow: hidden; position: relative; }
+    .text { position: absolute; left: 72px; top: 0; bottom: 0; width: 470px; display: flex; flex-direction: column; justify-content: center; z-index: 1; }
+    .eyebrow { font: 600 22px C; letter-spacing: .18em; text-transform: uppercase; color: #ffb54a; }
+    h1 { margin: 10px 0 18px; font: 600 80px/1 C; letter-spacing: .03em; }
+    p { margin: 0; font: 32px/1.3 P; color: #cdd5e3; }
+    .meta { margin-top: 30px; font: 600 22px C; letter-spacing: .08em; color: #62d68c; }
+    .view { position: absolute; right: 48px; top: 50%; transform: translateY(-50%); width: ${Math.round(520 / aspect)}px; height: 520px; border-radius: 24px; border: 1px solid rgba(140,180,255,.32); background: url(${shot}) center / 100% 100%; }
+  </style>
+  <div class="view"></div>
+  <div class="text"><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p>${line}</p><div class="meta">${meta}</div></div>`);
+  await card.waitForTimeout(300);
+  await save(await card.screenshot(), out);
+  await card.context().close();
+};
+if (!only || only === 'system') {
+  const page = await open({ width: 390, height: 844 }, 2);
+  await page.goto(base + 'system.html#star=TRAPPIST-1');
+  await page.waitForFunction(() => window.systemView?.ready && systemView.painted === 7, null, { timeout: 30000 });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(2000);
+  await save(await page.screenshot(), 'docs/phone-system.png');
+  const [shot] = await page.evaluate(() => [document.getElementById('orrery').toDataURL()]);
+  await page.context().close();
+  await ogCard(shot, 1, 'Engage · Science station', 'System view', 'Fly in to the real planets of Proxima, TRAPPIST-1 and home.', 'And place one of your own', 'og-system.png');
+}
+if (!only || only === 'away') {
+  const page = await open({ width: 390, height: 844 }, 2);
+  await page.goto(base + 'away.html#world=TRAPPIST-1%20e');
+  await page.waitForFunction(() => window.awayTeam?.ready);
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(800);
+  await save(await page.screenshot(), 'docs/phone-away.png');
+  await page.context().close();
+  const wide = await open({ width: 600, height: 900 }, 2);
+  await wide.goto(base + 'away.html#world=TRAPPIST-1%20e');
+  await wide.waitForFunction(() => window.awayTeam?.ready);
+  await wide.waitForTimeout(800);
+  const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('sky'); return [c.toDataURL(), c.height / c.width]; });
+  await wide.context().close();
+  await ogCard(shot, aspect, 'Engage · Transporter room', 'Away team', 'Beam down and stand on a real planet, under its own sun.', 'TRAPPIST-1 e, Proxima b, Mars', 'og-away.png');
+}
+
 if (!only || only === 'courses') {
   const { SHARED, COURSES, courseSlug, courseCaption } = await import('../js/courses.js');
   const font = async f => (await readFile(join(root, 'fonts', f))).toString('base64');
