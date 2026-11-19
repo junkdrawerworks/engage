@@ -94,6 +94,17 @@ test('cruising on stops for a decision: something ahead, the tanks dry, the stor
   const on = cruise(u, TOP_WARP);
   assert.ok(on.every(r => !r.ran), 'the tanks ran dry twice');
   assert.ok(on.length > 1 || ahead(u.seed, u.quarter) || u.supplies <= 20);
+  // The stores running out halts it once; with them already empty it flies on at warp 6 to the next decision, not a
+  // quarter at a time.
+  const w = newTrip(5);
+  w.supplies = 2;
+  while (ahead(w.seed, w.quarter + 1) || ahead(w.seed, w.quarter + 2)) w.quarter++;
+  const out = cruise(w, 9);
+  assert.equal(out.length, 1, 'cruised on past the stores running out');
+  assert.equal(w.supplies, 0);
+  const later = cruise(w, 9);
+  assert.ok(later.length > 1, 'with the stores empty, Cruise on flew one quarter at a time');
+  assert.ok(later.every(r => r.tired));
 });
 
 test('the words, the debrief and the record', () => {

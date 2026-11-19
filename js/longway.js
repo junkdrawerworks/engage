@@ -79,14 +79,16 @@ export function step(trip, { warp = 0, stop = null } = {}) {
 }
 
 // Flying on at warp w until something needs a decision: something ahead to stop for, the tanks running dry, the
-// stores getting low, or home. Returns the quarters flown.
+// stores getting low or running out, or home. Each of those halts it once, as it happens: with the tanks or the
+// stores already empty it flies on to the next. Returns the quarters flown.
 export function cruise(trip, warp, most = 400) {
   const went = [];
   while (trip.home == null && went.length < most) {
     if (went.length && ahead(trip.seed, trip.quarter)) break;
+    const had = trip.supplies;
     const r = step(trip, { warp });
     went.push(r);
-    if (r.ran || (trip.supplies <= 20 && trip.supplies + SUPPLIES_USED > 20) || trip.supplies <= 0) break;
+    if (r.ran || (trip.supplies <= 20 && had > 20) || (trip.supplies <= 0 && had > 0)) break;
   }
   return went;
 }
