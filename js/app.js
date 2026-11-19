@@ -5,6 +5,7 @@ import { sound } from './audio.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, starKinds, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
+import { systemFor } from './worlds.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { ask } from './computer.js';
 import { SHOWN_IN, onScreen, onScreenParts, variableFor } from './variables.js';
@@ -37,6 +38,8 @@ const AWAY = SURVEY.startsWith('http') ? ' target="_blank" rel="noopener"' : '';
 const XENO = SURVEY.replace('survey.html', 'xeno.html');
 // Long missions, too.
 const MISSIONS = SURVEY.replace('survey.html', 'missions.html');
+// The system view, where a star's planets are flown in to and a planet of your own is placed.
+const SYSTEM = SURVEY.replace('survey.html', 'system.html');
 // Tonight's sky, likewise.
 const TONIGHT = 'tonight.html';
 // And the warp scale.
@@ -1125,7 +1128,8 @@ function entryHtml(e, heading, staged = heading) {
     const style = staged && !still.matches ? ` style="animation: rise .5s ${(delay += 0.12).toFixed(2)}s both"` : '';
     if (label) parts.push(`<dt${style}>${esc(label)}</dt>`);
     parts.push(`<dd class="${label ? (label === 'Looking home' ? 'home' : '') : 'note'}"${style}>${esc(text)}</dd>`);
-    if (label === 'Planets') parts.push(surveyLinks(e.star, style));
+    if (label === 'Planets') parts.push(systemLink(e.star, style), surveyLinks(e.star, style));
+    if (label === 'A temperate orbit') parts.push(placeLink(e.star, style));
     if (label === 'Looking home') parts.push(shipLink(e.ship, style));
   }
   // First contact made during this stay, read from first contact's own record.
@@ -1168,6 +1172,16 @@ function surveyLinks(i, style) {
     `<a href="${SURVEY}#${encodeURIComponent(cls.id)}"${AWAY}>${esc(world.name)}: ${world.misfit ? `on the ${esc(classLabel(cls))} file` : `${esc(classLabel(cls))}${cls.candidate ? ' candidate' : ''}`}</a>`
     // and, where the lab has the planet's own readings, to a creature grown for it.
     + (grows(world) ? `<a class="to-lab" href="${XENO}#world=${encodeURIComponent(world.name)}"${AWAY}>Grow a creature for ${esc(world.name)}</a>` : '')).join('')}</dd>`;
+}
+
+// At a star whose planets the system view has, a link to fly in to them; and beside the orbit where a planet would
+// be temperate, one to place a planet there and see what it would be.
+function systemLink(i, style) {
+  if (!systemFor(cat.names[i])) return '';
+  return `<dd class="files"${style}><a href="${SYSTEM}#star=${encodeURIComponent(cat.names[i])}"${AWAY}>System view: fly in to its planets</a></dd>`;
+}
+function placeLink(i, style) {
+  return `<dd class="files"${style}><a href="${SYSTEM}#star=${encodeURIComponent(cat.names[i])}&amp;place"${AWAY}>Place a planet here</a></dd>`;
 }
 
 // When the year of Earth an entry looks back on is one of a long mission's own ("the year Voyager 2 flew past

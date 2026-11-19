@@ -26,7 +26,7 @@ test('every room off the bridge is in the room list, once, with its name, a line
     assert.ok(r.name && r.line.endsWith('.') && r.line.length < 110, `${r.id}’s line is missing or too long`);
     // The round buttons on the bridge draw the same picture as the list does.
     const button = bridge.match(new RegExp(`id="${r.button}"[\\s\\S]*?<svg[^>]*>([\\s\\S]*?)</svg>`))?.[1];
-    if (r.button !== 'open-scale') assert.equal(button, r.icon, `${r.name}’s picture in the list is not its button’s`);
+    if (r.button && r.button !== 'open-scale') assert.equal(button, r.icon, `${r.name}’s picture in the list is not its button’s`);
     await readFile(join(root, r.href)); // the page is there
   }
   const html = roomList('https://example.org/', ' target="_blank"');
@@ -36,7 +36,7 @@ test('every room off the bridge is in the room list, once, with its name, a line
 
 test('counts are said in words', () => {
   assert.equal(inWords(8), 'eight');
-  assert.equal(inWords(ROOMS.length + 1), 'eight');
+  assert.equal(inWords(ROOMS.length + 1), 'ten');
   assert.equal(inWords(40), '40');
 });
 

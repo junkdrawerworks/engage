@@ -1,7 +1,8 @@
 // The rooms off the bridge, in the order the welcome card and Bridge settings list them. A new room is one more line
 // here: both lists are drawn from this table. `href` is the room's page beside the bridge; `button` is the id of the
-// link to it on the bridge (the round buttons, and the warp scale under the warp slider); `icon` is the inside of
-// that button's 24 × 24 drawing, so the list shows the same picture as the button. Pure, checked by
+// link to it on the bridge (the round buttons, and the warp scale under the warp slider), or null for a room the
+// bridge reaches from the captain's log instead (the system view and the away team, from a star's planets); `icon`
+// is the inside of that button's 24 × 24 drawing, so the list shows the same picture as the button. Pure, checked by
 // test/bridge.test.mjs.
 
 export const ROOMS = [
@@ -9,6 +10,16 @@ export const ROOMS = [
     id: 'survey', href: 'survey.html', button: 'open-survey', name: 'Planetary survey',
     line: 'Starfleet’s planet classes, beside the real planets astronomers have found.',
     icon: '<circle cx="12" cy="12" r="5.5"/><path d="M4.2 15.6c-1.6 1.5-2 2.8-1.2 3.4 1.6 1.2 7-1.6 12-6.2s7.8-9.2 6.6-10.4c-.6-.6-1.9-.3-3.4.8"/>',
+  },
+  {
+    id: 'system', href: 'system.html', button: null, name: 'System view',
+    line: 'Fly in to a star’s real planets, and place one of your own round any star.',
+    icon: '<circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="12" r="6"/><path d="M21.5 12a9.5 9.5 0 1 1-2.8-6.7"/><circle cx="20.2" cy="7.4" r="1.5"/>',
+  },
+  {
+    id: 'away', href: 'away.html', button: null, name: 'Away team',
+    line: 'Beam down and stand on a real planet, under its own sun.',
+    icon: '<path d="M3 20.5h18"/><circle cx="12" cy="9.5" r="2"/><path d="M9.5 20.5v-4.5l2.5-2 2.5 2v4.5"/><path d="M7 3.5l1.6 2.6M17 3.5l-1.6 2.6M12 2.5v3"/>',
   },
   {
     id: 'xeno', href: 'xeno.html', button: 'open-xeno', name: 'Xenobiology lab',
@@ -50,7 +61,7 @@ export function roomList(base = '', away = '') {
     + `<span class="room-text"><b>${r.name}</b><span>${r.line}</span></span></a></li>`).join('')}</ul>`;
 }
 
-// A count in words, for "all eight rooms": a room list is never long.
+// A count in words, for "all ten rooms": a room list is never long.
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
   'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
 export const inWords = n => WORDS[n] ?? String(n);

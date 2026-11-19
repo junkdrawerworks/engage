@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Away team · Engage</title>
+  <meta name="description" content="Beam down and stand on a real planet: Proxima b, TRAPPIST-1 e, Mars. Its sun at its true width and colour, the constellations as seen from that star with the Sun marked, and what you would weigh there.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="Away team">
+  <meta property="og:description" content="Beam down and stand on a real planet, under its own sun.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-away.png">
+  <meta property="og:image:alt" content="Engage, transporter room. Away team: standing on TRAPPIST-1 e, its red sun four times as wide as ours low over the horizon, with its sister planets in the sky.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/away.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/away.css">
+</head>
+<body class="survey away-page">
+  <noscript><p class="noscript">The away team needs JavaScript to draw the sky.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Transporter room</p>
+      <h1>Away team</h1>
+    </div>
+  </header>
+
+  <main>
+    <p class="lab-intro" id="away-intro">Loading the star charts…</p>
+
+    <section class="surface" id="surface" hidden aria-label="On the ground">
+      <div class="horizon">
+        <canvas id="sky" aria-hidden="true"></canvas>
+        <p class="drag-hint" aria-hidden="true">Drag to look around</p>
+      </div>
+      <nav class="side-pick" aria-label="Where to stand">
+        <button type="button" data-side="day" aria-pressed="true">Day side</button>
+        <button type="button" data-side="night" aria-pressed="false">Night side</button>
+      </nav>
+      <p class="seen" id="seen" aria-live="polite"></p>
+      <div class="ground-card">
+        <h2 id="world-name"></h2>
+        <dl class="readings" id="ground"></dl>
+        <p class="creature" id="creature"></p>
+        <p class="doors" id="doors"></p>
+        <p class="src" id="src"></p>
+      </div>
+    </section>
+
+    <section class="pick" id="pick" aria-labelledby="pick-head">
+      <h2 id="pick-head">Where to beam down</h2>
+      <div id="pick-list"></div>
+    </section>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/away.js"></script>
+</body>
+</html>

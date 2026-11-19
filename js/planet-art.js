@@ -421,11 +421,14 @@ function painter(style, seed, w) {
 // ---------- The sphere ----------
 
 // Draws `map` onto a canvas as a lit sphere turned by `turn` radians, filling the canvas with a margin for the halo.
+// `light` is the direction the light comes from, x to the right, y up and z toward the viewer: the survey's globes
+// are lit from the upper left, a little in front; the system view lights a planet from where its star is.
 export class Globe {
-  constructor(canvas) {
+  constructor(canvas, light = [-0.62, 0.38, 0.69]) {
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
     this.size = 0;
+    this.light = norm(light);
   }
 
   setMap(map) { this.map = map; }
@@ -438,7 +441,7 @@ export class Globe {
     this.img = this.g.createImageData(size, size);
     const R = size * 0.4, c = size / 2;
     this.R = R;
-    const L = norm([-0.62, 0.38, 0.69]); // light from the upper left, a little in front
+    const L = this.light;
     const px = [], lon = [], lat = [], sun = [], rim = [], view = [];
     const tilt = 0.18, ct = Math.cos(tilt), st = Math.sin(tilt);
     for (let j = 0; j < size; j++) {

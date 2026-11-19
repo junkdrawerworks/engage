@@ -315,7 +315,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await bridgeReady(p);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
   await p.tap('#open-settings');
-  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all eight rooms work with no signal.', null, { timeout: 20000 })
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all ten rooms work with no signal.', null, { timeout: 20000 })
     .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
   assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
   assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
@@ -650,6 +650,9 @@ assert.match(entry, /in 1 day at warp 9/);
 assert.match(entry, /Proxima b: Class M candidate/, 'the log does not link to the planetary survey');
 // Beside it, a link to the lab, which has Proxima b's own readings to grow a creature from.
 assert.equal(await page.locator('#arrival-entry .files a', { hasText: 'Grow a creature for Proxima b' }).getAttribute('href'), 'xeno.html#world=Proxima%20b');
+// And to the system view: fly in to its planets, or place one of your own beside the temperate orbit.
+assert.equal(await page.locator('#arrival-entry .files a', { hasText: 'System view: fly in to its planets' }).getAttribute('href'), 'system.html#star=Proxima%20Centauri');
+assert.equal(await page.locator('#arrival-entry .files a', { hasText: 'Place a planet here' }).getAttribute('href'), 'system.html#star=Proxima%20Centauri&place');
 assert.equal(await text('#where'), 'Proxima Centauri');
 assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'the helm stayed out of reach after arriving');
 // Under the star's name, one quiet line says what this arrival did: a first trip sets every record and charts a
@@ -4186,7 +4189,7 @@ await page.emulateMedia({ reducedMotion: null });
   // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
   // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
   // half the time once the service worker was handing the stylesheet over.
-  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html']) {
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html']) {
     assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
   }
   for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
@@ -5293,9 +5296,86 @@ await page.emulateMedia({ reducedMotion: null });
   await fresh.close();
 }
 
+// Planets as places. The system view opens at the star the ship is holding at, flown in to the planet the bridge
+// holds in the orbit of; a planet tapped in the list is flown in to, with its readings and a way down; the placed
+// planet is filed by where it sits; and the away team stands on the world, with its sun, its readings, the lab's
+// creature and, on the night side, the Sun marked.
+{
+  const sv = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await sv.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await sv.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => engage.jump('TRAPPIST-1'));
+  await p.evaluate(() => engage.jump('Vega'));
+  await p.evaluate(() => engage.jump('TRAPPIST-1'));
+  await p.goto(base + 'system.html');
+  await p.waitForFunction(() => window.systemView?.ready);
+  assert.equal(await p.evaluate(() => systemView.star), 'TRAPPIST-1', 'the system view did not open where the ship is');
+  assert.equal(await p.evaluate(() => systemView.selected), 'TRAPPIST-1 e', 'it did not fly in to the planet the bridge holds at');
+  assert.equal(await p.title(), 'TRAPPIST-1 · System view · Engage');
+  assert.equal(await p.locator('#planet-list button').count(), 7);
+  assert.match(await p.locator('#close-text').innerText(), /In it: the zone where water could be liquid runs from 0\.026 AU to 0\.051 AU here/);
+  await p.tap('#planet-list button:has-text("TRAPPIST-1 b")');
+  assert.equal(await p.evaluate(() => systemView.selected), 'TRAPPIST-1 b');
+  assert.equal(await p.locator('#planet-list button[aria-pressed="true"]').innerText().then(t => t.split('\n')[0]), 'TRAPPIST-1 b');
+  assert.match(await p.locator('#close-text').innerText(), /Too close: the zone/);
+  assert.equal(await p.locator('#close-text a.beam').getAttribute('href'), 'away.html#world=TRAPPIST-1%20b');
+  await p.waitForFunction(() => systemView.painted === 7, null, { timeout: 20000 });
+  // Home: Earth, and a giant with no ground; the scale reaches the giants only when asked.
+  await p.goto(base + 'system.html#star=Sol');
+  await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Sol');
+  assert.equal(await p.evaluate(() => systemView.selected), 'Earth');
+  assert.ok(await p.locator('#scale-pick').isVisible(), 'the Sun’s system offers no choice of scale');
+  await p.tap('#planet-list button:has-text("Jupiter")');
+  assert.equal(await p.locator('#close-text a.beam').count(), 0, 'a giant offers a way down');
+  assert.match(await p.locator('#close-text').innerText(), /no ground to stand on/);
+  // Placing a planet: an Earth at 1 AU from the Sun is on the Class M file; moved to 3 AU it freezes over.
+  await p.evaluate(() => systemView.place(1, 'earth'));
+  assert.match(await p.locator('#place-filed').innerText(), /^It would go on the Class M file, if it has air and water/);
+  await p.evaluate(() => systemView.place(3));
+  assert.equal(await p.locator('#place-filed').innerText(), 'It would go on the Class P file: frozen over.');
+  assert.equal(await p.locator('#place-links a').first().getAttribute('href'), 'survey.html#P');
+  // A star with no known planets still takes a placed one, from the log's link.
+  await p.goto(base + 'system.html#star=Vega&place');
+  await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Vega');
+  assert.equal(await p.locator('#planet-list').isHidden(), true);
+  assert.match(await p.locator('#sys-intro').innerText(), /No planets are known here yet/);
+  assert.match(await p.locator('#place-readings').innerText(), /Starlight/i);
+
+  // The away team on TRAPPIST-1 e: its readings, the lab's creature, and Sol on the night side if it is up.
+  await p.goto(base + 'away.html#world=TRAPPIST-1%20e');
+  await p.waitForFunction(() => window.awayTeam?.ready);
+  assert.equal(await p.title(), 'TRAPPIST-1 e · Away team · Engage');
+  const ground = await p.locator('#ground').innerText();
+  assert.match(ground, /0\.82 g/);
+  assert.match(ground, /57 kg/);
+  assert.match(ground, /2\.2°, 4\.1 times as wide as the Sun looks from Earth/);
+  assert.match(ground, /The sun never sets here/);
+  assert.match(await p.locator('#creature').innerText(), /^In front of you: the .*, specimen \d{4} from the xenobiology lab/);
+  assert.match(await p.locator('#creature a').getAttribute('href'), /^xeno\.html#world=TRAPPIST-1%20e-\d+$/);
+  await p.tap('[data-side="night"]');
+  assert.equal(await p.evaluate(() => awayTeam.side), 'night');
+  const sol = await p.evaluate(() => awayTeam.solUp);
+  assert.match(await p.locator('#seen').innerText(), sol ? /The Sun is the star ringed in amber, magnitude 5\.3: home\./ : /The Sun is below the horizon tonight/);
+  // A world with no readings for the lab stands empty, and a giant can't be stood on.
+  await p.goto(base + 'away.html#world=Mars');
+  await p.waitForFunction(() => window.awayTeam?.ready && awayTeam.world === 'Mars');
+  assert.match(await p.locator('#creature').innerText(), /has no readings to grow a creature for Mars/);
+  assert.match(await p.locator('#ground').innerText(), /26 kg/);
+  await p.goto(base + 'away.html#world=Jupiter');
+  await p.waitForFunction(() => window.awayTeam?.ready && awayTeam.world === null);
+  assert.match(await p.locator('#away-intro').innerText(), /Jupiter is a giant, with no ground to stand on/);
+  assert.equal(await p.locator('#surface').isHidden(), true);
+  assert.equal(await p.locator('#pick-list a').count(), 18, 'the transporter does not list the 18 worlds with ground');
+
+  await sv.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
-const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html'];
 const until = async (ok, ms, what) => {
   for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
 };
@@ -5313,7 +5393,7 @@ for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await 
 const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
-const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale' };
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam' };
 const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
 net = 'down';
 await ctx.setOffline(true);
@@ -5377,8 +5457,8 @@ server.close();
 // sw.js changes whenever a file it keeps does, so a release replaces the whole offline copy at once: FILES in sw.js is
 // a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
 // index.html; the first 8 hex of the sha1 of those).
-// Everything the eight pages and their scripts load is on the list: a file left off opens online and not offline.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html']) {
+// Everything the ten pages and their scripts load is on the list: a file left off opens online and not offline.
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
@@ -5388,7 +5468,7 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html']) {
   const html = await readFile(join(root, f), 'utf8');
   assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
   const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';

@@ -55,6 +55,15 @@ export function drawScene(g, c, W, H, time = 0, grown = 1) {
   g.restore();
 }
 
+// The creature alone, with no surroundings: its feet (or middle) at (x, y), `s` pixels for its main length. The away
+// team stands one on a real planet's horizon.
+export function drawCreature(g, c, x, y, s, time = 0) {
+  g.save();
+  g.translate(x, y);
+  ({ walker, flyer: walker, swimmer, floater, burrower, plant, crawler })[c.body.plan](g, c.body, s, time, c);
+  g.restore();
+}
+
 // ---------- Surroundings ----------
 
 function backdrop(g, c, W, H, groundY, time) {

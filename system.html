@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>System view · Engage</title>
+  <meta name="description" content="Fly in to the planets of a real star: each on its orbit at true spacing with the temperate zone shaded, the star as big as it looks from there, and a planet of your own to place round any star you have visited.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="System view">
+  <meta property="og:description" content="Fly in to the real planets of Proxima, TRAPPIST-1 and home, and place one of your own.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-system.png">
+  <meta property="og:image:alt" content="Engage, science station. System view: the seven planets of TRAPPIST-1 on their orbits at true spacing, three of them in the shaded temperate zone.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/system.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/system.css">
+</head>
+<body class="survey system-page">
+  <noscript><p class="noscript">The system view needs JavaScript to draw the planets.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Science station</p>
+      <h1>System view</h1>
+    </div>
+  </header>
+
+  <main>
+    <p class="lab-intro" id="sys-intro">Loading the star charts…</p>
+
+    <div class="deck">
+      <section class="orrery" aria-label="The system from above">
+        <div class="screen">
+          <canvas id="orrery" aria-hidden="true"></canvas>
+        </div>
+        <div class="scale-pick" id="scale-pick" hidden>
+          <button type="button" data-scale="inner" aria-pressed="true">Inner planets</button>
+          <button type="button" data-scale="all" aria-pressed="false">The whole system</button>
+        </div>
+        <p class="key"><span class="zone-swatch" aria-hidden="true"></span> The temperate zone, where water could be liquid</p>
+        <ul class="planet-list" id="planet-list" aria-label="Planets"></ul>
+      </section>
+
+      <article class="flyin" id="close" aria-live="polite">
+        <div class="viewscreen">
+          <canvas id="close-view" aria-hidden="true"></canvas>
+          <div class="from-here" id="from-here" aria-hidden="true">
+            <canvas id="star-size"></canvas>
+            <span>The star from this orbit, beside the Sun from Earth</span>
+          </div>
+        </div>
+        <div class="close-text" id="close-text"></div>
+      </article>
+    </div>
+
+    <section class="place-planet" id="place" aria-labelledby="place-head">
+      <h2 id="place-head">Place a planet</h2>
+      <p class="place-lead" id="place-lead"></p>
+      <div class="place-controls">
+        <label class="place-label" for="place-au">Orbit <output id="place-out" for="place-au"></output></label>
+        <input type="range" id="place-au" min="0" max="1000" step="1" value="500">
+        <fieldset class="sizes" id="sizes">
+          <legend>Size</legend>
+        </fieldset>
+      </div>
+      <dl class="readings" id="place-readings"></dl>
+      <p class="filed" id="place-filed"></p>
+      <p class="place-links" id="place-links"></p>
+    </section>
+
+    <section class="other-systems" aria-labelledby="others-head">
+      <h2 id="others-head">Systems with known planets</h2>
+      <p class="others" id="others"></p>
+    </section>
+
+    <p class="sources">Planets: the NASA Exoplanet Archive and NASA’s planetary fact sheet. The temperate zone: Kopparapu and others 2013, <i>Astrophysical Journal</i> 765, 131. For an exoplanet only the size and length of its orbit are known here, not where along it the planet is today: the spacing on the orbits is a guess.</p>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/system.js"></script>
+</body>
+</html>

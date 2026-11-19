@@ -15,6 +15,8 @@
 // Astronomy 129, 509). Nobody has seen it happen on any of them; the rooms say "expected".
 import { SUN_RADIUS_AU, widthFor } from './physics.js';
 import { byId, label, worldByName as fileWorld } from './classes.js';
+import { planetAt } from './ephemeris.js';
+import { eclipticToEquatorial } from './astro.js';
 
 const FACT = 'NASA planetary fact sheet';
 export const SYSTEMS = [
@@ -197,6 +199,54 @@ export function orbitAngle(p, index, jd) {
   return start + (2 * Math.PI * (jd - 2451545)) / p.days;
 }
 
+// ---------- The sky from the ground ----------
+
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const unit = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+const along = (a, b) => unit(a.map((x, k) => x - dot(a, b) * b[k])); // a with its part along b taken out
+const KM_PER_AU = 149597870.7, EARTH_KM = 6371;
+
+// Where each planet of a system is at Julian day `jd`, in AU from its star, as equatorial x, y, z (x toward the March
+// equinox, z toward the north celestial pole, as the catalogue's are). The Solar System's come from the ephemeris.
+// For another star the plane of the orbits isn't known (except that a system whose planets cross their star's face,
+// as TRAPPIST-1's do, is seen edge on, so the Sun lies in that plane): every system here is drawn that way, with
+// `toSol`, the direction from the star to the Sun, in the plane. Positions on the orbits are orbitAngle's.
+export function positions(system, jd, toSol) {
+  if (system.star === 'Sol') return system.planets.map(p => eclipticToEquatorial(planetAt(p.name.toLowerCase(), jd)));
+  const e1 = toSol, n = Math.abs(toSol[2]) > 0.99 ? [1, 0, 0] : unit(cross(toSol, [0, 0, 1])), e2 = cross(n, e1);
+  return system.planets.map((p, k) => { const a = orbitAngle(p, k, jd); return e1.map((x, i) => p.au * (Math.cos(a) * x + Math.sin(a) * e2[i])); });
+}
+
+// What stands in the sky of `planet` (one of `system`'s) at `jd`: the direction of its star (`sun`), of the Sun
+// (`sol`, null at home) and of its sister planets, each with how wide it looks in degrees, how far off it is in AU
+// and how much of the face turned to us is lit (`lit`, 0 to 1). `hostPc` is the star's position in parsecs from the
+// Sun. And where to stand: `day` is "up" for a place where the star stands 14° high, toward the Sun's side of the
+// sky; `night` is "up" for a place on the night side, with the star 20° below the horizon, as high under the Sun
+// (or, at home, under Orion) as that allows. On a planet that keeps one face to its star, both places are fixed.
+export function groundSky(system, planet, jd, hostPc) {
+  const toSol = system.star === 'Sol' ? null : unit(hostPc.map(x => -x));
+  const pos = positions(system, jd, toSol || [1, 0, 0]);
+  const k = system.planets.indexOf(planet), me = pos[k];
+  const sun = unit(me.map(x => -x));
+  const sisters = system.planets.map((p, j) => {
+    if (j === k) return null;
+    const rel = pos[j].map((x, i) => x - me[i]), au = Math.hypot(...rel), dir = unit(rel);
+    const deg = 2 * Math.atan(widthOf(p) * EARTH_KM / (au * KM_PER_AU)) * 180 / Math.PI;
+    const lit = (1 + dot(unit(pos[j].map(x => -x)), dir.map(x => -x))) / 2;
+    return { planet: p, dir, au, deg, lit };
+  }).filter(Boolean);
+  // At home there is no Sun to look for at night: face Orion (right ascension 5h 30m, on the equator) instead.
+  const mark = toSol || [Math.cos(82.5 * Math.PI / 180), Math.sin(82.5 * Math.PI / 180), 0];
+  let toward = along(mark, sun);
+  if (!Number.isFinite(toward[0]) || Math.abs(dot(mark, sun)) > 0.9999) toward = along([0, 0, 1], sun);
+  const tilt = (a, b, deg) => unit(a.map((x, i) => x * Math.sin(deg * Math.PI / 180) + b[i] * Math.cos(deg * Math.PI / 180)));
+  return { sun, sol: toSol, mark, sisters, day: tilt(sun, toward, 14), night: tilt(sun.map(x => -x), toward, 20) };
+}
+
+// The altitude of a direction, in degrees, for a place whose "up" is `up`.
+export const altitude = (dir, up) => Math.asin(Math.max(-1, Math.min(1, dot(dir, up)))) * 180 / Math.PI;
+
 // ---------- In words ----------
 
 const fig = (x, sig = 2) => {
@@ -242,7 +292,7 @@ export function readout(p, star) {
   const rows = [
     ['Orbit', `${auText(p.au)} from its star`],
     ['Year', yearText(p.days)],
-    ['Size', p.width ? `${fig(p.width)} times Earth’s width, ${fig(p.mass)} times its mass`
+    ['Size', p.width === 1 && p.mass === 1 ? 'Earth’s own: 12,756 km across' : p.width ? `${fig(p.width)} times Earth’s width, ${fig(p.mass)} times its mass`
       : `${p.least ? 'At least ' : ''}${fig(p.mass)} times Earth’s mass; if it is rock, about ${fig(w)} times its width`],
     ['Starlight', lightText(sunlight(star.lum, p.au))],
     p.meanC != null ? ['Temperature', `${celsiusText(p.meanC)} on average`]

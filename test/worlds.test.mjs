@@ -153,3 +153,31 @@ test('where each planet is on its orbit moves on at its true pace', () => {
   near(a1 - a0, 2 * Math.PI, 1e-9, 'one year is one turn');
   assert.notEqual(orbitAngle(b, 0, 2461000) % (2 * Math.PI), orbitAngle(planetByName('TRAPPIST-1 c').planet, 1, 2461000) % (2 * Math.PI));
 });
+
+test('the sky from the ground: where the sun stands, the Sun from another star, and the sister planets', async () => {
+  const { groundSky, altitude, positions } = await import('../js/worlds.js');
+  const cat = buildCatalog((await readFile(join(root, 'data/stars.bin'))).buffer, JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')));
+  const host = name => { const i = cat.byName.get(name); return [...cat.pos.subarray(i * 3, i * 3 + 3)]; };
+  const { planet, system } = planetByName('TRAPPIST-1 e');
+  for (const jd of [2461364, 2461367.5, 2462000]) {
+    const g = groundSky(system, planet, jd, host('TRAPPIST-1'));
+    near(altitude(g.sun, g.day), 14, 1e-6, 'the sun by day');
+    near(altitude(g.sun, g.night), -20, 1e-6, 'the sun by night');
+    // The Sun is in the plane of the orbits (TRAPPIST-1's planets cross their star's face as seen from here).
+    const pos = positions(system, jd, g.sol);
+    const n = [pos[0][1] * pos[1][2] - pos[0][2] * pos[1][1], pos[0][2] * pos[1][0] - pos[0][0] * pos[1][2], pos[0][0] * pos[1][1] - pos[0][1] * pos[1][0]];
+    near(n[0] * g.sol[0] + n[1] * g.sol[1] + n[2] * g.sol[2], 0, 1e-12, 'the Sun off the planets’ plane');
+    assert.equal(g.sisters.length, 6);
+    for (const s of g.sisters) {
+      near(s.deg, 2 * Math.atan(widthOf(s.planet) * 6371 / (s.au * 149597870.7)) * 180 / Math.PI, 1e-9, `${s.planet.name}'s width`);
+      assert.ok(s.lit >= 0 && s.lit <= 1 && s.au >= Math.abs(s.planet.au - planet.au) - 1e-12);
+    }
+  }
+  // At its nearest, TRAPPIST-1 f would look about as wide as the Moon does from Earth (0.52°).
+  const f = planetByName('TRAPPIST-1 f').planet;
+  near(2 * Math.atan(f.width * 6371 / ((f.au - planet.au) * 149597870.7)) * 180 / Math.PI, 0.55, 0.02, 'f at its nearest');
+  // From Mars, Earth is one of the sisters, and there is no Sun to mark at night.
+  const mars = groundSky(SYSTEMS[0], planetByName('Mars').planet, 2461364, [0, 0, 0]);
+  assert.equal(mars.sol, null);
+  assert.ok(mars.sisters.some(s => s.planet.name === 'Earth' && s.au > 0.37 && s.au < 2.7));
+});
