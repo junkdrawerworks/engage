@@ -205,3 +205,21 @@ test('the five-year mission: each trip’s ship time counts, and the arrival tha
   assert.equal(story({}, { log: fixed.slice(1), supps: [], clock: true }), 'Year 1, day 1: mission two begins with the next trip.');
   assert.equal(story({}, { log: [], clock: true }), 'Year 1, day 1: the mission begins with the first trip.');
 });
+
+test('your ship: a name and a registry, tidied, and the USS in front unless she has a prefix of her own', async () => {
+  const { cleanName, cleanRegistry, shipOf, fullName, shortName, withRegistry } = await import('../js/myship.js');
+  assert.equal(cleanName('  Calypso  '), 'Calypso');
+  assert.equal(cleanName('<b>Calypso</b>'), 'bCalypsob', 'no markup gets through');
+  assert.equal(cleanName('Jean-Luc’s   Pride'), 'Jean-Luc’s Pride');
+  assert.equal(cleanName('x'.repeat(40)).length, 30);
+  assert.equal(cleanRegistry(' ncc-1701-d '), 'NCC-1701-D');
+  assert.equal(cleanRegistry('NCC 74656!'), 'NCC74656');
+  assert.equal(shipOf({}), null);
+  assert.equal(shipOf({ ship: { name: '   ' } }), null, 'a blank name is no name');
+  assert.deepEqual(shipOf({ ship: { name: 'Calypso', registry: 'ncc-74210', extra: 1 } }), { name: 'Calypso', registry: 'NCC-74210' });
+  assert.deepEqual(shipOf({ ship: { name: 'Calypso', registry: 5 } }), { name: 'Calypso', registry: '' });
+  const calypso = { name: 'Calypso', registry: 'NCC-74210' };
+  assert.deepEqual([fullName(calypso), shortName(calypso), withRegistry(calypso)], ['USS Calypso', 'Calypso', 'USS Calypso, NCC-74210']);
+  const botany = { name: 'SS Botany Bay', registry: '' };
+  assert.deepEqual([fullName(botany), shortName(botany), withRegistry(botany)], ['SS Botany Bay', 'Botany Bay', 'SS Botany Bay']);
+});

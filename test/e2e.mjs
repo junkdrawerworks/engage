@@ -4848,6 +4848,60 @@ await page.emulateMedia({ reducedMotion: null });
   await five.close();
 }
 
+// Your ship can have a name and a registry, in Bridge settings, and the rooms that speak of her use them: the Kobayashi
+// Maru's briefing ("You command the USS Calypso"), first contact ("off the Calypso's bow"), the captain's log and your
+// lane on the warp scale. She had no name anywhere. Unnamed, every room says what it always said.
+{
+  const yard = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await yard.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await yard.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const rooms = async () => {
+    await p.goto(base + 'maru.html');
+    await p.waitForFunction(() => window.maru);
+    const maru = await p.locator('#your-ship').innerText();
+    await p.goto(base + 'contact.html');
+    await p.waitForFunction(() => window.contact);
+    const contact = await p.locator('#brief-where').innerText();
+    await p.goto(base + 'warp.html');
+    await p.waitForFunction(() => window.warpScale?.trip);
+    const lane = await p.evaluate(() => warpScale.trip.lanes.find(l => l.id === 'custom').label);
+    return { maru, contact, lane };
+  };
+  assert.deepEqual(await rooms(), { maru: 'a starship', contact: 'A ship of no known design has dropped out of warp off your bow, in Earth orbit, and she’s hailing you.', lane: 'Warp 9' });
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-settings');
+  assert.match(await p.locator('#ship-said').innerText(), /^Name her, and/);
+  await p.locator('#ship-name').fill('Calypso ');
+  await p.locator('#ship-registry').fill('ncc-74210');
+  assert.equal(await p.locator('#ship-said').innerText(), 'The rooms speak of her as the USS Calypso, NCC-74210.');
+  await p.locator('#ship-registry').blur();
+  assert.equal(await p.locator('#ship-registry').inputValue(), 'NCC-74210');
+  assert.deepEqual(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).ship), { name: 'Calypso', registry: 'NCC-74210' });
+  await p.evaluate(() => engage.closeSheets());
+  await p.evaluate(() => engage.jump('Vega'));
+  assert.match(await p.locator('#arrival-date').innerText(), /^Captain’s log, USS Calypso · Stardate \d{4}\.\d{3}$/i);
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#service-head').innerText(), 'SERVICE RECORD · USS CALYPSO, NCC-74210');
+  // A new log is the same ship.
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-settings');
+  await p.tap('#clear-log');
+  await p.tap('#clear-log');
+  assert.deepEqual(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).ship), { name: 'Calypso', registry: 'NCC-74210' });
+  assert.deepEqual(await rooms(), { maru: 'the USS Calypso', contact: 'A ship of no known design has dropped out of warp off the Calypso’s bow, in Earth orbit, and she’s hailing you.', lane: 'Warp 9 · USS Calypso' });
+  // Her name taken away, the rooms speak as before.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-settings');
+  await p.locator('#ship-name').fill('');
+  assert.equal(await p.evaluate(() => 'ship' in JSON.parse(localStorage.getItem('engage.v1'))), false);
+  assert.equal((await rooms()).maru, 'a starship');
+  await yard.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

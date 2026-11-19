@@ -8,6 +8,7 @@ import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { readShipPlace, whereWords } from './contacts.js';
+import { readShip, shortName } from './myship.js';
 import { stardate } from './physics.js';
 
 const KEY = 'engage.contact.v1';
@@ -149,9 +150,10 @@ function renderRecord() {
   renderFriend();
   renderChallenges();
   renderSent();
-  // The ship has dropped out of warp where the bridge left yours: "off your bow, here at Vega".
-  const w = whereWords(readShipPlace());
-  setText($('brief-where'), `A ship of no known design has dropped out of warp off your bow${w ? `, ${w},` : ''} and she’s hailing you.`);
+  // The ship has dropped out of warp where the bridge left yours: "off your bow, here at Vega", or off the Calypso's
+  // once Bridge settings has named her.
+  const w = whereWords(readShipPlace()), ship = readShip();
+  setText($('brief-where'), `A ship of no known design has dropped out of warp off ${ship ? `the ${shortName(ship)}’s` : 'your'} bow${w ? `, ${w},` : ''} and she’s hailing you.`);
   // An officer who has answered a hail before is told which ship this is, above the briefing they know.
   const again = briefingLine(saved);
   $('brief-line').hidden = !again;

@@ -6,6 +6,7 @@ import { officerTest } from './officer.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
+import { fullName, readShip } from './myship.js';
 
 const KEY = 'engage.maru.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -73,6 +74,14 @@ function showBrief() {
   renderRecord();
   showScreen('brief');
 }
+
+// Your ship, by the name Bridge settings gave her.
+function nameShip() {
+  const ship = readShip();
+  $('your-ship').textContent = ship ? `the ${fullName(ship)}` : 'a starship';
+}
+nameShip();
+addEventListener('pageshow', e => { if (e.persisted) nameShip(); });
 
 // The briefing's one door out besides the bridge: the real star the film's position is named for, with the two
 // links a log entry has.

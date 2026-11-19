@@ -53,7 +53,7 @@ async function bundle(order, patch = (name, src) => src) {
 }
 const pageBody = page => page.slice(page.indexOf('<body') , page.indexOf('</body>')).replace(/^<body[^>]*>/, '').replace(/<script type="module" src="[^"]+"><\/script>/, '');
 
-const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'ships', 'log', 'search', 'share', 'store', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'logbook', 'voyage', 'app'];
+const ORDER = ['physics', 'destinations', 'charts', 'classes', 'audio', 'ships', 'log', 'search', 'share', 'store', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'logbook', 'voyage', 'myship', 'app'];
 const js = await bundle(ORDER, async (name, src) => {
   if (name !== 'app') return src;
   for (const [from, to] of [
@@ -125,7 +125,7 @@ console.log(`survey.html: ${(surveyOut.length / 1024).toFixed(0)} KB`);
 
 // The Kobayashi Maru, as its own single file. Links back to the bridge go to the live site.
 const maruHtml = await read('maru.html');
-const maruJs = await bundle(['audio', 'store', 'onscreen', 'share', 'switch', 'archive', 'maru-sim', 'officer-sim', 'officer', 'maru'], liveBridge('maru'));
+const maruJs = await bundle(['audio', 'store', 'onscreen', 'share', 'switch', 'archive', 'maru-sim', 'officer-sim', 'officer', 'myship', 'maru'], liveBridge('maru'));
 const maruOut = `<title>Kobayashi Maru</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -208,7 +208,7 @@ console.log(`xeno.html: ${(xenoOut.length / 1024).toFixed(0)} KB`);
 // First contact, as its own single file. Links back to the bridge go to the live site.
 const contactHtml = await read('contact.html');
 // Its link to the lab goes to the live site too.
-const contactJs = await bundle(['physics', 'audio', 'store', 'onscreen', 'share', 'switch', 'archive', 'contacts', 'contact-sim', 'contact-art', 'contact'],
+const contactJs = await bundle(['physics', 'audio', 'store', 'onscreen', 'share', 'switch', 'archive', 'contacts', 'myship', 'contact-sim', 'contact-art', 'contact'],
   (name, src) => (name === 'contact' ? swap(src, "const LAB = 'xeno.html';", `const LAB = '${LIVE}xeno.html';`, 'js/contact.js') : src));
 const contactOut = `<title>First contact</title>
 <meta name="theme-color" content="#05070d">
@@ -228,7 +228,7 @@ console.log(`contact.html: ${(contactOut.length / 1024).toFixed(0)} KB`);
 
 // The warp scale, as its own single file. Links back to the bridge go to the live site.
 const warpHtml = await read('warp.html');
-const warpJs = await bundle(['physics', 'ephemeris', 'warp-scale', 'wake', 'store', 'share', 'warp'], liveBridge('warp'));
+const warpJs = await bundle(['physics', 'ephemeris', 'warp-scale', 'wake', 'store', 'share', 'myship', 'warp'], liveBridge('warp'));
 const warpOut = `<title>Warp scale</title>
 <meta name="theme-color" content="#05070d">
 <style>

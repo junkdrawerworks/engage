@@ -8,6 +8,7 @@ import {
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
 import { LIVE, share } from './share.js';
+import { fullName, readShip } from './myship.js';
 
 const KEY = 'engage.warp.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -48,7 +49,9 @@ function save() {
 
 const warpName = w => `Warp ${w.toFixed(2).replace(/\.?0+$/, '')}`;
 const times = n => `${n < 10 ? n.toFixed(n < 1 ? 5 : 1).replace(/\.?0+$/, '') : Math.round(n).toLocaleString('en-US')} × light`;
-const laneLabel = l => (l.id === 'custom' ? warpName(custom) : l.label);
+// Your lane carries your ship's name once Bridge settings has given her one.
+const yours = readShip();
+const laneLabel = l => (l.id === 'custom' ? `${warpName(custom)}${yours ? ` · ${fullName(yours)}` : ''}` : l.label);
 // A place's name in the middle of a sentence: "the Moon", "where Voyager was stranded".
 const inText = p => p.name.replace(/^(The|Where) /, w => w.toLowerCase());
 
@@ -240,14 +243,16 @@ function draw(s) {
     const y = top + k * rowH;
     const p = race ? Math.min(1, t / l.years) : 0;
     const there = race && p >= 1;
-    // Label and status.
+    // Label and status. A long label (your lane, with your ship's name in it) is cut short of the status.
+    const status = !race ? formatSpan(l.years) : there ? `✓ ${formatSpan(l.years)}` : `${pct(p)} of the way`;
+    g.font = '500 12px "Chakra Petch", sans-serif';
+    const room = w - pad * 2 - g.measureText(status).width - 14;
     g.font = '600 12px "Chakra Petch", sans-serif';
     g.fillStyle = l.color;
-    letter(g, l.label.toUpperCase(), pad, y + 14, 1.2);
+    letter(g, fitSpaced(g, l.label.toUpperCase(), room, 1.2), pad, y + 14, 1.2);
     g.textAlign = 'right';
     g.font = '500 12px "Chakra Petch", sans-serif';
     g.fillStyle = there ? l.color : '#93a0b8';
-    const status = !race ? formatSpan(l.years) : there ? `✓ ${formatSpan(l.years)}` : `${pct(p)} of the way`;
     g.fillText(status, w - pad, y + 14);
     g.textAlign = 'left';
     // The track.
@@ -284,6 +289,15 @@ function letter(ctx, text, x, y, spacing, align = 'left') {
     ctx.fillText(text, align === 'right' ? x + spacing : x, y);
     ctx.letterSpacing = '0px';
   } else ctx.fillText(text, x, y);
+}
+
+// fit(), for text drawn with `spacing` pixels between its letters.
+function fitSpaced(ctx, text, width, spacing) {
+  const wide = t => ctx.measureText(t).width + spacing * t.length;
+  if (wide(text) <= width) return text;
+  let t = text;
+  while (t.length > 4 && wide(t + '…') > width) t = t.slice(0, -1);
+  return t.trimEnd() + '…';
 }
 
 function fit(ctx, text, width) {

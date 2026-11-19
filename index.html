@@ -147,6 +147,12 @@
       <label class="toggle"><input type="checkbox" id="opt-night"> <span>Night vision</span></label>
       <label class="toggle"><input type="checkbox" id="opt-clock"> <span>Five-year mission clock<small>Each trip’s time at warp counts toward five years.</small></span></label>
       <div class="about">
+        <h3>Your ship</h3>
+        <div class="ship-fields">
+          <label class="field"><span>Name</span><input id="ship-name" type="text" maxlength="30" placeholder="Enterprise" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done"></label>
+          <label class="field registry"><span>Registry</span><input id="ship-registry" type="text" maxlength="12" placeholder="NCC-1701" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done"></label>
+        </div>
+        <p class="ship-said" id="ship-said"></p>
         <h3>Rooms off the bridge</h3>
         <nav id="settings-rooms" aria-label="Rooms off the bridge"></nav>
         <button class="text-button" id="show-intro" type="button">Show the welcome again</button>

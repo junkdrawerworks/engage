@@ -13,6 +13,7 @@ import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
+import { cleanName, cleanRegistry, fullName, shipOf, withRegistry } from './myship.js';
 import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, story, supplementals } from './voyage.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
@@ -51,7 +52,7 @@ const state = defaults();
 function defaults() {
   return {
     at: 0, offset: homeOffset(), yaw: START_YAW, pitch: START_PITCH, fov: 60 * DEG,
-    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, sound: true, clock: false }, seenIntro: false,
+    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, sound: true, clock: false }, seenIntro: false, ship: null,
   };
 }
 
@@ -90,6 +91,7 @@ function tidy() {
   state.log = Array.isArray(state.log) ? state.log.filter(e => e && star(e.star) && Array.isArray(e.sections) && e.sections.every(Array.isArray)) : [];
   if (!(num(state.ly) && state.ly >= 0)) state.ly = state.log.reduce((sum, e) => sum + (num(e.ly) ? e.ly : 0), 0);
   for (const k of Object.keys(d.opts)) if (typeof state.opts[k] !== 'boolean') state.opts[k] = d.opts[k];
+  state.ship = shipOf(state); // her name and registry, from Bridge settings, or null
 }
 
 // Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
@@ -99,8 +101,8 @@ function tidy() {
 let unsaved = null;
 function save() {
   viewMoved = false;
-  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro } = state;
-  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro }) || null;
+  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship } = state;
+  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}) }) || null;
   return !unsaved;
 }
 
@@ -133,8 +135,19 @@ function showSettings() {
   $('opt-labels').checked = state.opts.labels;
   $('opt-sound').checked = state.opts.sound;
   $('opt-clock').checked = state.opts.clock;
+  // Her name, unless it is being typed in this tab just now.
+  if (document.activeElement !== $('ship-name')) $('ship-name').value = state.ship?.name ?? '';
+  if (document.activeElement !== $('ship-registry')) $('ship-registry').value = state.ship?.registry ?? '';
+  shipSaid();
   $('warp').value = state.warp;
   updateWarp();
+}
+
+// Your ship: what the name and registry in Bridge settings make her, as the rooms will speak of her.
+function shipSaid() {
+  $('ship-said').textContent = state.ship
+    ? `The rooms speak of her as the ${withRegistry(state.ship)}.`
+    : 'Name her, and the Kobayashi Maru’s briefing, first contact, the captain’s log and your lane on the warp scale will use it.';
 }
 
 // The quiet line on the arrival log and the captain's log when the last save didn't work.
@@ -862,7 +875,7 @@ let arrived = null; // the entry on the arrival sheet
 function showArrival(entry, again = false) {
   arrived = entry;
   contacts = readContacts();
-  $('arrival-date').textContent = `Captain’s log · Stardate ${entry.stardate}`;
+  $('arrival-date').textContent = `Captain’s log${state.ship ? `, ${fullName(state.ship)}` : ''} · Stardate ${entry.stardate}`;
   $('arrival-entry').innerHTML = entryHtml(entry, true, !again);
   // What this arrival did to the records, said once under the star's name: it is the newest entry that is up.
   const firsts = entry === state.log[0] ? arrivalFirsts(state.log, recordOpts()) : [];
@@ -1103,7 +1116,8 @@ function serviceHtml() {
   // With the five-year mission's clock on, it heads the card: which mission, how far into it, and how many are done.
   const c = state.opts.clock ? clockNow(state.log) : null;
   const clock = c ? `<p class="clock" id="service-clock">Mission ${c.n} · ${c.said}${c.done ? ` · ${c.done === 1 ? 'one' : c.done} complete` : ''}</p>` : '';
-  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record</h3>${clock}<ul>${rows.map(r =>
+  const named = state.ship ? ` · ${esc(withRegistry(state.ship))}` : '';
+  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record${named}</h3>${clock}<ul>${rows.map(r =>
     `<li><a href="${ROOM_BASE}${r.href}"${AWAY} data-room="${r.room}"><b>${esc(r.name)}</b><span${r.line ? '' : ' class="none"'}>${esc(r.line || r.none)}</span>${chev}</a></li>`).join('')}</ul></section>`;
 }
 
@@ -1161,7 +1175,7 @@ function printLog() {
   const days = byDay(timeline(state.log, supps, missionItems()).reverse());
   const n = new Set(state.log.map(e => e.star)).size;
   const printed = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  $('print-log').innerHTML = `<h1>Captain’s log</h1><p class="print-sub">${state.log.length
+  $('print-log').innerHTML = `<h1>Captain’s log</h1><p class="print-sub">${state.ship ? `${esc(withRegistry(state.ship))} · ` : ''}${state.log.length
     ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} travelled · printed ${printed}` : 'Nothing logged yet.'}</p>`
     + days.map(day => `<h2>${esc(day.key === 'undated' ? 'Undated' : dayHeading(day.t, day.arrivals))}</h2>${day.items.map(printedHtml).join('')}`).join('');
 }
@@ -1406,6 +1420,17 @@ function bind() {
     });
   }
   $('opt-night').addEventListener('change', e => setNight(e.target.checked));
+  // Her name and registry are kept as they are typed, tidied (the field itself is tidied once it is left).
+  const named = () => {
+    const name = cleanName($('ship-name').value);
+    state.ship = name ? { name, registry: cleanRegistry($('ship-registry').value) } : null;
+    save();
+    shipSaid();
+  };
+  for (const id of ['ship-name', 'ship-registry']) {
+    $(id).addEventListener('input', named);
+    $(id).addEventListener('change', () => { $('ship-name').value = state.ship?.name ?? ''; $('ship-registry').value = cleanRegistry($('ship-registry').value); });
+  }
   // Two taps, asked on the button itself (the Artifact viewer refuses confirm dialogs).
   $('clear-log').addEventListener('click', e => {
     const b = e.currentTarget;
@@ -1426,7 +1451,7 @@ function bind() {
       sound.stop();
     }
     turn = null;
-    const keep = { opts: state.opts, seenIntro: true, warp: state.warp };
+    const keep = { opts: state.opts, seenIntro: true, warp: state.warp, ship: state.ship }; // a new log, the same ship
     Object.assign(state, defaults(), keep);
     sky.setOrigin(starPos(0));
     setTarget(null, false);
