@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics or distress; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress or temporal; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -516,6 +516,28 @@ if (!only || only === 'distress') {
   const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('chart'); return [c.toDataURL(), c.height / c.width]; });
   await wide.context().close();
   await ogCard(shot, aspect, 'Engage · Communications', 'Distress call', 'Survivors describe their sky. Find their star before their air runs out.', 'Every star has a sky of its own', 'og-distress.png');
+}
+
+// The temporal observatory: the Big Dipper 50,000 years on, come apart from today's dashed shape.
+if (!only || only === 'temporal') {
+  const page = await open({ width: 390, height: 844 }, 2);
+  await page.goto(base + 'temporal.html#year=52026');
+  await page.waitForFunction(() => window.temporal?.ready);
+  await page.evaluate(() => document.fonts.ready);
+  await page.click('#to-dipper');
+  await page.evaluate(() => scrollTo(0, 120));
+  await page.waitForTimeout(300);
+  await save(await page.screenshot(), 'docs/phone-temporal.png');
+  await page.context().close();
+  const wide = await open({ width: 1000, height: 900 }, 1);
+  await wide.goto(base + 'temporal.html#year=52026');
+  await wide.waitForFunction(() => window.temporal?.ready);
+  await wide.evaluate(() => document.fonts.ready);
+  await wide.click('#to-dipper');
+  await wide.waitForTimeout(400);
+  const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('chart'); return [c.toDataURL(), c.height / c.width]; });
+  await wide.context().close();
+  await ogCard(shot, aspect, 'Engage · Stellar cartography', 'Temporal observatory', 'The real sky of another century, 100,000 years either way.', 'The Big Dipper in AD 52,026', 'og-temporal.png');
 }
 
 if (!only || only === 'courses') {

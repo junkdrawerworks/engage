@@ -92,8 +92,8 @@ export class SkyChart {
       }
       g.stroke();
     };
-    if (this.ghost.length) { g.setLineDash([3, 4]); seg(this.ghost, 'rgba(255, 181, 74, 0.22)'); g.setLineDash([]); }
-    seg(this.lines, 'rgba(134, 190, 255, 0.24)');
+    seg(this.lines, 'rgba(134, 190, 255, 0.3)');
+    if (this.ghost.length) { g.setLineDash([3, 4]); seg(this.ghost, 'rgba(255, 181, 74, 0.5)'); g.setLineDash([]); }
     const zoom = Math.min(1.5, Math.max(0.85, Math.sqrt((80 * Math.PI / 180) / this.fov)));
     this.dots = [];
     for (const s of this.stars) {

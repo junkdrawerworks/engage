@@ -185,12 +185,18 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   assert.equal(await p.locator('#intro').evaluate(el => el.scrollTop), 0, `the welcome card opened scrolled down past its heading on a ${viewport.width}×${viewport.height} screen`);
   const touch = await small.newCDPSession(p);
   const x = viewport.width / 2, from = viewport.height - 40, to = 40;
-  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: from }] });
-  for (let i = 1; i <= 10; i++) await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: from + (to - from) * i / 10 }] });
-  await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await p.waitForTimeout(600);
-  const go = await p.locator('#intro-go').boundingBox();
-  assert.ok(go.y + go.height <= viewport.height, `Take the helm is below the bottom of a ${viewport.width}×${viewport.height} screen`);
+  // A swipe up, and another while Take the helm is still below the screen: with fourteen rooms on the list, a phone
+  // on its side takes more than one. Four at most.
+  let go;
+  for (let swipe = 0; swipe < 4; swipe++) {
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: from }] });
+    for (let i = 1; i <= 10; i++) await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: from + (to - from) * i / 10 }] });
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await p.waitForTimeout(600);
+    go = await p.locator('#intro-go').boundingBox();
+    if (go.y + go.height <= viewport.height) break;
+  }
+  assert.ok(go.y + go.height <= viewport.height, `Take the helm is below the bottom of a ${viewport.width}×${viewport.height} screen after four swipes`);
   await p.touchscreen.tap(go.x + go.width / 2, go.y + go.height / 2);
   assert.equal(await p.locator('#intro').evaluate(el => el.hidden), true, `the welcome card stayed up on a ${viewport.width}×${viewport.height} screen`);
   await small.close();
@@ -353,7 +359,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await bridgeReady(p);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
   await p.tap('#open-settings');
-  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all thirteen rooms work with no signal.', null, { timeout: 20000 })
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all fourteen rooms work with no signal.', null, { timeout: 20000 })
     .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
   assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
   assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
@@ -5079,7 +5085,7 @@ await page.emulateMedia({ reducedMotion: null });
   // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
   // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
   // half the time once the service worker was handing the stylesheet over.
-  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html']) {
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html']) {
     assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
   }
   for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
@@ -6556,9 +6562,56 @@ await page.emulateMedia({ reducedMotion: null });
   await dc.close();
 }
 
+// The temporal observatory: the dial moves every star by its own motion and Earth's axis with them. Now has Polaris
+// and Proxima; the pyramids' year has Thuban; AD 14,000 has Vega; a typed year and a link both go to their year;
+// today's shapes can be hidden.
+{
+  const tc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await tc.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await tc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'temporal.html');
+  await p.waitForFunction(() => window.temporal?.ready);
+  const now = new Date().getFullYear();
+  assert.equal(await p.evaluate(() => temporal.year), now);
+  assert.equal(await p.evaluate(() => temporal.poleStar), 'Polaris');
+  assert.equal(await p.evaluate(() => temporal.nearest), 'Proxima Centauri');
+  assert.match(await p.locator('#era').innerText(), /POLE STAR\s+Polaris, magnitude 2\.0, 0\.\d° from the pole\./i);
+  assert.equal(await p.title(), 'Temporal observatory · Engage');
+  await p.tap('[data-moment="0"]');
+  assert.equal(await p.evaluate(() => temporal.poleStar), 'Thuban');
+  assert.equal(await p.locator('#year-out').innerText(), '2,800 BC');
+  assert.equal(await p.title(), '2,800 BC · Temporal observatory · Engage');
+  assert.match(await p.locator('#moment-said').innerText(), /^The age of the pyramids: Thuban/);
+  await p.tap('[data-moment="6"]');
+  assert.equal(await p.evaluate(() => temporal.poleStar), 'Vega');
+  assert.equal(await p.evaluate(() => temporal.nearest), 'Rigil Kentaurus');
+  assert.match(await p.locator('#era').innerText(), /NEAREST STAR\s+Alpha Centauri, 3\.\d\d light years\. Today it is Proxima Centauri\./i);
+  // Barnard's Star at its closest, by this catalogue.
+  await p.tap('[data-moment="5"]');
+  assert.match(await p.locator('#moment-said').innerText(), /^Barnard’s Star at its closest by this catalogue: 3\.6\d light years, in AD 11,9\d\d \(published reckonings say about 3\.75 light years, around AD 11,800\)/);
+  // No pole star in Caesar's day; a typed year goes there, and so does a link.
+  await p.fill('#year', '-44');
+  await p.press('#year', 'Enter');
+  assert.equal(await p.locator('#year-out').innerText(), '45 BC');
+  assert.equal(await p.evaluate(() => temporal.poleStar), null);
+  assert.match(await p.locator('#era').innerText(), /POLE STAR\s+None\. No star the eye can find from a town is within 5° of the pole; the nearest is Kochab|POLE STAR\s+None\./i);
+  // The dial, all the way on: the shapes of today come apart.
+  await p.locator('#dial').fill('1000');
+  assert.equal(await p.evaluate(() => temporal.year), now + 99999);
+  assert.match(await p.locator('#era').innerText(), /SINCE NOW\s+.* has moved furthest of the bright stars, \d+°\./i);
+  await p.goto(base + 'temporal.html#year=14000');
+  await p.waitForFunction(() => window.temporal?.ready && temporal.year === 14000);
+  assert.equal(await p.evaluate(() => temporal.poleStar), 'Vega');
+  await p.tap('#ghosts');
+  assert.equal(await p.locator('#ghosts').isChecked(), false);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the room is wider than the phone');
+  await tc.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
-const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html'];
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html'];
 const until = async (ok, ms, what) => {
   for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
 };
@@ -6576,7 +6629,7 @@ for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await 
 const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
-const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress' };
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal' };
 const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
 net = 'down';
 await ctx.setOffline(true);
@@ -6641,7 +6694,7 @@ server.close();
 // a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
 // index.html; the first 8 hex of the sha1 of those).
 // Everything the ten pages and their scripts load is on the list: a file left off opens online and not offline.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
@@ -6651,7 +6704,7 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html']) {
   const html = await readFile(join(root, f), 'utf8');
   assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
   const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';

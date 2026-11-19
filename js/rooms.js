@@ -3,7 +3,7 @@
 // link to it on the bridge (the round buttons, and the warp scale under the warp slider), or null for a room the
 // bridge reaches from the captain's log instead (the system view and the away team, from a star's planets; subspace
 // radio, from a star's line about Earth's broadcasts, and from Set course; astrometrics, from a star's own line; the
-// distress call, from this list alone until the bridge's round buttons are settled); `icon`
+// distress call and the temporal observatory, from this list alone until the bridge's round buttons are settled); `icon`
 // is the inside of that button's 24 × 24 drawing, so the list shows the same picture as the button. Pure, checked by
 // test/bridge.test.mjs.
 
@@ -47,6 +47,11 @@ export const ROOMS = [
     id: 'astrometrics', href: 'astrometrics.html', button: null, name: 'Astrometrics',
     line: 'Every star on one wall, by colour and true brightness, and the Sun’s whole life.',
     icon: '<path d="M4 3.5v16.5h16.5"/><circle cx="8" cy="7" r="1"/><circle cx="10.5" cy="10" r="1"/><circle cx="13.5" cy="13" r="1"/><circle cx="17" cy="16.5" r="1"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="8.5" cy="16.5" r=".8"/>',
+  },
+  {
+    id: 'temporal', href: 'temporal.html', button: null, name: 'Temporal observatory',
+    line: 'Turn a dial of years and watch the real constellations come apart, 100,000 years either way.',
+    icon: '<path d="M6.5 3h11M6.5 21h11"/><path d="M8 3c0 5.5 8 5.5 8 9s-8 3.5-8 9M16 3c0 5.5-8 5.5-8 9s8 3.5 8 9"/><path d="M10 18.5l2-1.5 2 1.5"/>',
   },
   {
     id: 'radio', href: 'radio.html', button: null, name: 'Subspace radio',

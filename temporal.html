@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Temporal observatory · Engage</title>
+  <meta name="description" content="Turn a dial of years from 100,000 in the past to 100,000 ahead and watch the real constellations come apart as every star moves through space, the pole star change from Thuban to Polaris to Vega, and the nearest star stop being Proxima.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="Temporal observatory">
+  <meta property="og:description" content="The sky of another century: the real constellations 100,000 years either way, by every star’s own motion.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-temporal.png">
+  <meta property="og:image:alt" content="Engage, temporal observatory. The Big Dipper 50,000 years from now, its stars drifted apart from the faint dashed lines of the shape we know today.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/temporal.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/temporal.css">
+</head>
+<body class="survey temporal-page">
+  <noscript><p class="noscript">The temporal observatory needs JavaScript to move the stars.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Stellar cartography</p>
+      <h1>Temporal observatory</h1>
+    </div>
+  </header>
+
+  <main>
+    <p class="lab-intro">Every star is moving. Turn the dial and Earth’s sky moves with them: the constellations come apart, the pole star changes as Earth’s axis turns, and the nearest star stops being Proxima. The dashed amber lines keep today’s shapes to compare.</p>
+    <div class="deck">
+      <div class="sky-side">
+        <div class="screen"><canvas id="chart" tabindex="0" aria-label="Earth’s sky in the year on the dial. Drag to look round, pinch to zoom."></canvas>
+          <p class="chart-tag" id="chart-tag" aria-hidden="true"></p>
+        </div>
+        <section class="dial" aria-labelledby="dial-label">
+          <label class="dial-label" id="dial-label" for="dial">The year <output id="year-out" for="dial"></output></label>
+          <input type="range" id="dial" min="-1000" max="1000" step="1" value="0">
+          <div class="dial-ends" aria-hidden="true"><span>100,000 years ago</span><span>Now</span><span>100,000 years on</span></div>
+          <label class="year-field">Go to the year <input type="number" id="year" inputmode="numeric" min="-98000" max="102000" step="1"></label>
+          <p class="year-hint">Before AD 1, type a minus: −2799 is 2800 BC.</p>
+        </section>
+        <div class="chart-tools">
+          <button type="button" id="to-pole">Look at the pole</button>
+          <button type="button" id="to-dipper">The Big Dipper</button>
+          <label class="ghosts"><input type="checkbox" id="ghosts" checked> Today’s shapes</label>
+        </div>
+      </div>
+      <div class="side">
+        <div class="moments" id="moments" role="group" aria-label="Moments"></div>
+        <p class="moment-said" id="moment-said"></p>
+        <dl class="era" id="era" aria-live="polite"></dl>
+      </div>
+    </div>
+    <p class="sources">Stars: the HYG catalogue, each moved in a straight line at its own speed through space, from its proper motion, distance and radial velocity: good to about 100,000 years by this catalogue, after which the stars’ paths round the galaxy bend. A star with no measured distance stays where it is, and so do <span id="held"></span>, which the catalogue has moving faster than any star near the Sun. Earth’s axis turns once in 25,772 years (the IAU 2006 precession, Capitaine and others 2003) at today’s tilt.</p>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/temporal.js"></script>
+</body>
+</html>
