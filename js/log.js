@@ -284,7 +284,7 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
   sections.push(['The star', i === 0
     ? `${kind}. ${temp}.`
     : unmeasured ? `${kind}. ${temp}. Its width and brightness can’t be worked out without its distance.`
-    : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width', !notes)}, and ${approx}${ratio(cat.lum[i], 'brightness', !notes).replace(/^about /, '')}.${reach}`]);
+    : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width', !notes).replace(approx ? /^about / : /^(?!)/, '')}, and ${approx}${ratio(cat.lum[i], 'brightness', !notes).replace(/^about /, '')}.${reach}`]);
   if (notes?.planets) sections.push(['Planets', notes.planets]);
   for (const n of notes?.notes || []) sections.push(['', n]);
   // A star that behaves: where it is in its cycle, as Earth sees it on the day of the entry.

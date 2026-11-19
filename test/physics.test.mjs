@@ -653,6 +653,7 @@ test('the log says where a planet would be temperate, how far a giant reaches, a
   assert.equal(reachLine(760), 'Put in the Sun’s place, it would reach about 3.5 AU out, past the orbit of Mars.');
   assert.equal(reachLine(203), 'Put in the Sun’s place, it would reach about 0.9 AU out, past the orbit of Venus, nearly to Earth’s.');
   assert.equal(reachLine(25.4), 'Put in the Sun’s place, it would reach about a third of the way to Mercury’s orbit.');
+  assert.equal(reachLine(79), 'Put in the Sun’s place, it would reach nearly all the way to Mercury’s orbit.');
   assert.equal(temperateLine(1, 1), 'A planet would get the sunlight Earth does about 1.0 AU out, about where Earth is from the Sun. From there the star would look about as wide as the Sun does from Earth.');
 
   const entry = name => { const i = cat.byName.get(name); return composeEntry(cat, i, { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 10, date: new Date('2026-10-08T00:00:00Z') }).sections; };
@@ -677,6 +678,8 @@ test('the log says where a planet would be temperate, how far a giant reaches, a
   // A star that behaves says where it is in its cycle, as Earth sees it on the day.
   assert.match(said('Algol', 'Right now'), /^An eclipsing star: .* Seen from Earth, it’s /);
   assert.equal(said('Vega', 'Right now'), undefined);
+  // A width near the Sun's is said with one "about".
+  assert.match(said('Guniibuu', 'The star'), /^Orange giant, .*\. 5,120 K at the surface, about the Sun’s width, and/);
   // Every figure is hedged.
   for (const name of ['Denebola', 'Alsafi', 'Gliese 1294A', 'Regulus']) for (const s of entry(name).filter(x => /temperate|life/i.test(x[0]))) assert.match(s[1], /about|hundreds|trillions/, `${name}: ${s[1]}`);
 });
