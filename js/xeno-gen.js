@@ -461,7 +461,7 @@ function names(env, b, classId, roll) {
   if (env.temp > 320) roots.push('Pyro');
   if (env.temp < 262) roots.push('Cryo');
   if (env.star === 'red') roots.push('Erythro');
-  if (b.plan === 'swimmer') roots.push('Thalasso');
+  if (b.plan === 'swimmer' && env.habitat !== 'cloud') roots.push('Thalasso'); // (a hunter of the clouds swims in air)
   if (b.plan === 'floater') roots.push('Nephelo');
   if (size) roots.push(size === 'big' ? 'Mega' : 'Micro');
   roots.push(colourRoot);
@@ -712,6 +712,72 @@ export function fileFor({ g, pressure, star, temp }, habitat, own) {
     if (!best || d < best.d - 1e-9 || (Math.abs(d - best.d) < 1e-9 && mine + m < best.mine + best.m)) best = { id, d, m: mine ? 0 : m, mine };
   }
   return byId.get(best.id);
+}
+
+// ---------- Its neighbours ----------
+
+// Two more creatures for the same world and the same spot: what this one eats and what eats it, grown by the same
+// rules from dice of their own, with a note on why each has its shape. For a gas giant they are the sinkers and
+// hunters that Carl Sagan and Edwin Salpeter imagined beside the floaters in Jupiter's clouds ("Particles,
+// environments, and possible ecologies in the Jovian atmosphere", Astrophysical Journal Supplement 32, 737, 1976).
+// Plants are eaten but eat nothing, and a crawler on bare rock has no one to eat or be eaten by, so neither has any.
+export function neighbours(c) {
+  const { env, classId, seed, body: main } = c;
+  if (main.plan === 'plant' || main.plan === 'crawler') return null;
+  const key = c.world ? `${classId}/${c.world.name}` : classId;
+  // Its name is grown as any creature's is, with a last word for what it does: a grazer, a stalker.
+  const grown = (role, tune, words) => {
+    const r = rng(hash(`${role}/${key}`) ^ seed), roll = () => r();
+    const body = shape(env, classId, roll);
+    tune(body, r);
+    const name = names(env, body, classId, roll);
+    const list = words[body.plan] || words.walker;
+    name.common = name.common.replace(/\S+$/, pick(r(), list));
+    return { role, classId, seed, env, body, name };
+  };
+  const between = (r, a, b) => a + (b - a) * r();
+  const plan = main.plan;
+  const eats = grown('eats', (b, r) => {
+    if (plan === 'floater') { b.build = 'even'; b.size = main.size * between(r, 0.001, 0.004); b.eyes = 0; b.glow = false; return; } // a sinker
+    if (plan === 'burrower') b.build = 'lanky';
+    b.size = main.size * between(r, 0.15, 0.35);
+  }, plan === 'floater' ? { floater: ['sinker', 'drop', 'pellet'] } : { walker: ['grazer', 'browser', 'nibbler', 'cropper'], flyer: ['flitter', 'darter', 'skimmer'], swimmer: ['grazer', 'sifter', 'drifter'], burrower: ['worm', 'threader', 'root-eater'] });
+  const eaten = grown('hunter', (b, r) => {
+    if (plan === 'floater') { Object.assign(b, { plan: 'swimmer', build: 'even', covering: 'smooth', tail: true }); b.size = main.size * between(r, 0.3, 0.6); return; } // a hunter, streamlined
+    if (plan === 'burrower') b.build = 'squat';
+    if (b.plan === 'walker' && b.build === 'lanky' && plan === 'walker') b.legs = Math.max(b.legs, main.legs);
+    b.size = main.size * between(r, 1.4, 2.2);
+  }, { walker: ['stalker', 'prowler', 'hunter', 'ambusher', 'pouncer'], flyer: ['raptor', 'hunter', 'stooper'], swimmer: plan === 'floater' ? ['hunter', 'swift', 'chaser'] : ['hunter', 'lurker', 'snapper', 'biter'], burrower: ['hunter', 'ambusher', 'tunnel-lurker'] });
+  const gs = gText(env.g), { g, star, dark, habitat } = env;
+  // Plants where the lab draws them (and on a real planet on one of those files); elsewhere a crust on the rocks.
+  const leafy = ['M', 'L', 'O', 'super-earth'].includes(classId);
+  const leaves = dark ? 'pale fungus that grows without light' : !leafy ? 'crust that grows on the rocks' : star === 'red' ? 'near-black plants' : star === 'orange' ? 'orange-red plants' : 'green plants';
+  const measure = n => `${n.body.plan === 'walker' || n.body.plan === 'plant' ? 'stands' : 'is'} about ${sizeText(n.body.size)} ${n.body.plan === 'walker' ? 'tall' : n.body.plan === 'flyer' ? 'from wing tip to wing tip' : n.body.plan === 'floater' ? 'across' : 'long'}`;
+  let food, hunt;
+  if (plan === 'floater') {
+    food = 'A sinker, one of the three kinds of life Carl Sagan and Edwin Salpeter imagined for Jupiter’s clouds in 1976: small and heavy, it falls slowly, and has to breed before it drops into the heat below. The lab guesses that a floater sweeps them up with the specks it eats.';
+    hunt = 'A hunter, another of Sagan and Salpeter’s kinds: streamlined, it swims through the clouds under its own power and eats floaters.';
+  } else if (plan === 'swimmer') {
+    food = dark ? (habitat === 'under-ice' || env.place === 'vent' ? 'In the dark it gathers round the vents and eats the bacteria that live on their heat.' : 'In the dark it eats the specks that sink from far above.')
+      : 'It grazes the floating specks near the light at the top of the water, and is small enough to hide among them.';
+    hunt = dark ? 'In the dark it hunts by feel: it lies still and waits for something to swim close.' : 'It hunts by sight, darker above and paler below, so it is hard to see from either side.';
+  } else if (plan === 'burrower') {
+    food = 'It eats roots and buried scraps, and is thin enough to slip through the soil without digging.';
+    hunt = 'It hunts underground by feel, following the tremor of anything digging near it.';
+  } else {
+    food = g >= 1.4 ? `At ${gs} it stays small and keeps low, grazing among the ${leaves} where it is hard to reach.`
+      : g < 0.7 ? `At ${gs} one spring takes it well out of reach, so it grazes the ${leaves} out in the open.`
+      : eats.body.plan === 'flyer' ? `It feeds on the ${leaves} in flocks, so some can watch while the rest eat.`
+      : `It grazes the ${leaves} in herds, as Earth’s antelope do, so some can watch while the rest eat.`;
+    hunt = eaten.body.plan === 'flyer' ? `In air this thick a hunter can stay up for hours, circling and watching, then dive from above.`
+      : g >= 1.4 ? `At ${gs} a hunter can’t leap or chase without breaking a leg, so it waits low beside the trail and lunges.`
+      : g < 0.7 ? `At ${gs} a hunter covers ground in long bounds and drops on its prey from above.`
+      : `At ${gs} it hunts as Earth’s cats do: it creeps close, then sprints.`;
+    if (dark && eaten.body.plan !== 'flyer') hunt += ' In the dark it finds its prey by smell and touch.';
+  }
+  eats.note = `It ${measure(eats)}. ${food}`;
+  eaten.note = `It ${measure(eaten)}. ${hunt}`;
+  return { eats, eaten };
 }
 
 // ---------- Two jars side by side ----------

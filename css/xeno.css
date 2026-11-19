@@ -36,6 +36,9 @@
 /* 44 px tall under a thumb; the margins take back what the padding adds, so the link sits where it did. */
 .specimen .to-file { display: inline-block; margin: -4px 18px -6px 0; font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); text-decoration: none; padding: 16px 0; }
 .specimen .to-file:hover { text-decoration: underline; text-underline-offset: 3px; }
+.specimen .kin-button { color: #6fe3a4; font-size: 13px; min-height: 44px; padding: 12px 0; margin: 2px 0 -6px; }
+.notes.kin { margin-top: 4px; }
+.notes.kin h3 { color: #6fe3a4; }
 .specimen .for-real { margin: 10px 0 2px; font-size: 14px; color: var(--muted); }
 .specimen .for-real a { color: var(--cyan); text-underline-offset: 3px; }
 

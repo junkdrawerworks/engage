@@ -41,6 +41,11 @@ export function drawScene(g, c, W, H, time = 0, grown = 1) {
   else y = H * 0.5;
   if (b.plan === 'flyer') y = groundY - H * FLYER_LIFT;
 
+  // Its neighbours, when grown (see neighbours in js/xeno-gen.js): what eats it a little way off behind, and what it
+  // eats in front of it, each drawn at its size against this one's, within reason.
+  const kin = c.kin && grown >= 1 ? kinPlaces(c, W, H, groundY, s) : null;
+  if (kin) { g.save(); g.globalAlpha = 0.92; drawCreature(g, kin.eaten.c, kin.eaten.x, kin.eaten.y, kin.eaten.s, time); g.restore(); }
+
   const k = ease(grown);
   g.save();
   g.globalAlpha = clamp(grown * 1.6);
@@ -50,6 +55,7 @@ export function drawScene(g, c, W, H, time = 0, grown = 1) {
   const extent = draw(g, b, s, time, c);
   g.restore();
 
+  if (kin) drawCreature(g, kin.eats.c, kin.eats.x, kin.eats.y, kin.eats.s, time);
   if (grown >= 1) scale(g, c, W, H, x, groundY, s, extent);
   if (grown < 1) scan(g, W, H, grown);
   g.restore();
@@ -62,6 +68,22 @@ export function drawCreature(g, c, x, y, s, time = 0) {
   g.translate(x, y);
   ({ walker, flyer: walker, swimmer, floater, burrower, plant, crawler })[c.body.plan](g, c.body, s, time, c);
   g.restore();
+}
+
+// Where the neighbours stand, and how big: the hunter off to the left (in the sky if it flies), its prey to the
+// right, in front. Sizes follow the creatures' own against the main one's, kept between a sixth and a half of it.
+function kinPlaces(c, W, H, groundY, s) {
+  const { eats, eaten } = c.kin, plan = c.body.plan;
+  const sized = n => s * clamp(n.body.size / c.body.size, 0.16, 0.5);
+  const at = {
+    walker: [[0.16, groundY - H * 0.05], [0.88, groundY + H * 0.07]],
+    swimmer: [[0.17, H * 0.3], [0.86, H * 0.74]],
+    floater: [[0.17, H * 0.8], [0.86, H * 0.28]],
+    burrower: [[0.15, H * 0.86], [0.86, H * 0.44]],
+  }[plan === 'flyer' ? 'walker' : plan];
+  if (!at) return null;
+  const place = (n, [u, y]) => ({ c: n, x: W * u, y: n.body.plan === 'flyer' ? Math.min(y, groundY - H * 0.32) : y, s: sized(n) });
+  return { eaten: place(eaten, at[0]), eats: place(eats, at[1]) };
 }
 
 // ---------- A picture to share ----------
@@ -311,6 +333,7 @@ function scale(g, c, W, H, x, groundY, s, extent) {
 
   const plan = c.body.plan;
   const person = 1.75 * pxPerM;
+  if (c.kin) return; // (its neighbours stand where the person would)
   if ((plan === 'walker' || plan === 'plant' || plan === 'crawler') && person > 14 && person < H * 0.72) {
     const px = x - s * 0.62 - person * 0.18;
     if (px < 10) return;

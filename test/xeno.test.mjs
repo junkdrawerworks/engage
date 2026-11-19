@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS, SEEDS as LAB_SEEDS, CENSUS, READINGS, RECORDS, takeCensus, rarityFor, recordFor, sizeText, gText, bench, BENCH, STEPS, benchPos, benchValue, readingsOf, changedParts, fileFor, compare } from '../js/xeno-gen.js';
+import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS, SEEDS as LAB_SEEDS, CENSUS, READINGS, RECORDS, takeCensus, rarityFor, recordFor, sizeText, gText, bench, BENCH, STEPS, benchPos, benchValue, readingsOf, changedParts, fileFor, compare, neighbours } from '../js/xeno-gen.js';
 import { CLASSES, byId, LAB_WORLDS, grows, worldByName } from '../js/classes.js';
 import { widthFor } from '../js/physics.js';
 import { SPECIMENS, specimensFor } from '../js/species.js';
@@ -496,4 +496,39 @@ test('two creatures side by side: a row for each field note, and a sentence from
     assert.match(c.sentence, /^[A-Z][^]*\.$/);
     assert.doesNotMatch(c.sentence, /undefined|NaN|  /, c.sentence);
   }
+});
+
+// ---------- Its neighbours ----------
+
+test('its neighbours: what it eats is smaller, what eats it is a hunter, each with a reason for its shape', () => {
+  let n = 0;
+  for (const c of all) {
+    const kin = neighbours(c), where = `${c.classId}-${c.seed}`;
+    if (c.body.plan === 'plant' || c.body.plan === 'crawler') { assert.equal(kin, null, where); continue; }
+    n++;
+    assert.deepEqual(kin, neighbours(c), `${where}: not the same neighbours twice`);
+    assert.ok(kin.eats.body.size < c.body.size, `${where}: what it eats is bigger than it`);
+    if (c.body.plan !== 'floater') assert.ok(kin.eaten.body.size > c.body.size, `${where}: what eats it is smaller than it`);
+    assert.equal(kin.eats.env, c.env, `${where}: a neighbour from another world`);
+    assert.match(kin.eats.name.common, /(grazer|browser|nibbler|cropper|flitter|darter|skimmer|sifter|drifter|worm|threader|root-eater|sinker|drop|pellet)$/, where);
+    assert.match(kin.eaten.name.common, /(stalker|prowler|hunter|ambusher|pouncer|raptor|stooper|swift|chaser|lurker|snapper|biter|tunnel-lurker)$/, where);
+    for (const k of [kin.eats, kin.eaten]) {
+      assert.match(k.note, /^It (stands|is) about [\d.]+ (mm|cm|m|km) (tall|long|across|from wing tip to wing tip)\. [A-Z].+\.$/, `${where}: ${k.note}`);
+      assert.doesNotMatch(k.note, /undefined|NaN/, where);
+    }
+    if (c.body.plan === 'floater') {
+      assert.match(kin.eats.note, /A sinker, one of the three kinds of life Carl Sagan and Edwin Salpeter imagined/);
+      assert.equal(kin.eaten.body.plan, 'swimmer');
+      assert.doesNotMatch(kin.eaten.name.genus, /^Thalasso/, `${where}: a hunter of the clouds named for the sea`);
+    }
+    // Plants only where the lab draws them.
+    if (!['M', 'L', 'O', 'super-earth'].includes(c.classId)) assert.doesNotMatch(kin.eats.note, /plants/, `${where}: ${kin.eats.note}`);
+  }
+  assert.ok(n > 3000, `${n} creatures with neighbours`);
+  // In strong gravity a hunter can't leap, so it waits; in weak gravity it bounds.
+  const heavy = all.find(c => c.body.plan === 'walker' && c.env.g >= 1.4), light = all.find(c => c.body.plan === 'walker' && c.env.g < 0.7);
+  assert.match(neighbours(heavy).eaten.note, /a hunter can’t leap or chase without breaking a leg, so it waits low beside the trail and lunges\.$/);
+  assert.match(neighbours(light).eaten.note, /a hunter covers ground in long bounds/);
+  // A real planet's creature has neighbours of its own.
+  assert.ok(neighbours(growFor('Proxima b', 7)).eats.name.common);
 });

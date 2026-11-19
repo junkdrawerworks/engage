@@ -2954,6 +2954,41 @@ await page.waitForFunction(() => window.xeno?.current);
   assert.equal(download.suggestedFilename(), 'biscuit.png');
   await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
 }
+// Grow its neighbours: what it eats and what eats it, drawn in the tank beside it, with two more notes. A plant has
+// none to grow; a new creature starts without them.
+{
+  await page.goto(base + 'maru.html');
+  await page.goto(base + 'xeno.html#J-9258');
+  await page.waitForFunction(() => window.xeno?.current);
+  await page.locator('#tank').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1600); // it grows in
+  assert.equal(await page.locator('#specimen .notes').count(), 1);
+  assert.equal(await text('#kin'), 'Grow its neighbours');
+  await page.click('#kin');
+  assert.equal(await page.getAttribute('#kin', 'aria-pressed'), 'true');
+  assert.equal(await text('#kin'), 'Hide its neighbours');
+  assert.deepEqual(await page.locator('#specimen .notes.kin h3').allInnerTexts().then(l => l.map(t => t.replace(/ · .*/, ''))), ['WHAT IT EATS', 'WHAT EATS IT']);
+  assert.match(await text('#specimen .notes.kin li:first-child p'), /A sinker, one of the three kinds of life Carl Sagan and Edwin Salpeter imagined/);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'kin');
+  // Drawn: the hunter swims off to the lower left, where the tank had only cloud.
+  const at = () => page.evaluate(() => { const c = document.getElementById('tank'), d = c.getContext('2d').getImageData(Math.round(c.width * 0.12), Math.round(c.height * 0.76), Math.round(c.width * 0.1), Math.round(c.height * 0.08)).data; const s = new Set(); for (let i = 0; i < d.length; i += 4) s.add(`${d[i] >> 3},${d[i + 1] >> 3},${d[i + 2] >> 3}`); return s.size; });
+  await page.locator('#tank').scrollIntoViewIfNeeded(); // (the tank isn't drawn while it is out of sight)
+  await page.waitForTimeout(200);
+  const withKin = await at();
+  await page.click('#kin');
+  assert.equal(await page.locator('#specimen .notes.kin').count(), 0);
+  await page.locator('#tank').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  const without = await at();
+  assert.ok(withKin > without + 10, `the hunter is not drawn in the tank: ${withKin} colours with it, ${without} without`);
+  await page.click('#kin');
+  await page.click('#again');
+  assert.equal(await page.locator('#specimen .notes.kin').count(), 0, 'a new creature came with the last one’s neighbours');
+  assert.equal(await page.evaluate(() => !!xeno.current.kin), false);
+  await page.getByRole('button', { name: 'Class L: Forested, no animals' }).click();
+  assert.equal(await page.locator('#kin').count(), 0, 'a plant offered to grow its neighbours');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+}
 await page.goto(base);
 await bridgeReady();
 

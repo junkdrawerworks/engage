@@ -1,7 +1,7 @@
 // The xenobiology lab: pick a planet class, grow a creature for it, read how the world shaped it, and keep the ones you like.
 import { CLASSES, byId, label, grows, worldByName } from './classes.js';
 import { Globe, paint } from './planet-art.js';
-import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText, tempText, STARS, bench, BENCH, STEPS, benchPos, benchValue, four, readingsOf, changedParts, fileFor, compare } from './xeno-gen.js';
+import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText, tempText, STARS, bench, BENCH, STEPS, benchPos, benchValue, four, readingsOf, changedParts, fileFor, compare, neighbours } from './xeno-gen.js';
 import { drawScene, drawCard, CARD_W, CARD_H } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
@@ -99,6 +99,8 @@ function cardHtml(c) {
     ${rarity ? `<p class="rarity">${esc(rarity).replace(/^(One of a kind|Uncommon|Lab record):/, '<b>$1:</b>').replace(/ (Lab record):/, ' <b>$1:</b>')}</p>` : ''}
     ${plantOnly ? '<p class="aside">Class L worlds have plant life and no animals, so the lab grew a plant.</p>' : ''}
     <ul class="notes">${c.notes.map(n => `<li><h3>${esc(n.label)}</h3><p>${esc(n.text)}</p></li>`).join('')}</ul>
+    ${neighbours(c) ? `<button class="text-button kin-button" id="kin" type="button" aria-pressed="${!!c.kin}">${c.kin ? 'Hide its neighbours' : 'Grow its neighbours'}</button>` : ''}
+    ${c.kin ? `<ul class="notes kin">${[['What it eats', c.kin.eats], ['What eats it', c.kin.eaten]].map(([head, n]) => `<li><h3>${head} · ${esc(n.name.common)}</h3><p>${esc(n.note)}</p></li>`).join('')}</ul>` : ''}
     ${real.length ? `<p class="for-real">Or grow one for ${c.world ? 'another' : 'a'} real planet on this file: ${real.map(w => `<a href="#world=${encodeURIComponent(w.name)}">${esc(w.name)}</a>`).join(', ')}.</p>` : ''}
     <a class="to-file" href="${BRIDGE}survey.html#${esc(c.classId)}"${AWAY}>Read the ${esc(label(c.cls))} survey file <span aria-hidden="true">→</span></a>
     ${c.world?.star ? `<a class="to-file" href="${BRIDGE}?course=${encodeURIComponent(c.world.star)}"${AWAY}>Set course for its star <span aria-hidden="true">→</span></a>` : ''}
@@ -495,6 +497,14 @@ $('send').addEventListener('click', e => {
 });
 $('jar-undo-go').addEventListener('click', undoLetGo);
 $('picture').addEventListener('click', e => savePicture(e.currentTarget));
+// Grow its neighbours: what it eats and what eats it, in the tank beside it and in two more notes.
+$('specimen').addEventListener('click', e => {
+  if (!e.target.closest('#kin') || !current || mode !== 'grow') return;
+  current.kin = current.kin ? null : neighbours(current);
+  $('specimen').innerHTML = cardHtml(current);
+  $('kin').focus({ preventScroll: true });
+  if (still.matches) frame(performance.now());
+});
 $('compare').addEventListener('click', () => setComparing(!comparing));
 $('pair-close').addEventListener('click', closePair);
 $('pair-pics').addEventListener('click', e => {
