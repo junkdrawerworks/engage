@@ -1682,7 +1682,9 @@ assert.ok(skyLit > 500, 'the sky is not drawn');
 await page.click('[data-close]');
 await page.click('#open-list');
 assert.match(await text('#list-note'), /of Starfleet’s \d+ charted stars/);
-assert.match(await page.locator('.system.trek').first().innerText(), /Vulcan|Capella|Aldebaran|Rigel|Pollux|Farpoint|Vega|Altair/);
+// The list opens on Starfleet's stars that are up, the highest first (at 12:30 am in New York in October, Gamma
+// Trianguli VI, 72° up).
+assert.match(await page.locator('.system.trek').first().innerText(), /^Gamma Trianguli VI\n.* · 7\d° up in the east$/);
 await page.locator('#list [data-close]').click();
 await page.click('#open-place');
 await page.locator('.city', { hasText: 'Sydney' }).click();
@@ -1733,7 +1735,8 @@ assert.match(await text('#card-line'), /^It shines at magnitude −4\.[89], brig
 await page.click('#card [data-close]');
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'tonight’s sky scrolls sideways on a phone');
 // Tonight's plan, at the head of the list. New York at 6:30 pm on 18 November 2026: dark already, the Moon sets at
-// one, the Leonids are a day past their peak, and the most Starfleet stars are well up at 9:40. Its button moves
+// one, the Leonids are a day past their peak, and the most of Starfleet's 28 stars are well up at 1:00 am, as the Moon
+// sets and the winter sky is high. Its button moves
 // the time slider there and gets the list out of the way.
 {
   const reset = (iso, min = 0) => page.evaluate(([t, m]) => { const s = document.getElementById('time'); s.value = m; s.dispatchEvent(new Event('input')); tonight.at(t); }, [iso, min]);
@@ -1745,25 +1748,26 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= i
   await page.click('#open-list');
   assert.deepEqual(await lines(), [
     'Dark until 5:44 am. Moon sets 1:00 am.',
-    'Best at 9:40 pm: Vega colony, Capella IV and 4 more are up.',
+    'Best at 1:00 am: Capella IV, Rigel VII and 12 more are up.',
     'The Leonids are active tonight (peaked 17 Nov): look east after 11:00 pm. Up to 15 an hour at the peak, under a dark sky.',
   ]);
-  assert.equal(plain(await text('#plan-go')), 'Show 9:40 pm');
+  assert.equal(plain(await text('#plan-go')), 'Show 1:00 am');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the plan makes the list scroll sideways');
   await page.click('#plan-go');
   assert.deepEqual(await page.evaluate(() => [document.getElementById('time').value, tonight.state.offsetMin, document.getElementById('list').hidden]),
-    ['190', 190, true], 'the plan’s button did not move the time slider to the best time');
-  assert.equal(plain(await page.evaluate(() => document.getElementById('time-out').textContent)), '9:40 pm');
-  assert.match(plain(await text('#clock')), /9:40 pm/);
-  // At that moment six of them really are well up, and with the slider there the button has nothing left to do.
-  assert.equal(await page.evaluate(() => ['Vega colony', 'Capella IV', 'Farpoint', 'Altair VI', 'Aldebaran whiskey', 'Pollux IV', 'Rigel VII', 'Vulcan'].filter(n => { const t = tonight.tag(n); return t.seen && t.alt > 15; }).length), 6);
+    ['390', 390, true], 'the plan’s button did not move the time slider to the best time');
+  assert.equal(plain(await page.evaluate(() => document.getElementById('time-out').textContent)), '1:00 am');
+  assert.match(plain(await text('#clock')), /1:00 am/);
+  // At that moment fourteen of them really are well up, and with the slider there the button has nothing left to do.
+  const { CHARTS } = await import('../js/charts.js');
+  assert.equal(await page.evaluate(tags => tags.filter(n => { const t = tonight.tag(n); return t.seen && t.alt > 15; }).length, CHARTS.map(c => c.tag)), 14);
   await page.click('#open-list');
   assert.equal(await shown('#plan-go'), false);
   await page.click('#list [data-close]');
   // From nine in the morning the best time is more than the slider's twelve hours off: it is named, with no button.
   await reset('2026-11-18T14:00:00Z');
   await page.click('#open-list');
-  assert.deepEqual((await lines()).slice(0, 2), ['Dark from 5:38 pm to 5:44 am. Moon sets 1:00 am.', 'Best at 9:40 pm: Vega colony, Capella IV and 4 more are up.']);
+  assert.deepEqual((await lines()).slice(0, 2), ['Dark from 5:38 pm to 5:44 am. Moon sets 1:00 am.', 'Best at 1:00 am: Capella IV, Rigel VII and 12 more are up.']);
   assert.equal(await shown('#plan-go'), false);
   await page.click('#list [data-close]');
   // The Leonids' radiant is marked on the sky once it is up and the Sun is down, and its card says what it is.
