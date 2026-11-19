@@ -15,6 +15,8 @@ import { ROOMS, inWords, roomList, newRooms, whatsNew } from './rooms.js';
 import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
+import { chartEdge, chartLine, chartOf, dotAt } from './cartography.js';
+import { drawChart } from './chart-view.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
 import { cleanName, cleanRegistry, fullName, shipOf, withRegistry } from './myship.js';
 import { carried, contents, fileName, fromRaw, jarsLeft, pack, plan, rawOf, unpack } from './records.js';
@@ -1439,20 +1441,105 @@ function drawLog() {
   $('stats').textContent = state.log.length
     ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} travelled`
     : 'Nothing logged yet. Choose a star and engage.';
-  // Past 30 entries the log can be searched, and shown by star. Any log can be printed.
+  // Past 30 entries the log can be searched, and shown by star. Any log can be printed, and charted.
   const long = state.log.length > LONG_LOG;
   $('log-tools').hidden = !state.log.length;
-  $('log-search').hidden = $('log-view').hidden = !long;
-  if (!long) { logView = 'day'; $('log-search').value = ''; }
+  $('log-view').hidden = !state.log.length;
+  $('log-by-star').hidden = !long;
+  if (!long) { if (logView === 'star') logView = 'day'; $('log-search').value = ''; }
   drawEntries();
 }
 
-let logView = 'day'; // or 'star': one row for each star
+let logView = 'day'; // or 'star': one row for each star; or 'chart': where they all are
 function drawEntries() {
-  const q = $('log-search').value.trim();
-  $('log-by-day').setAttribute('aria-pressed', String(logView === 'day'));
-  $('log-by-star').setAttribute('aria-pressed', String(logView === 'star'));
+  const long = state.log.length > LONG_LOG;
+  $('log-search').hidden = !long || logView === 'chart';
+  const q = logView === 'chart' ? '' : $('log-search').value.trim();
+  for (const [id, v] of [['log-by-day', 'day'], ['log-by-star', 'star'], ['log-chart', 'chart']]) $(id).setAttribute('aria-pressed', String(logView === v));
+  if (logView === 'chart') { $('entries').innerHTML = chartHtml(); paintChart(); return; }
   $('entries').innerHTML = (q ? '' : storyHtml() + serviceHtml() + recordsHtml()) + (logView === 'star' ? starsHtml(q) : daysHtml(q));
+}
+
+// ---------- Stellar cartography ----------
+
+// The log as a chart: every star visited, seen from above the galaxy's plane with the Sun in the middle and the
+// galactic centre up, each in its own colour, and the flights between them in the order they were flown (the latest
+// brightest). Each ring is ten times as far out as the one inside it. A tap on a star names it, with Set course
+// again; Save chart makes a picture of it. (The rules are in js/cartography.js, the drawing in js/chart-view.js.)
+let chartPick = -1, chartDots = [];
+const chartNow = () => chartOf(state.log, cat);
+function chartHtml() {
+  const c = chartNow();
+  return `<section class="chart" id="chart" aria-labelledby="chart-head">
+    <h3 class="day" id="chart-head">Stellar cartography</h3>
+    <div class="chart-box"><canvas id="chart-map" role="img" aria-label="${esc(`A chart of the stars in the log, seen from above the galaxy. ${chartLine(c, i => titleFor(cat, i), roughLy)}`)}"></canvas></div>
+    <p class="chart-line" id="chart-line">${esc(chartLine(c, i => titleFor(cat, i), roughLy))}</p>
+    <p class="chart-pick" id="chart-pick" aria-live="polite"></p>
+    <p class="chart-key">Seen from above the galaxy, its centre up. Each ring is ten times as far from the Sun as the one inside it, so the near stars aren’t lost in the middle.</p>
+    <p class="entry-actions"><button type="button" id="chart-save">Save chart</button></p>
+  </section>`;
+}
+function paintChart() {
+  const cv = $('chart-map');
+  if (!cv) return;
+  const c = chartNow();
+  if (!c.stars.some(s => s.star === chartPick)) chartPick = -1;
+  const size = Math.min(cv.parentElement.clientWidth || 340, 560), dpr = Math.min(devicePixelRatio || 1, 3);
+  cv.style.width = cv.style.height = `${size}px`;
+  cv.width = cv.height = Math.round(size * dpr);
+  const g = cv.getContext('2d');
+  g.scale(dpr, dpr);
+  chartDots = drawChart(g, c, { size, edge: chartEdge(c.reach), colorOf: chartColor, titleOf: i => titleFor(cat, i), selected: chartPick, labels: size < 400 ? 8 : 12 });
+  const s = c.stars.find(x => x.star === chartPick);
+  $('chart-pick').innerHTML = s
+    ? `<b>${esc(titleFor(cat, s.star))}</b> · ${esc(roughLy(s.ly))} from Sol · ${s.visits} ${s.visits === 1 ? 'visit' : 'visits'}${s.star !== state.at ? ` <button class="text-button" type="button" data-again="${s.star}">Set course again</button>` : ' · the ship is here'}`
+    : 'Tap a star to set course for it again.';
+}
+const chartColor = i => [cat.color[i * 3], cat.color[i * 3 + 1], cat.color[i * 3 + 2]];
+function pickOnChart(e) {
+  const cv = $('chart-map');
+  const r = cv.getBoundingClientRect();
+  const d = dotAt(chartDots, e.clientX - r.left, e.clientY - r.top);
+  chartPick = d ? d.star : -1;
+  if (d) sound.blip(880);
+  paintChart();
+}
+
+// Save chart: the chart as a picture, headed with the ship and the count, for the phone's share sheet, or downloaded
+// where a browser can't share a file. Drawn here: nothing leaves the page but the picture.
+async function saveChart(button) {
+  button.disabled = true;
+  try {
+    await Promise.all(['600 64px "Chakra Petch"', '500 28px "Chakra Petch"', '28px "IBM Plex Sans"'].map(f => document.fonts.load(f))).catch(() => {});
+    const W = 1080, H = 1290, c = chartNow();
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#05070d'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#93a0b8'; g.font = '600 26px "Chakra Petch", sans-serif'; g.textBaseline = 'alphabetic';
+    g.fillText('CAPTAIN’S LOG · STELLAR CARTOGRAPHY', 60, 82);
+    g.fillStyle = '#e8edf6'; g.font = '600 56px "Chakra Petch", sans-serif';
+    g.fillText(state.ship ? withRegistry(state.ship) : 'Where we have been', 60, 148, W - 120);
+    drawChart(g, c, { size: W - 40, ox: 20, oy: 170, edge: chartEdge(c.reach), colorOf: chartColor, titleOf: i => titleFor(cat, i), unit: 2.4, labels: 14 });
+    g.fillStyle = '#93a0b8'; g.font = '28px "IBM Plex Sans", sans-serif';
+    g.fillText(chartLine({ ...c, unplaced: 0 }, i => titleFor(cat, i), roughLy), 60, H - 62, W - 120);
+    g.fillStyle = '#727f97'; g.font = '500 24px "Chakra Petch", sans-serif';
+    g.fillText('engage.junkdrawer.works', 60, H - 24);
+    const blob = await new Promise(done => cv.toBlob(done, 'image/png'));
+    if (!blob) return;
+    const file = new File([blob], 'captains-log-chart.png', { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Captain’s log: stellar cartography', text: LIVE }); return; }
+      catch (err) { if (err?.name === 'AbortError') return; } // closed the sheet; otherwise download it instead
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } finally { button.disabled = false; }
 }
 
 // The service record: the career in one card, read from every room's record, each row leading to its room. It is
@@ -1770,9 +1857,14 @@ function bind() {
   addEventListener('beforeprint', () => { contacts = readContacts(); printLog(); });
   addEventListener('afterprint', () => { $('print-log').innerHTML = ''; });
   $('log-search').addEventListener('input', () => { shown = PAGE; drawEntries(); $('entries').scrollTop = 0; });
-  for (const [id, to] of [['log-by-day', 'day'], ['log-by-star', 'star']]) {
+  for (const [id, to] of [['log-by-day', 'day'], ['log-by-star', 'star'], ['log-chart', 'chart']]) {
     $(id).addEventListener('click', () => { logView = to; shown = PAGE; drawEntries(); $('entries').scrollTop = 0; });
   }
+  $('entries').addEventListener('click', e => {
+    if (e.target.id === 'chart-map') pickOnChart(e);
+    if (e.target.id === 'chart-save') saveChart(e.target);
+  });
+  addEventListener('resize', () => { if (logView === 'chart' && !$('log').hidden) paintChart(); });
   // Set course again, on an entry in the log, or for the star nearest to it, there and on the arrival's entry: the
   // sheet closes on the helm with that star chosen.
   for (const id of ['entries', 'arrival-entry']) {
@@ -2045,6 +2137,8 @@ function hooks() {
     },
     redraw() { dirty = true; },
     labels: () => drawn,
+    // The stars on the log's chart, where they were last drawn on it (CSS pixels from its top left).
+    chartDots: () => chartDots.map(d => ({ ...d, name: cat.names[d.star] })),
     // Draws now and returns the viewscreen as an image (the drawing buffer is cleared once it's on screen).
     snapshot() { sky.render(viewNow(0)); return $('sky').toDataURL('image/png'); },
     // What the disc of a star that behaves was last drawn doing: { star, light, size, glow }, or null.

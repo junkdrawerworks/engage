@@ -5771,9 +5771,9 @@ await page.emulateMedia({ reducedMotion: null });
   p.on('pageerror', e => problems.push(e.message));
   await p.goto(base);
   await bridgeReady(p);
-  // Thirty entries: no search and no By star yet.
+  // Thirty entries: no search and no By star yet (the chart is there for any log).
   await p.tap('#open-log');
-  assert.deepEqual([await p.locator('#log-search').isHidden(), await p.locator('#log-view').isHidden()], [true, true]);
+  assert.deepEqual([await p.locator('#log-search').isHidden(), await p.locator('#log-by-star').isHidden(), await p.locator('#log-chart').isVisible()], [true, true, true]);
   await p.evaluate(() => { engage.closeSheets(); engage.state.log.unshift(JSON.parse(sessionStorage.getItem('whole'))); });
   await p.tap('#open-log');
   assert.equal(await p.locator('#log-tools').isVisible(), true);
@@ -5812,6 +5812,63 @@ await page.emulateMedia({ reducedMotion: null });
   await stars.close();
 }
 
+// Stellar cartography: the log's Chart shows every star visited from above the galaxy, home in the middle. A tap on a
+// star names it with Set course again, which closes the log on the helm with that star chosen. A star with no
+// measured distance is left off and the chart says so. Save chart hands the phone's share sheet a picture.
+{
+  const chart = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await chart.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await chart.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  const unmeasured = await p.evaluate(() => { const c = engage.cat(); const i = c.unmeasured.findIndex((u, k) => u && /^HIP /.test(c.names[k])); return c.names[i]; });
+  await p.evaluate(names => { for (const name of names) { engage.jump(name); engage.closeSheets(); } }, ['Vega', 'Deneb', unmeasured, 'Sirius']);
+  await p.tap('#open-log');
+  // A short log: By day and Chart, no By star yet.
+  assert.deepEqual(await p.locator('#log-view button:visible').allInnerTexts(), ['By day', 'Chart'].map(t => t.toUpperCase()));
+  await p.tap('#log-chart');
+  assert.equal(await p.locator('#log-chart').getAttribute('aria-pressed'), 'true');
+  assert.equal(await p.locator('#log-search').isHidden(), true);
+  assert.equal(await p.locator('#chart-line').innerText(), '3 stars charted, the farthest Deneb, 1,412 light years out. One star with no measured distance is left off: nobody knows where to draw it.');
+  assert.match(await p.locator('#chart-map').getAttribute('aria-label'), /^A chart of the stars in the log, seen from above the galaxy\. 3 stars charted/);
+  const box = await p.locator('#chart-map').boundingBox();
+  assert.ok(box.width >= 300 && Math.abs(box.width - box.height) < 1, `the chart is ${box.width} × ${box.height}`);
+  assert.equal(await p.evaluate(() => document.querySelector('#entries').scrollWidth <= document.querySelector('#entries').clientWidth), true, 'the chart is wider than the log');
+  const dots = await p.evaluate(() => engage.chartDots());
+  assert.deepEqual(dots.map(d => d.name).sort(), ['Deneb', 'Sirius', 'Vega']);
+  // Deneb, in Cygnus, is off to the left of home; the galactic centre is up.
+  const deneb = dots.find(d => d.name === 'Deneb');
+  assert.ok(deneb.x < box.width / 2, 'Deneb is not on the Cygnus side');
+  const vega = dots.find(d => d.name === 'Vega');
+  await p.touchscreen.tap(box.x + vega.x + 3, box.y + vega.y + 2);
+  assert.match(await p.locator('#chart-pick').innerText(), /^Vega · 25 light years from Sol · 1 visit/);
+  // The ship is at Sirius: no course to set for where it is.
+  const sirius = dots.find(d => d.name === 'Sirius');
+  await p.touchscreen.tap(box.x + sirius.x, box.y + sirius.y);
+  assert.match(await p.locator('#chart-pick').innerText(), /the ship is here$/);
+  await p.touchscreen.tap(box.x + 4, box.y + box.height - 4);
+  assert.equal(await p.locator('#chart-pick').innerText(), 'Tap a star to set course for it again.');
+  // Save chart: a PNG, to the share sheet.
+  await p.evaluate(() => { navigator.canShare = () => true; navigator.share = async d => { window.sharedChart = { name: d.files[0].name, type: d.files[0].type, size: d.files[0].size, title: d.title }; }; });
+  await p.tap('#chart-save');
+  await p.waitForFunction(() => window.sharedChart);
+  const saved = await p.evaluate(() => window.sharedChart);
+  assert.deepEqual([saved.name, saved.type, saved.title], ['captains-log-chart.png', 'image/png', 'Captain’s log: stellar cartography']);
+  assert.ok(saved.size > 20000, `the chart's picture is only ${saved.size} bytes`);
+  // Set course again from the chart.
+  await p.locator('#chart-map').scrollIntoViewIfNeeded();
+  const now = await p.locator('#chart-map').boundingBox();
+  await p.touchscreen.tap(now.x + vega.x, now.y + vega.y);
+  await p.locator('#chart-pick [data-again]').tap();
+  assert.equal(await p.locator('#log').isHidden(), true);
+  assert.equal(await p.evaluate(() => engage.cat().names[engage.state.target]), 'Vega');
+  // The log opens by day again.
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#log-by-day').getAttribute('aria-pressed'), 'true');
+  await chart.close();
+}
+
 // Print the log lays the whole log out as a booklet, oldest first, black on white, one entry to a block: on a phone,
 // the same is how to save it as a PDF. The viewscreen and the sheets are not printed.
 {
@@ -5827,8 +5884,8 @@ await page.emulateMedia({ reducedMotion: null });
   await p.evaluate(() => engage.closeSheets());
   await p.evaluate(() => { for (const name of ['Vega', 'Altair', 'Sol']) { engage.jump(name); engage.closeSheets(); } });
   await p.tap('#open-log');
-  // A short log has Print the log, and no search yet.
-  assert.deepEqual(await p.locator('#log-tools > *').evaluateAll(els => els.map(el => [el.id, !el.hidden])), [['log-search', false], ['log-view', false], ['log-print', true]]);
+  // A short log has Print the log and the chart, and no search yet.
+  assert.deepEqual(await p.locator('#log-tools > *').evaluateAll(els => els.map(el => [el.id, !el.hidden])), [['log-search', false], ['log-view', true], ['log-print', true]]);
   await p.evaluate(() => { window.printed = 0; window.print = () => { window.printed++; }; });
   await p.tap('#log-print');
   assert.equal(await p.evaluate(() => window.printed), 1);

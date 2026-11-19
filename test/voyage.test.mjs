@@ -362,3 +362,76 @@ test('autopilot flies a voyage’s next leg, else the nearest star not yet in th
   assert.equal(go(5, [], 5), 1);
   assert.equal(autopilotNext({ at: 0, log: [], tiers: [[0]], distance: () => 1 }), null, 'nowhere to go is nowhere');
 });
+
+// ---------- Stellar cartography: the log's chart ----------
+import { chartEdge, chartLine, chartOf, chartRadius, chartRings, chartXY, dotAt, galactic } from '../js/cartography.js';
+import { roughLy } from '../js/physics.js';
+
+const unit = (raDeg, decDeg) => { const r = raDeg * Math.PI / 180, d = decDeg * Math.PI / 180; return [Math.cos(d) * Math.cos(r), Math.cos(d) * Math.sin(r), Math.sin(d)]; };
+
+test('the chart turns the catalogue’s axes to the galaxy’s: the centre ahead, the north galactic pole up', () => {
+  // Sagittarius A*, RA 266.405°, Dec −28.936° (J2000), and the north galactic pole, RA 192.859°, Dec +27.128°.
+  const core = galactic(unit(266.40499, -28.93617)), pole = galactic(unit(192.85948, 27.12825));
+  assert.ok(core[0] > 0.9999 && Math.abs(core[1]) < 1e-3 && Math.abs(core[2]) < 1e-3, `the galactic centre is at ${core}`);
+  assert.ok(pole[2] > 0.9999, `the pole is at ${pole}`);
+  // Deneb, in Cygnus, is near galactic longitude 84°: off to the +y side.
+  const deneb = galactic(unit(310.358, 45.280));
+  assert.ok(deneb[1] > 0.9 && Math.abs(Math.atan2(deneb[1], deneb[0]) * 180 / Math.PI - 84.3) < 0.5);
+});
+
+// A catalogue of a few stars, in parsecs: home, one ahead toward the galactic centre, one toward Cygnus, one at the
+// made-up distance of a star with none measured.
+const toward = (raDeg, decDeg, pc) => unit(raDeg, decDeg).map(v => v * pc);
+const chartCat = (() => {
+  const where = [[0, 0, 0], toward(266.405, -28.936, 10 / 3.26156), toward(310.358, 45.280, 1400 / 3.26156), toward(10, 10, 1000), toward(100, 5, 2)];
+  return { count: where.length, pos: new Float64Array(where.flat()), unmeasured: Uint8Array.from([0, 0, 0, 1, 0]) };
+})();
+
+test('the chart has each star once, the flights oldest first from home, and none it can’t place', () => {
+  // Newest first: home → 1 → 2 → 1 → 3 (no distance) → 4 → home.
+  const log = [0, 4, 3, 1, 2, 1].map(star => ({ star }));
+  const c = chartOf(log, chartCat);
+  assert.deepEqual(c.stars.map(s => [s.star, s.visits]).sort(), [[1, 2], [2, 1], [4, 1]]);
+  assert.deepEqual(c.legs, [[0, 1], [1, 2], [2, 1], [4, 0]], 'the flight from the star with no distance was drawn, or one went missing');
+  assert.equal(c.unplaced, 1);
+  assert.ok(Math.abs(c.stars.find(s => s.star === 2).ly - 1400) < 1e-6);
+  const deneb = c.stars.find(s => s.star === 2);
+  assert.equal(c.reach, Math.hypot(deneb.x, deneb.y), 'the reach is the farthest star along the plane');
+  assert.ok(Math.abs(deneb.z / deneb.ly - galactic(unit(310.358, 45.280))[2]) < 1e-6, 'its height off the plane is lost');
+  assert.equal(c.stars.find(s => s.star === 1).last, 3, 'a star’s newest visit is its place in the log');
+  // Nothing in the log, and entries that name no star in the catalogue, chart nothing.
+  assert.deepEqual(chartOf([{ star: 99 }, { star: 'Vega' }, null], chartCat), { stars: [], legs: [], unplaced: 0, reach: 0 });
+});
+
+test('the chart’s rings are ten times as far apart each, from 10 light years out to past the farthest star', () => {
+  assert.equal(chartEdge(0), 1000);
+  assert.equal(chartEdge(980), 1000);
+  assert.equal(chartEdge(1400), 10000);
+  assert.equal(chartEdge(26670), 100000, 'the galactic centre');
+  assert.deepEqual(chartRings(10000), [10, 100, 1000, 10000]);
+  assert.equal(chartRadius(0, 1000), 0);
+  assert.equal(chartRadius(1000, 1000), 1);
+  assert.ok(Math.abs(chartRadius(100, 1000) - chartRadius(10, 1000) - (chartRadius(1000, 1000) - chartRadius(100, 1000))) < 0.03, 'the rings are not evenly spaced');
+});
+
+test('on the chart the galactic centre is up and Cygnus to the left, and a tap finds the nearest dot', () => {
+  const [ux, uy] = chartXY({ x: 100, y: 0 }, 1000, 400);
+  assert.ok(Math.abs(ux - 200) < 1e-9 && uy < 200);
+  const [lx, ly] = chartXY({ x: 0, y: 100 }, 1000, 400);
+  assert.ok(lx < 200 && Math.abs(ly - 200) < 1e-9);
+  assert.deepEqual(chartXY({ x: 0, y: 0 }, 1000, 400), [200, 200]);
+  const [ex] = chartXY({ x: 0, y: 1000 }, 1000, 400, 20);
+  assert.ok(Math.abs(ex - 20) < 1e-9, 'the edge ring is not at the padding');
+  const dots = [{ x: 10, y: 10, star: 1 }, { x: 30, y: 10, star: 2 }];
+  assert.equal(dotAt(dots, 18, 10).star, 1);
+  assert.equal(dotAt(dots, 22, 11).star, 2);
+  assert.equal(dotAt(dots, 100, 100), null);
+});
+
+test('the line under the chart counts the stars, names the farthest and owns up to the ones left off', () => {
+  const titles = { 1: 'Ahead', 2: 'Deneb', 4: 'Aside' };
+  const c = chartOf([0, 4, 3, 1, 2, 1].map(star => ({ star })), chartCat);
+  assert.equal(chartLine(c, i => titles[i], roughLy), '3 stars charted, the farthest Deneb, 1,400 light years out. One star with no measured distance is left off: nobody knows where to draw it.');
+  assert.equal(chartLine(chartOf([{ star: 1 }], chartCat), i => titles[i], roughLy), '1 star charted: Ahead, 10 light years out.');
+  assert.equal(chartLine(chartOf([], chartCat), i => titles[i], roughLy), 'Nothing charted yet beyond home.');
+});
