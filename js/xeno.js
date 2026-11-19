@@ -1,7 +1,7 @@
 // The xenobiology lab: pick a planet class, grow a creature for it, read how the world shaped it, and keep the ones you like.
 import { CLASSES, byId, label, grows, worldByName } from './classes.js';
 import { Globe, paint } from './planet-art.js';
-import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText } from './xeno-gen.js';
+import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText, tempText, STARS, bench, BENCH, STEPS, benchPos, benchValue, four, readingsOf, changedParts, fileFor } from './xeno-gen.js';
 import { drawScene } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
@@ -63,6 +63,7 @@ const growJar = j => (j.world ? growFor(j.world, j.seed) : grow(j.id, j.seed));
 const lyText = ly => (ly >= 100 ? Math.round(ly).toLocaleString('en-US') : String(ly));
 
 function put(c, animate) {
+  setMode('grow');
   current = c;
   $('link-note').hidden = true;
   born = animate && !still.matches ? performance.now() : -1e9;
@@ -101,6 +102,120 @@ function cardHtml(c) {
   `;
 }
 
+// ---------- The bench ----------
+
+// The Bench tab grows the creature in the tank again under readings set on four sliders. `start` is the creature it
+// began from, which Grow goes back to; `readings` are the sliders'. The parts a slider has just changed glow for a
+// moment in the tank (`pulses`: part → when), and the field note for that reading is lit while it moves.
+let mode = 'grow', start = null, readings = null, pulses = {}, litKind = '', litTimer = 0;
+const KINDS = [['g', 'Gravity'], ['pressure', 'Air'], ['star', 'Light'], ['temp', 'Heat']];
+const LIGHT = Object.fromEntries(BENCH.star.marks.map(([words, star]) => [star, words]));
+function readingText(kind, v) {
+  if (kind === 'g') return gText(v);
+  if (kind === 'pressure') return v === 0 ? 'None' : `${v < 0.01 ? Number(v.toPrecision(2)) : v < 10 ? Number(v.toPrecision(2)) : Math.round(v).toLocaleString('en-US')} atm`;
+  if (kind === 'star') return LIGHT[v];
+  return tempText(v);
+}
+
+function buildSliders() {
+  $('slider-list').innerHTML = KINDS.map(([kind, words]) => {
+    const light = kind === 'star';
+    const at = v => (light ? benchPos('star', v) / 3 : benchPos(kind, v) / STEPS);
+    const marks = BENCH[kind].marks.map(([name, v], i) => {
+      // The ends' words sit inside the slider; heat's three marks are close, so its words stand clear of each other:
+      // freezing to the left of its mark, boiling below, and no water to the right.
+      const u = at(v), place = u < 0.04 ? ' start' : u > 0.96 ? ' end' : kind === 'temp' ? [' before', ' low', ' after'][i] : '';
+      return `<span class="mark${place}" style="--u:${u.toFixed(4)}">${esc(name)}</span>`;
+    }).join('');
+    return `<div class="slider" data-k="${kind}">
+      <div class="slider-head"><label for="s-${kind}">${words}</label><output id="o-${kind}" for="s-${kind}"></output></div>
+      <input type="range" id="s-${kind}" data-k="${kind}" min="0" max="${light ? 3 : STEPS}" step="1">
+      <div class="marks${kind === 'temp' ? ' two' : ''}" aria-hidden="true">${marks}</div>
+    </div>`;
+  }).join('');
+}
+
+// The creature `from` names ({ id, seed } or { world, seed }), on the bench at `set` (its own readings by default).
+function toBench(from, set) {
+  start = from.world ? growFor(from.world, from.seed) : grow(from.id, from.seed);
+  readings = { ...readingsOf(start), ...set };
+  pulses = {}; litKind = '';
+  setMode('bench');
+  current = bench(from, readings);
+  renderRefs(start.classId);
+  born = -1e9;
+  for (const [kind] of KINDS) $(`s-${kind}`).value = benchPos(kind, readings[kind]);
+  renderBench();
+  benchLink();
+}
+
+function benchLink() {
+  const r = readings;
+  try { history.replaceState(null, '', `#bench=${linkOf(start)}&g=${four(r.g)}&air=${four(r.pressure)}&light=${r.star}&heat=${four(r.temp)}`); } catch { /* fine */ }
+}
+
+// A slider has moved: grow again, and light up what changed.
+function moved(kind, pos) {
+  const before = current.body;
+  readings = { ...readings, [kind]: benchValue(kind, pos) };
+  current = bench(jarOf(start), readings);
+  const now = performance.now();
+  for (const part of changedParts(before, current.body)) pulses[part] = now;
+  litKind = kind;
+  clearTimeout(litTimer);
+  litTimer = setTimeout(() => { litKind = ''; document.querySelectorAll('#specimen .notes li.lit').forEach(li => li.classList.remove('lit')); }, 1500);
+  renderBench();
+}
+
+function renderBench() {
+  const c = current, r = readings;
+  $('tank-tag').textContent = `Bench · ${start.world ? start.world.name : label(start.cls)} · Specimen ${String(start.seed).padStart(4, '0')}`;
+  for (const [kind] of KINDS) {
+    const text = readingText(kind, r[kind]);
+    const el = $(`s-${kind}`);
+    $(`o-${kind}`).textContent = text;
+    el.setAttribute('aria-valuetext', text);
+    el.style.setProperty('--fill', `${(100 * el.value) / el.max}%`);
+  }
+  const file = fileFor(r, c.env.habitat, start.classId);
+  const named = file.letter ? label(file) : file.inText;
+  $('passes').innerHTML = `These readings would pass for <a href="${BRIDGE}survey.html#${esc(file.id)}"${AWAY}>${esc(named)}</a>${file.id === start.classId ? `, the file it was grown for` : ''}.`;
+  $('specimen').innerHTML = benchCardHtml(c, file);
+  document.title = `${c.name.common} on the bench · Xenobiology lab · Engage`;
+  if (still.matches) frame(performance.now());
+}
+
+function benchCardHtml(c, file) {
+  return `
+    <p class="eyebrow">On the bench · from ${esc(start.world ? start.world.name : label(start.cls))}’s specimen ${String(start.seed).padStart(4, '0')}</p>
+    <h2>${esc(c.name.common)}</h2>
+    <p class="latin">${esc(c.name.genus)} ${esc(c.name.species)}</p>
+    <ul class="notes">${c.notes.map(n => `<li data-k="${n.k}"${n.k === noteOf(litKind) ? ' class="lit"' : ''}><h3>${esc(n.label)}</h3><p>${esc(n.text)}</p></li>`).join('')}</ul>
+    <a class="to-file" href="${BRIDGE}survey.html#${esc(file.id)}"${AWAY}>Read the ${esc(label(file))} survey file <span aria-hidden="true">→</span></a>
+  `;
+}
+const noteOf = kind => ({ g: 'gravity', pressure: 'air', star: 'light', temp: 'heat' })[kind] || '';
+
+// Grow and Bench. Leaving the bench puts back the creature it started from.
+function setMode(m) {
+  if (m === mode) return;
+  mode = m;
+  $('tab-grow').setAttribute('aria-selected', String(m === 'grow'));
+  $('tab-bench').setAttribute('aria-selected', String(m === 'bench'));
+  $('tab-grow').tabIndex = m === 'grow' ? 0 : -1;
+  $('tab-bench').tabIndex = m === 'bench' ? 0 : -1;
+  $('grow-panel').hidden = m !== 'grow';
+  $('bench-panel').hidden = m !== 'bench';
+  // Read out on every step of a slider, the whole card would be said again; on the bench the readings speak instead.
+  $('specimen').setAttribute('aria-live', m === 'grow' ? 'polite' : 'off');
+  document.body.classList.toggle('on-bench', m === 'bench');
+}
+function tab(m) {
+  if (m === mode) return;
+  if (m === 'bench') toBench(jarOf(current));
+  else put(start, false);
+}
+
 // ---------- The tank ----------
 
 function size() {
@@ -118,6 +233,15 @@ function frame(now) {
   tg.setTransform(dpr, 0, 0, dpr, 0, 0);
   const t = still.matches ? 0 : now / 1000;
   const grown = Math.min(1, (now - born) / 1400);
+  if (mode === 'bench') {
+    const pulse = {};
+    for (const [part, at] of Object.entries(pulses)) {
+      const age = (now - at) / 900;
+      if (age >= 1 || still.matches) delete pulses[part];
+      else pulse[part] = Math.sin(Math.PI * age);
+    }
+    current.body.pulse = pulse;
+  }
   drawScene(tg, current, w, h, t, grown);
   draws++;
 }
@@ -272,8 +396,23 @@ function hashText() {
   try { return decodeURIComponent(location.hash.slice(1)); } catch { return ''; }
 }
 // A real planet is asked for by name: #world=Proxima b-42 (the name can have hyphens of its own: TRAPPIST-1 e).
+// The bench is the creature it started from and its readings: #bench=M-42&g=2.5&air=0.01&light=red&heat=250. A
+// reading missing or out of reach is the creature's own.
 function fromHash() {
-  const m = hashText().match(/^(.+?)(?:-(\d{1,4}))?$/);
+  const t = hashText();
+  if (!/^bench=/i.test(t)) return creatureFrom(t);
+  const [who, ...rest] = t.slice(6).split('&');
+  const h = creatureFrom(who);
+  if (!h) return null;
+  const q = Object.fromEntries(rest.map(p => p.split('=')));
+  const set = {};
+  const num = (k, kind) => { const v = Number(q[k]); if (q[k] !== undefined && q[k] !== '' && Number.isFinite(v) && (kind === 'pressure' ? v === 0 || (v >= BENCH.pressure.lo && v <= BENCH.pressure.hi) : v >= BENCH[kind].lo && v <= BENCH[kind].hi)) set[kind] = v; };
+  num('g', 'g'); num('air', 'pressure'); num('heat', 'temp');
+  if (LIGHT[q.light]) set.star = q.light;
+  return { ...h, bench: set };
+}
+function creatureFrom(text) {
+  const m = text.match(/^(.+?)(?:-(\d{1,4}))?$/);
   if (!m) return null;
   const seed = Number(m[2]) || newSeed();
   if (/^world=/i.test(m[1])) {
@@ -283,9 +422,10 @@ function fromHash() {
   const cls = CLASSES.find(c => c.id.toLowerCase() === m[1].toLowerCase());
   return cls ? { id: cls.id, seed } : null;
 }
-const open = (h, animate = true) => (h.world ? showWorld(h.world, h.seed, animate) : show(h.id, h.seed, animate));
+const open = (h, animate = true) => (h.bench ? toBench(h.world ? { world: h.world, seed: h.seed } : { id: h.id, seed: h.seed }, h.bench) : h.world ? showWorld(h.world, h.seed, animate) : show(h.id, h.seed, animate));
 
 buildStrip();
+buildSliders();
 $('cabinet').innerHTML = SPECIMENS.map(refHtml).join('');
 renderRecords();
 // A record's link grows it in the tank, which may be a long way up the page.
@@ -303,6 +443,31 @@ $('send').addEventListener('click', e => {
   });
 });
 $('jar-undo-go').addEventListener('click', undoLetGo);
+$('tab-grow').addEventListener('click', () => tab('grow'));
+$('tab-bench').addEventListener('click', () => tab('bench'));
+// The tabs take the arrow keys, as tabs do.
+$('tab-grow').parentNode.addEventListener('keydown', e => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+  const m = e.key === 'Home' ? 'grow' : e.key === 'End' ? 'bench' : mode === 'grow' ? 'bench' : 'grow';
+  tab(m);
+  $(`tab-${m}`).focus();
+});
+$('slider-list').addEventListener('input', e => { if (e.target.dataset.k) moved(e.target.dataset.k, Number(e.target.value)); });
+$('slider-list').addEventListener('change', benchLink); // (the address waits for the slider to be let go: a browser allows only so many changes a second)
+$('bench-reset').addEventListener('click', () => {
+  const before = current.body;
+  toBench(jarOf(start));
+  for (const part of changedParts(before, current.body)) pulses[part] = performance.now();
+});
+$('bench-send').addEventListener('click', e => {
+  const c = current;
+  share(e.currentTarget, {
+    title: `${c.name.common}, on the xenobiology lab’s bench`,
+    text: `Meet the ${c.name.common}, grown on the bench in Engage’s xenobiology lab at ${gText(readings.g)}, ${readings.pressure ? `air at ${readingText('pressure', readings.pressure)}` : 'no air'}, ${STARS[readings.star].name} and ${tempText(readings.temp)}.`,
+    url: `${LIVE}xeno.html${location.hash}`,
+  });
+});
 // The address keeps naming the creature in the tank, so the link down to the jars scrolls without changing it.
 $('kept-note').addEventListener('click', e => {
   if (!e.target.closest('a')) return;
@@ -332,12 +497,13 @@ watch(KEY, () => {
 window.addEventListener('hashchange', () => {
   const h = fromHash();
   if (!h && location.hash.length > 1) $('link-note').hidden = false; // a link that names nothing the lab knows: say so, and leave the tank as it is
-  if (h && (!current || h.seed !== current.seed || (h.world ? h.world !== current.world?.name : !!current.world || h.id !== current.classId))) open(h);
+  if (h?.bench) open(h);
+  else if (h && (mode === 'bench' || !current || h.seed !== current.seed || (h.world ? h.world !== current.world?.name : !!current.world || h.id !== current.classId))) open(h);
 });
 window.addEventListener('resize', () => { if (still.matches) frame(performance.now()); });
 still.addEventListener?.('change', () => frame(performance.now()));
 
-window.xeno = { show, showWorld, get current() { return current; }, get jars() { return saved.jars; }, get draws() { return draws; } };
+window.xeno = { show, showWorld, tab, get mode() { return mode; }, get readings() { return readings; }, get current() { return current; }, get jars() { return saved.jars; }, get draws() { return draws; } };
 
 // A link that names nothing the lab knows (a class it hasn't got, a planet it has no readings for, a link cut off on
 // its way) still opens the lab, on a new creature, with a line to say that is what happened.

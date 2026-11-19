@@ -2,7 +2,8 @@
 // The lab rolls specimen numbers 1 to 9,999 for each of its 17 classes, so there are 169,983 creatures in all. This
 // grows each one and writes how many of each class's have each body plan into js/xeno-gen.js (the CENSUS table,
 // between its two marker comments), which is what the specimen card's "Uncommon: 171 of Class M's 9,999 specimens
-// fly" is read from. It also prints who holds each record on the lab's shelf: if one has changed hands, set RECORDS
+// fly" is read from, and the least and most of each reading among each class's (the READINGS table), which is how
+// the bench tells which file a set of readings would pass for. It also prints who holds each record on the lab's shelf: if one has changed hands, set RECORDS
 // in js/xeno-gen.js to match. Run it after any change to how creatures are grown; test/xeno.test.mjs fails until
 // the table and the records are right again.
 import { readFile, writeFile } from 'node:fs/promises';
@@ -10,8 +11,11 @@ import { fileURLToPath } from 'node:url';
 import { takeCensus, grow, sizeText, gText, RECORDS } from '../js/xeno-gen.js';
 
 const file = fileURLToPath(new URL('../js/xeno-gen.js', import.meta.url));
-const { counts, holders, total } = takeCensus();
-const table = `export const CENSUS = {\n${Object.entries(counts).map(([cls, plans]) => `  ${/^\w+$/.test(cls) ? cls : `'${cls}'`}: { ${Object.entries(plans).map(([plan, n]) => `${plan}: ${n}`).join(', ')} },`).join('\n')}\n};`;
+const { counts, holders, readings, total } = takeCensus();
+const key = cls => (/^\w+$/.test(cls) ? cls : `'${cls}'`);
+const table = `export const CENSUS = {\n${Object.entries(counts).map(([cls, plans]) => `  ${key(cls)}: { ${Object.entries(plans).map(([plan, n]) => `${plan}: ${n}`).join(', ')} },`).join('\n')}\n};`
+  + '\n// The least and most gravity (g), air (atm) and heat (K) among each class\'s creatures, for fileFor().'
+  + `\nexport const READINGS = {\n${Object.entries(readings).map(([cls, R]) => `  ${key(cls)}: { ${Object.entries(R).map(([k, [lo, hi]]) => `${k}: [${lo}, ${hi}]`).join(', ')} },`).join('\n')}\n};`;
 const src = await readFile(file, 'utf8');
 const marked = /(\/\/ census:start[^\n]*\n)[\s\S]*?(\n\/\/ census:end)/;
 if (!marked.test(src)) throw new Error('js/xeno-gen.js has lost its census:start and census:end markers');

@@ -81,6 +81,44 @@
 /* The disc stays 30 px; a tap lands on it from 7 px further out all round. */
 .jar-drop::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); border-radius: 50%; }
 
+/* Grow and Bench: two tabs over the tank. */
+.lab-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 8px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.lab-tab { min-height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 12px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; }
+.lab-tab[aria-selected="true"] { background: rgba(134, 216, 255, 0.12); color: var(--cyan); box-shadow: inset 0 0 0 1px rgba(134, 216, 255, 0.35); }
+.lab-tab:hover { color: var(--text); }
+/* The bench: four sliders, each with its marks under it. A mark sits where the thumb's middle would be. */
+.bench-intro { margin: 10px 0 2px; font-size: 14px; color: var(--muted); }
+.slider { padding: 8px 0 2px; }
+.slider-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.slider-head label { font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
+.slider-head output { font: 600 14px/1.2 var(--display); letter-spacing: 0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.sliders input[type=range] { height: 36px; }
+.sliders input[type=range]::-webkit-slider-runnable-track { background: linear-gradient(90deg, #2f8fb8, var(--cyan) var(--fill, 50%), rgba(255, 255, 255, 0.12) var(--fill, 50%)); }
+.sliders input[type=range]::-moz-range-progress { background: var(--cyan); }
+.sliders input[type=range]::-webkit-slider-thumb { border-color: var(--cyan); box-shadow: 0 0 12px rgba(134, 216, 255, 0.5); }
+.sliders input[type=range]::-moz-range-thumb { border-color: var(--cyan); }
+.marks { position: relative; height: 16px; margin: -4px 0 0; }
+.marks.two { height: 30px; }
+.mark { position: absolute; top: 0; left: calc(12px + var(--u) * (100% - 24px)); transform: translateX(-50%); padding-top: 5px; white-space: nowrap; font-size: 11px; line-height: 1; color: var(--muted); }
+.mark::before { content: ''; position: absolute; top: 0; left: 50%; width: 1px; height: 4px; background: var(--line-strong); }
+.mark.low { top: 14px; }
+.mark.low::before { top: -14px; height: 18px; }
+.mark.before { transform: translateX(calc(-100% + 0.5px)); padding-right: 4px; }
+.mark.before::before { left: auto; right: 0; }
+.mark.after { transform: translateX(-0.5px); padding-left: 4px; }
+.mark.after::before { left: 0; }
+.mark.start { transform: translateX(-12px); }
+.mark.start::before { left: 12px; }
+.mark.end { transform: translateX(calc(-100% + 12px)); }
+.mark.end::before { left: auto; right: 12px; }
+.passes { margin: 12px 0 0; padding: 8px 10px; border-left: 3px solid #6fe3a4; border-radius: 0 10px 10px 0; background: rgba(111, 227, 164, 0.07); font-size: 14px; color: #cdd5e3; }
+.passes a { color: #6fe3a4; text-underline-offset: 3px; }
+/* The field note for the reading being moved. */
+.notes li { transition: background-color 0.6s, box-shadow 0.6s; }
+.notes li.lit { background: rgba(134, 216, 255, 0.09); box-shadow: -10px 0 0 rgba(134, 216, 255, 0.09), 10px 0 0 rgba(134, 216, 255, 0.09); }
+.notes li.lit h3 { color: var(--cyan); }
+@media (prefers-reduced-motion: reduce) { .notes li { transition: none; } }
+
 .xeno .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }
 
 @media (min-width: 760px) {

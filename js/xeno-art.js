@@ -130,11 +130,13 @@ function backdrop(g, c, W, H, groundY, time) {
       g.fill();
     }
     if (c.classId === 'hot-jupiter') { g.fillStyle = 'rgba(255,90,30,0.12)'; g.fillRect(0, H * 0.6, W, H * 0.4); }
+    if (!star) { g.fillStyle = 'rgba(2,4,10,0.78)'; g.fillRect(0, 0, W, H); } // no star, on the bench: the clouds unlit
     return;
   }
 
   // Sky
-  const thin = env.pressure < 0.1;
+  // (Under no star at all, which only the bench brings to a world with ground, the sky is night's.)
+  const thin = env.pressure < 0.1 || !star;
   const tint = env.star === 'red' ? ['#2a0f1a', '#7a3b3a'] : env.star === 'orange' ? ['#3a2a3c', '#d99a6c'] : ['#1d4f8f', '#9cc7e8'];
   const grad = g.createLinearGradient(0, 0, 0, groundY);
   if (thin) { grad.addColorStop(0, '#020308'); grad.addColorStop(1, c.classId === 'K' ? '#5b3a30' : '#151821'); }
@@ -274,6 +276,13 @@ function scan(g, W, H, t) {
 // Each draws around (0, 0): feet on the ground for walkers and plants, the middle of the body for the rest.
 // Each returns how many pixels its measured size takes (height, length or width), for the scale bar.
 
+// On the bench, the parts a slider has just changed glow for a moment: `b.pulse` is { part: 0 to 1 } (see
+// changedParts in js/xeno-gen.js), and a new body plan lights the whole animal. Call inside a save() and restore().
+function lit(g, b, part) {
+  const a = Math.max(b.pulse?.[part] || 0, b.pulse?.body || 0);
+  if (a > 0) { g.shadowColor = `rgba(134,216,255,${(0.95 * a).toFixed(3)})`; g.shadowBlur = 26 * a; }
+}
+
 function outline(g, b, s) { g.strokeStyle = hsl(b.color, -22, 0.9); g.lineWidth = Math.max(1, s * 0.01); g.lineJoin = 'round'; g.lineCap = 'round'; }
 // A swimmer's outline. A near-black body (a red dwarf's) in a dark sea gets a light rim, or it can't be made out.
 const DARK_BODY = 30;
@@ -306,13 +315,16 @@ function eye(g, b, x, y, r, s) {
 
 function eyes(g, b, x, y, r, s) {
   if (!b.eyes) return;
+  g.save(); lit(g, b, 'eyes');
   eye(g, b, x, y, r, s);
   if (b.eyes >= 3) eye(g, b, x - r * 2.1, y - r * 0.6, r * 0.7, s);
   if (b.eyes >= 4) eye(g, b, x - r * 0.4, y + r * 1.9, r * 0.6, s);
+  g.restore();
 }
 
 function feelers(g, b, x, y, s, t) {
   if (!b.feelers) return;
+  g.save(); lit(g, b, 'feelers');
   g.strokeStyle = hsl(b.color, -10, 0.9); g.lineWidth = Math.max(1, s * 0.008);
   for (let i = 0; i < 2; i++) {
     const sw = Math.sin(t * 1.3 + i * 1.7) * s * 0.04;
@@ -320,12 +332,13 @@ function feelers(g, b, x, y, s, t) {
     g.bezierCurveTo(x + s * 0.12, y - s * (0.12 + i * 0.05), x + s * 0.25 + sw, y - s * (0.05 + i * 0.1), x + s * 0.34 + sw, y + s * (0.02 - i * 0.04));
     g.stroke();
   }
+  g.restore();
 }
 
 function glowDots(g, b, x, y, w, h, t, n = 7) {
   if (!b.glow) return;
   const r = rng(Math.round(b.wobble * 1e6));
-  g.save();
+  g.save(); lit(g, b, 'glow');
   for (let i = 0; i < n; i++) {
     const px = x + (r() - 0.5) * w, py = y + (r() - 0.5) * h, pr = 1 + r() * 1.4;
     const pulse = 0.5 + 0.5 * Math.sin(t * 2 + i);
@@ -352,12 +365,14 @@ function walker(g, b, s, t) {
     const step = Math.sin(t * 3 + phase);
     const fx = hx + step * s * 0.03, lift = Math.max(0, -Math.cos(t * 3 + phase)) * s * 0.012;
     const kx = hx + (lanky ? s * 0.06 : s * 0.02), ky = cy + Hb * 0.3 + (legLen + Hb * 0.05) * 0.5;
+    g.save(); lit(g, b, 'legs');
     g.strokeStyle = far ? hsl(b.color, -20) : hsl(b.color, -6);
     g.lineCap = 'round';
     g.lineWidth = legW; g.beginPath(); g.moveTo(hx, cy + Hb * 0.2); g.lineTo(kx, ky); g.stroke();
     g.lineWidth = legW * 0.8; g.beginPath(); g.moveTo(kx, ky); g.lineTo(fx, -lift); g.stroke();
     g.fillStyle = far ? hsl(b.color, -24) : hsl(b.color, -12);
     g.beginPath(); g.ellipse(fx + legW * 0.3, -lift - legW * 0.1, legW * 0.75, legW * 0.35, 0, 0, TAU); g.fill();
+    g.restore();
   };
 
   // Wing behind
@@ -367,6 +382,7 @@ function walker(g, b, s, t) {
   // Tail
   if (b.tail) {
     const sw = Math.sin(t * 1.4) * s * 0.03;
+    g.save(); lit(g, b, 'tail');
     g.fillStyle = hsl(b.color, -4);
     g.beginPath();
     g.moveTo(-L * 0.42, cy - Hb * 0.25);
@@ -374,11 +390,13 @@ function walker(g, b, s, t) {
     g.quadraticCurveTo(-L * 0.7, cy + Hb * 0.15 + sw * 0.5, -L * 0.4, cy + Hb * 0.25);
     g.closePath(); g.fill();
     outline(g, b, s); g.stroke();
+    g.restore();
   }
 
   // Sail on the back
   if (b.sail) {
     const n = 7;
+    g.save(); lit(g, b, 'sail');
     g.fillStyle = `hsla(${b.accent},55%,55%,0.55)`;
     g.beginPath(); g.moveTo(-L * 0.3, cy - Hb * 0.4);
     for (let i = 0; i <= n; i++) {
@@ -393,9 +411,11 @@ function walker(g, b, s, t) {
       const hh = Hb * (0.9 + 0.7 * Math.sin((i / n) * Math.PI));
       g.beginPath(); g.moveTo(xx, cy - Hb * 0.35); g.lineTo(xx, cy - Hb * 0.35 - hh); g.stroke();
     }
+    g.restore();
   }
 
   // Body
+  g.save(); lit(g, b, 'skin');
   g.fillStyle = bodyFill(g, b, 0, cy, L, Hb);
   g.beginPath();
   g.moveTo(-L * 0.5, cy);
@@ -408,8 +428,9 @@ function walker(g, b, s, t) {
 
   // A body of rock wears crystals where another animal would have plates.
   if (b.crystals) shards(g, b, -L * 0.36, L * 0.38, cy - Hb * 0.66, Hb, s);
-  else if (b.armor) plates(g, b, -L * 0.38, L * 0.4, cy - Hb * 0.62, Hb, s);
-  if (b.covering === 'fur') fur(g, b, L, Hb, cy, s);
+  g.restore();
+  if (b.armor && !b.crystals) { g.save(); lit(g, b, 'armor'); plates(g, b, -L * 0.38, L * 0.4, cy - Hb * 0.62, Hb, s); g.restore(); }
+  if (b.covering === 'fur') { g.save(); lit(g, b, 'skin'); fur(g, b, L, Hb, cy, s); g.restore(); }
   if (b.sacs) sacs(g, b, -L * 0.2, cy - Hb * 0.8, s, t);
 
   // Neck and head
@@ -510,6 +531,7 @@ function fur(g, b, L, Hb, cy, s) {
 }
 
 function sacs(g, b, x, y, s, t) {
+  g.save(); lit(g, b, 'sacs');
   for (let i = 0; i < 3; i++) {
     const pulse = 1 + 0.12 * Math.sin(t * 1.6 + i * 0.8);
     const rr = s * (0.06 - i * 0.008) * pulse;
@@ -517,6 +539,7 @@ function sacs(g, b, x, y, s, t) {
     g.strokeStyle = `hsla(${(b.accent + 20) % 360},40%,45%,0.8)`; g.lineWidth = Math.max(1, s * 0.005);
     g.beginPath(); g.arc(x + i * s * 0.1, y - rr * 0.4, rr, 0, TAU); g.fill(); g.stroke();
   }
+  g.restore();
 }
 
 function wing(g, b, x, y, span, t, far) {
@@ -577,6 +600,7 @@ function swimmer(g, b, s, t) {
     g.beginPath(); g.moveTo(-L * 0.1, -H * 0.42); g.quadraticCurveTo(-L * 0.05, -H * 0.95, L * 0.12, -H * 0.45); g.closePath(); g.fill();
   }
   // Body
+  g.save(); lit(g, b, 'skin');
   g.fillStyle = bodyFill(g, b, 0, 0, L, H);
   g.beginPath();
   g.moveTo(L * 0.5, 0);
@@ -586,6 +610,7 @@ function swimmer(g, b, s, t) {
   g.closePath(); g.fill();
   g.save(); g.clip(); texture(g, b, -L * 0.4, -H * 0.5, L * 0.9, H, s); g.restore();
   rim(g, b, s); g.stroke();
+  g.restore();
   // Gill slits and a side fin
   g.strokeStyle = hsl(b.color, -18, 0.8); g.lineWidth = Math.max(1, s * 0.006);
   for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(L * (0.28 - i * 0.035), -H * 0.18); g.quadraticCurveTo(L * (0.25 - i * 0.035), 0, L * (0.28 - i * 0.035), H * 0.18); g.stroke(); }
@@ -596,6 +621,7 @@ function swimmer(g, b, s, t) {
   }
   glowDots(g, b, 0, H * 0.05, L * 0.7, H * 0.5, t, 9);
   if (b.glow) { // a lure
+    g.save(); lit(g, b, 'glow');
     const lx = L * 0.62, ly = -H * 0.75 + Math.sin(t * 1.5) * s * 0.01;
     g.strokeStyle = hsl(b.color, -5); g.lineWidth = Math.max(1, s * 0.006);
     g.beginPath(); g.moveTo(L * 0.38, -H * 0.35); g.quadraticCurveTo(L * 0.5, -H * 0.95, lx, ly); g.stroke();
@@ -603,6 +629,7 @@ function swimmer(g, b, s, t) {
     const gr = g.createRadialGradient(lx, ly, 0, lx, ly, s * 0.05);
     gr.addColorStop(0, `hsla(${b.accent},95%,75%,0.95)`); gr.addColorStop(1, `hsla(${b.accent},95%,70%,0)`);
     g.fillStyle = gr; g.beginPath(); g.arc(lx, ly, s * 0.05, 0, TAU); g.fill(); g.restore();
+    g.restore();
   }
   eyes(g, b, L * 0.38, -H * 0.12, s * 0.022 * b.eyeSize, s);
   feelers(g, b, L * 0.46, H * 0.05, s * 0.7, t);
@@ -640,6 +667,7 @@ function floater(g, b, s, t) {
     g.closePath(); g.fill();
   }
   // Gas bag
+  g.save(); lit(g, b, 'legs'); // (a floater's build is how flat its bag is)
   const grad = g.createRadialGradient(-R * 0.3, -Rh * 0.5, R * 0.05, 0, 0, R * 1.05);
   grad.addColorStop(0, `hsla(${b.color.h},${b.color.s}%,${Math.min(92, b.color.l + 30)}%,0.85)`);
   grad.addColorStop(0.7, `hsla(${b.color.h},${b.color.s}%,${b.color.l}%,0.6)`);
@@ -660,6 +688,7 @@ function floater(g, b, s, t) {
     g.bezierCurveTo(R * 0.9, Rh * 0.35, -R * 0.9, Rh * 0.35, -R, 0);
   }
   outline(g, b, s); g.lineWidth = Math.max(1, s * 0.006); g.stroke();
+  g.restore();
   // Veins, and on some a few bands across the bell
   g.strokeStyle = `hsla(${b.accent},50%,45%,${b.crystals ? 0 : 0.35})`;
   for (let i = -veins; i <= veins; i++) { g.beginPath(); g.moveTo(i * R * 0.36 / veins, Rh * 0.2); g.quadraticCurveTo(i * R * 0.9 / veins, -Rh * 0.5, i * R * 0.6 / veins, -Rh * 0.95); g.stroke(); }
@@ -671,7 +700,7 @@ function floater(g, b, s, t) {
   g.fillStyle = 'rgba(255,255,255,0.35)';
   g.beginPath(); g.ellipse(-R * 0.35, -Rh * 0.55, R * 0.18, Rh * 0.12, -0.5, 0, TAU); g.fill();
   // Eyes along the rim
-  if (b.eyes) for (let i = 0; i < Math.min(b.eyes, 4); i++) eye(g, b, -R * 0.45 + i * R * 0.3, Rh * 0.1, s * 0.016 * b.eyeSize, s);
+  if (b.eyes) { g.save(); lit(g, b, 'eyes'); for (let i = 0; i < Math.min(b.eyes, 4); i++) eye(g, b, -R * 0.45 + i * R * 0.3, Rh * 0.1, s * 0.016 * b.eyeSize, s); g.restore(); }
   glowDots(g, b, 0, -Rh * 0.3, R * 1.4, Rh, t, 10);
   g.restore();
   return R * 2 / pulse;
@@ -684,6 +713,7 @@ function burrower(g, b, s, t) {
   // Tunnel behind it
   g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineCap = 'round'; g.lineWidth = r0 * 2.9;
   g.beginPath(); for (let i = 0; i <= 30; i++) { const [x, y] = path(i / 30 * 1.6 - 0.1); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+  g.save(); lit(g, b, 'skin');
   for (let i = n; i >= 0; i--) {
     const u = i / n, [x, y] = path(u);
     const r = r0 * (1 - u * 0.45);
@@ -692,6 +722,7 @@ function burrower(g, b, s, t) {
     outline(g, b, s); g.lineWidth = Math.max(1, s * 0.006); g.stroke();
     if (b.covering === 'fur') { g.strokeStyle = hsl(b.color, 8, 0.8); for (let k = 0; k < 6; k++) { const a = -Math.PI * (0.2 + k * 0.12); g.beginPath(); g.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); g.lineTo(x + Math.cos(a) * r * 1.35, y + Math.sin(a) * r * 1.35); g.stroke(); } }
   }
+  g.restore();
   if (b.sacs) sacs(g, b, -L * 0.05, path(0.45)[1] - r0 * 0.9, s * 0.6, t);
   // Digging head
   const [hx, hy] = path(0);
@@ -704,6 +735,12 @@ function burrower(g, b, s, t) {
 }
 
 function plant(g, b, s, t) {
+  g.save(); lit(g, b, 'legs'); // (a plant's build is how it stands: a cushion, a frond or a spire)
+  const h = plantBody(g, b, s, t);
+  g.restore();
+  return h;
+}
+function plantBody(g, b, s, t) {
   const r = rng(Math.round(b.wobble * 1e6) + 5);
   const kind = b.build;
   const Hh = s * (kind === 'lanky' ? 1.1 : kind === 'squat' ? 0.38 : 0.75);
@@ -794,7 +831,7 @@ function crawler(g, b, s, t) {
   // snout
   g.fillStyle = hsl(b.color, 4);
   g.beginPath(); g.ellipse(L * 0.5, cy + Hh * 0.05, L * 0.08, Hh * 0.22, 0, 0, TAU); g.fill(); outline(g, b, s); g.stroke();
-  for (let i = 0; i < 4; i++) { // near legs and claws
+  for (let i = 0; i < 4; i++) { // near legs and claws (the far ones go unlit: they are behind)
     const x = -L * 0.33 + i * L * 0.22, sw = Math.sin(t * 2.5 + i + 1.5) * s * 0.015;
     g.strokeStyle = hsl(b.color, -4); g.lineWidth = s * 0.07;
     g.beginPath(); g.moveTo(x, cy + Hh * 0.2); g.lineTo(x + sw, -s * 0.02); g.stroke();

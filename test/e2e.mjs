@@ -2727,6 +2727,82 @@ await page.waitForFunction(() => window.xeno?.current);
   }
   await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
 }
+// The bench: the creature in the tank grown again under four sliders. It opens on the same animal, a slider changes
+// what its reading decides and lights that field note, the address keeps the readings, and Grow goes back.
+{
+  const { benchPos, benchValue } = await import('../js/xeno-gen.js');
+  const g25 = benchValue('g', benchPos('g', 2.5)); // 2.5 g, as near as the slider goes
+  await page.goto(base + 'xeno.html#M-42');
+  await page.waitForFunction(() => window.xeno?.current);
+  const before = await page.evaluate(() => ({ name: xeno.current.name.common, legs: xeno.current.body.legs, g: xeno.current.env.g }));
+  assert.equal(await page.getAttribute('#tab-grow', 'aria-selected'), 'true');
+  await page.click('#tab-bench');
+  assert.equal(await page.evaluate(() => xeno.mode), 'bench');
+  assert.equal(await page.getAttribute('#tab-bench', 'aria-selected'), 'true');
+  assert.equal(await shown('#bench-panel'), true);
+  assert.equal(await shown('#grow-panel'), false);
+  assert.equal(new URL(page.url()).hash, '#bench=M-42&g=1.235&air=1.07&light=red&heat=265.9');
+  assert.equal(await text('#specimen h2'), before.name, 'the bench opened on a different animal');
+  assert.match(await text('#specimen .eyebrow'), /^ON THE BENCH · FROM CLASS M’S SPECIMEN 0042$/);
+  assert.equal(await text('#o-g'), '1.2 g');
+  assert.match(await text('#passes'), /^These readings would pass for Class M, the file it was grown for\.$/);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the bench scrolls sideways on a phone');
+  // More gravity, more legs: at 2.5 g the six-legged walker stands on eight, the gravity note lights up and the
+  // legs glow in the tank for a moment.
+  await page.locator('#tank').scrollIntoViewIfNeeded();
+  await page.locator('#s-g').fill(String(benchPos('g', 2.5)));
+  assert.deepEqual(await page.evaluate(() => [xeno.current.body.legs, xeno.current.body.build, xeno.readings.g]), [8, 'squat', g25]);
+  assert.equal(await text('#o-g'), '2.5 g');
+  assert.match(await text('#specimen .notes li.lit'), /^GRAVITY · 2\.5 G\s+At 2\.5 g it weighs 2\.5 times/);
+  assert.equal(await page.locator('#specimen .notes li.lit').count(), 1);
+  await page.waitForFunction(() => (xeno.current.body.pulse?.legs || 0) > 0.2);
+  await page.waitForFunction(() => !xeno.current.body.pulse?.legs, null, { timeout: 5000 }); // and only for a moment
+  assert.match(await text('#passes'), /would pass for a super-Earth\.$/);
+  assert.equal(new URL(page.url()).hash, `#bench=M-42&g=${g25}&air=1.07&light=red&heat=265.9`);
+  await page.waitForFunction(() => !document.querySelector('#specimen .notes li.lit'), null, { timeout: 5000 });
+  // Only gravity moved: the colour and the eyes are the animal's own.
+  const lights = await page.evaluate(() => JSON.stringify([xeno.current.body.color, xeno.current.body.eyes]));
+  // No star: no eyes, and the light note says why. Thin air: breathing sacs.
+  await page.locator('#s-star').fill('0');
+  assert.deepEqual(await page.evaluate(() => [xeno.current.body.eyes, xeno.current.env.star]), [0, 'none']);
+  assert.match(await text('#specimen .notes li.lit'), /^LIGHT · NONE\s+With no star, the only light is what living things make\./);
+  await page.locator('#s-pressure').fill(String(benchPos('pressure', 0.01)));
+  assert.equal(await page.evaluate(() => xeno.current.body.sacs), true);
+  // A reload, or the link, brings back the same readings; one it can't read is the animal's own.
+  const hash = new URL(page.url()).hash;
+  await page.reload();
+  await page.waitForFunction(() => window.xeno?.current);
+  assert.equal(await page.evaluate(() => xeno.mode), 'bench');
+  assert.equal(new URL(page.url()).hash, hash);
+  assert.deepEqual(await page.evaluate(() => [xeno.current.body.legs, xeno.current.body.eyes, xeno.current.body.sacs]), [8, 0, true]);
+  assert.equal(await page.inputValue('#s-g'), String(benchPos('g', g25)));
+  // Send these readings shares that link.
+  await page.evaluate(() => { navigator.share = async data => { window.shared = data; }; });
+  await page.click('#bench-send');
+  assert.equal(await page.evaluate(() => window.shared.url), `https://engage.junkdrawer.works/xeno.html${hash}`);
+  // Back to its own readings, then Grow: the creature it started from, with its own link.
+  await page.click('#bench-reset');
+  assert.deepEqual(await page.evaluate(() => [xeno.current.name.common, xeno.current.body.legs, xeno.readings.g]), [before.name, before.legs, before.g]);
+  await page.locator('#s-g').fill(String(benchPos('g', 2.5)));
+  assert.equal(await page.evaluate(() => JSON.stringify([xeno.current.body.color, xeno.current.body.eyes])), lights);
+  await page.click('#tab-grow');
+  assert.deepEqual(await page.evaluate(() => [xeno.mode, xeno.current.name.common, xeno.current.body.legs, location.hash]), ['grow', before.name, before.legs, '#M-42']);
+  assert.equal(await shown('#grow-panel'), true);
+  // The arrow keys move between the tabs; the strip leaves the bench for a new creature.
+  await page.focus('#tab-grow');
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await page.evaluate(() => [xeno.mode, document.activeElement.id].join()), 'bench,tab-bench');
+  await page.getByRole('button', { name: 'Class K: Thin air, needs domes' }).click();
+  assert.deepEqual(await page.evaluate(() => [xeno.mode, xeno.current.classId]), ['grow', 'K']);
+  for (const [link, want] of [['#bench=M-42&g=junk&light=pink', [1.235, 'red']], ['#bench=world=Proxima%20b-7&g=0.38', [0.38, 'red']]]) {
+    await page.goto(base + 'xeno.html#M-1');
+    await page.goto(base + 'xeno.html' + link);
+    await page.reload();
+    await page.waitForFunction(() => window.xeno?.current);
+    assert.deepEqual(await page.evaluate(() => [xeno.mode, Math.round(xeno.readings.g * 1000) / 1000, xeno.readings.star]), ['bench', ...want], link);
+  }
+  assert.match(await text('#specimen .eyebrow'), /FROM PROXIMA B’S SPECIMEN 0007/);
+}
 await page.goto(base);
 await bridgeReady();
 

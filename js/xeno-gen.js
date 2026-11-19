@@ -65,6 +65,26 @@ export const CENSUS = {
   'hot-jupiter': { floater: 9999 },
   'ice-giant': { swimmer: 9999 },
 };
+// The least and most gravity (g), air (atm) and heat (K) among each class's creatures, for fileFor().
+export const READINGS = {
+  M: { g: [0.656, 1.35], pressure: [0.7, 1.6], temp: [260, 310] },
+  L: { g: [0.697, 1.22], pressure: [0.6, 1], temp: [250, 300] },
+  K: { g: [0.51, 1.19], pressure: [0.006, 0.03], temp: [180, 250] },
+  H: { g: [0.663, 1.34], pressure: [0.7, 1.3], temp: [300, 360] },
+  N: { g: [0.858, 1.09], pressure: [0.5, 1.2], temp: [290, 340] },
+  O: { g: [0.707, 1.83], pressure: [1, 3], temp: [270, 320] },
+  P: { g: [0.549, 1.62], pressure: [0.2, 0.6], temp: [150, 283] },
+  D: { g: [0.063, 0.235], pressure: [0, 0], temp: [40, 400] },
+  Y: { g: [0.763, 1.53], pressure: [4, 20], temp: [500, 900] },
+  J: { g: [0.68, 4.61], pressure: [2, 6], temp: [270, 330] },
+  T: { g: [13.7, 25.4], pressure: [2, 6], temp: [270, 330] },
+  R: { g: [0.294, 6.56], pressure: [0, 0], temp: [273, 290] },
+  'super-earth': { g: [1.26, 3.37], pressure: [1.5, 6], temp: [220, 450] },
+  'sub-neptune': { g: [1.01, 1.63], pressure: [10, 60], temp: [280, 330] },
+  'lava-world': { g: [1.72, 2.76], pressure: [7.28e-8, 0.01], temp: [600, 950] },
+  'hot-jupiter': { g: [0.804, 5.96], pressure: [0.5, 2], temp: [900, 1300] },
+  'ice-giant': { g: [0.9, 1.09], pressure: [200, 2000], temp: [280, 360] },
+};
 // census:end
 
 // The record-holders on the lab's shelf, by class and specimen number. `id` is the record takeCensus() works out;
@@ -91,11 +111,14 @@ export function takeCensus() {
     wings: [c => c.body.plan === 'flyer', c => c.body.size],
   };
   const first = {}; // the first specimen of each plan in each class, for a plan only one specimen has
+  const readings = {}; // the least and most of each reading among each class's
   for (const cls of Object.keys(WORLDS)) {
     counts[cls] = {};
+    const R = readings[cls] = { g: [Infinity, 0], pressure: [Infinity, 0], temp: [Infinity, 0] };
     for (let seed = 1; seed <= SEEDS; seed++) {
       const c = grow(cls, seed), plan = c.body.plan;
       counts[cls][plan] = (counts[cls][plan] || 0) + 1;
+      for (const k of ['g', 'pressure', 'temp']) R[k] = [Math.min(R[k][0], c.env[k]), Math.max(R[k][1], c.env[k])];
       first[`${cls}/${plan}`] ??= seed;
       for (const [id, [counted, score]] of Object.entries(rules)) {
         if (!counted(c)) continue;
@@ -108,7 +131,10 @@ export function takeCensus() {
   // The specimens that are the only one of their plan in their class.
   const lone = Object.entries(counts).flatMap(([cls, plans]) => Object.entries(plans).filter(([, n]) => n === 1).map(([plan]) => ({ cls, seed: first[`${cls}/${plan}`], plan })));
   if (lone.length) holders.lone = { ...lone[0], shared: lone.length };
-  return { counts, holders, total: Object.keys(WORLDS).length * SEEDS };
+  // Widened to three figures, as READINGS keeps them.
+  const out = (x, up) => (x === 0 ? 0 : Number(((up ? Math.ceil : Math.floor)(Number((x / 10 ** (Math.floor(Math.log10(x)) - 2)).toFixed(6))) * 10 ** (Math.floor(Math.log10(x)) - 2)).toPrecision(3)));
+  for (const R of Object.values(readings)) for (const k of Object.keys(R)) R[k] = [out(R[k][0], false), out(R[k][1], true)];
+  return { counts, holders, readings, total: Object.keys(WORLDS).length * SEEDS };
 }
 
 // How rare a specimen is among its class's 9,999, said on its card: nothing for the common plans, a line for a plan
@@ -147,8 +173,14 @@ export function rng(seed) { // mulberry32, as in js/planet-art.js
   let a = seed >>> 0;
   return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
+// A creature's dice: each throw is named for what it decides (`roll('legs')`), and a grown creature takes them from
+// its seed's numbers one after another, in the order its rules ask, as it always has. `rec`, when given, keeps each
+// number under its name (behind `prefix`), so the bench can hand the same number to the same decision again.
+function dice(next, rec, prefix) {
+  return key => { const v = next(); if (rec) rec[prefix + key] ??= v; return v; };
+}
 const lerp = (a, b, t) => a + (b - a) * t;
-const pick = (r, list) => list[Math.floor(r() * list.length)];
+const pick = (u, list) => list[Math.floor(u * list.length)];
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 // ---------- Numbers in words ----------
@@ -198,38 +230,39 @@ export function growFor(world, seed) {
   return make(found.cls.id, seed, found.world);
 }
 
-function make(classId, seed, world) {
+// `rec`, when given, is filled with every number the creature's dice gave, by what each decided (see bench()).
+function make(classId, seed, world, rec) {
   const cls = byId.get(classId);
   const W = WORLDS[classId];
   if (!cls || !W) throw new Error(`No such class: ${classId}`);
-  const r = rng(hash(world ? `${classId}/${world.name}` : classId) ^ seed);
+  const roll = dice(rng(hash(world ? `${classId}/${world.name}` : classId) ^ seed), rec, '');
   const t = cls.typical;
 
   // The world: width and mass rise together, so the gravity stays near what that kind of planet really has.
-  const k = r();
-  let width = lerp(t.width[0], t.width[1], clamp(k + (r() - 0.5) * 0.3, 0, 1));
+  const k = roll('k');
+  let width = lerp(t.width[0], t.width[1], clamp(k + (roll('width') - 0.5) * 0.3, 0, 1));
   // (A planetoid's range of masses is fifty-fold and its widths only four-fold, so for Class D the mass is what a
   // body that wide would weigh: its gravity then runs from a twentieth to a quarter of Earth's, as the Moon's does.)
   let mass = classId === 'D' ? clamp(massFor(width), t.mass[0], t.mass[1]) : lerp(t.mass[0], t.mass[1], k);
   // A real planet brings its own. Where only its mass is known, the width is what a rocky world that heavy would have.
   if (world) { mass = world.mass; width = world.width || widthFor(mass); }
   const g = mass / (width * width);
-  const habitat = pick(r, world?.habitats || W.habitats);
-  let temp = lerp(...(W.temp || (habitat === 'under-ice' ? [273, 283] : t.temp)), r());
+  const habitat = pick(roll('habitat'), world?.habitats || W.habitats);
+  let temp = lerp(...(W.temp || (habitat === 'under-ice' ? [273, 283] : t.temp)), roll('temp'));
   // (Under the ice the water is as warm as water under ice is, whatever the star does to the surface.)
   if (world && habitat !== 'under-ice') temp = world.teq;
-  const pressure = lerp(W.pressure[0], W.pressure[1], r());
-  let star = pick(r, W.stars);
+  const pressure = lerp(W.pressure[0], W.pressure[1], roll('pressure'));
+  let star = pick(roll('star'), W.stars);
   if (world) star = world.sun;
-  const dark = star === 'none' || habitat === 'under-ice' || (habitat === 'sea' && W.gas) || (habitat === 'burrow' && r() < 0.5);
+  const dark = star === 'none' || habitat === 'under-ice' || (habitat === 'sea' && W.gas) || (habitat === 'burrow' && roll('dark') < 0.5);
   // Air's density against Earth's at sea level: pressure over temperature, and hydrogen weighs a fourteenth of our air.
   const density = pressure * (288 / temp) * (W.gas ? 2.3 / 29 : 1);
   const chem = temp > 450 ? 'silicon' : W.gas && habitat === 'sea' && temp > 300 && classId === 'ice-giant' ? 'ammonia' : temp < 255 && habitat !== 'under-ice' ? 'brine' : 'water';
-  const env = { width, mass, g, habitat, temp, pressure, density, star, dark, chem, place: placeFor(classId, habitat, W, r), gas: !!W.gas };
+  const env = { width, mass, g, habitat, temp, pressure, density, star, dark, chem, place: placeFor(classId, habitat, W, roll), gas: !!W.gas };
   if (world?.places) env.place = world.places[Math.floor(k * world.places.length)];
 
-  const body = shape(env, classId, r);
-  const name = names(env, body, classId, rng(hash(`name/${world ? `${classId}/${world.name}` : classId}`) ^ seed));
+  const body = shape(env, classId, roll);
+  const name = names(env, body, classId, dice(rng(hash(`name/${world ? `${classId}/${world.name}` : classId}`) ^ seed), rec, 'name.'));
   const c = { cls, classId, seed, env, body, name, notes: notes(env, body, cls), odds: W.odds };
   if (world) { c.world = world; c.notes = worldNotes(c); }
   return c;
@@ -265,17 +298,17 @@ function worldNotes(c) {
   }), { k: 'known', label: 'What we really know', text: w.note }];
 }
 
-function placeFor(classId, habitat, W, r) {
-  if (habitat === 'under-ice') return pick(r, ['vent', 'sub-ice']);
-  if (habitat === 'sea' && !['O', 'sub-neptune', 'ice-giant'].includes(classId)) return pick(r, ['reef', 'kelp', 'shallows']);
-  return pick(r, W.place);
+function placeFor(classId, habitat, W, roll) {
+  if (habitat === 'under-ice') return pick(roll('place'), ['vent', 'sub-ice']);
+  if (habitat === 'sea' && !['O', 'sub-neptune', 'ice-giant'].includes(classId)) return pick(roll('place'), ['reef', 'kelp', 'shallows']);
+  return pick(roll('place'), W.place);
 }
 
 function hash(s) { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
 
-function shape(env, classId, r) {
+function shape(env, classId, roll) {
   const { g, habitat, temp, pressure, density, star, dark, chem } = env;
-  const b = { plan: 'walker', legs: 0, eyes: 2, eyeSize: 1, covering: 'skin', sail: false, sacs: false, armor: false, wings: false, glow: false, feelers: false, tail: r() < 0.7, crystals: false };
+  const b = { plan: 'walker', legs: 0, eyes: 2, eyeSize: 1, covering: 'skin', sail: false, sacs: false, armor: false, wings: false, glow: false, feelers: false, tail: roll('tail') < 0.7, crystals: false };
 
   // How easily something could fly: thicker air holds it up, stronger gravity pulls it down.
   const lift = density / g;
@@ -287,7 +320,7 @@ function shape(env, classId, r) {
   else if (habitat === 'rock') b.plan = 'crawler';
 
   // Size: on land the square-cube law caps it, roughly with 1/g. Water and gas hold a body up, so those can be huge.
-  const u = r();
+  const u = roll('size');
   if (b.plan === 'walker') b.size = clamp(lerp(0.4, 2.6, u) / Math.pow(g, 1.1), 0.05, 8);
   else if (b.plan === 'flyer') b.size = clamp(lerp(0.6, 3, u) * Math.sqrt(lift / 2), 0.3, 12);
   else if (b.plan === 'swimmer') b.size = lerp(0.5, dark ? 6 : 18, u * u);
@@ -298,20 +331,20 @@ function shape(env, classId, r) {
 
   // Legs: more of them, and thicker, as gravity rises. Thick-set or lanky to match.
   if (b.plan === 'walker') {
-    b.legs = g >= 2.2 ? 8 : g >= 1.4 ? 6 : g < 0.6 ? 2 : pick(r, [2, 4, 4, 6]);
+    b.legs = g >= 2.2 ? 8 : g >= 1.4 ? 6 : g < 0.6 ? 2 : pick(roll('legs'), [2, 4, 4, 6]);
     b.build = g >= 1.4 ? 'squat' : g < 0.7 ? 'lanky' : 'even';
   } else if (b.plan === 'flyer') { b.legs = 2; b.build = 'lanky'; b.wings = true; }
   else if (b.plan === 'crawler') { b.legs = chem === 'silicon' ? 0 : 8; b.build = 'squat'; }
   else if (b.plan === 'floater') b.build = g >= 6 ? 'squat' : 'even';
-  else if (b.plan === 'swimmer') b.build = pick(r, ['squat', 'even', 'even', 'lanky']);
+  else if (b.plan === 'swimmer') b.build = pick(roll('build'), ['squat', 'even', 'even', 'lanky']);
   else b.build = g >= 1.6 ? 'squat' : g < 0.7 ? 'lanky' : 'even';
 
   // Eyes follow the light: none in the dark, huge under a dim red sun, small and shaded under a fierce one.
-  if (dark) { b.eyes = 0; b.feelers = true; b.glow = b.plan === 'swimmer' || r() < 0.4; }
+  if (dark) { b.eyes = 0; b.feelers = true; b.glow = b.plan === 'swimmer' || roll('glow') < 0.4; }
   else if (b.plan === 'plant') b.eyes = 0;
-  else if (star === 'red') { b.eyes = pick(r, [2, 2, 4]); b.eyeSize = 1.7; }
-  else if (star === 'orange') { b.eyes = pick(r, [2, 2, 3]); b.eyeSize = 1.3; }
-  else { b.eyes = pick(r, [2, 2, 2, 4]); b.eyeSize = temp > 300 && habitat === 'land' ? 0.75 : 1; }
+  else if (star === 'red') { b.eyes = pick(roll('eyes'), [2, 2, 4]); b.eyeSize = 1.7; }
+  else if (star === 'orange') { b.eyes = pick(roll('eyes'), [2, 2, 3]); b.eyeSize = 1.3; }
+  else { b.eyes = pick(roll('eyes'), [2, 2, 2, 4]); b.eyeSize = temp > 300 && habitat === 'land' ? 0.75 : 1; }
   if (b.plan === 'crawler' && chem !== 'silicon') b.eyes = 0;
 
   // Skin: what to wear against cold, heat, thin air and hard radiation.
@@ -324,21 +357,22 @@ function shape(env, classId, r) {
   else if (temp > 310 || star === 'red' || classId === 'Y') b.covering = 'scales';
   b.sail = (b.plan === 'walker') && temp > 305 && chem !== 'silicon';
   b.sacs = (b.plan === 'walker' || b.plan === 'burrower') && pressure < 0.1;
-  b.armor = classId === 'Y' || (star === 'red' && b.plan === 'walker' && r() < 0.5);
+  b.armor = classId === 'Y' || (star === 'red' && b.plan === 'walker' && roll('armor') < 0.5);
   if (b.plan === 'floater' || b.plan === 'burrower' || b.plan === 'plant') b.tail = false;
 
   // Colour, as a hue and lightness, from what it has to soak up or hide against.
-  if (dark) b.color = { h: lerp(180, 260, r()), s: 20, l: 78 };
-  else if (chem === 'silicon') b.color = { h: lerp(20, 50, r()), s: 30, l: 62 };
-  else if (star === 'red') b.color = { h: lerp(270, 330, r()), s: 30, l: 22 };
-  else if (star === 'orange') b.color = { h: lerp(8, 30, r()), s: 55, l: 42 };
-  else if (habitat === 'sea' || habitat === 'cloud') b.color = { h: lerp(170, 220, r()), s: 50, l: 52 };
-  else if (temp > 300) b.color = { h: lerp(30, 45, r()), s: 45, l: 62 };
-  else b.color = { h: lerp(80, 140, r()), s: 40, l: 38 };
-  if (b.plan === 'plant' && star === 'yellow') b.color = { h: lerp(95, 130, r()), s: 50, l: 34 };
+  const hue = roll('hue');
+  if (dark) b.color = { h: lerp(180, 260, hue), s: 20, l: 78 };
+  else if (chem === 'silicon') b.color = { h: lerp(20, 50, hue), s: 30, l: 62 };
+  else if (star === 'red') b.color = { h: lerp(270, 330, hue), s: 30, l: 22 };
+  else if (star === 'orange') b.color = { h: lerp(8, 30, hue), s: 55, l: 42 };
+  else if (habitat === 'sea' || habitat === 'cloud') b.color = { h: lerp(170, 220, hue), s: 50, l: 52 };
+  else if (temp > 300) b.color = { h: lerp(30, 45, hue), s: 45, l: 62 };
+  else b.color = { h: lerp(80, 140, hue), s: 40, l: 38 };
+  if (b.plan === 'plant' && star === 'yellow') b.color = { h: lerp(95, 130, roll('leaf')), s: 50, l: 34 };
   if (b.covering === 'fur') b.color.l = Math.max(b.color.l, 70);
-  b.accent = (b.color.h + lerp(150, 210, r())) % 360;
-  b.wobble = r();
+  b.accent = (b.color.h + lerp(150, 210, roll('accent'))) % 360;
+  b.wobble = roll('wobble');
   return b;
 }
 
@@ -412,7 +446,7 @@ function colourOf({ h, l }) {
 // Small and big for each body plan, in metres: the bottom and top third or so of what the lab grows.
 const SIZES = { walker: [0.6, 1.9], flyer: [1.2, 3.5], swimmer: [1.5, 8], floater: [90, 420], burrower: [0.45, 1], plant: [3, 14], crawler: [1.1, 2] };
 
-function names(env, b, classId, nr) {
+function names(env, b, classId, roll) {
   const tiny = b.plan === 'crawler' && !b.crystals; // a mite: its sizes are in millimetres
   const [small, big] = tiny ? [0.0015, 0.003] : SIZES[b.plan];
   const size = b.size < small ? 'small' : b.size > big ? 'big' : null;
@@ -431,7 +465,7 @@ function names(env, b, classId, nr) {
   if (b.plan === 'floater') roots.push('Nephelo');
   if (size) roots.push(size === 'big' ? 'Mega' : 'Micro');
   roots.push(colourRoot);
-  if (roots.length < 3) roots.push(pick(nr, ['Xeno', 'Neo', 'Allo']));
+  if (roots.length < 3) roots.push(pick(roll('prefix'), ['Xeno', 'Neo', 'Allo']));
 
   // Its looks: every list that is true of it, then one of those, then one word from that.
   const looks = [LOOKS[colour]];
@@ -451,10 +485,12 @@ function names(env, b, classId, nr) {
   if (size) looks.push(LOOKS[size]);
 
   const nouns = b.plan === 'crawler' ? NOUNS.crawler[b.crystals ? 'rock' : 'mite'] : NOUNS[b.plan][b.build] || Object.values(NOUNS[b.plan])[0];
+  const genus = pick(roll('root'), roots) + pick(roll('ending'), ENDINGS[b.plan]);
+  const species = pick(roll('species'), EPITHETS[classId]);
+  const look = pick(roll('looks'), looks); // which thing true of it the name says, then which word for it
   return {
-    genus: pick(nr, roots) + pick(nr, ENDINGS[b.plan]),
-    species: pick(nr, EPITHETS[classId]),
-    common: `${pick(nr, pick(nr, looks))} ${env.place} ${pick(nr, nouns)}`,
+    genus, species,
+    common: `${pick(roll('look'), look)} ${env.place} ${pick(roll('noun'), nouns)}`,
   };
 }
 
@@ -531,7 +567,9 @@ function notes(env, b, cls) {
   // Light
   let lt;
   const eyes = b.eyes > 2 ? `${NUM[b.eyes]} eyes` : 'eyes';
-  if (star === 'none') lt = 'With no star, the only light is what living things make. It has no eyes; long feelers taste the water, and it flashes patterns of its own light to find others.';
+  if (star === 'none' && (habitat === 'sea' || habitat === 'under-ice')) lt = 'With no star, the only light is what living things make. It has no eyes; long feelers taste the water, and it flashes patterns of its own light to find others.';
+  // (Only the bench takes a star away from a world with ground or cloud.)
+  else if (star === 'none') lt = `With no star, the only light is what living things make. It has no eyes${b.plan === 'floater' || b.plan === 'plant' ? '' : ' and feels its way with long feelers'}${b.glow ? ', and it flashes patterns of its own light to find others' : ''}.`;
   else if (dark) lt = `Its world circles ${STARS[star].name}, but no sunlight reaches where it lives. It has no eyes and finds its way with feelers${b.glow ? ', and it carries its own glowing lure' : ''}.`;
   else if (b.plan === 'crawler' && !b.eyes) lt = `Its world circles ${STARS[star].name}, but at its size eyes are no use: it feels its way grain by grain.${star === 'red' ? ' Its dark skin soaks up what warmth the dim red light brings.' : ''}`;
   else if (b.plan === 'plant') lt = star === 'red'
@@ -579,6 +617,101 @@ function notes(env, b, cls) {
   out.push({ k: 'heat', label: `Heat · ${signed(celsius(temp))} °C`, text: ht });
 
   return out;
+}
+
+// ---------- The bench ----------
+
+// The bench grows a creature again under readings set by hand: four sliders, for gravity, air, light and heat. It
+// starts from a creature the lab has grown and keeps its world's kind of place and its own dice: every decision takes
+// the number it took before (a decision it never made takes one of its own, from the seed and its name), so moving
+// one slider changes only what that reading decides, and the same readings always grow the same animal.
+// The scales run from the lightest pull, thinnest air and coldest place the lab grows for (Enceladus, a planetoid's
+// none at all, a planetoid's night) to the strongest, thickest and hottest. Gravity, air and heat are spaced by
+// factors, as the readings themselves are; the bottom of the air slider is no air at all.
+// The marks: surface gravity and air pressure from NASA's planetary fact sheets (nssdc.gsfc.nasa.gov: the Moon's
+// 1.62 m/s² against Earth's 9.80, Mars's mean 3.73 and Jupiter's mean at its 1-bar level 25.92 against 9.82; Mars
+// 6.36 millibars and Venus 92 bars at the surface, against Earth's 1.013); water freezes at 273.15 K and boils at
+// 373.15 K under Earth's air; and above 450 K the lab stops building bodies of water.
+export const BENCH = {
+  g: { lo: 0.01, hi: 30, marks: [['Moon', 0.165], ['Mars', 0.38], ['Earth', 1], ['Jupiter', 2.64]] },
+  pressure: { lo: 0.001, hi: 2000, marks: [['Mars', 0.0063], ['Earth', 1], ['Venus', 91]] },
+  temp: { lo: 40, hi: 1300, marks: [['Freezes', 273.15], ['Boils', 373.15], ['No water', 450]] },
+  star: { marks: [['No star', 'none'], ['Red dwarf', 'red'], ['Orange dwarf', 'orange'], ['Sun-like', 'yellow']] },
+};
+export const STEPS = 1000; // a slider's positions, 0 to STEPS (the light slider has four)
+const STAR_ORDER = BENCH.star.marks.map(m => m[1]);
+// Four figures, as a link carries a reading: enough that every place on a slider reads differently.
+export const four = x => (x === 0 ? 0 : Number(x.toPrecision(4)));
+
+// Where a reading sits on its slider, and the reading at a place on it.
+export function benchPos(kind, v) {
+  if (kind === 'star') return Math.max(0, STAR_ORDER.indexOf(v));
+  const { lo, hi } = BENCH[kind];
+  if (kind === 'pressure' && !(v > 0)) return 0;
+  const u = (Math.log(clamp(v, lo, hi)) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
+  return kind === 'pressure' ? 1 + Math.round(u * (STEPS - 1)) : Math.round(u * STEPS);
+}
+export function benchValue(kind, pos) {
+  if (kind === 'star') return STAR_ORDER[clamp(Math.round(pos), 0, 3)];
+  const { lo, hi } = BENCH[kind];
+  if (kind === 'pressure' && pos <= 0) return 0;
+  const u = kind === 'pressure' ? (pos - 1) / (STEPS - 1) : pos / STEPS;
+  return four(Math.exp(Math.log(lo) + clamp(u, 0, 1) * (Math.log(hi) - Math.log(lo))));
+}
+
+// The readings a creature was grown under, as the bench takes them.
+export const readingsOf = c => ({ g: c.env.g, pressure: c.env.pressure, star: c.env.star, temp: c.env.temp });
+
+// `from` is a creature the lab grows ({ id, seed } or { world, seed }); `readings` is { g, pressure, star, temp }.
+export function bench(from, readings) {
+  const rec = {};
+  const found = from.world ? worldByName(from.world) : null;
+  if (from.world && (!found || !grows(found.world))) throw new Error(`No readings to grow for: ${from.world}`);
+  const start = make(found ? found.cls.id : from.id, from.seed, found?.world || null, rec);
+  const { classId, seed, cls } = start, W = WORLDS[classId];
+  const own = key => rec[key] ?? rng(hash(`bench/${key}`) ^ seed)();
+  const { g, pressure, star, temp } = readings;
+  const { habitat, width } = start.env;
+  // The same rules as make() above, from the readings given.
+  const dark = star === 'none' || habitat === 'under-ice' || (habitat === 'sea' && W.gas) || (habitat === 'burrow' && own('dark') < 0.5);
+  const density = pressure * (288 / temp) * (W.gas ? 2.3 / 29 : 1);
+  const chem = temp > 450 ? 'silicon' : W.gas && habitat === 'sea' && temp > 300 && classId === 'ice-giant' ? 'ammonia' : temp < 255 && habitat !== 'under-ice' ? 'brine' : 'water';
+  const env = { width, mass: g === start.env.g ? start.env.mass : g * width * width, g, habitat, temp, pressure, density, star, dark, chem, place: start.env.place, gas: !!W.gas };
+  const body = shape(env, classId, own);
+  const name = names(env, body, classId, key => own(`name.${key}`));
+  return { cls, classId, seed, env, body, name, notes: notes(env, body, cls), odds: W.odds, bench: { from: start.world ? { world: start.world.name, seed } : { id: classId, seed }, start, readings: { g, pressure, star, temp } } };
+}
+
+// Which of the creature's parts differ between two bodies, for the bench to point at: what the art can light up.
+export function changedParts(a, b) {
+  if (!a || !b) return [];
+  if (a.plan !== b.plan) return ['body'];
+  const out = [];
+  if (a.legs !== b.legs || a.build !== b.build) out.push('legs');
+  if (a.eyes !== b.eyes || a.eyeSize !== b.eyeSize) out.push('eyes');
+  if (a.covering !== b.covering || a.crystals !== b.crystals) out.push('skin');
+  for (const k of ['sail', 'sacs', 'armor', 'glow', 'feelers', 'tail']) if (a[k] !== b[k]) out.push(k);
+  return out;
+}
+
+// Which survey file a set of readings would pass for: the file whose creatures' readings (READINGS, from the census)
+// they sit inside or nearest to, counting a factor of two in gravity, three in air and 1.4 in heat as one step off,
+// a star its creatures never have as a step and a half, and a kind of place they never live in as one. Inside more
+// than one, the creature's own (`own`, a class id) if it is one of them, or else the one whose middle is nearest.
+export function fileFor({ g, pressure, star, temp }, habitat, own) {
+  const L = x => Math.log10(Math.max(x, 1e-4));
+  const off = (v, [lo, hi], step) => (v < lo ? (L(lo) - L(v)) / step : v > hi ? (L(v) - L(hi)) / step : 0);
+  const mid = (v, [lo, hi], step) => Math.abs(L(v) - (L(lo) + L(hi)) / 2) / step;
+  let best = null;
+  for (const [id, R] of Object.entries(READINGS)) {
+    const W = WORLDS[id];
+    const d = off(g, R.g, 0.3) + off(pressure, R.pressure, 0.5) + off(temp, R.temp, 0.15)
+      + (W.stars.includes(star) ? 0 : 1.5) + (!habitat || W.habitats.includes(habitat) ? 0 : 1);
+    const m = mid(g, R.g, 0.3) + mid(pressure, R.pressure, 0.5) + mid(temp, R.temp, 0.15);
+    const mine = id === own ? -1 : 0;
+    if (!best || d < best.d - 1e-9 || (Math.abs(d - best.d) < 1e-9 && mine + m < best.mine + best.m)) best = { id, d, m: mine ? 0 : m, mine };
+  }
+  return byId.get(best.id);
 }
 
 export function summary(c) {

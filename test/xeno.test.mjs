@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS, SEEDS as LAB_SEEDS, CENSUS, RECORDS, takeCensus, rarityFor, recordFor, sizeText, gText } from '../js/xeno-gen.js';
+import { grow, growFor, WORLDS, ODDS, oddsFor, summary, EPITHETS, ENDINGS, NOUNS, LOOKS, SEEDS as LAB_SEEDS, CENSUS, READINGS, RECORDS, takeCensus, rarityFor, recordFor, sizeText, gText, bench, BENCH, STEPS, benchPos, benchValue, readingsOf, changedParts, fileFor } from '../js/xeno-gen.js';
 import { CLASSES, byId, LAB_WORLDS, grows, worldByName } from '../js/classes.js';
 import { widthFor } from '../js/physics.js';
 import { SPECIMENS, specimensFor } from '../js/species.js';
@@ -323,10 +323,11 @@ test('a real planet is found by its name however the link spells it', () => {
 // about how creatures are grown has changed, it fails here: run `node tools/xeno-census.mjs`, which rewrites the
 // table and prints who holds each record now, then set RECORDS to match.
 test('the census and the lab’s records are what growing every creature gives', () => {
-  const { counts, holders, total } = takeCensus();
+  const { counts, holders, readings, total } = takeCensus();
   assert.equal(total, 169983);
   assert.equal(LAB_SEEDS, 9999);
   assert.deepEqual(CENSUS, counts, 'the creatures have changed since the census was taken: run `node tools/xeno-census.mjs`');
+  assert.deepEqual(READINGS, readings, 'the readings the bench names files by have changed: run `node tools/xeno-census.mjs`');
   for (const [cls, plans] of Object.entries(counts)) assert.equal(Object.values(plans).reduce((a, b) => a + b, 0), 9999, cls);
   // Every record on the shelf is held by the specimen it names, and by that one alone.
   assert.deepEqual(RECORDS.map(r => r.id).sort(), Object.keys(holders).sort(), 'the shelf and the census disagree about which records there are');
@@ -369,4 +370,103 @@ test('a specimen’s card says how rare it is in its class, and nothing when it 
   // With a census in which a plan were the only one of its kind among an unnamed class, the words still read.
   assert.equal(rarityFor(flyer('super-earth'), { 'super-earth': { flyer: 1 } }), 'One of a kind: the only super-earth specimen that flies.');
   assert.equal(rarityFor(flyer('super-earth'), { 'super-earth': { flyer: 40 } }), 'Uncommon: 40 of the super-earth’s 9,999 specimens fly.');
+});
+
+// ---------- The bench ----------
+
+const BODY = c => JSON.stringify([c.body, c.name, c.notes]);
+
+test('the bench grows the same creature at its own readings, for a class or a real planet', () => {
+  for (const c of all.filter((_, i) => i % 7 === 0)) assert.equal(BODY(bench({ id: c.classId, seed: c.seed }, readingsOf(c))), BODY({ ...c, notes: c.notes }), `${c.classId}-${c.seed}`);
+  for (const { world } of LAB_WORLDS) for (const seed of [1, 42, 977, 5000]) {
+    const c = growFor(world, seed), b = bench({ world: world.name, seed }, readingsOf(c));
+    assert.equal(JSON.stringify([b.body, b.name]), JSON.stringify([c.body, c.name]), `${world.name}-${seed}`);
+    assert.deepEqual(b.bench.from, { world: world.name, seed });
+  }
+  // And the same readings always grow the same one.
+  assert.deepEqual(bench({ id: 'M', seed: 42 }, { g: 2.5, pressure: 0.01, star: 'red', temp: 250 }), bench({ id: 'M', seed: 42 }, { g: 2.5, pressure: 0.01, star: 'red', temp: 250 }));
+  assert.throws(() => bench({ world: 'GJ 1214 b', seed: 1 }, { g: 1, pressure: 1, star: 'red', temp: 288 }));
+});
+
+test('a slider changes only what its reading decides', () => {
+  const same = (a, b, keys, where) => { for (const k of keys) assert.deepEqual(b.body[k], a.body[k], `${where}: ${k}`); };
+  let legs = 0, eyes = 0, fur = 0, wings = 0;
+  for (const c of all.filter((_, i) => i % 5 === 0)) {
+    const from = { id: c.classId, seed: c.seed }, r = readingsOf(c), where = `${c.classId}-${c.seed}`;
+    // Gravity: the colour, the eyes and the coat stay as they were.
+    for (const g of [0.05, 0.4, 2.6, 12]) {
+      const b = bench(from, { ...r, g });
+      same(c, b, ['color', 'accent', 'wobble', 'eyes', 'eyeSize', 'covering', 'glow'], `${where} at ${g} g`);
+      if (b.body.legs !== c.body.legs) legs++;
+      if (b.body.plan !== c.body.plan) wings++;
+    }
+    // Light: a walker keeps its legs, build and size. (A swimmer in a sea gone dark grows smaller.)
+    for (const star of ['none', 'red', 'orange', 'yellow']) {
+      const b = bench(from, { ...r, star });
+      same(c, b, c.body.plan === 'walker' ? ['plan', 'legs', 'build', 'size', 'sacs', 'tail'] : ['plan'], `${where} under ${star}`);
+      if (b.body.eyes !== c.body.eyes || b.body.eyeSize !== c.body.eyeSize) eyes++;
+    }
+    // Heat: a walker that stays a walker keeps its legs. (Cold air is thicker, and can lift a walker into the air.)
+    for (const temp of [200, 300, 340]) {
+      const b = bench(from, { ...r, temp });
+      same(c, b, b.body.plan === 'walker' && c.body.plan === 'walker' ? ['legs', 'build', 'wobble'] : ['wobble'], `${where} at ${temp} K`);
+      if (b.body.covering !== c.body.covering) fur++;
+    }
+  }
+  assert.ok(legs > 100 && eyes > 100 && fur > 100 && wings > 10, `${legs} leg changes, ${eyes} eye changes, ${fur} coat changes, ${wings} walkers that took wing or landed`);
+  // More gravity, more legs: the Class M walker at 1.2 g on six, at 2.5 g on eight and squat, at 0.4 g on two and lanky.
+  const m = grow('M', 42);
+  assert.deepEqual([m.body.plan, m.body.legs], ['walker', 6]);
+  const at = g => bench({ id: 'M', seed: 42 }, { ...readingsOf(m), g }).body;
+  assert.deepEqual([at(2.5).legs, at(2.5).build, at(0.4).legs, at(0.4).build], [8, 'squat', 2, 'lanky']);
+  assert.ok(at(0.4).size > m.body.size && at(2.5).size < m.body.size);
+  // What changed, as the art lights it up.
+  assert.deepEqual(changedParts(m.body, at(2.5)), ['legs']);
+  assert.deepEqual(changedParts(m.body, m.body), []);
+  assert.deepEqual(changedParts(m.body, bench({ id: 'M', seed: 42 }, { ...readingsOf(m), g: 0.3, pressure: 20 }).body), ['body']);
+});
+
+test('the bench’s sliders: where a reading sits and what each place reads', () => {
+  for (const kind of ['g', 'pressure', 'temp']) {
+    const { lo, hi, marks } = BENCH[kind];
+    assert.equal(benchValue(kind, STEPS), hi);
+    assert.equal(benchValue(kind, kind === 'pressure' ? 1 : 0), lo);
+    for (let p = 0; p <= STEPS; p += 7) assert.equal(benchPos(kind, benchValue(kind, p)), p, `${kind} at ${p}`);
+    let last = -1;
+    for (const [, v] of marks) { const p = benchPos(kind, v); assert.ok(p > last + 30, `${kind}: the marks are crowded at ${v}`); last = p; }
+  }
+  assert.equal(benchValue('pressure', 0), 0);
+  assert.equal(benchPos('pressure', 0), 0);
+  assert.deepEqual([0, 1, 2, 3].map(p => benchValue('star', p)), ['none', 'red', 'orange', 'yellow']);
+  // Every creature the lab grows sits on the sliders, not off either end.
+  for (const c of all) for (const k of ['g', 'temp']) assert.ok(c.env[k] >= BENCH[k].lo && c.env[k] <= BENCH[k].hi, `${c.classId}-${c.seed}: ${k} ${c.env[k]}`);
+  for (const { world } of LAB_WORLDS) assert.ok(growFor(world, 1).env.g >= BENCH.g.lo, world.name);
+});
+
+test('the bench says which survey file its readings would pass for', () => {
+  const at = (g, pressure, star, temp, habitat) => fileFor({ g, pressure, star, temp }, habitat).id;
+  assert.equal(at(1, 1, 'yellow', 288, 'land'), 'M');
+  assert.equal(at(0.38, 0.0063, 'yellow', 210, 'burrow'), 'K');
+  assert.equal(at(0.9, 1, 'yellow', 320, 'cloud'), 'N');
+  assert.equal(at(0.17, 0, 'yellow', 250, 'rock'), 'D');
+  assert.equal(at(2.5, 3, 'orange', 300, 'land'), 'super-earth');
+  assert.equal(at(1, 0, 'none', 280, 'under-ice'), 'R');
+  // A creature's own readings pass for its own file, and any other a reading the bench names holds them all.
+  for (const c of all) {
+    const id = fileFor(readingsOf(c), c.env.habitat, c.classId).id;
+    assert.equal(id, c.classId, `${c.classId}-${c.seed}`);
+    const other = fileFor(readingsOf(c), c.env.habitat).id, R = READINGS[other];
+    for (const k of ['g', 'pressure', 'temp']) assert.ok(c.env[k] >= R[k][0] && c.env[k] <= R[k][1], `${c.classId}-${c.seed} passed for ${other} with ${k} ${c.env[k]}`);
+  }
+});
+
+test('with no star, a creature on land isn’t said to taste the water', () => {
+  for (const c of all.filter(c => c.env.habitat !== 'sea' && c.env.habitat !== 'under-ice').slice(0, 800)) {
+    const b = bench({ id: c.classId, seed: c.seed }, { ...readingsOf(c), star: 'none' });
+    const light = b.notes.find(n => n.k === 'light');
+    assert.doesNotMatch(light.text, /water/, `${c.classId}-${c.seed}: ${light.text}`);
+    assert.match(light.text, /^With no star, the only light is what living things make\. It has no eyes/);
+    assert.equal(light.label, 'Light · none');
+    assert.equal(b.body.eyes, 0);
+  }
 });

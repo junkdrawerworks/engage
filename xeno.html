@@ -45,19 +45,34 @@
 
     <div class="lab">
       <div class="bench">
+        <div class="lab-tabs" role="tablist" aria-label="The lab">
+          <button class="lab-tab" id="tab-grow" type="button" role="tab" aria-selected="true" aria-controls="grow-panel">Grow</button>
+          <button class="lab-tab" id="tab-bench" type="button" role="tab" aria-selected="false" aria-controls="bench-panel" tabindex="-1">Bench</button>
+        </div>
         <div class="tank">
           <canvas id="tank" aria-hidden="true"></canvas>
           <p class="tank-tag" id="tank-tag"></p>
         </div>
-        <div class="bench-actions">
-          <button class="primary" id="again" type="button">Grow another</button>
-          <button class="secondary" id="keep" type="button">Keep in a jar</button>
+        <div id="grow-panel" role="tabpanel" aria-labelledby="tab-grow">
+          <div class="bench-actions">
+            <button class="primary" id="again" type="button">Grow another</button>
+            <button class="secondary" id="keep" type="button">Keep in a jar</button>
+          </div>
+          <div class="bench-foot">
+            <button class="text-button" id="send" type="button">Send this creature</button>
+            <p class="kept-note" id="kept-note" hidden></p>
+          </div>
+          <p class="unsaved" id="keep-unsaved" role="status" hidden></p>
         </div>
-        <div class="bench-foot">
-          <button class="text-button" id="send" type="button">Send this creature</button>
-          <p class="kept-note" id="kept-note" hidden></p>
+        <div class="sliders" id="bench-panel" role="tabpanel" aria-labelledby="tab-bench" hidden>
+          <p class="bench-intro">The same animal, grown again under readings you set. Move one and watch what changes.</p>
+          <div id="slider-list"></div>
+          <p class="passes" id="passes" role="status"></p>
+          <div class="bench-foot">
+            <button class="text-button" id="bench-reset" type="button">Back to its own readings</button>
+            <button class="text-button" id="bench-send" type="button">Send these readings</button>
+          </div>
         </div>
-        <p class="unsaved" id="keep-unsaved" role="status" hidden></p>
         <p class="link-note" id="link-note" role="status" hidden>That link didn’t name a creature the lab knows, so here’s a new one.</p>
       </div>
 
