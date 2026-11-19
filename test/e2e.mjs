@@ -5356,6 +5356,13 @@ await page.emulateMedia({ reducedMotion: null });
   await p.goto(base + 'system.html#star=Vega&place');
   await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Vega');
   assert.equal(await p.locator('#planet-list').isHidden(), true);
+  assert.match(await p.locator('#sys-intro').innerText(), /No planets are confirmed here yet/);
+  // A star the log says has planets, though this room doesn't draw them yet, is not called empty.
+  await p.goto(base + 'system.html#star=Epsilon%20Eridani');
+  await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Ran');
+  assert.match(await p.locator('#sys-intro').innerText(), /^Epsilon Eridani, .* Its planets aren’t drawn here yet: the captain’s log has what is known of them\./);
+  await p.goto(base + 'system.html#star=HIP%203');
+  await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'HIP 3');
   assert.match(await p.locator('#sys-intro').innerText(), /No planets are known here yet/);
   assert.match(await p.locator('#place-readings').innerText(), /Starlight/i);
 

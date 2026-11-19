@@ -2,7 +2,7 @@
 // shaded; tap one and the ship glides in to it, lit from its star, with its readings. Below, a planet of your own to
 // place anywhere round the star (the survey's "Your stars" opens here). The rules are in js/worlds.js.
 import { loadCatalog } from './catalog.js';
-import { titleFor } from './log.js';
+import { notesFor, titleFor } from './log.js';
 import { DESTINATIONS } from './destinations.js';
 import { LY_PER_PC, formatLy, starColor } from './physics.js';
 import { planetAt, jdOf } from './ephemeris.js';
@@ -300,7 +300,9 @@ function render() {
   $('sys-intro').textContent = view.unknown ? 'That star isn’t in the charts, so here is the star the ship is at.'
     : view.unmeasured ? `${view.title}: the catalogue has no measured distance for this star, so how bright it really is, and where its temperate zone would be, can’t be worked out.`
     : n ? `${where}. ${n === 8 && view.i === 0 ? 'Eight planets' : `${n} known planets`}, drawn on their orbits at true spacing. Tap one to fly in.`
-    : `${where}. No planets are known here yet: place one of your own below.`;
+    // A star the log says has planets that aren't in this room's table yet must not be called empty.
+    : notesFor(cat, view.i)?.worlds ? `${where}. Its planets aren’t drawn here yet: the captain’s log has what is known of them. Place one of your own below.`
+    : `${where}. No planets are ${notesFor(cat, view.i) ? 'confirmed' : 'known'} here yet: place one of your own below.`;
   $('scale-pick').hidden = !wide();
   document.querySelectorAll('[data-scale]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scale === view.scale)));
   $('planet-list').innerHTML = (sys?.planets || []).map(p => `<li><button type="button" data-planet="${esc(p.name)}" aria-pressed="${p === view.sel}">
