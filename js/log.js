@@ -6,6 +6,7 @@ import {
 import { ANCHORS, DESTINATIONS } from './destinations.js';
 import { chartFor } from './charts.js';
 import { byId as shipById } from './ships.js';
+import { lifeLine, reachLine, temperateLine } from './lives.js';
 
 const NOTES = new Map(DESTINATIONS.map(d => [d.star, d]));
 const COLOUR = { O: 'Blue', B: 'Blue-white', A: 'White', F: 'Yellow-white', G: 'Yellow', K: 'Orange', M: 'Red' };
@@ -25,11 +26,21 @@ const SIZE = { Ia0: 'hypergiant', Iab: 'supergiant', Ia: 'supergiant', Ib: 'supe
 export function describeKind(spect, temp, absmag) {
   const s = (spect || '').trim();
   const type = s ? `, spectral type ${s}` : '';
-  const { letter: read, lum, special } = spectral(s);
+  const { letter, size, special } = kindOf(s, temp, absmag);
   if (special === 'white dwarf') return `White dwarf${type}`;
   if (special === 'wolf-rayet') return `Wolf-Rayet star${type}`;
   if (special === 'carbon') return `Carbon star${type}`;
-  if (special === 'S' && absmag !== null && absmag < GIANT_ABSMAG) return `Red giant${type}`;
+  return `${COLOUR[letter]} ${size}${type}`;
+}
+
+// The same reading as plain data: `letter` (O to M), `size` ('dwarf', 'subgiant', 'giant', 'bright giant',
+// 'supergiant', 'hypergiant', 'subdwarf', or 'star' where nothing says), and `special` for the kinds the letters
+// don't cover (white dwarf, Wolf-Rayet, carbon), as spectral() gives it.
+export function kindOf(spect, temp, absmag) {
+  const s = (spect || '').trim();
+  const { letter: read, lum, special } = spectral(s);
+  if (special === 'white dwarf' || special === 'wolf-rayet' || special === 'carbon') return { letter: null, size: null, special };
+  if (special === 'S' && absmag !== null && absmag < GIANT_ABSMAG) return { letter: 'M', size: 'giant', special };
   const letter = read || (temp > 30000 ? 'O' : temp > 10000 ? 'B' : temp > 7500 ? 'A' : temp > 6000 ? 'F' : temp > 5200 ? 'G' : temp > 3700 ? 'K' : 'M');
   let size;
   if (special === 'subdwarf') size = 'subdwarf';
@@ -37,8 +48,14 @@ export function describeKind(spect, temp, absmag) {
   else if (!'GKM'.includes(letter) || (s && !read)) size = 'star'; // a type that names no class ("pec") says nothing of size
   else if (!lum && absmag === null) size = 'star';
   else size = lum ? 'dwarf' : absmag < GIANT_ABSMAG ? 'giant' : absmag < DWARF_ABSMAG ? 'subgiant' : 'dwarf';
-  return `${COLOUR[letter]} ${size}${type}`;
+  return { letter, size, special };
 }
+const GIANTS = ['giant', 'bright giant', 'supergiant', 'hypergiant'];
+// The surface temperatures each class spans, in kelvin, with a tenth to spare either side. A star whose colour on the
+// charts gives a temperature far outside its class (Mira, a red giant whose colour reads as an orange star's) has
+// had its brightness and width worked out from the wrong colour, and the log says nothing more that rests on them.
+const CLASS_TEMPS = { O: [25000, 60000], B: [9700, 31000], A: [7200, 10500], F: [5900, 7500], G: [5200, 6100], K: [3800, 5400], M: [2300, 4000] };
+const fits = (letter, temp) => !CLASS_TEMPS[letter] || (temp > CLASS_TEMPS[letter][0] * 0.9 && temp < CLASS_TEMPS[letter][1] * 1.1);
 // Yellow, orange and red giants are brighter than about absolute magnitude +2 (a K0 giant is about +0.7). The
 // brightest dwarfs of those colours, the early G stars, are about +4.4, and orange and red dwarfs are fainter than
 // +5.5. A star in between has left the dwarfs but isn't a giant yet.
@@ -254,12 +271,24 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
   const kind = notes?.kind || describeKind(cat.spect[i], cat.temp[i], unmeasured ? null : cat.absmag[i]);
   const approx = notes ? '' : 'about ';
   const temp = `${(Math.round(cat.temp[i] / 10) * 10).toLocaleString('en-US')} K at the surface`;
+  // How big a giant really is: how far it would reach in the Sun's place. The readings below rest on the star's
+  // width and brightness, which for a star with notes were measured, and otherwise come from the catalogue.
+  const { letter, size, special } = kindOf(cat.spect[i], cat.temp[i], unmeasured ? null : cat.absmag[i]);
+  const sound = i !== 0 && !unmeasured && special !== 'white dwarf' && (notes || fits(letter, cat.temp[i]));
+  const reach = sound && GIANTS.includes(size) ? ` ${reachLine(cat.radius[i])}` : '';
   sections.push(['The star', i === 0
     ? `${kind}. ${temp}.`
     : unmeasured ? `${kind}. ${temp}. Its width and brightness can’t be worked out without its distance.`
-    : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width', !notes)}, and ${approx}${ratio(cat.lum[i], 'brightness', !notes).replace(/^about /, '')}.`]);
+    : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width', !notes)}, and ${approx}${ratio(cat.lum[i], 'brightness', !notes).replace(/^about /, '')}.${reach}`]);
   if (notes?.planets) sections.push(['Planets', notes.planets]);
   for (const n of notes?.notes || []) sections.push(['', n]);
+  // After the planets there really are: where a planet would be as warm as Earth, and, for an ordinary star with no
+  // notes, its mass, life and end. Ordinary means a main-sequence star, luminosity class V, or a yellow, orange or
+  // red one as faint as a dwarf: the mass rule is only for those (on a giant it makes Arcturus four times too
+  // heavy). A white dwarf has no such orbit worth the name, and the stars with notes tell their own story.
+  if (sound) sections.push(['A temperate orbit', temperateLine(cat.lum[i], cat.radius[i])]);
+  const ordinary = size === 'dwarf' || (size === 'star' && spectral(cat.spect[i]).lum === 'V');
+  if (sound && !notes && ordinary) sections.push(['Its life', lifeLine(cat.lum[i])]);
   if (notes?.fiction) sections.push(['In fiction', notes.fiction]);
   // What Star Trek put here, in the words tonight's sky uses for the same star.
   const chart = chartFor(cat.names[i]);

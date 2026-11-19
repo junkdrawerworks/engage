@@ -11,6 +11,7 @@ import { SHIPS, byId as shipById } from '../js/ships.js';
 import { CLASSES, quizReadings, fileForHome, streakRecord } from '../js/classes.js';
 import { rng, grow } from '../js/xeno-gen.js';
 import { CHARTS } from '../js/charts.js';
+import { lifeLine, lifetimeYears, massFromLum, reachLine, temperateAU, temperateLine } from '../js/lives.js';
 import { sweep } from './sweep.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -635,4 +636,44 @@ test('a distance in a sentence is rounded the way people say it', () => {
   assert.equal(roughLy(9.96), '10 light years');
   assert.equal(roughLy(25.04), '25 light years');
   assert.equal(roughLy(1412.6), '1,413 light years');
+});
+
+test('the log says where a planet would be temperate, how far a giant reaches, and an ordinary star’s life', () => {
+  // The rules: sunlight like Earth's at the square root of the brightness; the Sun is one Sun's mass for ten billion
+  // years; twice the Sun's mass is 16 times as bright (M^4 up to two Suns).
+  assert.ok(Math.abs(temperateAU(15) - 3.87) < 0.01);
+  assert.equal(massFromLum(1), 1);
+  assert.ok(Math.abs(massFromLum(16) - 2) < 0.01);
+  assert.equal(lifetimeYears(1), 1e10);
+  assert.ok(Math.abs(massFromLum(0.23 * 0.2 ** 2.3) - 0.2) < 1e-9, 'a red dwarf’s mass');
+  assert.ok(Math.abs(massFromLum(1.4 * 10 ** 3.5) - 10) < 1e-9, 'a blue star’s mass');
+  assert.equal(lifeLine(16), 'About twice the Sun’s mass, good for about 2 billion years, and it will swell into a red giant and end as a white dwarf.');
+  assert.match(lifeLine(1.4 * 12 ** 3.5), /^About 12 times the Sun’s mass, good for about 20 million years, and it will end in a supernova/);
+  assert.match(lifeLine(0.002), /longer than the universe has existed so far, and it will end as a white dwarf, though no star so small/);
+  assert.equal(reachLine(760), 'Put in the Sun’s place, it would reach about 3.5 AU out, past the orbit of Mars.');
+  assert.equal(reachLine(203), 'Put in the Sun’s place, it would reach about 0.9 AU out, past the orbit of Venus, nearly to Earth’s.');
+  assert.equal(reachLine(25.4), 'Put in the Sun’s place, it would reach about a third of the way to Mercury’s orbit.');
+  assert.equal(temperateLine(1, 1), 'A planet would get the sunlight Earth does about 1.0 AU out, about where Earth is from the Sun. From there the star would look about as wide as the Sun does from Earth.');
+
+  const entry = name => { const i = cat.byName.get(name); return composeEntry(cat, i, { cam: at(name), holdAU: 1, warp: 9, fromTitle: 'Sol', tripLy: 10, date: new Date('2026-10-08T00:00:00Z') }).sections; };
+  const said = (name, head) => entry(name).find(s => s[0] === head)?.[1];
+  // Denebola, with no notes: about 3.8 AU out, and an A-type dwarf's mass and life.
+  assert.match(said('Denebola', 'A temperate orbit'), /^A planet would get the sunlight Earth does about 3\.8 AU out\. From there the star would look 40% as wide/);
+  assert.match(said('Denebola', 'Its life'), /^About 1\.9 times the Sun’s mass, good for about 2 billion years/);
+  // Betelgeuse's measured width reaches past Mars; a giant is never given the mass rule; a star with notes keeps its own.
+  assert.match(said('Betelgeuse', 'The star'), /760 times the Sun’s width.*past the orbit of Mars\.$/);
+  assert.equal(said('Arcturus', 'Its life'), undefined);
+  assert.equal(said('Menkar', 'Its life'), undefined, 'a red giant got a main-sequence mass');
+  assert.match(said('Menkar', 'The star'), /past the orbit of Mercury/);
+  assert.equal(said('Proxima Centauri', 'Its life'), undefined, 'a star with notes got a rule-of-thumb mass');
+  assert.match(said('Proxima Centauri', 'A temperate orbit'), /about 0\.041 AU out, closer than Mercury/);
+  // A blue main-sequence star heavier than eight Suns ends in a supernova.
+  assert.match(said('Spica', 'Its life'), /supernova/);
+  // Nothing that rests on a width or brightness worked out from the wrong colour (Mira's), for a white dwarf, at home,
+  // or at a star with no measured distance.
+  for (const name of ['Mira', 'Gliese 3121', 'Sol']) assert.ok(!entry(name).some(s => /A temperate orbit|Its life/.test(s[0]) || /Sun’s place/.test(s[1])), name);
+  const lost = cat.unmeasured.findIndex(u => u);
+  assert.ok(!entry(cat.names[lost]).some(s => /A temperate orbit|Its life/.test(s[0])), 'a star with no distance');
+  // Every figure is hedged.
+  for (const name of ['Denebola', 'Alsafi', 'Gliese 1294A', 'Regulus']) for (const s of entry(name).filter(x => /temperate|life/i.test(x[0]))) assert.match(s[1], /about|hundreds|trillions/, `${name}: ${s[1]}`);
 });
