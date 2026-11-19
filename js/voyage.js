@@ -1,7 +1,9 @@
 // One voyage: the captain's log read as one story across every room. Each room keeps its own record and none of
 // them writes to another's; this reads them all, and works out what the log shows besides its arrivals: the
-// supplemental lines the other rooms add between them. Pure but for readRecords(): the bridge reads the records and
-// hands them in. Checked by test/voyage.test.mjs.
+// supplemental lines the other rooms add between them, the voyage in one sentence, the service record, and the
+// five-year mission clock. Pure but for readRecords(): the bridge reads the records and hands them in. Checked by
+// test/voyage.test.mjs.
+import { tripYears } from './physics.js';
 import { byId as shipById, hailSent } from './ships.js';
 import { byId as classById, label as classLabel } from './classes.js';
 import { DAY, entryTime } from './logbook.js';
@@ -39,7 +41,8 @@ const LETTERS = /^[ABCDF]$/;
 //   missions: the latest hail sent to each ship
 export function supplementals({ maru, contact, xeno, survey, missions } = {}, now = Date.now()) {
   const out = [];
-  const add = (at, room, line, href) => { const t = momentOf(at); if (t && t <= now + 60000) out.push({ t, room, text: `Supplemental: ${line}`, href }); };
+  // `kind` says what happened, for the counts a mission's summary makes of them.
+  const add = (at, room, kind, line, href) => { const t = momentOf(at); if (t && t <= now + 60000) out.push({ t, room, kind, text: `Supplemental: ${line}`, href }); };
   const m = obj(maru);
   for (const r of list(m.runs)) {
     const title = text(r.title, 40);
@@ -47,27 +50,27 @@ export function supplementals({ maru, contact, xeno, survey, missions } = {}, no
     // "The lifeboat, 150 home, C B B B", as the run's own line to send has it.
     const said = text(r.line, 120).replace(/^Kobayashi Maru[^:]*:\s*/, '')
       || [title, list(r.grades).map(x => x.letter).filter(l => LETTERS.test(l)).join(' ')].filter(Boolean).join(', ');
-    add(r.at, 'maru', `sat the Kobayashi Maru. ${said}.`, 'maru.html');
+    add(r.at, 'maru', r.outcome === 'rewritten' ? 'rewritten' : 'sat', `sat the Kobayashi Maru. ${said}.`, 'maru.html');
   }
   const officer = obj(m.officer);
-  if (text(officer.passed, 40)) add(officer.passed, 'maru', 'passed the Bridge Officer’s Test.', 'maru.html');
+  if (text(officer.passed, 40)) add(officer.passed, 'maru', 'passed', 'passed the Bridge Officer’s Test.', 'maru.html');
   for (const r of list(obj(contact).runs)) {
     const people = text(r.people, 30), title = text(r.title, 40);
     if (!people || !title) continue;
     const notebook = Number.isInteger(r.decoded) && Number.isInteger(r.of) && r.of > 0 ? `, ${r.decoded} of ${r.of} phrases decoded` : '';
-    add(r.at, 'contact', `${r.second ? `the ${people} hailed again` : `answered a hail from the ${people}`}. ${title}${notebook}.`, 'contact.html');
+    add(r.at, 'contact', r.second ? 'second' : 'met', `${r.second ? `the ${people} hailed again` : `answered a hail from the ${people}`}. ${title}${notebook}.`, 'contact.html');
   }
   for (const j of list(obj(xeno).jars)) {
     const world = text(j.world, 40), cls = classById.get(j.id);
     if ((!world && !cls) || !Number.isInteger(j.seed)) continue;
-    add(j.at, 'xeno', world ? `kept a creature grown for ${world} in a jar.` : `kept a creature from a ${classLabel(cls)} world in a jar.`,
+    add(j.at, 'xeno', 'jar', world ? `kept a creature grown for ${world} in a jar.` : `kept a creature from a ${classLabel(cls)} world in a jar.`,
       `xeno.html#${world ? `world=${encodeURIComponent(world)}` : encodeURIComponent(j.id)}-${j.seed}`);
   }
   const s = obj(survey);
-  if (count(s.best) && count(s.bestAt)) add(s.bestAt, 'survey', `a best streak of ${s.best} in Cover your tracks.`, 'survey.html#drill');
+  if (count(s.best) && count(s.bestAt)) add(s.bestAt, 'survey', 'best', `a best streak of ${s.best} in Cover your tracks.`, 'survey.html#drill');
   for (const [id, t] of Object.entries(obj(obj(missions).hails))) {
     const ship = shipById(id);
-    if (ship && hailSent(t, now)) add(t, 'missions', `hailed ${ship.name} from Earth.`, `missions.html#${id}`);
+    if (ship && hailSent(t, now)) add(t, 'missions', 'hail', `hailed ${ship.name} from Earth.`, `missions.html#${id}`);
   }
   return out.sort((a, b) => b.t - a.t);
 }
@@ -110,11 +113,9 @@ export function tally(rec, log = [], now = Date.now()) {
   };
 }
 
-// The log summed up in one sentence, at its head: "Fourteen months out: nine stars, one new species, one failed
-// exam." The time is since the first thing the log tells. Null with nothing to say.
-export function story(rec, { log = [], supps = [], now = Date.now() } = {}) {
-  const n = tally(rec, log, now);
-  const parts = [
+// What a count of things done says, in words: "nine stars, one new species, one failed exam".
+function said(n) {
+  return [
     n.stars && some(n.stars, 'star'),
     n.met && some(n.met, 'new species', 'new species'),
     n.failed && some(n.failed, 'failed exam'),
@@ -122,6 +123,19 @@ export function story(rec, { log = [], supps = [], now = Date.now() } = {}) {
     n.jars && (n.jars === 1 ? 'one creature in a jar' : `${words(n.jars)} creatures in jars`),
     n.hails && `${some(n.hails, 'ship')} hailed`,
   ].filter(Boolean);
+}
+
+// The log summed up in one sentence, at its head: "Fourteen months out: nine stars, one new species, one failed
+// exam." The time is since the first thing the log tells. With the mission clock on, the sentence is the mission
+// under way's instead, counted from its arrivals and the supplemental lines logged during it: "Year 2, day 114: …".
+// Null with nothing to say.
+export function story(rec, { log = [], supps = [], clock = false, now = Date.now() } = {}) {
+  if (clock) {
+    const all = missions(log), m = all[all.length - 1], c = clockNow(log);
+    const parts = !m || m.closed ? [] : said(missionTally(m, all, supps));
+    return `${c.said.replace(/ of \d$/, '')}: ${parts.length ? parts.join(', ') : c.n > 1 ? `mission ${words(c.n)} begins with the next trip` : 'the mission begins with the first trip'}.`;
+  }
+  const parts = said(tally(rec, log, now));
   if (!parts.length) return null;
   const when = [...log.map(entryTime), ...supps.map(s => s.t)].filter(Number.isFinite);
   return `${sinceSaid(Math.max(0, now - (when.length ? Math.min(...when) : now)))}: ${parts.join(', ')}.`;
@@ -157,3 +171,86 @@ export function serviceRecord(rec, now = Date.now()) {
       line: n.hails ? `${capital(some(n.hails, 'ship'))} hailed` : '' },
   ];
 }
+
+// ---------- The five-year mission ----------
+
+export const MISSION_YEARS = 5;
+
+// How long a trip took the ship, in years, from what its entry kept: the warp factor and the light years flown. An
+// entry from before the warp factor was kept says it in its trip line ("in 6 days at warp 9.5"). A trip to or from
+// a star nobody has measured the distance to is timed by the charts' nominal distance, as the helm and the log time it.
+export function entryYears(e) {
+  if (!(e?.ly > 0)) return 0;
+  let w = Number(e.warp);
+  if (!(w >= 1 && w <= 9.99)) {
+    const trip = Array.isArray(e.sections) ? e.sections.find(x => Array.isArray(x) && x[0] === 'The trip')?.[1] : '';
+    w = Number(/ at warp (\d+(?:\.\d+)?)\./.exec(typeof trip === 'string' ? trip : '')?.[1]);
+  }
+  return w >= 1 && w <= 9.99 ? tripYears(e.ly, w) : 0;
+}
+
+// The missions the log has flown, oldest first. Each arrival adds its trip's ship time to the mission under way; the
+// arrival that takes it to five years closes it, and the next trip starts the next one. (A single trip of more than
+// five years closes the mission it is in by itself.) Nothing is deleted. Each mission: { n, years, entries (oldest
+// first), last (the entry that closed it, or the newest), closed }.
+export function missions(log) {
+  const out = [];
+  let m = null;
+  for (const e of [...log].reverse()) {
+    if (!m || m.closed) out.push(m = { n: out.length + 1, years: 0, entries: [], last: null, closed: false });
+    m.entries.push(e);
+    m.years += entryYears(e);
+    m.last = e;
+    if (m.years >= MISSION_YEARS) m.closed = true;
+  }
+  return out;
+}
+
+// Where a mission stands after `years` of it: "Year 2, day 114 of 5".
+export function clockSaid(years) {
+  if (years >= MISSION_YEARS) return 'Five years: mission complete';
+  const y = Math.floor(years), day = Math.min(365, Math.floor((years - y) * 365.25) + 1);
+  return `Year ${y + 1}, day ${day} of ${MISSION_YEARS}`;
+}
+
+// The clock as the helm shows it: which mission, and how far into it the ship is. Once an arrival has closed a
+// mission, the next starts at year 1, day 1, and its first trip counts toward it. `extra` is ship time still in flight.
+export function clockNow(log, extra = 0) {
+  const all = missions(log), m = all[all.length - 1];
+  const fresh = !m || m.closed;
+  const years = (fresh ? 0 : m.years) + extra;
+  return { n: fresh ? all.length + 1 : m.n, years, done: all.filter(x => x.closed).length, said: clockSaid(years) };
+}
+
+// Ship time in words, for a mission's summary: "5 years, 2 months".
+export function shipTimeSaid(years) {
+  const y = Math.floor(years), mo = Math.floor((years - y) * 12);
+  return [y && `${y} ${y === 1 ? 'year' : 'years'}`, mo && `${mo} ${mo === 1 ? 'month' : 'months'}`].filter(Boolean).join(', ') || 'under a month';
+}
+
+// When a mission began and ended: from just after the arrival that closed the one before (or the start of the log)
+// to its own last arrival.
+export function missionSpan(m, all) {
+  const before = all[m.n - 2];
+  return { from: before ? entryTime(before.last) ?? 0 : -Infinity, to: entryTime(m.last) ?? 0 };
+}
+
+// What one mission did: its stars (home aside), light years and longest trip, and what the other rooms logged
+// during it, counted from their supplemental lines.
+export function missionTally(m, all, supps = []) {
+  const { from, to } = missionSpan(m, all);
+  const open = m === all[all.length - 1] && !m.closed; // the mission under way takes in lines up to now
+  const during = supps.filter(x => x.t > from && (open || x.t <= to));
+  const kinds = k => during.filter(x => x.kind === k).length;
+  return {
+    stars: new Set(m.entries.filter(e => e.star !== 0).map(e => e.star)).size,
+    ly: m.entries.reduce((sum, e) => sum + (e.ly > 0 ? e.ly : 0), 0),
+    met: kinds('met'), failed: kinds('sat'), rewritten: kinds('rewritten'), jars: kinds('jar'), hails: kinds('hail'),
+  };
+}
+
+// A closed mission's summary, in a line: "Twenty-three stars, two new species, three failed exams".
+export const missionSaid = n => {
+  const parts = said(n);
+  return parts.length ? capital(parts.join(', ')) : 'No stars visited';
+};

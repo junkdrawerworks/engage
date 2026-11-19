@@ -1851,7 +1851,9 @@ await bridgeReady();
   assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 32 KINDS OF STAR \d of 7 OBAFGKM( Rare kinds: [\w, -]+)?$/);
   const after = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')));
   assert.deepEqual(after.log, bridge.log, 'the old log was changed');
-  assert.deepEqual([after.warp, after.ly, after.opts], [bridge.warp, bridge.ly, bridge.opts]);
+  // (A setting that came later, the mission clock, is added to the old ones, off.)
+  const { clock, ...opts } = after.opts;
+  assert.deepEqual([after.warp, after.ly, opts, clock], [bridge.warp, bridge.ly, bridge.opts, false]);
   await old.close();
 }
 
@@ -4780,6 +4782,70 @@ await page.emulateMedia({ reducedMotion: null });
   await Promise.all([p.waitForNavigation(), p.locator('#service a[data-room="survey"]').tap()]);
   assert.match(p.url(), /survey\.html#drill$/);
   await career.close();
+}
+
+// The five-year mission clock, a setting that starts off: each arrival adds the trip's ship time, the helm shows
+// "Year 2, day 114 of 5" where the stardate was, and the arrival that reaches five years closes the mission with a
+// summary in the log; the next trip starts the next. A slow warp factor costs months of it. Nothing is deleted, and
+// the clock is worked out from the log: only the warp factor of each trip is kept with it.
+{
+  const five = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await five.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await five.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  const when = () => p.locator('#when span').first().innerText();
+  assert.match(await when(), /^Stardate \d{4}\.\d{3}$/, 'the clock is on before anyone asked for it');
+  await p.tap('#open-settings');
+  assert.equal(await p.locator('#opt-clock').isChecked(), false);
+  await p.locator('#opt-clock').check();
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).opts.clock), true);
+  await p.evaluate(() => engage.closeSheets());
+  assert.equal(await when(), 'Year 1, day 1 of 5');
+  // Betelgeuse at warp 6 costs fifteen months of the mission; at warp 9.9, about a month.
+  await p.evaluate(() => engage.target('Betelgeuse'));
+  await p.locator('#warp').fill('6');
+  assert.match(await p.locator('#trip').innerText(), / · 15 months at this warp · arriving year 2, day 99 · light takes/);
+  await p.locator('#warp').fill('9.9');
+  assert.match(await p.locator('#trip').innerText(), / · arriving year 1, day \d+ · /);
+  // At light speed: Proxima Centauri takes 4 years and 3 months, and Barnard's Star from there is past five.
+  await p.evaluate(() => { engage.jump('Proxima Centauri', 1); engage.closeSheets(); });
+  assert.match(await when(), /^Year 5, day \d+ of 5$/);
+  assert.equal(await p.evaluate(() => engage.state.log[0].warp), 1, 'the trip’s warp factor was not kept');
+  await p.locator('#warp').fill('1');
+  await p.evaluate(() => engage.target("Barnard's Star"));
+  assert.match(await p.locator('#trip').innerText(), / · ends the five-year mission · /);
+  await p.evaluate(() => engage.jump("Barnard's Star", 1));
+  assert.ok((await p.locator('#arrival .firsts').innerText()).includes('Five-year mission complete'));
+  await p.evaluate(() => engage.closeSheets());
+  assert.equal(await when(), 'Year 1, day 1 of 5');
+  // The log: the mission's sentence, the clock heading the service record, and the closed mission's summary over the
+  // arrival that closed it.
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#story').innerText(), 'Year 1, day 1: mission two begins with the next trip.');
+  assert.equal(await p.locator('#service-clock').innerText(), 'Mission 2 · Year 1, day 1 of 5 · one complete');
+  const order = await p.locator('#entries > .past, #entries > .mission-end').evaluateAll(els => els.map(el => el.querySelector('b').textContent));
+  assert.deepEqual(order, ['Mission 1 complete', 'Barnard’s Star', 'Proxima Centauri']);
+  assert.equal(await p.locator('.mission-end summary span').innerText(), 'Two stars · 10.8 ly');
+  await p.locator('.mission-end summary').tap();
+  const rows = await p.locator('.mission-end dl > div').evaluateAll(ds => ds.map(d => [d.querySelector('dt').textContent, d.querySelector('dd').textContent]));
+  assert.deepEqual(rows.map(r => r[0]), ['Ship time', 'Logged', 'Arrivals', 'Farthest from Sol', 'Longest trip']);
+  assert.equal(rows[0][1], '10 years, 9 months');
+  assert.equal(rows[2][1], '2');
+  await p.evaluate(() => engage.closeSheets());
+  // The next trip counts toward mission two.
+  await p.evaluate(() => { engage.jump('Sol', 9); engage.closeSheets(); });
+  assert.match(await when(), /^Year 1, day \d+ of 5$/);
+  // Off again, the stardate is back and the log has no missions in it; the log itself is just as it was.
+  await p.tap('#open-settings');
+  await p.locator('#opt-clock').uncheck();
+  await p.evaluate(() => engage.closeSheets());
+  assert.match(await when(), /^Stardate /);
+  await p.tap('#open-log');
+  assert.equal(await p.locator('.mission-end, #service-clock').count(), 0);
+  assert.equal(await p.locator('#entries .past').count(), 3);
+  await five.close();
 }
 
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the

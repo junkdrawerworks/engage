@@ -162,3 +162,46 @@ test('the service record: a row for each room’s record, saying what is on it o
   // Played but never right: a streak of nought is still a record.
   assert.equal(serviceRecord({ survey: { best: 0, seen: 3 } })[2].line, 'Best streak 0');
 });
+
+test('the five-year mission: each trip’s ship time counts, and the arrival that reaches five years closes it', async () => {
+  const { clockNow, clockSaid, entryYears, missions, missionTally, missionSaid, shipTimeSaid, story } = await import('../js/voyage.js');
+  const { tripYears } = await import('../js/physics.js');
+  // Warp 1 is light: a trip of 1.5 light years at warp 1 takes a year and a half of the mission.
+  assert.equal(entryYears({ ly: 1.5, warp: 1 }), 1.5);
+  assert.equal(entryYears({ ly: 498, warp: 6 }), tripYears(498, 6));
+  // An entry from before the warp factor was kept: its trip line says it.
+  assert.equal(entryYears({ ly: 10, sections: [['The trip', '10.0 ly from Sol in 2 days at warp 9.5. Light needs 10 years to cover that.']] }), tripYears(10, 9.5));
+  assert.equal(entryYears({ ly: 0, warp: 9 }), 0, 'the first entry, from nowhere');
+  assert.equal(entryYears({ ly: 3 }), 0, 'no warp factor to time it by');
+  assert.deepEqual([0, 0.0001, 1.3123, 4.9999].map(clockSaid), ['Year 1, day 1 of 5', 'Year 1, day 1 of 5', 'Year 2, day 115 of 5', 'Year 5, day 365 of 5']);
+  assert.equal(clockSaid(5), 'Five years: mission complete');
+  // Newest first, as the bridge keeps the log: 2 + 2 years, then a trip that takes it past five, then a fresh start.
+  const trip = (iso, years, star = 1) => entry(iso, star, `Star ${star}`, { ly: years, warp: 1 });
+  const log = [trip('2026-11-19T12:00:00Z', 0.5, 5), trip('2026-11-18T12:00:00Z', 1.5, 4), trip('2026-11-17T12:00:00Z', 2, 3), trip('2026-11-16T12:00:00Z', 2, 2), trip('2026-11-15T12:00:00Z', 0, 0)];
+  const all = missions(log);
+  assert.deepEqual(all.map(m => [m.n, m.entries.length, m.closed, +m.years.toFixed(3)]), [[1, 4, true, 5.5], [2, 1, false, 0.5]]);
+  assert.equal(all[0].last, log[1]);
+  assert.deepEqual(clockNow(log), { n: 2, years: 0.5, done: 1, said: 'Year 1, day 183 of 5' });
+  assert.equal(clockNow(log, 1).said, 'Year 2, day 183 of 5', 'ship time in flight counts as it goes');
+  // Just closed: the next mission starts at the first day, with the next trip.
+  assert.deepEqual(clockNow(log.slice(1)), { n: 2, years: 0, done: 1, said: 'Year 1, day 1 of 5' });
+  assert.deepEqual(clockNow([]), { n: 1, years: 0, done: 0, said: 'Year 1, day 1 of 5' });
+  // One trip of more than five years closes the mission it is in by itself.
+  assert.deepEqual(missions([trip('2026-11-16T12:00:00Z', 2600, 9)]).map(m => [m.closed, m.years]), [[true, 2600]]);
+  // A closed mission's summary counts its own stars and what the other rooms logged while it lasted.
+  const supps = [
+    { t: at('2026-11-17T13:00:00Z'), kind: 'sat' }, { t: at('2026-11-18T13:00:00Z'), kind: 'met' }, // in mission 2: after the arrival that closed 1
+    { t: at('2026-11-16T13:00:00Z'), kind: 'jar' }, { t: at('2026-11-10T13:00:00Z'), kind: 'met' }, // in mission 1, which started with the log
+  ];
+  const fixed = [trip('2026-11-19T12:00:00Z', 0.5, 5), trip('2026-11-17T12:00:00Z', 5, 3), trip('2026-11-16T12:00:00Z', 1, 2)];
+  const two = missions(fixed);
+  assert.deepEqual(missionTally(two[0], two, supps), { stars: 2, ly: 6, met: 1, failed: 0, rewritten: 0, jars: 1, hails: 0 });
+  assert.deepEqual(missionTally(two[1], two, supps), { stars: 1, ly: 0.5, met: 1, failed: 1, rewritten: 0, jars: 0, hails: 0 });
+  assert.equal(missionSaid(missionTally(two[0], two, supps)), 'Two stars, one new species, one creature in a jar');
+  assert.equal(shipTimeSaid(5.25), '5 years, 3 months');
+  assert.equal(shipTimeSaid(0.01), 'under a month');
+  // With the clock on, the log's sentence is the mission's.
+  assert.equal(story({}, { log: fixed, supps, clock: true }), 'Year 1, day 183: one star, one new species, one failed exam.');
+  assert.equal(story({}, { log: fixed.slice(1), supps: [], clock: true }), 'Year 1, day 1: mission two begins with the next trip.');
+  assert.equal(story({}, { log: [], clock: true }), 'Year 1, day 1: the mission begins with the first trip.');
+});

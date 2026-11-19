@@ -221,6 +221,16 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .service a span.none { color: var(--dim); }
 .service .chev { grid-column: 2; grid-row: 1 / span 2; width: 16px; height: 16px; fill: none; stroke: var(--dim); stroke-width: 2; }
 .service a:hover b, .service a:focus-visible b { text-decoration: underline; text-underline-offset: 3px; }
+.service .clock { margin: 2px 0 4px; font: 600 15px/1.3 var(--display); letter-spacing: 0.03em; color: var(--sun); }
+/* With the mission clock on: a summary over the arrival that closed each five-year mission. */
+.mission-end { margin: 10px 0; border: 1px solid rgba(255, 210, 122, 0.45); border-radius: 14px; background: rgba(255, 210, 122, 0.05); }
+.mission-end summary { list-style: none; cursor: pointer; padding: 12px 14px; display: grid; gap: 2px; }
+.mission-end summary::-webkit-details-marker { display: none; }
+.mission-end summary b { font: 600 17px/1.2 var(--display); color: var(--sun); }
+.mission-end summary span { color: var(--muted); font-size: 13px; }
+.mission-end dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 0; padding: 0 14px 12px; }
+.mission-end dt { font: 600 10px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.mission-end dd { margin: 2px 0 0; font-size: 14px; overflow-wrap: anywhere; }
 /* A line another room adds to the log when something there finishes, between the arrivals. */
 .entries .supp { margin: 8px 0; padding: 4px 0 4px 14px; border-left: 2px solid var(--line-strong); font-size: 13px; }
 .entries .supp a { display: block; color: var(--muted); text-decoration: none; padding: 6px 0; }
@@ -244,6 +254,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   #print-log p, #print-log dl { margin: 3pt 0; }
   #print-log dt { margin-top: 4pt; font: 600 8pt/1.3 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: #333; }
   #print-log dd { margin: 0; }
+  #print-log .mission { border-top: 1.5pt solid #000; }
   #print-log .supp { margin: 4pt 0; padding-left: 8pt; border-left: 1pt solid #888; font-style: italic; break-inside: avoid; }
 }
 
@@ -258,6 +269,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 
 .toggle { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); cursor: pointer; flex: none; }
 .toggle input { width: 20px; height: 20px; accent-color: var(--amber); margin: 0; }
+.toggle small { display: block; font-size: 12px; color: var(--muted); }
 /* Everything under the settings' heading scrolls as one, so on a short screen "What you're seeing" isn't squeezed
    into a sliver, and the heading and its close button stay where they are. (It is the part under the heading that
    scrolls and not the sheet itself: with the whole sheet scrolling, Chromium drew a lit band above it under night

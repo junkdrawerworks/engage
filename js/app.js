@@ -13,7 +13,7 @@ import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
-import { readRecords, serviceRecord, story, supplementals } from './voyage.js';
+import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, story, supplementals } from './voyage.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -51,7 +51,7 @@ const state = defaults();
 function defaults() {
   return {
     at: 0, offset: homeOffset(), yaw: START_YAW, pitch: START_PITCH, fov: 60 * DEG,
-    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, sound: true }, seenIntro: false,
+    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, sound: true, clock: false }, seenIntro: false,
   };
 }
 
@@ -132,6 +132,7 @@ function showSettings() {
   $('opt-lines').checked = state.opts.lines;
   $('opt-labels').checked = state.opts.labels;
   $('opt-sound').checked = state.opts.sound;
+  $('opt-clock').checked = state.opts.clock;
   $('warp').value = state.warp;
   updateWarp();
 }
@@ -498,9 +499,18 @@ function updateTrip() {
   const el = $('trip');
   if (state.target == null) { el.textContent = ''; return; }
   const ly = lyFromShip(state.target);
+  const years = tripYears(ly, state.warp);
   el.innerHTML = nominal(state.target)
-    ? `Distance not measured · charted at a nominal <b>${formatLy(ly)}</b> · <b>${formatDuration(tripYears(ly, state.warp))}</b> at this warp`
-    : `<b>${formatLy(ly)}</b> away · <b>${formatDuration(tripYears(ly, state.warp))}</b> at this warp · light takes ${formatDuration(ly)}`;
+    ? `Distance not measured · charted at a nominal <b>${formatLy(ly)}</b> · <b>${formatDuration(years)}</b> at this warp${missionEnd(years)}`
+    : `<b>${formatLy(ly)}</b> away · <b>${formatDuration(years)}</b> at this warp${missionEnd(years)} · light takes ${formatDuration(ly)}`;
+}
+
+// With the mission clock on, where a trip would leave the five years: "arriving year 3, day 290", or that it ends
+// the mission. A slow warp factor costs months of the mission.
+function missionEnd(years) {
+  if (!state.opts.clock) return '';
+  const end = clockNow(state.log).years + years;
+  return end >= 5 ? ' · <b>ends the five-year mission</b>' : ` · arriving ${clockSaid(end).replace(/^Year/, 'year').replace(/ of \d$/, '')}`;
 }
 
 function updateHud() {
@@ -517,7 +527,9 @@ function updateHud() {
     if (document.title !== title) document.title = title;
   }
   const far = !trip && cat.unmeasured[state.at] ? 'Distance not measured' : `${formatLy(fromSol)} from Sol`;
-  $('when').innerHTML = `<span>${sd}</span> <span>${fromSol < 0.001 ? 'Home' : far}</span>`; // the dot between them is drawn by the stylesheet
+  // With the five-year mission's clock on, it takes the stardate's place, and runs on through a flight.
+  const when = !state.opts.clock ? sd : trip?.clock0 ? clockSaid(trip.clock0.years + trip.elapsed) : clockNow(state.log).said;
+  $('when').innerHTML = `<span>${when}</span> <span>${fromSol < 0.001 ? 'Home' : far}</span>`; // the dot between them is drawn by the stylesheet
 }
 
 // ---------- Saying what happens ----------
@@ -556,6 +568,7 @@ function engage() {
     yaw0: state.yaw, pitch0: state.pitch, yaw1: nearestYaw(state.yaw, heading.yaw), pitch1: heading.pitch, fov0: state.fov,
     t0: performance.now(), align: (still.matches ? 0.4 : 1.5) / speedUp, spool: 1.5 / speedUp, cruise, drop: 1.6 / speedUp,
     years: tripYears(ly, state.warp), warpFactor: state.warp, warp: 0, streak: 0, phase: 'align', rebased: false,
+    clock0: clockNow(state.log), elapsed: 0, // the mission clock as the trip began, and the ship time since
   };
   helmAway(true);
   $('engage').disabled = true;
@@ -665,7 +678,8 @@ function readout(dist) {
   $('readout').hidden = false;
   $('readout-warp').textContent = `Warp ${T.warpFactor.toFixed(1).replace(/\.0$/, '')}`;
   $('readout-left').textContent = `${formatLy(Math.max(T.D + T.hold - dist, T.hold) * LY_PER_PC)} to go`;
-  $('readout-time').textContent = `${formatDuration(T.years * (T.D > 0 ? dist / T.D : 1))} elapsed`;
+  T.elapsed = T.years * (T.D > 0 ? dist / T.D : 1);
+  $('readout-time').textContent = `${formatDuration(T.elapsed)} elapsed`;
   updateHud();
 }
 
@@ -688,6 +702,7 @@ function arrive() {
   }
   stale = false;
   const entry = composeEntry(cat, T.i, { cam: camAbs(), holdAU: T.hold * AU_PER_PC, warp: T.warpFactor, fromTitle: T.fromTitle, tripLy: T.ly, nominal: T.nominal });
+  if (entry.ly > 0) entry.warp = T.warpFactor; // the trip's ship time, for the five-year mission's clock
   // Each entry carries the moment of arrival, in milliseconds: a date of its own, and a name no other entry has.
   entry.id = Date.now();
   while (state.log.some(e => e.id === entry.id)) entry.id++;
@@ -851,6 +866,8 @@ function showArrival(entry, again = false) {
   $('arrival-entry').innerHTML = entryHtml(entry, true, !again);
   // What this arrival did to the records, said once under the star's name: it is the newest entry that is up.
   const firsts = entry === state.log[0] ? arrivalFirsts(state.log, recordOpts()) : [];
+  // The arrival that takes the mission to five years closes it (with the clock on).
+  if (state.opts.clock && entry === state.log[0] && missions(state.log).at(-1)?.closed) firsts.push('Five-year mission complete');
   if (firsts.length) $('arrival-entry').querySelector('h3').insertAdjacentHTML('afterend', `<p class="firsts">${firsts.map(t => `<span>${esc(t)}</span>`).join(' ')}</p>`);
   unsavedNote('arrival-unsaved', 'The log is full: this entry won’t be kept.', 'This browser isn’t letting the bridge save: this entry won’t be kept.');
   openSheet('arrival');
@@ -1083,14 +1100,17 @@ function serviceHtml() {
   const rows = serviceRecord(records);
   if (!state.log.length && rows.every(r => !r.line)) return '';
   const chev = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
-  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record</h3><ul>${rows.map(r =>
+  // With the five-year mission's clock on, it heads the card: which mission, how far into it, and how many are done.
+  const c = state.opts.clock ? clockNow(state.log) : null;
+  const clock = c ? `<p class="clock" id="service-clock">Mission ${c.n} · ${c.said}${c.done ? ` · ${c.done === 1 ? 'one' : c.done} complete` : ''}</p>` : '';
+  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record</h3>${clock}<ul>${rows.map(r =>
     `<li><a href="${ROOM_BASE}${r.href}"${AWAY} data-room="${r.room}"><b>${esc(r.name)}</b><span${r.line ? '' : ' class="none"'}>${esc(r.line || r.none)}</span>${chev}</a></li>`).join('')}</ul></section>`;
 }
 
 // The whole voyage in one sentence, at the head of the log: "Fourteen months out: nine stars, one new species, one
 // failed exam." Counted from every room's record.
 function storyHtml() {
-  const line = story(records, { log: state.log, supps });
+  const line = story(records, { log: state.log, supps, clock: state.opts.clock });
   return line ? `<p class="story" id="story">${esc(line)}</p>` : '';
 }
 
@@ -1100,7 +1120,7 @@ function storyHtml() {
 // A search shows the arrivals that mention what is typed, under the days they were made, without the days' counts.
 let shown = PAGE;
 function daysHtml(q) {
-  const all = timeline(state.log, supps).filter(x => matches(x, q));
+  const all = timeline(state.log, supps, missionItems()).filter(x => matches(x, q));
   if (!all.length) return q ? `<p class="empty">Nothing in the log mentions “${esc(q)}”.</p>` : '';
   const counts = new Map(byDay(all).map(d => [d.key, d]));
   const now = Date.now();
@@ -1136,7 +1156,9 @@ function starsHtml(q) {
 // on a phone is also the way to save it as a PDF. It is laid out whenever the page is printed, from the button or
 // from the browser's own menu, and let go afterwards.
 function printLog() {
-  const days = byDay(timeline(state.log, supplementals(readRecords())).reverse());
+  records = readRecords();
+  supps = supplementals(records);
+  const days = byDay(timeline(state.log, supps, missionItems()).reverse());
   const n = new Set(state.log.map(e => e.star)).size;
   const printed = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   $('print-log').innerHTML = `<h1>Captain’s log</h1><p class="print-sub">${state.log.length
@@ -1144,7 +1166,9 @@ function printLog() {
     + days.map(day => `<h2>${esc(day.key === 'undated' ? 'Undated' : dayHeading(day.t, day.arrivals))}</h2>${day.items.map(printedHtml).join('')}`).join('');
 }
 
-function printedHtml({ entry: e, t, supp }) {
+function printedHtml(x) {
+  const { entry: e, t, supp } = x;
+  if (x.mission) return `<article class="mission"><h3>Mission ${x.mission.n} complete</h3><p>${esc(missionSaid(x.n))} · ${esc(formatLy(x.n.ly))} · ${esc(shipTimeSaid(x.mission.years))} of ship time.</p></article>`;
   if (supp) return `<p class="supp">${esc(supp.text)}</p>`;
   const lines = e.sections.map(([label, text]) => `${label ? `<dt>${esc(label)}</dt>` : ''}<dd>${esc(text)}</dd>`).join('');
   const made = linesForVisit(contacts, e).map(line => `<dd>${esc(line)}</dd>`).join('');
@@ -1162,9 +1186,36 @@ function showEarlier() {
   $('entries').querySelectorAll('.past')[first]?.querySelector('summary').focus({ preventScroll: true });
 }
 
+// With the clock on, each mission that has closed has a summary in the log, over the arrival that closed it: its
+// stars, light years and what the other rooms logged in it, and opened, its ship time, its dates and its records.
+function missionItems() {
+  if (!state.opts.clock) return [];
+  const all = missions(state.log);
+  return all.filter(m => m.closed).map(m => ({ t: (entryTime(m.last) ?? 0) + 0.5, mission: m, n: missionTally(m, all, supps) }));
+}
+
+function missionHtml({ mission: m, n }) {
+  const r = logRecords([...m.entries].reverse(), recordOpts());
+  const first = entryTime(m.entries[0]), last = entryTime(m.last);
+  const rows = [
+    ['Ship time', shipTimeSaid(m.years)],
+    first && last && ['Logged', dayMonth(first) === dayMonth(last) ? dayMonth(last) : `${dayMonth(first)} to ${dayMonth(last)}`],
+    ['Arrivals', String(m.entries.length)],
+    r.farthest && ['Farthest from Sol', `${r.farthest.title} · ${formatLy(r.farthest.ly)}`],
+    r.longest && ['Longest trip', `${formatLy(r.longest.ly)} to ${r.longest.title}`],
+  ].filter(Boolean);
+  return `
+    <details class="mission-end">
+      <summary><b>Mission ${m.n} complete</b><span>${esc(missionSaid(n))} · ${esc(formatLy(n.ly))}</span></summary>
+      <dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+    </details>`;
+}
+
 // A supplemental line, from another room ("Supplemental: sat the Kobayashi Maru. The lifeboat, 150 home, C B B B."),
 // leads to what it is about there.
-function itemHtml({ entry: e, k, t, supp }) {
+function itemHtml(x) {
+  const { entry: e, k, t, supp } = x;
+  if (x.mission) return missionHtml(x);
   if (supp) return `<p class="supp"><a href="${ROOM_BASE}${supp.href}"${AWAY}>${esc(supp.text)}</a></p>`;
   return `
     <details class="past" data-k="${k}">
@@ -1344,13 +1395,14 @@ function bind() {
     behind();
     $('intro-go').focus({ preventScroll: true });
   });
-  for (const [id, key] of [['opt-lines', 'lines'], ['opt-labels', 'labels'], ['opt-sound', 'sound']]) {
+  for (const [id, key] of [['opt-lines', 'lines'], ['opt-labels', 'labels'], ['opt-sound', 'sound'], ['opt-clock', 'clock']]) {
     $(id).addEventListener('change', e => {
       state.opts[key] = e.target.checked;
       sound.on = state.opts.sound;
       sound.stop();
       save();
       dirty = true;
+      if (key === 'clock') { updateHud(); updateTrip(); }
     });
   }
   $('opt-night').addEventListener('change', e => setNight(e.target.checked));

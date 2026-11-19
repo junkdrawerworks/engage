@@ -36,10 +36,12 @@ export const clockTime = t => new Date(t).toLocaleTimeString('en-GB', { hour: 'n
 // ---------- The log, day by day ----------
 
 // The arrivals and the supplemental lines in one list, newest first: { t, entry, k } for an arrival (k is its place in
-// the log) and { t, supp } for a line. `log` is newest first, as the bridge keeps it.
-export function timeline(log, supps = []) {
+// the log) and { t, supp } for a line. `log` is newest first, as the bridge keeps it. `more` are other items with a
+// time of their own (a mission's summary), put in as they are.
+export function timeline(log, supps = [], more = []) {
   const items = log.map((entry, k) => ({ t: entryTime(entry) ?? 0, entry, k }));
   for (const supp of supps) items.push({ t: supp.t, supp });
+  items.push(...more);
   // A stable sort: two arrivals with no time keep the log's order.
   return items.map((x, n) => [x, n]).sort((a, b) => b[0].t - a[0].t || a[1] - b[1]).map(([x]) => x);
 }
