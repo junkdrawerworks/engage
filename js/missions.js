@@ -460,10 +460,12 @@ const T0 = Date.UTC(1972, 0, 1), T1 = Date.UTC(2100, 11, 31), DAY = 864e5, NOON 
 let at = null; // the timeline's moment in ms, or null for now
 const dayIndex = ms => Math.floor((ms - T0) / DAY);
 const launchedBy = (ship, ms) => ms >= Date.parse(ship.launched + 'T00:00:00Z');
+// Whether she had gone silent by a moment: her last signal had come.
+const silentAt = (ship, ms) => !!ship.silentSince && ms >= Date.parse(ship.silentSince + 'T00:00:00Z');
 // What the eyebrow says of her on a date: before launch, after (a silent ship once her last signal came), or ahead.
 function statusAt(ship, ms) {
   if (!launchedBy(ship, ms)) return 'Not launched yet';
-  const silentBy = ship.silentSince && ms >= Date.parse(ship.silentSince + 'T00:00:00Z');
+  const silentBy = silentAt(ship, ms);
   if (at === null) return ship.status === 'silent' ? 'Out of contact' : 'On mission';
   if (ms > Date.now()) return silentBy ? 'Out of contact' : 'Where she’ll be';
   return silentBy ? 'Out of contact' : 'On mission';
@@ -625,14 +627,16 @@ function drawSun(jd, now, nowMs) {
         if (i === 0 && k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
     }
-    ctx.strokeStyle = on ? s.color : withAlpha(s.color, s.status === 'silent' ? 0.22 : 0.35);
+    // A Pioneer is drawn as silent only from her last signal on: on the timeline's earlier days she was on mission.
+    const quiet = silentAt(s, tMs);
+    ctx.strokeStyle = on ? s.color : withAlpha(s.color, quiet ? 0.22 : 0.35);
     ctx.lineWidth = on ? 1.8 : 1.2;
-    if (s.status === 'silent') ctx.setLineDash([3, 3]);
+    if (quiet) ctx.setLineDash([3, 3]);
     ctx.stroke(); ctx.setLineDash([]);
     const here = readings(s.id, jd).pos;
     const ahead = readings(s.id, jd + 3650).pos;
     const [x, y] = sunXY(here), [x2, y2] = sunXY(ahead);
-    marker(s, x, y, Math.atan2(y2 - y, x2 - x), on, now);
+    marker(s, x, y, Math.atan2(y2 - y, x2 - x), on, now, quiet);
     shipsOnMap.push({ id: s.id, x, y });
     shipLabel(s, x, y, on);
   }
@@ -732,8 +736,7 @@ function shipLabel(s, x, y, on) {
 }
 
 // A ship: a little arrowhead pointing the way it's going, ringed when it's the one on file.
-function marker(s, x, y, dir, on, now) {
-  const silent = s.status === 'silent';
+function marker(s, x, y, dir, on, now, silent = s.status === 'silent') {
   if (on && !silent && !still.matches) {
     const t = (now / 2400) % 1;
     ctx.beginPath(); ctx.arc(x, y, 6 + t * 16, 0, Math.PI * 2);
