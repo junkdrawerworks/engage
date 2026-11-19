@@ -16,6 +16,8 @@
 .bench-actions .secondary:disabled { opacity: 1; color: var(--muted); border-style: dashed; font-size: 12px; }
 .bench-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0 12px; margin-top: 4px; }
 .bench-foot .text-button { color: #6fe3a4; font-size: 13px; min-height: 44px; padding: 12px 0; margin: -4px 0; }
+.bench-links { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.bench-foot .text-button:disabled { opacity: 0.6; }
 .bench-foot .share-link { flex: 1 1 100%; min-width: 0; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.04); font-size: 14px; color: var(--text); }
 .kept-note { margin: 0; margin-left: auto; text-align: right; font-size: 13px; color: var(--muted); }
 .link-note { margin: 4px 0 0; font-size: 13px; color: var(--muted); }

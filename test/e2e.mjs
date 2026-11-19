@@ -2909,6 +2909,51 @@ await page.waitForFunction(() => window.xeno?.current);
   assert.deepEqual(await page.evaluate(() => xeno.jars.map(j => j.name ?? null)), [null, 'Rex']);
   await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
 }
+// Save a picture: the creature card, 1080 × 1620, handed to the share sheet with the creature's link, or downloaded
+// where a browser can't share a file. A jar's name is on it.
+{
+  await page.goto(base + 'maru.html');
+  await page.goto(base + 'xeno.html#K-8371');
+  await page.waitForFunction(() => window.xeno?.current);
+  await page.evaluate(() => {
+    navigator.canShare = data => !!data.files?.length;
+    navigator.share = async data => {
+      const f = data.files[0], bmp = await createImageBitmap(f);
+      const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
+      g.drawImage(bmp, 0, 0);
+      const seen = new Set(), d = g.getImageData(0, 0, bmp.width, bmp.height).data;
+      for (let i = 0; i < d.length; i += 4 * 97) seen.add((d[i] >> 4) * 256 + (d[i + 1] >> 4) * 16 + (d[i + 2] >> 4));
+      window.shot = { name: f.name, type: f.type, size: [bmp.width, bmp.height], colours: seen.size, text: data.text, url: data.url };
+    };
+  });
+  await page.click('#picture');
+  await page.waitForFunction(() => window.shot);
+  const pic = await page.evaluate(() => window.shot);
+  assert.deepEqual([pic.name, pic.type, pic.size, pic.text, pic.url], ['whip-tailed-rust-plain-stalker.png', 'image/png', [1080, 1620], 'https://engage.junkdrawer.works/xeno.html#K-8371', undefined]);
+  assert.ok(pic.colours > 60, `the picture is nearly blank: ${pic.colours} colours`);
+  assert.equal(await page.isDisabled('#picture'), false);
+  // Kept and named, the file takes the name; closing the share sheet downloads nothing.
+  await page.click('#keep');
+  await page.click('#jars .jar-title');
+  await page.fill('#jars .jar-field', 'Biscuit');
+  await page.keyboard.press('Enter');
+  await page.evaluate(() => { window.shot = null; });
+  await page.click('#picture');
+  await page.waitForFunction(() => window.shot);
+  assert.equal(await page.evaluate(() => window.shot.name), 'biscuit.png');
+  let downloaded = false;
+  page.once('download', () => { downloaded = true; });
+  await page.evaluate(() => { navigator.share = async () => { window.cancelled = true; throw new DOMException('closed', 'AbortError'); }; });
+  await page.click('#picture');
+  await page.waitForFunction(() => window.cancelled);
+  await page.waitForTimeout(300);
+  assert.equal(downloaded, false, 'closing the share sheet downloaded the picture');
+  // With no way to share a file, it downloads.
+  await page.evaluate(() => { navigator.canShare = undefined; });
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#picture')]);
+  assert.equal(download.suggestedFilename(), 'biscuit.png');
+  await page.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
+}
 await page.goto(base);
 await bridgeReady();
 

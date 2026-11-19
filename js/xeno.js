@@ -2,7 +2,7 @@
 import { CLASSES, byId, label, grows, worldByName } from './classes.js';
 import { Globe, paint } from './planet-art.js';
 import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText, tempText, STARS, bench, BENCH, STEPS, benchPos, benchValue, four, readingsOf, changedParts, fileFor, compare } from './xeno-gen.js';
-import { drawScene } from './xeno-art.js';
+import { drawScene, drawCard, CARD_W, CARD_H } from './xeno-art.js';
 import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, keep, unkept, watch } from './store.js';
@@ -494,6 +494,7 @@ $('send').addEventListener('click', e => {
   });
 });
 $('jar-undo-go').addEventListener('click', undoLetGo);
+$('picture').addEventListener('click', e => savePicture(e.currentTarget));
 $('compare').addEventListener('click', () => setComparing(!comparing));
 $('pair-close').addEventListener('click', closePair);
 $('pair-pics').addEventListener('click', e => {
@@ -544,6 +545,40 @@ $('kept-note').addEventListener('click', e => {
   e.preventDefault();
   $('jars-head').scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
 });
+// ---------- A picture to share ----------
+
+// Save a picture draws the creature card (js/xeno-art.js) and hands it to the phone's share sheet, or, where a
+// browser can't share a file, downloads it. All drawn here: nothing leaves the page but the picture.
+async function savePicture(button) {
+  const c = current;
+  if (!c || button.disabled) return;
+  button.disabled = true;
+  try {
+    // The canvas draws in whatever fonts are loaded by then, so wait for the page's own.
+    await Promise.all(['600 64px "Chakra Petch"', 'italic 34px "IBM Plex Sans"', '28px "IBM Plex Sans"'].map(f => document.fonts.load(f))).catch(() => {});
+    const cv = document.createElement('canvas');
+    cv.width = CARD_W; cv.height = CARD_H;
+    const where = c.world ? `${c.world.name}, ${lyText(c.world.ly)} light years away` : `${label(c.cls)}${c.cls.letter ? ` · ${c.cls.name}` : ''}`;
+    drawCard(cv.getContext('2d'), c, { own: nameOf(c), grownFor: `${where} · Specimen ${String(c.seed).padStart(4, '0')}` });
+    const blob = await new Promise(done => cv.toBlob(done, 'image/png'));
+    if (!blob) return;
+    const file = new File([blob], `${(nameOf(c) || c.name.common).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'creature'}.png`, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: `${c.name.common}, from Engage’s xenobiology lab`, text: `${LIVE}xeno.html#${linkOf(c)}` });
+        return;
+      } catch (err) { if (err?.name === 'AbortError') return; } // closed the sheet; otherwise download it instead
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } finally { button.disabled = false; }
+}
+
 // ---------- Names on the jars ----------
 
 // A jar can carry a name of yours ("Biscuit"), shown above the creature's own, on its card in the tank and on its

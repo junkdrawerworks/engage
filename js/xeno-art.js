@@ -64,6 +64,76 @@ export function drawCreature(g, c, x, y, s, time = 0) {
   g.restore();
 }
 
+// ---------- A picture to share ----------
+
+// The creature card: a tall picture of the creature in its scene, its name (and the name you gave it, above), the
+// headings of its four field notes and where it was grown. CARD_W by CARD_H pixels; `own` is the jar's name or ''.
+// The page's fonts must be loaded first (the canvas draws with whatever is there).
+export const CARD_W = 1080, CARD_H = 1620;
+export function drawCard(g, c, { own = '', grownFor = '', time = 0 } = {}) {
+  const W = CARD_W, H = CARD_H, pad = 60, wide = W - pad * 2;
+  const display = w => `600 ${w}px "Chakra Petch", "Arial Narrow", sans-serif`;
+  const body = w => `${w}px "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif`;
+  g.save();
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0b1222'); bg.addColorStop(1, '#05070d');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.textBaseline = 'alphabetic';
+  // The eyebrow.
+  g.fillStyle = '#ffb54a'; g.font = display(30);
+  spaced(g, 'ENGAGE · XENOBIOLOGY LAB', pad, 96, 4);
+  // The tank, drawn at half size and doubled, so the scale bar and its words keep the size they have on a phone.
+  const tx = pad, ty = 130, tw = wide, th = Math.round(tw * 0.75);
+  g.save();
+  round(g, tx, ty, tw, th, 28); g.clip();
+  g.translate(tx, ty); g.scale(2, 2);
+  drawScene(g, c, tw / 2, th / 2, time, 1);
+  g.restore();
+  g.strokeStyle = 'rgba(140,180,255,0.32)'; g.lineWidth = 2; round(g, tx, ty, tw, th, 28); g.stroke();
+  // From the foot up: where it was grown, then the field notes' headings two by two; the names share out the
+  // space left between them and the tank.
+  const foot = H - 62, notesH = 86 * 2 + 20, notesY = foot - 150 - notesH;
+  const names = [];
+  if (own) names.push([display(72), '#e8edf6', own, 78], [display(44), '#c3cbe0', c.name.common, 52]);
+  else names.push([display(64), '#e8edf6', c.name.common, 70]);
+  names.push([`italic ${body(34)}`, '#93a0b8', `${c.name.genus} ${c.name.species}`, 44]);
+  const laid = names.map(([font, colour, text, lh]) => { g.font = font; return { font, colour, lh, rows: wrap(g, text, wide, 2) }; });
+  const tall = laid.reduce((n, l) => n + l.rows.length * l.lh, 0);
+  let y = ty + th + Math.max(70, (notesY - (ty + th) - tall) / 2 + 40);
+  for (const l of laid) { g.font = l.font; g.fillStyle = l.colour; for (const row of l.rows) { fit(g, row, pad, y, wide); y += l.lh; } }
+  const notes = c.notes.filter(n => ['gravity', 'air', 'light', 'heat'].includes(n.k));
+  const cw = (wide - 24) / 2, ch = 86;
+  notes.forEach((n, i) => {
+    const x = pad + (i % 2) * (cw + 24), yy = notesY + Math.floor(i / 2) * (ch + 20);
+    g.fillStyle = 'rgba(255,255,255,0.04)'; round(g, x, yy, cw, ch, 18); g.fill();
+    g.strokeStyle = 'rgba(140,180,255,0.16)'; g.lineWidth = 2; g.stroke();
+    const [head, ...rest] = n.label.split(' · ');
+    g.fillStyle = '#ffb54a'; g.font = display(24); spaced(g, head.toUpperCase(), x + 24, yy + 36, 3);
+    g.fillStyle = '#e8edf6'; g.font = display(32); fit(g, rest.join(' · '), x + 24, yy + 72, cw - 48);
+  });
+  g.fillStyle = '#86d8ff'; g.font = display(30);
+  if (grownFor) fit(g, grownFor, pad, foot - 50, wide);
+  g.fillStyle = '#6fe3a4'; g.font = display(34);
+  g.fillText('Grown in the xenobiology lab', pad, foot);
+  g.fillStyle = '#93a0b8'; g.font = body(28); g.textAlign = 'right';
+  g.fillText('engage.junkdrawer.works', W - pad, foot);
+  g.restore();
+}
+function round(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
+// Letter-spaced capitals, as the page's eyebrows are.
+function spaced(g, text, x, y, gap) { for (const ch of text) { g.fillText(ch, x, y); x += g.measureText(ch).width + gap; } }
+// One line, shrunk to fit if it must.
+function fit(g, text, x, y, w) { const m = g.measureText(text).width; g.save(); if (m > w) { g.translate(x, y); g.scale(w / m, 1); g.fillText(text, 0, 0); } else g.fillText(text, x, y); g.restore(); }
+// Words in rows no wider than `w`, `max` rows at most (the last takes what is left, and is shrunk to fit).
+function wrap(g, text, w, max) {
+  const out = [];
+  let line = '';
+  for (const word of text.split(' ')) { const t = line ? `${line} ${word}` : word; if (g.measureText(t).width > w && line) { out.push(line); line = word; } else line = t; }
+  out.push(line);
+  while (out.length > max) out.splice(max - 1, 2, `${out[max - 1]} ${out[max]}`);
+  return out;
+}
+
 // ---------- Surroundings ----------
 
 function backdrop(g, c, W, H, groundY, time) {
