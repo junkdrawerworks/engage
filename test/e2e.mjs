@@ -1466,6 +1466,42 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await day.close();
 }
 
+// Impulse power, in the warp scale room: the whole sky round the ship, dead ahead in the middle. Opening the throttle
+// to nine tenths of light speed squeezes the forward half of the sky within 26° of dead ahead, makes an hour aboard
+// 2 hours 18 minutes at home, and shifts the light ahead to the blue and behind to the red. The heading is the place
+// on the card when it is a star.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await ctx2.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'warp.html#vega');
+  await p.locator('#impulse').scrollIntoViewIfNeeded();
+  await p.waitForFunction(() => window.warpScale?.impulse.ready, null, { timeout: 30000 });
+  assert.equal(await p.evaluate(() => warpScale.impulse.heading), 'Vega');
+  assert.equal(await p.locator('#impulse-speed').innerText(), 'Full stop');
+  assert.match(await p.locator('#impulse-read').innerText(), /1 hour aboard is 1 hour on Earth/);
+  // Arcturus, about 65° from Vega in Earth's sky, is drawn that far out at a full stop.
+  const rest = await p.evaluate(() => warpScale.impulse.where('Arcturus'));
+  assert.ok(rest.fromMiddle > 55 && rest.fromMiddle < 75, `Arcturus drawn ${rest.fromMiddle}° from dead ahead at rest`);
+  await p.locator('#throttle').fill('0.9');
+  assert.equal(await p.locator('#impulse-speed').innerText(), '0.9 of light speed, 269,813 km/s');
+  const read = await p.locator('#impulse-read').innerText();
+  assert.match(read, /Squeezed within 26° of dead ahead/);
+  assert.match(read, /1 hour aboard is 2 hours 18 minutes on Earth/);
+  assert.match(read, /Light arrives at 4\.4 times its frequency: green as ultraviolet/);
+  assert.match(read, /At 0\.23 times: green as infrared/);
+  const fast = await p.evaluate(() => warpScale.impulse.where('Arcturus'));
+  assert.ok(fast.fromMiddle < rest.fromMiddle - 20 && fast.d > 1, 'Arcturus did not crowd toward dead ahead and turn bluer');
+  // A star behind the ship at rest is still behind, and redder.
+  const behind = await p.evaluate(() => { const names = ['Canopus', 'Sirius', 'Rigel', 'Achernar']; return names.map(n => warpScale.impulse.where(n)).find(s => s.fromMiddle > 120); });
+  assert.ok(behind && behind.d < 1);
+  assert.match(await p.locator('#impulse-sky').getAttribute('aria-label'), /26 degrees round dead ahead/);
+  // A place that is no star heads for Proxima Centauri.
+  await p.evaluate(() => warpScale.select('core'));
+  assert.equal(await p.evaluate(() => warpScale.impulse.heading), 'Proxima Centauri');
+  await ctx2.close();
+}
+
 // A link cut off mid-way by a chat app can end in a stray "%", which isn't an address at all. The warp scale, the lab
 // and the survey each stopped dead on one; they open as they would with no link. The lab also reads a class in
 // either case, keeping the specimen number, and takes specimen 0, which it never grows, as no number.

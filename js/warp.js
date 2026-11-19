@@ -1,6 +1,6 @@
 // The warp scale explorer: pick a place, and five ships race there from Earth at warp 9.975, your own warp, warp 5,
 // light speed and Voyager 1's real speed, on a clock that speeds up as they go.
-import { warpSpeed } from './physics.js';
+import { apparentMag, starColor, warpSpeed } from './physics.js';
 import {
   LANES, GROUPS, PLACES, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock,
   formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt, customPlace, COURSE_GROUP,
@@ -9,6 +9,8 @@ import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
 import { LIVE, share } from './share.js';
 import { fullName, readShip } from './myship.js';
+import { loadCatalog } from './catalog.js';
+import { aberrate, doppler, gamma, greenSeenAs, halfSkyDeg, hourOnEarth, speedSaid } from './impulse.js';
 
 const KEY = 'engage.warp.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -89,6 +91,7 @@ function select(id, { scroll = false, quiet = false } = {}) {
   setButton();
   note(startNote());
   draw(0);
+  aim();
   if (scroll) document.querySelector('.race').scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
 }
 
@@ -398,6 +401,188 @@ function renderLadder() {
   $('ladder').innerHTML = html;
 }
 
+// ---------- Impulse power ----------
+
+// The whole sky round the ship as she leaves the Sun toward the place on the card (a star with a course; Proxima
+// Centauri for anywhere else), drawn so dead ahead is the middle and dead behind is the rim, each ring outward
+// another 45 degrees from dead ahead. At speed each star is moved, recoloured and brightened or dimmed as special
+// relativity says (js/impulse.js). The stars are the bridge's own catalogue, loaded when the section comes near.
+const sv = $('impulse-sky');
+const sg = sv.getContext('2d');
+let sky = null; // { stars: [[x, y, z, mag, temp]], names: [[index in stars, name]], cat } once the catalogue is in
+let beta = 0;
+let heading = null; // { name, dir, u, v }
+
+const HEAD_DEFAULT = 'Proxima Centauri';
+const SKY_NAMES = ['Sirius', 'Canopus', 'Arcturus', 'Vega', 'Capella', 'Rigel', 'Betelgeuse', 'Aldebaran', 'Antares', 'Polaris', 'Deneb', 'Altair'];
+
+async function loadSky() {
+  if (sky) return;
+  sky = 'loading';
+  drawSky();
+  let cat;
+  try { cat = await loadCatalog(); } catch { sky = null; drawSky('Couldn’t chart the stars. Try reloading.'); return; }
+  const stars = [];
+  const index = new Map();
+  for (let i = 1; i < cat.count; i++) {
+    const x = cat.pos[i * 3], y = cat.pos[i * 3 + 1], z = cat.pos[i * 3 + 2], d = Math.hypot(x, y, z);
+    if (!(d > 0)) continue;
+    index.set(i, stars.length);
+    stars.push([x / d, y / d, z / d, apparentMag(cat.absmag[i], d), cat.temp[i]]);
+  }
+  const names = SKY_NAMES.map(n => [index.get(cat.byName.get(n)), n]).filter(([k]) => k !== undefined);
+  sky = { stars, names, cat, index };
+  aim();
+}
+
+// The heading: toward the place on the card when it is a star the catalogue has.
+function aim() {
+  if (!sky || sky === 'loading') return;
+  const want = place.course && sky.cat.byName.has(place.course) ? place.course : HEAD_DEFAULT;
+  const i = sky.cat.byName.get(want);
+  const p = [sky.cat.pos[i * 3], sky.cat.pos[i * 3 + 1], sky.cat.pos[i * 3 + 2]], d = Math.hypot(...p);
+  const dir = p.map(v => v / d);
+  // Two directions square to it, for where round dead ahead each star is: "up" toward the celestial north pole.
+  let u = [-dir[0] * dir[2], -dir[1] * dir[2], 1 - dir[2] * dir[2]];
+  const ul = Math.hypot(...u) || 1;
+  u = u.map(v => v / ul);
+  const v = [dir[1] * u[2] - dir[2] * u[1], dir[2] * u[0] - dir[0] * u[2], dir[0] * u[1] - dir[1] * u[0]];
+  heading = { name: place.course && sky.cat.byName.has(place.course) ? place.name : 'Proxima Centauri', star: sky.index.get(i), dir, u, v };
+  drawSky();
+}
+
+// Where star k (in sky.stars) is drawn, at the throttle's speed: { x, y } in CSS pixels, how bright it looks and the
+// shift in its light.
+function seen(k, cx, cy, R) {
+  const [x, y, z, mag] = sky.stars[k];
+  const { dir, u, v } = heading;
+  const cosT = x * dir[0] + y * dir[1] + z * dir[2];
+  const cosTp = Math.max(-1, Math.min(1, aberrate(cosT, beta)));
+  const d = doppler(cosTp, beta);
+  const r = R * Math.acos(cosTp) / Math.PI;
+  const phi = Math.atan2(x * v[0] + y * v[1] + z * v[2], x * u[0] + y * u[1] + z * u[2]);
+  return { x: cx - r * Math.sin(phi), y: cy - r * Math.cos(phi), mag: mag - 5 * Math.log10(d), d };
+}
+
+function skySize() {
+  const r = sv.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+  if (sv.width !== w || sv.height !== h) { sv.width = w; sv.height = h; }
+  return { w: r.width, h: r.height, dpr };
+}
+
+function drawSky(message) {
+  const { w, h, dpr } = skySize();
+  if (!w) return;
+  sg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  sg.globalCompositeOperation = 'source-over';
+  sg.fillStyle = '#02040a';
+  sg.fillRect(0, 0, w, h);
+  if (!heading || typeof sky !== 'object' || !sky) {
+    sg.fillStyle = '#93a0b8';
+    sg.font = '500 13px "IBM Plex Sans", sans-serif';
+    sg.textAlign = 'center';
+    sg.fillText(message || 'Charting the stars…', w / 2, h / 2);
+    sg.textAlign = 'left';
+    return;
+  }
+  const cx = w / 2, cy = h / 2 + 8, R = Math.min(w, h) / 2 - 22;
+  // Rings: 45, 90 and 135 degrees from dead ahead, and the rim, dead behind.
+  sg.strokeStyle = 'rgba(140, 180, 255, 0.14)';
+  sg.lineWidth = 1;
+  for (const a of [45, 90, 135, 180]) { sg.beginPath(); sg.arc(cx, cy, R * a / 180, 0, Math.PI * 2); sg.stroke(); }
+  // The stars, faintest first so the bright ones are on top. Each is a dot of its own colour, not light added up:
+  // where the sky crowds ahead, thousands share a few degrees, and added up they made one white blot.
+  const limit = 6.2;
+  for (let k = 0; k < sky.stars.length; k++) {
+    const s = seen(k, cx, cy, R);
+    if (s.mag > limit) continue;
+    const f = Math.pow(10, -0.4 * (s.mag - limit));
+    const size = Math.min(0.5 + 0.5 * Math.pow(f, 0.26), 3.6);
+    const alpha = Math.min(0.9, 0.18 + 0.1 * Math.pow(f, 0.4));
+    const [r, g, b] = starColor(Math.min(Math.max(sky.stars[k][4] * s.d, 1200), 40000));
+    sg.fillStyle = `rgba(${r * 255 | 0}, ${g * 255 | 0}, ${b * 255 | 0}, ${alpha.toFixed(3)})`;
+    if (size < 1.1) sg.fillRect(s.x - size / 2, s.y - size / 2, size, size);
+    else { sg.beginPath(); sg.arc(s.x, s.y, size, 0, Math.PI * 2); sg.fill(); }
+  }
+  // Half the sky: everything that was in front of the ship at rest is inside this circle.
+  const half = R * halfSkyDeg(beta) / 180;
+  sg.strokeStyle = 'rgba(255, 181, 74, 0.75)';
+  sg.setLineDash([4, 5]);
+  sg.beginPath(); sg.arc(cx, cy, half, 0, Math.PI * 2); sg.stroke();
+  sg.setLineDash([]);
+  // Its label goes below the circle, in a dark box, and the names keep off it and off each other.
+  sg.font = '600 10px "Chakra Petch", sans-serif';
+  const hw = sg.measureText('HALF THE SKY').width + 14, hy = Math.min(cy + half + 16, cy + R - 4);
+  const taken = [[cx - hw / 2 - 4, hy - 11, cx + hw / 2 + 4, hy + 5], [cx - 14, cy - 14, cx + 14, cy + 14]];
+  sg.fillStyle = 'rgba(2, 4, 10, 0.8)';
+  sg.fillRect(cx - hw / 2, hy - 10, hw, 14);
+  sg.fillStyle = '#ffb54a';
+  sg.textAlign = 'center';
+  letter(sg, 'HALF THE SKY', cx, hy, 1.2);
+  // A few bright stars by name, and the heading in the middle.
+  sg.font = '500 11px "IBM Plex Sans", sans-serif';
+  sg.textAlign = 'left';
+  for (const [k, name] of sky.names) {
+    if (k === heading.star) continue;
+    const s = seen(k, cx, cy, R);
+    const box = [s.x + 4, s.y - 8, s.x + 8 + sg.measureText(name).width, s.y + 6];
+    if (taken.some(t => box[0] < t[2] && box[2] > t[0] && box[1] < t[3] && box[3] > t[1])) continue;
+    taken.push(box);
+    sg.fillStyle = 'rgba(200, 212, 235, 0.75)';
+    sg.fillText(name, s.x + 6, s.y + 4);
+  }
+  sg.strokeStyle = '#86d8ff';
+  sg.lineWidth = 1.4;
+  sg.beginPath();
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    sg.moveTo(cx + sx * 10, cy + sy * 5); sg.lineTo(cx + sx * 10, cy + sy * 10); sg.lineTo(cx + sx * 5, cy + sy * 10);
+  }
+  sg.stroke();
+  // Labels in the corners: where she's bound, and dead behind.
+  sg.font = '600 10px "Chakra Petch", sans-serif';
+  sg.fillStyle = '#93a0b8';
+  letter(sg, 'HEADING FOR', 14, 20, 1.4);
+  sg.fillStyle = '#86d8ff';
+  sg.font = '600 13px "Chakra Petch", sans-serif';
+  sg.fillText(heading.name, 14, 37);
+  sg.textAlign = 'right';
+  sg.font = '600 10px "Chakra Petch", sans-serif';
+  sg.fillStyle = '#93a0b8';
+  letter(sg, 'RIM: DEAD BEHIND', w - 14, 20, 1.4, 'right');
+  sg.textAlign = 'left';
+}
+
+function setThrottle(b) {
+  beta = Math.min(Math.max(Number(b) || 0, 0), 0.999);
+  $('throttle').value = beta;
+  $('throttle').style.setProperty('--fill', `${(beta / 0.999 * 100).toFixed(1)}%`);
+  $('impulse-speed').textContent = speedSaid(beta);
+  const ahead = doppler(1, beta), behind = doppler(-1, beta);
+  const times = d => (d >= 10 ? Math.round(d) : d.toFixed(d < 1 ? 2 : 1)).toString();
+  const rows = beta === 0
+    ? [['Half the sky', 'Everything up to 90° from dead ahead, as it should be.'], ['Ship’s clock', '1 hour aboard is 1 hour on Earth.'], ['Dead ahead', 'Light arrives as it left: green as green.'], ['Dead behind', 'The same.']]
+    : [
+      ['Half the sky', `Squeezed within ${Math.round(halfSkyDeg(beta))}° of dead ahead.`],
+      ['Ship’s clock', `1 hour aboard is ${hourOnEarth(beta)} on Earth.`],
+      ['Dead ahead', `Light arrives at ${times(ahead)} times its frequency: green as ${greenSeenAs(ahead)}.`],
+      ['Dead behind', `At ${times(behind)} times: green as ${greenSeenAs(behind)}.`],
+    ];
+  $('impulse-read').innerHTML = rows.map(([t, d]) => `<dt>${esc(t)}</dt><dd>${esc(d)}</dd>`).join('');
+  sv.setAttribute('aria-label', beta === 0
+    ? 'The whole sky round the ship at a full stop: dead ahead in the middle, dead behind round the edge.'
+    : `The whole sky at ${speedSaid(beta).split(',')[0]}: the stars crowd into a circle ${Math.round(halfSkyDeg(beta))} degrees round dead ahead, bluer in front and redder behind.`);
+  drawSky();
+}
+
+$('throttle').addEventListener('input', e => setThrottle(e.target.value));
+setThrottle(0);
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); loadSky(); } }, { rootMargin: '600px 0px' });
+  io.observe($('impulse'));
+} else loadSky();
+
 // ---------- Start ----------
 
 // A link cut off or mangled on its way (a stray "%" isn't an address at all) names no place: the last one stays.
@@ -426,11 +611,24 @@ watch(KEY, () => {
   if (p && p !== place && !place.custom) select(p.id, { quiet: true });
 });
 addEventListener('hashchange', () => { const { id } = fromLink(); if (find(id) && id !== place.id) select(id); });
-addEventListener('resize', () => { if (!race || race.done) draw(race ? trip.clock.seconds : 0); });
-document.fonts?.ready.then(() => { if (!race || race.done) draw(race ? trip.clock.seconds : 0); });
+addEventListener('resize', () => { if (!race || race.done) draw(race ? trip.clock.seconds : 0); drawSky(); });
+document.fonts?.ready.then(() => { if (!race || race.done) draw(race ? trip.clock.seconds : 0); drawSky(); });
 
 window.warpScale = {
   select, engage, skip, setCustom, freeze,
+  // Impulse power: the throttle, and where a star (by name) is drawn on the sky, for the tests.
+  impulse: {
+    set: setThrottle,
+    get ready() { return !!heading; },
+    get heading() { return heading?.name; },
+    where(name) {
+      const k = sky?.index?.get(sky.cat.byName.get(name));
+      if (k === undefined || !heading) return null;
+      const r = sv.getBoundingClientRect(), R = Math.min(r.width, r.height) / 2 - 22;
+      const s = seen(k, r.width / 2, r.height / 2 + 8, R);
+      return { x: s.x, y: s.y, fromMiddle: Math.hypot(s.x - r.width / 2, s.y - r.height / 2 - 8) / R * 180, d: s.d };
+    },
+  },
   get place() { return place.id; },
   get trip() { return trip; },
   get running() { return !!race && !race.done; },

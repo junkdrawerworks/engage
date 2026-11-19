@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { LANES, PLACES, GROUPS, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock, formatSpan, formatShort, formatLight, arrivalYear, lightLeft, ladderAt, customPlace, COURSE_GROUP } from '../js/warp-scale.js';
 import { SHIPS } from '../js/ships.js';
 import { warpSpeed } from '../js/physics.js';
+import { gamma, aberrate, doppler, halfSkyDeg, hourOnEarth, greenSeenAs, speedSaid } from '../js/impulse.js';
 
 const DATE = new Date('2026-10-24T00:00:00Z');
 const lane = id => LANES.find(l => l.id === id);
@@ -183,4 +184,25 @@ test('spans and distances read right at every unit\'s edge', () => {
   assert.deepEqual(sweep(formatSpan, -13, 11), []);
   assert.deepEqual(sweep(formatShort, -13, 11), []);
   assert.deepEqual(sweep(formatLight, -8, 7), []);
+});
+
+// Impulse power: what special relativity does to the sky near light speed.
+test('at nine tenths of light speed half the sky is squeezed within 26° of dead ahead, and an hour aboard is 2 hours 18 minutes at home', () => {
+  assert.ok(Math.abs(gamma(0.9) - 2.2942) < 1e-4);
+  assert.equal(Math.round(halfSkyDeg(0.9)), 26);
+  assert.equal(halfSkyDeg(0), 90, 'at rest half the sky is half the sky');
+  assert.ok(Math.abs(aberrate(0, 0.9) - 0.9) < 1e-12, 'a star beside the ship is not seen at cos θ′ = β');
+  assert.equal(aberrate(1, 0.9), 1, 'dead ahead moved');
+  assert.equal(aberrate(-1, 0.9), -1, 'dead behind moved');
+  // Dead ahead the light is shifted by √((1 + β)/(1 − β)); dead behind by its inverse.
+  assert.ok(Math.abs(doppler(1, 0.9) - Math.sqrt(19)) < 1e-9);
+  assert.ok(Math.abs(doppler(-1, 0.9) * doppler(1, 0.9) - 1) < 1e-9);
+  assert.equal(hourOnEarth(0.9), '2 hours 18 minutes');
+  assert.equal(hourOnEarth(0), '1 hour');
+  assert.equal(hourOnEarth(0.999), '22 hours 22 minutes');
+  assert.equal(greenSeenAs(1), 'green');
+  assert.equal(greenSeenAs(doppler(1, 0.9)), 'ultraviolet');
+  assert.equal(greenSeenAs(doppler(-1, 0.9)), 'infrared');
+  assert.equal(speedSaid(0.9), '0.9 of light speed, 269,813 km/s');
+  assert.equal(speedSaid(0), 'Full stop');
 });

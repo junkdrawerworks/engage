@@ -68,6 +68,28 @@
       <div id="ladder"></div>
     </section>
 
+    <section class="impulse" id="impulse" aria-labelledby="impulse-head">
+      <h2 class="section-head" id="impulse-head">Impulse power</h2>
+      <p class="ladder-sub">Below the speed of light a ship really does move through space, and the real sky does strange things. Open the throttle and look: dead ahead is in the middle, dead behind is round the edge.</p>
+      <div class="impulse-deck">
+        <div class="screen sky-screen">
+          <canvas id="impulse-sky" role="img" aria-label="The whole sky round the ship, at a full stop."></canvas>
+        </div>
+        <div class="impulse-side">
+          <div class="throttle">
+            <label class="custom-label" for="throttle">Throttle</label>
+            <input type="range" id="throttle" min="0" max="0.999" step="0.001" value="0" aria-describedby="impulse-speed">
+            <p class="impulse-speed" id="impulse-speed">Full stop</p>
+          </div>
+          <dl class="impulse-read" id="impulse-read"></dl>
+          <div class="impulse-card">
+            <h3>Why warp shows none of this</h3>
+            <p>A warp drive doesn’t push the ship through space. It moves a bubble of space with the ship sitting still inside it, so the stars don’t crowd ahead or change colour, and no time falls behind: the crew come home the same age as everyone else. The physicist Miguel Alcubierre showed in 1994 that Einstein’s equations allow a bubble like that, though it would need a kind of negative energy nobody knows how to make.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="how" aria-labelledby="how-head">
       <h2 class="section-head" id="how-head">How the scale works</h2>
       <p>Warp 1 is the speed of light, exactly. Above that, Star Trek’s scale since The Next Generation climbs as the warp factor to the power of ten thirds, so warp 5 is about 214 times light and warp 9 about 1,516 times. Past warp 9 it gets steeper and steeper, and warp 10 can never be reached: it would mean being everywhere at once.</p>

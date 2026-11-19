@@ -226,9 +226,9 @@ ${contactJs}
 await writeFile(join(out, 'contact.html'), contactOut);
 console.log(`contact.html: ${(contactOut.length / 1024).toFixed(0)} KB`);
 
-// The warp scale, as its own single file. Links back to the bridge go to the live site.
+// The warp scale, as its own single file, with the stars inline for impulse power. Links back to the bridge go to the live site.
 const warpHtml = await read('warp.html');
-const warpJs = await bundle(['physics', 'ephemeris', 'warp-scale', 'wake', 'store', 'share', 'myship', 'warp'], liveBridge('warp'));
+const warpJs = await bundle(['physics', 'destinations', 'catalog', 'impulse', 'ephemeris', 'warp-scale', 'wake', 'store', 'share', 'myship', 'warp'], liveBridge('warp'));
 const warpOut = `<title>Warp scale</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -240,6 +240,7 @@ ${bridgeLinks(pageBody(warpHtml), 'warp.html')}
 <script type="module">
 const __m = {};
 document.body.classList.add('survey', 'warp-page');
+${shim}
 ${warpJs}
 </script>
 `;
