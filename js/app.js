@@ -314,7 +314,7 @@ function frame(now) {
 }
 
 const viewNow = dt => ({
-  cam: camAbs(), yaw: state.yaw, pitch: state.pitch, fov: state.fov, lines: state.opts.lines,
+  cam: viewCam(), yaw: state.yaw, pitch: state.pitch, fov: state.fov, lines: state.opts.lines || earthHeld,
   warp: trip?.warp || 0, warpSpeed: trip?.streak || 0, dt,
 });
 
@@ -355,9 +355,9 @@ function drawLabels(now) {
   const g = c.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
-  const cam = camAbs();
-  // Names stay off the header (where we are, and the buttons) and the helm, and off each other.
-  const taken = [...document.querySelectorAll('.hud .where, .hud-buttons, #console')].map(el => {
+  const cam = viewCam();
+  // Names stay off the header (where we are, and the buttons), the helm and Earth's sky's line, and off each other.
+  const taken = [...document.querySelectorAll('.hud .where, .hud-buttons, #console, #earth-note:not([hidden])')].map(el => {
     const b = el.getBoundingClientRect();
     return [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4];
   });
@@ -416,6 +416,22 @@ function drawLabels(now) {
       label(g, 'Sol', `mag ${m.toFixed(1)}`, x, p.y + 4, '#ffd27a');
       taken.push(box(x, p.y + 4, lw));
       drawn.push({ text: 'Sol', x, y: p.y + 4, w: lw });
+    }
+  }
+
+  // Earth's sky, held: the star the ship is at, as it looks from home.
+  if (earthHeld) {
+    const p = sky.project(state.at);
+    if (onScreen(p)) {
+      g.strokeStyle = '#ffd27a';
+      g.lineWidth = 1.3;
+      g.beginPath();
+      g.arc(p.x, p.y, 9, 0, Math.PI * 2);
+      g.stroke();
+      const name = titleFor(cat, state.at), lw = labelWidth(g, name, 'you are here'), x = side(p.x, 14, lw);
+      label(g, name, 'you are here', x, p.y + 4, '#ffd27a');
+      taken.push(box(x, p.y + 4, lw));
+      drawn.push({ text: name, x, y: p.y + 4, w: lw });
     }
   }
 
@@ -762,6 +778,62 @@ function flash(strength) {
   $('flash').animate([{ opacity: 0 }, { opacity: strength, offset: 0.25 }, { opacity: 0 }], { duration: 700, easing: 'ease-out' });
 }
 
+// ---------- Earth's sky, held to compare ----------
+
+// Away from the Sun, pressing and holding Earth's sky on the arrival's log turns the viewscreen to the same direction
+// as seen from home: the constellations back in the shapes everyone knows, and the star the ship is at marked among
+// them. Letting go brings back the sky from here. Each change fades, the view as it was laid over the new one and
+// let go (a fade, not a movement, so reduced motion keeps it). Nothing is saved.
+let earthHeld = false;
+const viewCam = () => (earthHeld ? [0, 0, 0] : camAbs());
+
+function earthSky(on) {
+  if (on && (trip || state.at === 0 || !sky)) on = false;
+  if (on === earthHeld) return;
+  // The view as it stands, drawn now and copied before the browser clears it.
+  const fade = $('fade');
+  const w = $('sky').width, h = $('sky').height;
+  sky.render(viewNow(0));
+  if (fade.width !== w || fade.height !== h) { fade.width = w; fade.height = h; }
+  const g = fade.getContext('2d');
+  g.clearRect(0, 0, w, h);
+  g.drawImage($('sky'), 0, 0, w, h);
+  g.drawImage($('labels'), 0, 0, w, h);
+  earthHeld = on;
+  fade.style.transition = 'none';
+  fade.style.opacity = '1';
+  void fade.offsetWidth; // the copy is up before it starts to fade
+  fade.style.transition = 'opacity .45s ease-out';
+  fade.style.opacity = '0';
+  $('earth-sky').setAttribute('aria-pressed', String(on));
+  $('earth-note').hidden = !on;
+  if (on) say(`Earth’s sky: the same direction, seen from home. ${titleFor(cat, state.at)} is marked.`);
+  dirty = true;
+}
+
+// Held with a finger or the mouse, or with Space or Enter. A click with neither (a screen reader's) turns it on and off.
+function bindEarthSky() {
+  const b = $('earth-sky');
+  let keyed = false;
+  b.addEventListener('pointerdown', e => { if (e.button) return; b.setPointerCapture?.(e.pointerId); earthSky(true); });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(type, () => earthSky(false));
+  b.addEventListener('contextmenu', e => e.preventDefault()); // a long press is the point, not a menu
+  b.addEventListener('keydown', e => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    e.preventDefault();
+    keyed = true;
+    if (!e.repeat) earthSky(true);
+  });
+  b.addEventListener('keyup', e => {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    e.preventDefault();
+    earthSky(false);
+    setTimeout(() => { keyed = false; });
+  });
+  b.addEventListener('blur', () => earthSky(false));
+  b.addEventListener('click', e => { if (e.detail === 0 && !keyed) earthSky(!earthHeld); });
+}
+
 // ---------- Looking around ----------
 
 function headingOf(dir) {
@@ -833,6 +905,7 @@ function openSheet(id, from = null) {
 }
 
 function closeSheets() {
+  earthSky(false);
   const open = SHEETS.some(id => !$(id).hidden);
   for (const id of SHEETS) $(id).hidden = true;
   $('scrim').hidden = true;
@@ -903,6 +976,8 @@ function showArrival(entry, again = false) {
   if (firsts.length) $('arrival-entry').querySelector('h3').insertAdjacentHTML('afterend', `<p class="firsts">${firsts.map(t => `<span>${esc(t)}</span>`).join(' ')}</p>`);
   unsavedNote('arrival-unsaved', 'The log is full: this entry won’t be kept.', 'This browser isn’t letting the bridge save: this entry won’t be kept.');
   nextButton();
+  // Earth's sky is there to compare with anywhere but home, and at a star whose place the charts can only guess.
+  $('earth-sky').hidden = state.at === 0 || !!cat.unmeasured[state.at];
   openSheet('arrival');
   $('scrim').hidden = true; // keep the view of the new star clear
   $('arrival-entry').scrollTop = 0;
@@ -1572,6 +1647,7 @@ function bind() {
   });
   $('look-home').addEventListener('click', lookHome);
   $('arrival-home').addEventListener('click', lookHome);
+  bindEarthSky();
   // The log entry goes away as Set course opens, so focus comes back to the destination button instead.
   // On a voyage it sets course for the next leg instead, straight away.
   $('arrival-next').addEventListener('click', e => {
@@ -1818,6 +1894,8 @@ function hooks() {
     // Draws now and returns the viewscreen as an image (the drawing buffer is cleared once it's on screen).
     snapshot() { sky.render(viewNow(0)); return $('sky').toDataURL('image/png'); },
     closeSheets,
+    earthSky,
+    get earthHeld() { return earthHeld; },
   };
 }
 

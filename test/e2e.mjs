@@ -897,6 +897,56 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   await ctx2.close();
 }
 
+// Earth's sky, held to compare: away from home, pressing and holding the small button beside the arrival's date turns
+// the viewscreen to the same direction seen from Earth, with the constellation lines on and the star the ship is at
+// marked; letting go brings back the sky from here. With Space it holds too, and a click with no press (a screen
+// reader's) turns it on and off. At home, and at a star with no measured distance, there is no button.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await ctx2.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#intro-go');
+  await p.evaluate(() => { engage.state.opts.lines = false; engage.jump('Rigel'); });
+  await p.waitForTimeout(400);
+  assert.ok(await p.locator('#earth-sky').isVisible(), 'no Earth’s sky button away from home');
+  const where = async () => { await p.waitForTimeout(150); return p.evaluate(() => engage.project('Betelgeuse')); };
+  const away = await where();
+  const b = await p.locator('#earth-sky').boundingBox();
+  await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await p.mouse.down();
+  assert.ok(await p.evaluate(() => engage.earthHeld));
+  const home = await where();
+  // From Rigel, 860 light years out, Betelgeuse is behind the ship; from Earth it is in view, near Rigel.
+  assert.ok(away.behind && !home.behind, 'the view did not change to Earth’s');
+  assert.ok(await p.locator('#earth-note').isVisible());
+  assert.equal(await p.locator('#earth-sky').getAttribute('aria-pressed'), 'true');
+  assert.ok((await p.evaluate(() => engage.labels())).some(l => l.text === 'Rigel'), 'the ship’s star is not marked in Earth’s sky');
+  assert.equal(await p.locator('#fade').evaluate(el => getComputedStyle(el).transitionProperty), 'opacity');
+  await p.mouse.up();
+  assert.equal(await p.evaluate(() => engage.earthHeld), false);
+  const back = await where();
+  assert.ok(back.behind === away.behind && (away.behind || (Math.abs(back.x - away.x) < 1 && Math.abs(back.y - away.y) < 1)), 'letting go did not bring back the sky from here');
+  assert.ok(await p.locator('#earth-note').isHidden());
+  // Space holds it, from the keyboard.
+  await p.focus('#earth-sky');
+  await p.keyboard.down(' ');
+  assert.ok(await p.evaluate(() => engage.earthHeld), 'Space did not hold it');
+  await p.keyboard.up(' ');
+  assert.equal(await p.evaluate(() => engage.earthHeld), false);
+  await p.locator('#earth-sky').evaluate(el => el.click());
+  assert.ok(await p.evaluate(() => engage.earthHeld), 'a screen reader’s click did not turn it on');
+  // Putting the log away lets go of it.
+  await p.tap('#arrival .close');
+  assert.equal(await p.evaluate(() => engage.earthHeld), false);
+  // Home: no button.
+  await p.evaluate(() => engage.jump('Sol'));
+  await p.waitForTimeout(300);
+  assert.ok(await p.locator('#earth-sky').isHidden(), 'Earth’s sky offered at home');
+  await ctx2.close();
+}
+
 // The planetary survey: flip through the files, set course from one, and play the drill.
 await page.goto(base + 'survey.html#K');
 await page.waitForFunction(() => window.survey);

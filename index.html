@@ -31,6 +31,9 @@
   <main id="bridge" aria-label="Bridge">
     <canvas id="sky" aria-hidden="true"></canvas>
     <canvas id="labels" role="img" aria-label="Viewscreen. Drag to look around, pinch or scroll to zoom, tap a star to choose it. With a keyboard: the arrow keys look around, plus and minus zoom, and slash opens Set course."></canvas>
+    <!-- Earth's sky, held to compare: the view as it was, fading out over the new one (see earthSky in js/app.js). -->
+    <canvas id="fade" aria-hidden="true"></canvas>
+    <p class="earth-note" id="earth-note" hidden>Earth’s sky · the same direction from home</p>
     <div id="flash" aria-hidden="true"></div>
 
     <header class="hud">
@@ -199,6 +202,7 @@
   <section class="sheet arrival" id="arrival" hidden aria-label="Log entry">
     <div class="sheet-head">
       <p class="eyebrow" id="arrival-date"></p>
+      <button class="earth-sky" id="earth-sky" type="button" aria-pressed="false" title="Press and hold to see this direction from Earth" hidden>Earth’s sky</button>
       <button class="close" type="button" data-close aria-label="Close">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
