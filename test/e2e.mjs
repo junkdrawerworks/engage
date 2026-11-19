@@ -2490,6 +2490,14 @@ await bridgeReady();
   await p.click('#again');
   assert.match(await p.locator('#challenges .state').nth(1).innerText(), /^Contact made · best notebook 2\/1\d, Lost in translation$/);
   assert.equal(await p.locator('#challenges li').nth(1).getAttribute('class'), 'done');
+  // Answered and made again: the same people are still one friend, who hails again once, not twice.
+  await p.locator('#challenges [data-challenge]').nth(1).click();
+  await settle();
+  while (!(await p.evaluate(() => contact.game.over))) { await p.evaluate(() => { contact.pick(contact.hint()); contact.send(); }); await settle(); }
+  await p.click('#send');
+  await p.click('#again');
+  assert.deepEqual(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')).friends.map(f => f.seed)), [CHALLENGES[1]], 'a challenge made twice was kept as two friends');
+  assert.equal(await p.locator('#friend-more').isHidden(), true);
   // Send: the hail as a link.
   await p.evaluate(() => { delete Navigator.prototype.share; });
   await hard.grantPermissions(['clipboard-read', 'clipboard-write']);

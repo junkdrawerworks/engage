@@ -470,7 +470,9 @@ function record() {
     saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString(), id: gameId, seed: g.seed, ...where });
     // A people you made contact with is kept for good, with where you met them, beyond the 30 encounters listed.
     // Their notebook goes with them, the phrases heard and the guesses, for when they hail again.
-    if (lastEval.outcome === 'contact') {
+    // A people met before (a linguist's challenge answered again, a hail sent by link) is already a friend: first
+    // contact with them was made once, and they hail again once.
+    if (lastEval.outcome === 'contact' && !friendsOf(saved).some(f => f.seed === g.seed)) {
       saved.friends = [...friendsOf(saved), { seed: g.seed, people: lastEval.people, at: new Date().toISOString(), ...where, heard: g.heard.filter(id => id !== 'story'), tags: { ...g.tags } }];
     }
     // A linguist's challenge keeps its best notebook, and whether contact has been made.
