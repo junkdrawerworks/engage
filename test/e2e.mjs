@@ -551,6 +551,14 @@ await page.click('#choose');
   assert.deepEqual((await rows('61 cygni')).map(r => r[0]), ['61 Cygni A', '61 Cygni B']);
   assert.deepEqual(await rows('andoria'), []);
   assert.equal(await text('#list .empty'), 'No star by that name in the catalogue.');
+  // The ship's computer answers a question in the same box, with a line and the stars to tap, from where the ship is.
+  assert.deepEqual((await rows('nearest')).map(r => r[0]).slice(0, 3), ['Proxima Centauri', 'Toliman', 'Alpha Centauri']);
+  assert.match(await text('#list .computer'), /^The five stars nearest our position, nearest first\. Proxima Centauri is 4\.2 light years away\.$/);
+  assert.equal((await rows('Computer, how far is Vega?'))[0][0], 'Vega');
+  assert.match(await text('#list .computer'), /^Vega is 25 light years from us: \d+ days? at warp [\d.]+\.$/);
+  assert.equal((await rows('brightest from here'))[0][0], 'Sirius');
+  await rows('vega');
+  assert.equal(await page.locator('#list .computer').count(), 0, 'a name was taken for a question');
   // A star the catalogue has no distance for says so, in the list and at the helm, instead of the placeholder's 3,262 ly.
   assert.equal((await rows('rho cassiopeiae'))[0][0], 'ρ Cassiopeiae');
   assert.equal(await text('#list .row .dist'), 'distance not measured');

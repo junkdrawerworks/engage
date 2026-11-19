@@ -6,6 +6,7 @@ import { DESTINATIONS, GROUPS } from './destinations.js';
 import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, starKinds, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
+import { ask } from './computer.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, current, keep, watch } from './store.js';
 import { ROOMS, inWords, roomList } from './rooms.js';
@@ -1593,7 +1594,7 @@ function renderList() {
       <span class="dist${nominal(i) && !here ? ' unmeasured' : ''}">${here ? 'You’re here' : nominal(i) ? 'distance not measured' : formatLy(cat.distanceFrom(i, cam) * LY_PER_PC)}</span>
       <span class="meta">${esc(meta)}</span></button>`;
   };
-  let html = '';
+  let html = '', said;
   if (!q) {
     html += voyagesHtml();
     // Away from home, what is near the ship comes first: the stars with notes are nearly all the Sun's neighbours.
@@ -1609,6 +1610,9 @@ function renderList() {
       stars.sort((a, b) => cat.distanceFrom(a, cam) - cat.distanceFrom(b, cam));
       html += `<p class="group">${state.at !== 0 && away ? away : title}</p>` + stars.map(i => row(i, metaFor(i, false))).join('');
     }
+  } else if ((said = askComputer(q))) {
+    // A question for the ship's computer: its answer in a line, then the stars to tap.
+    html = `<p class="computer" role="status">${esc(said.line)}</p>` + said.stars.map(i => row(i, i === 0 ? 'The Sun · Earth orbit' : metaFor(i, false))).join('');
   } else {
     html = search(starIndex(), q, magFromEarth).map(i => row(i, metaFor(i, false))).join('');
     // A year finds the stars its light is reaching now, after any star with that number in its name: from each of
@@ -1623,6 +1627,15 @@ function renderList() {
     html ||= '<p class="empty">No star by that name in the catalogue.</p>';
   }
   $('list').innerHTML = html;
+}
+
+// The ship's computer's answer to what is typed in Set course, or null for a name to look up.
+function askComputer(q) {
+  return ask(cat, q, {
+    at: state.at, warp: state.warp, visited: new Set(state.log.map(e => e.star)),
+    charted: recordOpts().charted, worlds: i => !!notesFor(cat, i)?.worlds,
+    find: name => search(starIndex(), name, magFromEarth, 1)[0],
+  });
 }
 
 // The voyages, at the top of Set course: each with its stops, how far they add up to from here and how long that is

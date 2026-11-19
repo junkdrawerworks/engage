@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { buildIndex, chartTag, fold, litBy, named, pairLetters, readings, search, yearAsked } from '../js/search.js';
 import { CHARTS } from '../js/charts.js';
 import { DESTINATIONS } from '../js/destinations.js';
+import { ask, question } from '../js/computer.js';
+import { buildCatalog } from '../js/catalog.js';
+import { kindOf } from '../js/log.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const meta = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8'));
@@ -193,4 +196,82 @@ test('a year finds the stars its light is reaching now', () => {
   for (const year of [2023, 2024, 2025, 2026]) assert.deepEqual(lit(year), [], String(year));
   assert.ok(!lit(1987, 50).includes(0));
   assert.ok(!litBy(Math.floor(NOW - 3261.56), NOW, meta.names.length, ly, mag, 5000).some(i => ly(i) === null));
+});
+
+// ---------- The ship's computer ----------
+
+const bin = await readFile(join(root, 'data/stars.bin'));
+const cat = buildCatalog(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength), meta);
+const charted = DESTINATIONS.map(d => cat.byName.get(d.star));
+const shipAt = (name, extra = {}) => ({
+  at: cat.byName.get(name), warp: 9, visited: new Set(), charted, worlds: i => !!DESTINATIONS.find(d => d.star === cat.names[i])?.worlds,
+  find: q => search(index, q, mag, 1)[0], ...extra,
+});
+const names = a => a.stars.map(i => cat.names[i]);
+
+test('the computer hears a question however it is put', () => {
+  assert.equal(question('Computer, how far is Vega?'), 'how far is vega');
+  assert.equal(question('show me the red giants'), 'red giants');
+  assert.equal(question('  Nearest  '), 'nearest');
+});
+
+test('the computer answers from where the ship is', () => {
+  const home = ask(cat, 'nearest', shipAt('Sol'));
+  assert.match(home.line, /^The five stars nearest our position, nearest first\. Proxima Centauri is 4\.2 light years away\.$/);
+  assert.equal(names(home)[0], 'Proxima Centauri');
+  // The brightest from Earth is Sirius; from Vega it is not, and Sol's own light is counted where it is bright.
+  const fromHere = ask(cat, 'brightest from here', shipAt('Sol'));
+  assert.equal(names(fromHere)[0], 'Sirius');
+  assert.match(fromHere.line, /^The brightest stars in this sky, brightest first\. Sirius shines at magnitude −1\.4/);
+  const fromVega = ask(cat, 'brightest', shipAt('Vega'));
+  assert.notEqual(names(fromVega)[0], 'Sirius');
+  assert.ok(!names(fromVega).includes('Vega'), 'the star the ship is at is in its own sky');
+  // Far out, the catalogue can't know every star that might be bright, and says so.
+  assert.match(ask(cat, 'brightest', shipAt('Deneb')).line, /^Going by the charts/);
+  // Within a distance, in light years or parsecs, nearest first, every one inside it.
+  const near = ask(cat, 'within 5 ly', shipAt('Sol'));
+  assert.deepEqual(names(near).slice(0, 3), ['Proxima Centauri', 'Toliman', 'Rigil Kentaurus']);
+  assert.ok(near.stars.every(i => cat.distanceFrom(i, [0, 0, 0]) * 3.26156 <= 5));
+  assert.match(near.line, /^Three stars on the charts lie within 5 light years of us, nearest first\.$/);
+  assert.equal(ask(cat, 'within 1.5 parsecs', shipAt('Sol')).stars.length, near.stars.length);
+  assert.match(ask(cat, 'within 200 ly', shipAt('Sol')).line, /The nearest 60 are listed\.$/);
+  assert.equal(ask(cat, 'within 200 ly', shipAt('Sol')).stars.length, 60);
+});
+
+test('the computer finds kinds of star, planets, and the destinations still to visit', () => {
+  const giants = ask(cat, 'red giants', shipAt('Sol'));
+  assert.ok(giants.stars.length === 60 && /^[0-9,]+ red giants on the charts, nearest us first\. The nearest 60 are listed\.$/.test(giants.line), giants.line);
+  for (const i of giants.stars) {
+    const noted = DESTINATIONS.find(d => d.star === cat.names[i])?.kind;
+    if (noted) { assert.match(noted, /^Red giant/, cat.names[i]); continue; }
+    const k = kindOf(cat.spect[i], cat.temp[i], cat.absmag[i]);
+    assert.deepEqual([k.letter, k.size], ['M', 'giant'], cat.names[i]);
+  }
+  // A star with notes is the kind they say: Capella's two yellow giants, not the catalogue's "M1".
+  assert.ok(!giants.stars.includes(cat.byName.get('Capella')), 'Capella is called a red giant');
+  assert.ok(names(ask(cat, 'yellow giants', shipAt('Sol'))).includes('Capella'));
+  assert.ok(!names(ask(cat, 'white dwarfs', shipAt('Sol'))).includes('Sirius'), 'Sirius A is called a white dwarf');
+  assert.ok(names(ask(cat, 'red supergiants', shipAt('Sol'))).includes('Betelgeuse'));
+  assert.ok(ask(cat, 'white dwarfs', shipAt('Sol')).stars.every(i => kindOf(cat.spect[i], cat.temp[i], cat.absmag[i]).special === 'white dwarf'));
+  const planets = ask(cat, 'nearest with planets', shipAt('Sol'));
+  assert.equal(names(planets)[0], 'Proxima Centauri');
+  assert.ok(planets.stars.every(i => DESTINATIONS.find(d => d.star === cat.names[i])?.worlds));
+  const prox = cat.byName.get('Proxima Centauri');
+  const left = ask(cat, 'unvisited', shipAt('Sol', { visited: new Set([0, prox]) }));
+  assert.match(left.line, /^Of the 31 destinations with notes, 30 are still unvisited, nearest us first\.$/);
+  assert.ok(!left.stars.includes(prox) && !left.stars.includes(0));
+});
+
+test('the computer says how far a star is and how long it takes', () => {
+  assert.equal(ask(cat, 'how far is vega', shipAt('Sol')).line, 'Vega is 25 light years from us: 6 days at warp 9.');
+  assert.deepEqual(names(ask(cat, 'Computer, how far to Proxima?', shipAt('Sol'))), ['Proxima Centauri']);
+  assert.equal(ask(cat, 'how far is vega', shipAt('Vega')).line, 'We’re holding at Vega now.');
+  assert.match(ask(cat, 'how far is zzqx', shipAt('Sol')).line, /^No star called zzqx/);
+});
+
+test('anything else is a name for the search, and a guessed position is said', () => {
+  for (const q of ['vega', 'red', 'wolf 359', '1987', 'gamma hydra', 'the dog star', 'nearest star to vega']) assert.equal(ask(cat, q, shipAt('Sol')), null, q);
+  const lost = cat.unmeasured.findIndex(u => u);
+  const nowhere = { ...shipAt('Sol'), at: lost };
+  for (const q of ['nearest', 'within 20 ly']) assert.match(ask(cat, q, nowhere).line, /only the charts’ guess/, q);
 });
