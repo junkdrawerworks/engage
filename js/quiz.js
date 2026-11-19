@@ -84,11 +84,29 @@ export function fourWith(id, r) {
 // For 'files' and 'sensors': the world (cls, seed, width, mass, temp, year, survey) and `choices`, four files. For
 // 'reverse': `cls`, the file asked about, and `worlds`, four worlds of different files, one of them `cls`. Either way
 // the answer is a file's id: the file picked, or the file of the world picked.
+//
+// Sensors only and the other way are answered from the numbers alone, and the look-alike files' ranges overlap (a
+// Class M world can have Class L's width, mass, warmth and year), so a question whose numbers would pass for two of
+// its choices is drawn again, for the same file: about one in twelve. The standard round keeps its words on air,
+// water and life, which settle it, and is drawn as it always was.
 export function question(kind, r = Math.random, avoid = []) {
   let cls;
   do cls = pick(r, CLASSES); while (avoid.includes(cls.id));
-  if (kind === 'reverse') return { kind, cls, worlds: fourWith(cls.id, r).map(c => worldOf(c, r)) };
-  return { kind, ...worldOf(cls, r), choices: fourWith(cls.id, r) };
+  for (let tries = 0; ; tries++) {
+    const q = kind === 'reverse' ? { kind, cls, worlds: fourWith(cls.id, r).map(c => worldOf(c, r)) }
+      : { kind, ...worldOf(cls, r), choices: fourWith(cls.id, r) };
+    if (kind === 'files' || tries >= 100 || !twoWays(q)) return q;
+  }
+}
+// Whether a world's width, mass, temperature and year all fall in a file's ranges, so it would pass for that file.
+export function passesFor(w, cls) {
+  const t = cls.typical, inside = (x, [a, b]) => x >= a && x <= b;
+  return inside(w.width, t.width) && inside(w.mass, t.mass) && inside(w.temp, t.temp) && (t.year ? w.year != null && inside(w.year, t.year) : w.year == null);
+}
+// Whether the numbers allow a second answer: the world would pass for another file offered, or (the other way) another
+// world offered would pass for the file asked about.
+export function twoWays(q) {
+  return q.kind === 'reverse' ? q.worlds.some(w => w.cls !== q.cls && passesFor(w, q.cls)) : q.choices.some(c => c !== q.cls && passesFor(q, c));
 }
 
 // ---------- Today's exam ----------

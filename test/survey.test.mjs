@@ -133,6 +133,29 @@ test('each round asks a fair question: four files, or four worlds of different f
   }
 });
 
+// Sensors only and the other way are answered from the numbers alone: no second choice may fit them too. Before this,
+// about one question in twelve had two right answers (a Class M world inside Class L's ranges, with Class L offered),
+// and one day's exam in six.
+test('sensors only and the other way never offer a second choice the numbers would pass for', () => {
+  const inside = (x, [a, b]) => x >= a && x <= b;
+  const fits = (w, t) => inside(w.width, t.width) && inside(w.mass, t.mass) && inside(w.temp, t.temp) && (t.year ? w.year != null && inside(w.year, t.year) : w.year == null);
+  const r = rng(11);
+  for (let n = 0; n < 4000; n++) {
+    const q = question(n % 2 ? 'sensors' : 'reverse', r);
+    if (q.kind === 'reverse') {
+      assert.ok(fits(q.worlds.find(w => w.cls === q.cls), q.cls.typical), 'the right world doesn’t fit its own file');
+      for (const w of q.worlds) if (w.cls !== q.cls) assert.ok(!fits(w, q.cls.typical), `the other way, ${q.cls.id}: a ${w.cls.id} world would pass for it too`);
+    } else for (const c of q.choices) if (c !== q.cls) assert.ok(!fits(q, c.typical), `sensors only, a ${q.cls.id} world would pass for ${c.id} too`);
+  }
+  for (let d = 0; d < 365; d++) {
+    const day = new Date(Date.UTC(2026, 10, 19 + d)).toISOString().slice(0, 10);
+    for (const q of exam(day)) if (q.kind !== 'files') {
+      if (q.kind === 'reverse') assert.ok(q.worlds.every(w => w.cls === q.cls || !fits(w, q.cls.typical)), day);
+      else assert.ok(q.choices.every(c => c === q.cls || !fits(q, c.typical)), day);
+    }
+  }
+});
+
 test('today’s exam is the same five worlds for everyone that day, each of a different file', () => {
   const a = exam('2026-11-19'), b = exam('2026-11-19'), c = exam('2026-11-20');
   assert.equal(a.length, EXAM);
