@@ -2022,6 +2022,17 @@ assert.equal(await shown('#daylight'), true, 'no daylight notice at noon');
 }
 await page.click('#go-dark');
 assert.ok(await page.evaluate(() => tonight.state.sunAlt) < -11, 'show tonight did not move to the dark');
+// Early on a June morning the dark is more than twelve hours off, and the slider's full day still reaches it.
+{
+  await page.evaluate(() => { const s = document.getElementById('time'); s.value = 0; s.dispatchEvent(new Event('input')); tonight.at('2026-06-21T10:00:00Z'); });
+  assert.equal(await shown('#daylight'), true);
+  const min = Number(await page.locator('#go-dark').getAttribute('data-min'));
+  assert.ok(min > 720 && min <= 1440 && await shown('#go-dark'), `the daylight notice offers no evening ${min} minutes off`);
+  await page.click('#go-dark');
+  assert.deepEqual(await page.evaluate(() => [tonight.state.offsetMin, Number(document.getElementById('time').value)]), [min, min]);
+  assert.ok(await page.evaluate(() => tonight.state.sunAlt) < -11, 'show tonight did not move to the dark');
+  await page.evaluate(() => { const s = document.getElementById('time'); s.value = 0; s.dispatchEvent(new Event('input')); });
+}
 // Venus as a morning crescent on 19 November 2026 is magnitude −4.9, as bright as it ever gets and no brighter.
 await page.evaluate(() => { tonight.at('2026-11-19T11:15:00Z'); tonight.show({ kind: 'planet', name: 'venus' }); });
 assert.match(await text('#card-line'), /^It shines at magnitude −4\.[89], brighter than any star/);
@@ -2057,12 +2068,16 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= i
   await page.click('#open-list');
   assert.equal(await shown('#plan-go'), false);
   await page.click('#list [data-close]');
-  // From nine in the morning the best time is more than the slider's twelve hours off: it is named, with no button.
+  // From nine in the morning the best time is 16 hours off. The slider reaches a full day, so the button is there
+  // (it was named with no button while the slider stopped at twelve hours), and it moves the slider all the way.
   await reset('2026-11-18T14:00:00Z');
   await page.click('#open-list');
   assert.deepEqual((await lines()).slice(0, 2), ['Dark from 5:38 pm to 5:44 am. Moon sets 1:00 am.', 'Best at 1:00 am: Capella IV, Rigel VII and 12 more are up.']);
-  assert.equal(await shown('#plan-go'), false);
-  await page.click('#list [data-close]');
+  assert.equal(plain(await text('#plan-go')), 'Show 1:00 am');
+  await page.click('#plan-go');
+  assert.deepEqual(await page.evaluate(() => [document.getElementById('time').value, tonight.state.offsetMin, document.getElementById('time').max]), ['960', 960, '1440']);
+  assert.equal(await page.locator('#time').getAttribute('aria-label'), 'Time: now to 24 hours ahead');
+  await reset('2026-11-18T14:00:00Z');
   // The Leonids' radiant is marked on the sky once it is up and the Sun is down, and its card says what it is.
   await reset('2026-11-19T07:00:00Z');
   await page.evaluate(() => tonight.look(95, 30, 80));

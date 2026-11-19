@@ -25,6 +25,8 @@ const BRIDGE = './';
 const $ = id => document.getElementById(id);
 const DEG = Math.PI / 180;
 const DARK_SKY = 6.5; // the faintest star ever drawn
+const DAY_MIN = 1440; // how far ahead the time slider reaches, in minutes: a full day, so the plan's best time and
+                      // the daylight notice's evening can always be shown, whenever in the day you look
 const PLANET_NAMES = { mercury: 'Mercury', venus: 'Venus', mars: 'Mars', jupiter: 'Jupiter', saturn: 'Saturn' };
 
 const saved = load();
@@ -240,7 +242,7 @@ function updateHud() {
   $('place-name').textContent = p.how === 'guess' && p.name !== 'your time zone' ? `Near ${p.name}?` : p.how === 'guess' ? 'Your time zone' : cap(p.name);
   $('clock').textContent = clockText(sky.date, offsetMin === 0);
   $('time-out').textContent = offsetMin === 0 ? 'Now' : timeOf(sky.date);
-  $('time').style.setProperty('--fill', `${offsetMin / 7.2}%`);
+  $('time').style.setProperty('--fill', `${offsetMin / 14.4}%`);
   const dark = nextDark(p.lat, p.lon, sky.date, 24);
   const later = jdOf(new Date(+sky.date + 600000));
   const note = daylightNote(sky.sunAlt, altAz(toLocal(frame(p.lat, p.lon, later), sunDir(later))).alt, !!dark);
@@ -249,7 +251,7 @@ function updateHud() {
   if (note) {
     $('daylight-text').textContent = note;
     const mins = dark ? Math.ceil((dark - (testNow ?? Date.now())) / 600000) * 10 : null;
-    $('go-dark').hidden = !(mins && mins <= 720);
+    $('go-dark').hidden = !(mins && mins <= DAY_MIN);
     $('go-dark').dataset.min = mins ?? '';
     $('go-dark').textContent = dark ? `Show ${timeOf(dark)}` : 'Show tonight';
   }
@@ -915,9 +917,10 @@ function renderPlan() {
   setText('plan-dark', lines.dark);
   $('plan-best').hidden = !lines.best;
   setText('plan-best-text', lines.best || '');
-  // The slider reaches twelve hours ahead; a best time further off than that is named with no button.
+  // The slider reaches a full day ahead; a best time further off than that (only ever a polar night's) is named
+  // with no button.
   const go = $('plan-go'), min = plan.best?.up.length ? plan.best.minutes : null;
-  go.hidden = min === null || min > 720 || min === offsetMin;
+  go.hidden = min === null || min > DAY_MIN || min === offsetMin;
   if (!go.hidden) setText('plan-go', min === 0 ? 'Show now' : `Show ${timeOf(plan.best.date)}`);
   $('plan-shower').hidden = !lines.shower;
   setText('plan-shower', lines.shower || '');
@@ -1130,14 +1133,14 @@ function bind() {
   $('sensors').addEventListener('click', toggleSensors);
   $('time').addEventListener('input', e => { offsetMin = +e.target.value; compute(); });
   $('go-dark').addEventListener('click', e => {
-    offsetMin = Math.min(720, +e.currentTarget.dataset.min);
+    offsetMin = Math.min(DAY_MIN, +e.currentTarget.dataset.min);
     $('time').value = offsetMin;
     compute();
   });
   // The plan's button: the slider goes to the best time, and the list gets out of the way of the sky.
   $('plan-go').addEventListener('click', () => {
     if (!plan?.best) return;
-    offsetMin = Math.min(720, plan.best.minutes);
+    offsetMin = Math.min(DAY_MIN, plan.best.minutes);
     $('time').value = offsetMin;
     closeSheets();
     compute();
