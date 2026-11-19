@@ -1783,7 +1783,7 @@ function renderList() {
       html += lit.length
         ? `<p class="group">Light that left Earth in ${year} is arriving about now at</p>` + lit.map(i => row(i, metaFor(i, false))).join('')
         : `<p class="empty">Light that left Earth in ${year} hasn’t reached another star yet.</p>`;
-      if (year >= 1936) html += radioRow(`Subspace radio: the stars hearing ${year}’s broadcasts`, `#year=${year}`);
+      if (year >= 1936 && lit.length) html += radioRow(`Subspace radio: the stars hearing ${year}’s broadcasts`, `#year=${year}`);
     }
     html ||= '<p class="empty">No star by that name in the catalogue.</p>';
   }

@@ -4425,7 +4425,8 @@ await page.emulateMedia({ reducedMotion: null });
   assert.deepEqual([await shut(), await inside()], [false, 'choose']);
   await p.evaluate(() => window.engage.jump('Vega'));
   assert.equal(await shut(), false, 'the bridge is out of reach behind the arrival’s log entry');
-  assert.ok((await tabs(8)).some(where => where !== 'arrival'), 'Tab is shut inside the arrival’s log entry');
+  // (Enough presses to pass every link in Vega's entry, which now has astrometrics' and subspace radio's as well.)
+  assert.ok((await tabs(14)).some(where => where !== 'arrival'), 'Tab is shut inside the arrival’s log entry');
   await p.evaluate(() => { window.engage.closeSheets(); window.engage.jump('Sirius'); window.engage.closeSheets(); });
   await p.focus('#open-log');
   await p.keyboard.press('Enter');
@@ -4870,7 +4871,7 @@ await page.emulateMedia({ reducedMotion: null });
   // Vega's 2001 is nobody's on a long mission: a moment, and no link.
   await p.evaluate(() => engage.jump('Vega'));
   assert.match(await home(), /in 2001, the year NEAR Shoemaker made the first landing on an asteroid, Eros\./);
-  assert.equal(await p.locator('#arrival-entry dd.home + dd.files').count(), 0);
+  assert.equal(await p.locator('#arrival-entry dd.files a[href^="missions.html"]').count(), 0);
   // The link is kept with the entry in the log.
   await p.evaluate(() => engage.closeSheets());
   await p.tap('#open-log');
@@ -4883,7 +4884,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#choose');
   await p.fill('#search', '1987');
   const list = () => p.locator('#list > *').evaluateAll(els => els.map(el => (el.matches('.row') ? el.querySelector('.name').firstChild.textContent : `[${el.textContent}]`)));
-  assert.deepEqual(await list(), ['HIP 19878', 'HIP 91987', '[Light that left Earth in 1987 is arriving about now at]', 'λ Serpentis', 'ζ Trianguli Australis', 'ζ² Reticuli']);
+  assert.deepEqual(await list(), ['HIP 19878', 'HIP 91987', '[Light that left Earth in 1987 is arriving about now at]', 'λ Serpentis', 'ζ Trianguli Australis', 'ζ² Reticuli', '[Subspace radio: the stars hearing 1987’s broadcasts ›]']);
   // The heading is long: it wraps inside the sheet and doesn't push it wider.
   assert.ok(await p.locator('#list .group').evaluate(el => el.scrollWidth <= el.clientWidth && el.getBoundingClientRect().right <= innerWidth), 'the heading runs off the sheet');
   // Take one, fly there, and the log names the year that was asked for.
