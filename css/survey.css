@@ -11,8 +11,8 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
 .back:hover { border-color: var(--cyan); }
 .back svg { width: 20px; height: 20px; }
 .title h1 { margin: 2px 0 0; font: 600 22px/1.15 var(--display); letter-spacing: 0.04em; }
-.tabs { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; gap: 4px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
-.tabs button { height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 13px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+.tabs { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; gap: 4px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.tabs button { min-height: 40px; padding: 4px 6px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 12px/1.15 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
 .tabs button[aria-pressed="true"] { background: rgba(255, 181, 74, 0.14); color: var(--amber); box-shadow: 0 0 0 1px rgba(255, 181, 74, 0.35) inset; }
 
 /* The planet */
@@ -116,3 +116,11 @@ body.survey { min-height: 100%; background: radial-gradient(ellipse at 50% -10%,
   .choices { grid-template-columns: repeat(4, 1fr); }
   #drill { max-width: 900px; margin: 0 auto; }
 }
+
+/* Your stars: the stars in the captain's log, each opening the system view to place a planet. */
+.yours { list-style: none; margin: 12px auto 0; padding: 0; max-width: 760px; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.yours a { display: grid; gap: 2px; min-height: 48px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); color: var(--text); text-decoration: none; }
+.yours a:hover { border-color: var(--cyan); }
+.yours b { font: 600 15px/1.2 var(--display); letter-spacing: 0.02em; }
+.yours span { font-size: 13px; color: var(--muted); }
+.yours-none { max-width: 760px; margin: 12px auto; color: var(--muted); font-size: 14px; }

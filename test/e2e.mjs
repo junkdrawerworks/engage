@@ -4573,7 +4573,7 @@ await page.emulateMedia({ reducedMotion: null });
 
   // The survey: a real planet with a star in the catalogue has tonight's sky beside Set course.
   await p.evaluate(() => survey.open('M'));
-  assert.equal(await p.locator('#file .worlds li').first().locator('a').evaluateAll(as => as.map(a => a.textContent.replace(/\s*→\s*$/, '')).join(' | ')), 'Set course | In your sky tonight | Grow a creature for Proxima b');
+  assert.equal(await p.locator('#file .worlds li').first().locator('a').evaluateAll(as => as.map(a => a.textContent.replace(/\s*→\s*$/, '')).join(' | ')), 'Set course | In your sky tonight | System view | Beam down | Grow a creature for Proxima b');
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a planet’s links push the survey sideways on a phone');
   assert.equal(await through('#file .worlds li:first-child', 'In your sky tonight'), 'tonight.html#star=Proxima%20Centauri');
   assert.equal(await card(), 'Proxima Centauri');
@@ -5298,8 +5298,8 @@ await page.emulateMedia({ reducedMotion: null });
 
 // Planets as places. The system view opens at the star the ship is holding at, flown in to the planet the bridge
 // holds in the orbit of; a planet tapped in the list is flown in to, with its readings and a way down; the placed
-// planet is filed by where it sits; and the away team stands on the world, with its sun, its readings, the lab's
-// creature and, on the night side, the Sun marked.
+// planet is filed by where it sits; the away team stands on the world, with its sun, its readings, the lab's
+// creature and, on the night side, the Sun marked; and the survey's Your stars lists the stars in the log.
 {
   const sv = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   await sv.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
@@ -5370,6 +5370,16 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.locator('#surface').isHidden(), true);
   assert.equal(await p.locator('#pick-list a').count(), 18, 'the transporter does not list the 18 worlds with ground');
 
+  // The survey's Your stars: home and the stars in the log, newest first, each opening the system view to place a planet.
+  await p.goto(base + 'survey.html#yours');
+  await p.waitForFunction(() => window.survey);
+  const yours = await p.locator('#yours-list a').evaluateAll(as => as.map(a => [a.querySelector('b').textContent, a.getAttribute('href')]));
+  assert.deepEqual(yours, [['Sol, home', './system.html#star=Sol&place'], ['TRAPPIST-1', './system.html#star=TRAPPIST-1&place'], ['Vega', './system.html#star=Vega&place']]);
+  assert.equal(await p.locator('#yours-none').isHidden(), true);
+  // A real planet on a survey file can be flown in to and stood on.
+  await p.goto(base + 'survey.html#M');
+  await p.waitForFunction(() => window.survey);
+  assert.equal(await p.locator('#file a', { hasText: 'Beam down' }).first().getAttribute('href'), './away.html#world=Proxima%20b');
   await sv.close();
 }
 

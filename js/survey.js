@@ -4,6 +4,7 @@ import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { LIVE, share } from './share.js';
+import { planetByName, standable, systemFor } from './worlds.js';
 
 const KEY = 'engage.survey.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -167,8 +168,12 @@ function fileHtml(c) {
       + `<a class="fly" href="${BRIDGE}tonight.html#star=${encodeURIComponent(w.star)}"${AWAY}>In your sky tonight <span aria-hidden="true">→</span></a>` : '';
     // Where the planet's own mass, temperature and star are on file, the lab can grow something for it and not just its class.
     const life = grows(w) ? `<a class="fly" href="${XENO}#world=${encodeURIComponent(w.name)}"${AWAY}>Grow a creature for ${esc(w.name)} <span aria-hidden="true">→</span></a>` : '';
+    // A planet the system view has can be flown in to, and one with ground, stood on.
+    const place = planetByName(w.name);
+    const there = place ? `<a class="fly" href="${BRIDGE}system.html#star=${encodeURIComponent(place.system.star)}&amp;planet=${encodeURIComponent(w.name)}"${AWAY}>System view <span aria-hidden="true">→</span></a>`
+      + (standable(place.planet) ? `<a class="fly" href="${BRIDGE}away.html#world=${encodeURIComponent(w.name)}"${AWAY}>Beam down <span aria-hidden="true">→</span></a>` : '') : '';
     const tag = w.misfit ? '<span class="misfit">Doesn’t fit the readings above</span>' : '';
-    return `<li><div class="w-head"><b>${esc(w.name)}</b><span class="ly">${esc(lyText(w.ly))} ly</span></div>${tag}<p>${esc(w.note)}</p>${fly || life ? `<div class="w-links">${fly}${life}</div>` : ''}</li>`;
+    return `<li><div class="w-head"><b>${esc(w.name)}</b><span class="ly">${esc(lyText(w.ly))} ly</span></div>${tag}<p>${esc(w.note)}</p>${fly || life || there ? `<div class="w-links">${fly}${there}${life}</div>` : ''}</li>`;
   }).join('');
   return `
     <p class="eyebrow">${c.letter ? 'Starfleet survey file' : 'Found by astronomers'}</p>
@@ -335,6 +340,31 @@ function renderScore() {
     : '';
 }
 
+// ---------- Your stars ----------
+
+// The stars in the captain's log, newest first, with home always at the top: each opens the system view, where a
+// planet can be placed round it. The bridge's save is only read here.
+function loggedStars() {
+  let log = [];
+  try { log = JSON.parse(localStorage.getItem('engage.v1') || 'null')?.log || []; } catch { /* nothing kept */ }
+  const seen = new Set([0]), out = [{ star: 0, title: 'Sol' }];
+  for (const e of Array.isArray(log) ? log : []) {
+    if (!e || !Number.isInteger(e.star) || seen.has(e.star) || typeof e.title !== 'string' || !/^[^<>]{1,60}$/.test(e.title)) continue;
+    seen.add(e.star);
+    out.push({ star: e.star, title: e.title });
+  }
+  return out;
+}
+function renderYours() {
+  const stars = loggedStars();
+  $('yours-list').innerHTML = stars.map(s => {
+    const known = systemFor(s.title);
+    return `<li><a href="${BRIDGE}system.html#star=${encodeURIComponent(s.title)}&amp;place"${AWAY}><b>${esc(s.star === 0 ? 'Sol, home' : s.title)}</b>`
+      + `<span>${known ? `${known.planets.length} known planets, and room for yours` : 'Place a planet round it'}</span></a></li>`;
+  }).join('');
+  $('yours-none').hidden = stars.length > 1;
+}
+
 // ---------- Modes and input ----------
 
 function setMode(m, push = true) {
@@ -342,7 +372,12 @@ function setMode(m, push = true) {
   document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'));
   $('files').hidden = m !== 'files';
   $('drill').hidden = m !== 'drill';
-  if (m === 'drill') {
+  $('yours').hidden = m !== 'yours';
+  if (m === 'yours') {
+    renderYours();
+    if (push) try { history.replaceState(null, '', '#yours'); } catch { /* fine */ }
+    document.title = 'Your stars · Planetary survey · Engage';
+  } else if (m === 'drill') {
     if (!drill || drill.answered) drill = newWorld();
     renderDrill();
     if (push) try { history.replaceState(null, '', '#drill'); } catch { /* fine */ }
@@ -359,6 +394,7 @@ function hashText() {
 function fromHash() {
   const h = hashText();
   if (h === 'drill') return setMode('drill', false);
+  if (h === 'yours') return setMode('yours', false);
   const i = order.findIndex(c => c.id.toLowerCase() === h.toLowerCase());
   if (i >= 0) at = i;
   setMode('files', false);

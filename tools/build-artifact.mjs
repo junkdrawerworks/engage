@@ -104,7 +104,7 @@ console.log(`engage.html: ${(bridgeOut.length / 1024 / 1024).toFixed(2)} MB`);
 
 // The planetary survey, as its own single file. Links back to the bridge go to the live site.
 const surveyHtml = await read('survey.html');
-const surveyJs = await bundle(['physics', 'classes', 'planet-art', 'store', 'onscreen', 'share', 'survey'], liveBridge('survey'));
+const surveyJs = await bundle(['physics', 'classes', 'ephemeris', 'astro', 'worlds', 'planet-art', 'store', 'onscreen', 'share', 'survey'], liveBridge('survey'));
 const surveyCss = css + '\n' + await read('css/survey.css');
 const surveyOut = `<title>Planetary survey</title>
 <meta name="theme-color" content="#05070d">

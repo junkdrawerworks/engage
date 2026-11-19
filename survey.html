@@ -37,6 +37,7 @@
     <nav class="tabs" aria-label="Mode">
       <button type="button" data-mode="files" aria-pressed="true">Survey files</button>
       <button type="button" data-mode="drill" aria-pressed="false">Cover your tracks</button>
+      <button type="button" data-mode="yours" aria-pressed="false">Your stars</button>
     </nav>
   </header>
 
@@ -86,6 +87,12 @@
       </div>
       <p class="score" id="score"></p>
       <p class="unsaved" id="score-unsaved" role="status" hidden></p>
+    </section>
+
+    <section id="yours" hidden aria-label="Your stars">
+      <div class="drill-intro"><p>Survey a star you’ve been to: put a planet anywhere round it, and see the light it would get, how warm it would be, where water could be liquid and which file it would go on.</p></div>
+      <ul class="yours" id="yours-list"></ul>
+      <p class="yours-none" id="yours-none">Only home so far. Every star you fly to from the bridge is listed here.</p>
     </section>
   </main>
 
