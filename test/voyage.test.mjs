@@ -111,3 +111,23 @@ test('each room adds a line to the log when something in it finishes, read from 
   assert.deepEqual(supplementals({}), []);
   assert.deepEqual(supplementals({ maru: [], contact: 'x', xeno: { jars: 'x' }, survey: null, missions: { hails: [] } }), []);
 });
+
+test('the log in one sentence: how long since it began, and what every room has done', async () => {
+  const { story, sinceSaid, words } = await import('../js/voyage.js');
+  const now = at('2027-01-20T12:00:00Z');
+  const log = [entry('2026-11-18T15:00:00Z', 2, 'Altair'), entry('2026-11-17T09:00:00Z', 1, 'Vega'), entry('2026-11-16T09:00:00Z', 1, 'Vega'), entry('2025-11-16T09:00:00Z', 0, 'Earth orbit')];
+  const rec = {
+    maru: { runs: [{ title: 'The lifeboat', outcome: 'escaped' }, { title: 'Changed the rules', outcome: 'rewritten' }], taken: 3 },
+    contact: { runs: [{ title: 'First contact', people: 'Qaethuk' }, { title: 'Second contact', people: 'Qaethuk', second: true }], met: 1 },
+    xeno: { jars: [{ id: 'M', seed: 1 }] },
+    missions: { hails: { v1: at('2026-12-01T12:00:00Z'), v2: at('2026-12-02T12:00:00Z'), nobody: at('2026-12-02T12:00:00Z') } },
+  };
+  // The first entry is home's, fourteen months before: home isn't a star visited, but it starts the voyage.
+  assert.equal(story(rec, { log, now }), 'Fourteen months out: two stars, one new species, two failed exams, one exam rewritten, one creature in a jar, two ships hailed.');
+  assert.equal(story({ maru: { runs: [{ title: 'The lifeboat', outcome: 'escaped' }], taken: 1 } }, { log: [], supps: [{ t: now - 3 * 86400000 }], now }), 'Three days out: one failed exam.');
+  assert.equal(story({}, { log: [], now }), null, 'nothing done, nothing said');
+  assert.equal(story({}, { log: [entry('2027-01-20T11:00:00Z', 0, 'Earth orbit')], now }), null, 'a trip home is no star visited');
+  assert.deepEqual([0.5, 1, 13, 14, 60, 61, 700, 731].map(d => sinceSaid(d * 86400000)),
+    ['First day out', 'One day out', 'Thirteen days out', 'Two weeks out', 'Eight weeks out', 'Two months out', '22 months out', 'Two years out']);
+  assert.equal(words(21), '21');
+});

@@ -13,7 +13,7 @@ import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
-import { readRecords, supplementals } from './voyage.js';
+import { readRecords, story, supplementals } from './voyage.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -1050,10 +1050,11 @@ function returnTo(coursed) {
 }
 
 // What the other rooms have on record, read again each time the log is drawn: the lines they add to it.
-let supps = [];
+let supps = [], records = {};
 function drawLog() {
   contacts = readContacts();
-  supps = supplementals(readRecords());
+  records = readRecords();
+  supps = supplementals(records);
   unsavedNote('log-unsaved', 'The log is full: new entries and the ship’s position aren’t being kept. Clearing the log, in settings, makes room.',
     'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;
@@ -1073,7 +1074,14 @@ function drawEntries() {
   const q = $('log-search').value.trim();
   $('log-by-day').setAttribute('aria-pressed', String(logView === 'day'));
   $('log-by-star').setAttribute('aria-pressed', String(logView === 'star'));
-  $('entries').innerHTML = (q ? '' : recordsHtml()) + (logView === 'star' ? starsHtml(q) : daysHtml(q));
+  $('entries').innerHTML = (q ? '' : storyHtml() + recordsHtml()) + (logView === 'star' ? starsHtml(q) : daysHtml(q));
+}
+
+// The whole voyage in one sentence, at the head of the log: "Fourteen months out: nine stars, one new species, one
+// failed exam." Counted from every room's record.
+function storyHtml() {
+  const line = story(records, { log: state.log, supps });
+  return line ? `<p class="story" id="story">${esc(line)}</p>` : '';
 }
 
 // The log under a heading for each day ("Wednesday 18 November · 6 arrivals"), each arrival with the time it was

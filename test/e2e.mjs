@@ -4714,6 +4714,34 @@ await page.emulateMedia({ reducedMotion: null });
   await story.close();
 }
 
+// One sentence at the head of the captain's log sums the voyage up, from every room's record: "First day out: two
+// stars, one new species, one failed exam."
+{
+  const told = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await told.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await told.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#story').count(), 0, 'nothing done, and a sentence about it');
+  await p.evaluate(() => engage.closeSheets());
+  await p.evaluate(() => { for (const name of ['Vega', 'Altair', 'Vega']) { engage.jump(name); engage.closeSheets(); } });
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#story').innerText(), 'First day out: two stars.');
+  await p.evaluate(() => engage.closeSheets());
+  // A Kobayashi Maru run and a first contact, from those rooms' own records.
+  await p.evaluate(() => {
+    localStorage.setItem('engage.maru.v1', JSON.stringify({ runs: [{ title: 'The lifeboat', outcome: 'escaped', grades: [], at: new Date().toISOString(), id: 'a' }], taken: 1 }));
+    localStorage.setItem('engage.contact.v1', JSON.stringify({ runs: [{ title: 'First contact', outcome: 'contact', people: 'Qaethuk', decoded: 9, of: 11, at: new Date().toISOString(), id: 'b', seed: 5 }], met: 1, contacts: 1 }));
+  });
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#story').innerText(), 'First day out: two stars, one new species, one failed exam.');
+  // It heads the log, above the records.
+  assert.deepEqual(await p.locator('#entries > *').evaluateAll(els => els.slice(0, 2).map(el => el.id)), ['story', 'records']);
+  await told.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];
