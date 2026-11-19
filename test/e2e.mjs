@@ -4569,7 +4569,7 @@ await page.emulateMedia({ reducedMotion: null });
   await bridgeReady(p);
   // Thirty entries: no search and no By star yet.
   await p.tap('#open-log');
-  assert.equal(await p.locator('#log-tools').isHidden(), true);
+  assert.deepEqual([await p.locator('#log-search').isHidden(), await p.locator('#log-view').isHidden()], [true, true]);
   await p.evaluate(() => { engage.closeSheets(); engage.state.log.unshift(JSON.parse(sessionStorage.getItem('whole'))); });
   await p.tap('#open-log');
   assert.equal(await p.locator('#log-tools').isVisible(), true);
@@ -4606,6 +4606,54 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#open-log');
   assert.deepEqual([await p.locator('#log-search').inputValue(), await p.locator('#log-by-day').getAttribute('aria-pressed')], ['', 'true']);
   await stars.close();
+}
+
+// Print the log lays the whole log out as a booklet, oldest first, black on white, one entry to a block: on a phone,
+// the same is how to save it as a PDF. The viewscreen and the sheets are not printed.
+{
+  const booklet = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await booklet.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await booklet.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  // Nothing logged: nothing to print.
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#log-tools').isHidden(), true);
+  await p.evaluate(() => engage.closeSheets());
+  await p.evaluate(() => { for (const name of ['Vega', 'Altair', 'Sol']) { engage.jump(name); engage.closeSheets(); } });
+  await p.tap('#open-log');
+  // A short log has Print the log, and no search yet.
+  assert.deepEqual(await p.locator('#log-tools > *').evaluateAll(els => els.map(el => [el.id, !el.hidden])), [['log-search', false], ['log-view', false], ['log-print', true]]);
+  await p.evaluate(() => { window.printed = 0; window.print = () => { window.printed++; }; });
+  await p.tap('#log-print');
+  assert.equal(await p.evaluate(() => window.printed), 1);
+  const book = await p.locator('#print-log').evaluate(el => ({
+    title: el.querySelector('h1').textContent, sub: el.querySelector('.print-sub').textContent, days: [...el.querySelectorAll('h2')].map(h => h.textContent),
+    stars: [...el.querySelectorAll('article h3')].map(h => h.textContent), sections: el.querySelectorAll('article dt').length,
+  }));
+  assert.equal(book.title, 'Captain’s log');
+  assert.match(book.sub, /^3 stars visited · .* travelled · printed \d{1,2} \w+ \d{4}$/);
+  assert.deepEqual(book.stars, ['Vega', 'Altair', 'Sol'], 'the booklet reads oldest first');
+  assert.match(book.days[0], /^\w+day \d{1,2} \w+ · 3 arrivals$/);
+  assert.ok(book.sections >= 9, 'the entries are printed whole');
+  // Printed, only the booklet shows, in black on white, and the log sheet, the helm and the viewscreen don't.
+  await p.emulateMedia({ media: 'print' });
+  const printedLook = await p.evaluate(() => ({
+    book: getComputedStyle(document.getElementById('print-log')).display,
+    hidden: ['bridge', 'log', 'say'].map(id => getComputedStyle(document.getElementById(id)).display),
+    ink: getComputedStyle(document.querySelector('#print-log article')).color, paper: getComputedStyle(document.body).backgroundColor,
+  }));
+  assert.deepEqual(printedLook, { book: 'block', hidden: ['none', 'none', 'none'], ink: 'rgb(0, 0, 0)', paper: 'rgb(255, 255, 255)' });
+  await p.emulateMedia({ media: 'screen' });
+  assert.equal(await p.locator('#print-log').isHidden(), true, 'the booklet shows on screen');
+  // Afterwards it is let go.
+  await p.evaluate(() => dispatchEvent(new Event('afterprint')));
+  assert.equal(await p.locator('#print-log').innerHTML(), '');
+  // The browser's own Print lays it out too.
+  await p.evaluate(() => dispatchEvent(new Event('beforeprint')));
+  assert.equal(await p.locator('#print-log article').count(), 3);
+  await booklet.close();
 }
 
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the

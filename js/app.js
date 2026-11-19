@@ -1056,9 +1056,11 @@ function drawLog() {
   $('stats').textContent = state.log.length
     ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} travelled`
     : 'Nothing logged yet. Choose a star and engage.';
-  // Past 30 entries the log can be searched, and shown by star.
-  $('log-tools').hidden = state.log.length <= LONG_LOG;
-  if ($('log-tools').hidden) { logView = 'day'; $('log-search').value = ''; }
+  // Past 30 entries the log can be searched, and shown by star. Any log can be printed.
+  const long = state.log.length > LONG_LOG;
+  $('log-tools').hidden = !state.log.length;
+  $('log-search').hidden = $('log-view').hidden = !long;
+  if (!long) { logView = 'day'; $('log-search').value = ''; }
   drawEntries();
 }
 
@@ -1106,6 +1108,25 @@ function starsHtml(q) {
       <div class="entry">${entryHtml(r.last, false)}</div>
     </details>`;
   }).join('') + moreHtml(rows.length, 'Show more');
+}
+
+// Print the log: every entry, oldest first, as a booklet in black on white, one entry to a block (css/app.css), which
+// on a phone is also the way to save it as a PDF. It is laid out whenever the page is printed, from the button or
+// from the browser's own menu, and let go afterwards.
+function printLog() {
+  const days = byDay(timeline(state.log).reverse());
+  const n = new Set(state.log.map(e => e.star)).size;
+  const printed = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  $('print-log').innerHTML = `<h1>Captain’s log</h1><p class="print-sub">${state.log.length
+    ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} travelled · printed ${printed}` : 'Nothing logged yet.'}</p>`
+    + days.map(day => `<h2>${esc(day.key === 'undated' ? 'Undated' : dayHeading(day.t, day.arrivals, day.supps))}</h2>${day.items.map(printedHtml).join('')}`).join('');
+}
+
+function printedHtml({ entry: e, t }) {
+  const lines = e.sections.map(([label, text]) => `${label ? `<dt>${esc(label)}</dt>` : ''}<dd>${esc(text)}</dd>`).join('');
+  const made = linesForVisit(contacts, e).map(line => `<dd>${esc(line)}</dd>`).join('');
+  return `<article><h3>${esc(e.title)}</h3><span class="when">${t ? `${esc(clockTime(t))} · ` : ''}Stardate ${esc(e.stardate)}</span>`
+    + `<p>${esc(e.intro)}</p><dl>${lines}${made}</dl></article>`;
 }
 
 // Show earlier: 50 more, and the keyboard's place on the first of them.
@@ -1243,6 +1264,9 @@ function bind() {
   });
   watchKeyboard();
   $('open-log').addEventListener('click', e => { renderLog(); openSheet('log', e.currentTarget); });
+  $('log-print').addEventListener('click', () => { contacts = readContacts(); printLog(); print(); });
+  addEventListener('beforeprint', () => { contacts = readContacts(); printLog(); });
+  addEventListener('afterprint', () => { $('print-log').innerHTML = ''; });
   $('log-search').addEventListener('input', () => { shown = PAGE; drawEntries(); $('entries').scrollTop = 0; });
   for (const [id, to] of [['log-by-day', 'day'], ['log-by-star', 'star']]) {
     $(id).addEventListener('click', () => { logView = to; shown = PAGE; drawEntries(); $('entries').scrollTop = 0; });
