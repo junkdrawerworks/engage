@@ -5323,6 +5323,21 @@ await page.emulateMedia({ reducedMotion: null });
   assert.match(await p.locator('#close-text').innerText(), /Too close: the zone/);
   assert.equal(await p.locator('#close-text a.beam').getAttribute('href'), 'away.html#world=TRAPPIST-1%20b');
   await p.waitForFunction(() => systemView.painted === 7, null, { timeout: 20000 });
+  // Flying from planet to planet keeps one drawing loop going, not one more for every planet tapped: each frame asks
+  // for the next about once, against a counter of our own that asks once a frame too.
+  const loops = await p.evaluate(async () => {
+    for (const n of 'cdefgh') systemView.select(`TRAPPIST-1 ${n}`);
+    const ask = window.requestAnimationFrame.bind(window);
+    let asked = 0, frames = 0, on = true;
+    window.requestAnimationFrame = cb => { asked++; return ask(cb); };
+    const count = () => { frames++; if (on) ask(count); };
+    ask(count);
+    await new Promise(r => setTimeout(r, 1000));
+    on = false;
+    window.requestAnimationFrame = ask;
+    return asked / Math.max(1, frames);
+  });
+  assert.ok(loops < 1.5, `the fly-in draws ${loops.toFixed(1)} times a frame after seven planets: its drawing loops pile up`);
   // Home: Earth, and a giant with no ground; the scale reaches the giants only when asked.
   await p.goto(base + 'system.html#star=Sol');
   await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Sol');

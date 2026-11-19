@@ -205,11 +205,12 @@ async function paintAll() {
 
 // ---------- Flying in ----------
 
-let closeGlobe = null, glide = null;
+// One drawing loop at most: each planet flown in to replaces what the loop draws rather than starting another.
+let closeGlobe = null, glide = null, looping = false;
 function showClose(animate = true) {
   const p = view.sel;
   $('close').hidden = !p;
-  if (!p) return;
+  if (!p) { closeGlobe = glide = null; return; }
   const filed = worldByName(p.name);
   const cls = filed?.cls;
   const lab = filed && grows(filed.world);
@@ -230,19 +231,20 @@ function showClose(animate = true) {
     <p class="src">${esc(p.src)}${p.least ? '. Its mass is a minimum, from its star’s wobble.' : '.'}</p>`;
   drawStarSize(p);
   const map = maps.get(p.name)?.map;
-  if (!map) { drawClose(0); return; }
+  if (!map) { closeGlobe = glide = null; drawClose(0); return; }
   closeGlobe = new Globe(document.createElement('canvas'), [-0.86, 0.3, 0.42]);
   closeGlobe.setMap(map);
   glide = { from: performance.now(), animate: animate && !still.matches };
-  requestAnimationFrame(frame);
+  if (!looping) { looping = true; requestAnimationFrame(frame); }
 }
 const dist = () => Math.hypot(...cat.pos.subarray(view.i * 3, view.i * 3 + 3)) * LY_PER_PC;
 
 function frame(now) {
-  if (!glide) return;
+  if (!glide) { looping = false; return; }
   const t = glide.animate ? Math.min(1, (now - glide.from) / 1400) : 1;
   drawClose(1 - (1 - t) ** 3, now);
   if (t < 1 || !still.matches) requestAnimationFrame(frame);
+  else looping = false;
 }
 
 function drawClose(k, now = 0) {
