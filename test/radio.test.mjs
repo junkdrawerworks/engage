@@ -87,6 +87,9 @@ test('the messages in flight reach the stars they were sent to, at the speed of 
   assert.equal(arrivalSaid(row('rubisco', "Teegarden's Star")), 'arrived about 2022');
   assert.equal(arrivalSaid(row('amfe', 'Gliese 581')), 'due about 2029');
   assert.equal(arrivalSaid(row('sonar', "Luyten's Star")), 'due about 2030');
+  // Lone Signal went on 17 June 2013 (the list gives only the year), to a star the list puts 17.6 ly out: about 2031.
+  assert.equal(row('lone', 'Gliese 526').target.sent, '2013-06-17');
+  assert.equal(arrivalSaid(row('lone', 'Gliese 526')), 'due about 2031');
   const luyten = row('sonar', "Luyten's Star");
   assert.ok(luyten.share > 0.7 && luyten.share < 0.8, `the Sónar message is ${luyten.share} of the way`);
   // M13 isn't in the catalogue: the list's distance, and no course to set.

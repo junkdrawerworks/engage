@@ -87,7 +87,8 @@ export function yearLine(year) {
 // the day it left (or the year, `year: true`, where only that is known) and what went. From Wikipedia's "List of
 // interstellar radio messages" and the articles on each, read 19 November 2026. Arrivals are worked out here, from
 // the day it left and the catalogue's distance, so they can differ by a year from the list's. The Arecibo message's
-// target, the globular cluster M13, isn't in the catalogue: its distance (`ly`) is the list's.
+// target, the globular cluster M13, isn't in the catalogue: its distance (`ly`) is the list's. Lone Signal's first day
+// (the list gives only 2013) and its free first message are from Wikipedia's "Lone Signal", read the same day.
 export const MESSAGES = [
   { id: 'arecibo', name: 'The Arecibo message', from: 'the Arecibo dish, Puerto Rico', what: 'Frank Drake’s 1,679 bits: a picture of numbers, DNA, a person, the Solar System and the dish that sent it.',
     to: [{ star: null, title: 'M13, a globular cluster in Hercules', ly: 25000, sent: '1974-11-16' }] },
@@ -109,8 +110,8 @@ export const MESSAGES = [
     to: [{ star: 'Gliese 83.1', title: 'TZ Arietis', sent: '2009-11-09' }, { star: "Teegarden's Star", sent: '2009-11-09' }, { star: 'κ¹ Ceti', sent: '2009-11-10' }] },
   { id: 'wow', name: 'The Wow! signal reply', from: '', what: 'Messages from the public, 35 years after a strong signal from Sagittarius that was never heard again.',
     to: [{ star: '37 Geminorum', sent: '2012-08-15' }, { star: 'Copernicus', title: '55 Cancri', sent: '2012-08-15' }] },
-  { id: 'lone', name: 'Lone Signal', from: 'the Jamesburg Earth Station, California', what: 'Messages people paid to send.',
-    to: [{ star: 'Gliese 526', sent: '2013-07-01', year: true }] },
+  { id: 'lone', name: 'Lone Signal', from: 'the Jamesburg Earth Station, California', what: 'Short messages from the public, one free and the rest at 25 cents each.',
+    to: [{ star: 'Gliese 526', sent: '2013-06-17' }] },
   { id: 'esa', name: 'A Simple Response to an Elemental Message', from: '', what: 'Answers from the public to a question about how we live with our planet.',
     to: [{ star: 'Polaris', sent: '2016-10-10' }] },
   { id: 'sonar', name: 'Sónar Calling GJ273b', from: 'the EISCAT dish near Tromsø, Norway', what: 'A lesson in counting and time, then 33 short pieces of music, for Luyten’s Star’s temperate planet.',
