@@ -2406,6 +2406,60 @@ await bridgeReady();
   await twice.close();
 }
 
+// Today's hail: the same ship for every officer that day, once. Afterwards the briefing keeps the line to send, and
+// Share sends it with a link that plays the encounter back, notebook and all, so two officers can compare notebooks.
+{
+  const day = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const p = await day.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const settle = () => p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await p.goto(base + 'contact.html');
+  await p.waitForFunction(() => window.contact);
+  const { dailySeed } = await import('../js/contact-sim.js');
+  const date = await p.evaluate(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; });
+  assert.equal(await p.locator('#daily-note').innerText(), 'The same ship and the same language for every officer today.');
+  await p.click('#daily-start');
+  await settle();
+  assert.equal(await p.evaluate(() => contact.game.seed), dailySeed(date));
+  await p.evaluate(() => contact.tag('meet', 'meet'));
+  // A reload part-way keeps it today's.
+  await p.evaluate(() => { contact.pick(contact.hint()); contact.send(); });
+  await settle();
+  await p.reload();
+  await p.waitForFunction(() => window.contact);
+  assert.equal(await p.locator('#daily-note').innerText(), 'Today’s hail is the one left to resume.');
+  assert.equal(await p.locator('#daily-start').isHidden(), true);
+  await p.click('#resume');
+  while (!(await p.evaluate(() => contact.game.over))) { await p.evaluate(() => { contact.pick(contact.hint()); contact.send(); }); await settle(); }
+  await p.click('#send');
+  assert.equal(await p.locator('#eval-eyebrow').innerText(), 'TODAY’S HAIL · DEBRIEF');
+  await p.click('#again');
+  const people = await p.evaluate(() => contact.game.lang.people);
+  assert.equal(await p.locator('#daily-start').isHidden(), true, 'today’s hail can be answered twice');
+  assert.match((await p.locator('#daily-note').innerText()).replace(/\s+/g, ' '), new RegExp(`^TODAY’S HAIL The ${people}\\. First contact, \\d+ of \\d+ phrases decoded$`));
+  await p.evaluate(() => { delete Navigator.prototype.share; });
+  await day.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await p.click('#daily-share');
+  const [line, url] = (await p.evaluate(() => navigator.clipboard.readText())).split('\n');
+  assert.match(line, new RegExp(`^First contact, \\d{1,2} [A-Z][a-z]{2}: the ${people}\\. First contact, \\d+ of \\d+ phrases decoded$`));
+  assert.match(url, /^https:\/\/engage\.junkdrawer\.works\/contact\.html#run=1\.[0-9a-z]+\.[a-z~-]+\.aa$/);
+  // Another officer opens it: played back with the notebook, then the same hail, still today's.
+  const other = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const q = await other.newPage();
+  q.on('pageerror', e => problems.push(e.message));
+  await q.goto(url.replace('https://engage.junkdrawer.works/', base));
+  await q.waitForFunction(() => window.contact?.watching);
+  await q.click('#skip');
+  await q.waitForFunction(() => !document.getElementById('eval').hidden, null, { timeout: 20000 });
+  await q.click('#again');
+  await q.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  await q.evaluate(() => contact.act('leave'));
+  await q.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+  assert.equal(await q.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')).daily.date), date, 'the shared hail was not today’s for the friend');
+  await other.close();
+  await day.close();
+}
+
 // The warp scale: reached from under the warp slider with the helm's warp factor, a race to the galactic core run to
 // the end, another place picked from the ladder, and a link back to the bridge with a course set. (With a star chosen
 // at the helm the link races there instead: see "Doors between rooms" below.)

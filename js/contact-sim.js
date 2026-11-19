@@ -552,6 +552,22 @@ export function encodeRun({ seed, acts, tags = {}, again = null }) {
   }
   return `1.${(seed >>> 0).toString(36)}.${done}.${guesses}`;
 }
+// Today's hail: the same ship and the same language for every officer on the same calendar day, so two people can
+// compare notebooks on the same aliens. `day` is the date as YYYY-MM-DD; the seed is its FNV-1a hash.
+export function dailySeed(day) {
+  let h = 0x811c9dc5;
+  for (const c of `first-contact:${day}`) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0;
+  return h;
+}
+// The day as YYYY-MM-DD, by the calendar where the officer is.
+export const today = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+// An encounter in a line, to send to someone: "First contact, 19 Nov: the Qaethuk. First contact, 9 of 11 phrases
+// decoded". The date is there for today's hail, which every officer that day answered.
+export function shareLine(e, day) {
+  const when = day ? `, ${new Date(`${day}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : '';
+  return `${e.second ? 'Second contact' : 'First contact'}${when}: ${day ? `the ${e.people}. ` : ''}${e.title}, ${e.decoded} of ${e.of} phrases decoded`;
+}
+
 // What encodeRun() wrote, as replay() takes it, or null if it isn't an encounter that could have been played to its end.
 export function decodeRun(text) {
   const m = /^(?:1\.([0-9a-z]{1,7})|2\.([0-9a-z]{1,7})\.([a-m]{1,13}))\.([a-z~-]{1,1500})\.([a-m]{0,26})$/.exec(String(text || ''));

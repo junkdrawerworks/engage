@@ -538,3 +538,26 @@ test('second contact is kept and shared like a first, and is no new species on t
   assert.deepEqual(standing({ runs }), { met: 1, contacts: 1, best: { decoded: 3, of: 11 } });
   assert.equal(briefingLine({ runs }), 'Your second unknown ship. The last were the Beqen; these are not.');
 });
+
+// Today's hail: the same ship for every officer on the same day.
+test('today’s hail is the same language all day for everyone, and a new one tomorrow', async () => {
+  const { dailySeed, today, shareLine } = await import('../js/contact-sim.js');
+  assert.equal(today(new Date(2026, 10, 19, 23, 59)), '2026-11-19');
+  assert.equal(today(new Date(2027, 0, 2, 0, 1)), '2027-01-02');
+  assert.equal(dailySeed('2026-11-19'), dailySeed('2026-11-19'));
+  const year = new Set();
+  for (let d = 0; d < 365; d++) {
+    const day = today(new Date(2026, 0, 1 + d, 12));
+    const seed = dailySeed(day);
+    assert.ok(Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff);
+    year.add(makeLanguage(seed).people);
+    assert.equal(win(newGame({ seed })).over, 'contact', `${day} can't be won`);
+  }
+  assert.ok(year.size > 355, `only ${year.size} different peoples in a year`);
+  // Not the Maru's dice for the same day.
+  const maru = await import('../js/maru-sim.js');
+  assert.notEqual(dailySeed('2026-11-19'), maru.dailySeed('2026-11-19'));
+  const d = debrief(win(newGame({ seed: dailySeed('2026-11-19') })));
+  assert.equal(shareLine(d, '2026-11-19'), `First contact, 19 Nov: the ${d.people}. First contact, ${d.decoded} of ${d.of} phrases decoded`);
+  assert.equal(shareLine(d), `First contact: First contact, ${d.decoded} of ${d.of} phrases decoded`);
+});

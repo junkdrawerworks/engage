@@ -32,6 +32,12 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 .brief .returning { padding: 8px 12px; border-left: 3px solid var(--alien); border-radius: 0 10px 10px 0; background: rgba(201, 162, 255, 0.08); color: var(--text); }
 .brief .primary, .brief .secondary { width: 100%; margin-top: 6px; }
 .brief .resume-note { margin: 8px 0 4px; font-size: 14px; color: var(--muted); }
+/* Today's hail: a button under Answer the hail, then how it went and the line to send. */
+.daily { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 10px; margin-top: 4px; }
+.daily .secondary { grid-column: 1 / -1; }
+.daily .daily-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.daily .daily-note b { display: block; font: 600 11px/1.3 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--alien); }
+.daily .text-button { margin: 6px 0 0; color: var(--cyan); min-height: 44px; }
 /* A people you made contact with, hailing again (second contact). */
 .friend h2 { font-size: 24px; }
 .friend .secondary { width: 100%; margin-top: 6px; border-color: var(--alien); color: var(--text); }

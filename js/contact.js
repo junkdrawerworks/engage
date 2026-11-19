@@ -2,7 +2,7 @@
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
 import { LIVE, share } from './share.js';
 import { oneSwitch } from './switch.js';
-import { newGame, act, debrief, fluencyOf, hint, answer, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, answer, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, dailySeed, today, shareLine, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -49,6 +49,7 @@ let watching = null; // an encounter someone shared, being played back: { seed, 
 let here = null;
 // A second contact: what was carried in from the first meeting ({ heard }), or null for a first.
 let again = null;
+let daily = ''; // the day, YYYY-MM-DD, when this is today's hail
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 // An encounter under way is kept after everything you do: its seed, what you did, your notebook's guesses and the
@@ -60,7 +61,7 @@ const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).sli
 // it finished, and can't be used to take the last move back.)
 function keepGame() {
   if (!g || lastEval || watching) return; // nothing under way, on the record already, or someone else's
-  saved.game = { id: gameId, seed: g.seed, acts: acts.slice(), tags: { ...g.tags }, reply: reply.slice(), ...(here ? { here } : {}), ...(again ? { again } : {}) };
+  saved.game = { id: gameId, seed: g.seed, acts: acts.slice(), tags: { ...g.tags }, reply: reply.slice(), ...(here ? { here } : {}), ...(again ? { again } : {}), ...(daily ? { daily } : {}) };
   save();
 }
 // The one kept, if it can be picked up: { game, reply }.
@@ -130,6 +131,13 @@ function renderRecord() {
   }
   // With one to resume, that is the main thing to do, and Answer the hail stands back.
   $('start').className = left ? 'secondary' : 'primary';
+  // Today's hail, once a day; afterwards, how it went and the line to send.
+  const day = today(), done = saved.daily?.date === day && typeof saved.daily.line === 'string' ? saved.daily : null;
+  const leftDaily = !!left && saved.game.daily === day;
+  $('daily-start').hidden = !!done || leftDaily;
+  $('daily-share').hidden = !done;
+  $('daily-note').innerHTML = done ? `<b>Today’s hail</b>${esc(done.line.replace(/^First contact, [^:]+: the /, 'The '))}`
+    : leftDaily ? 'Today’s hail is the one left to resume.' : 'The same ship and the same language for every officer today.';
   const runs = saved.runs.slice(-8).reverse();
   $('record').hidden = !runs.length;
   // The standing record, then each encounter with how its notebook did, so a contact made with nothing decoded
@@ -147,8 +155,9 @@ function renderRecord() {
   }).join('');
 }
 
-function start(seed = Date.now(), carry = null) {
+function start(seed = Date.now(), carry = null, day = '') {
   again = carry ? { heard: carry.heard } : null;
+  daily = day;
   g = newGame({ seed, again: carry });
   reply = [];
   acts = [];
@@ -172,6 +181,7 @@ function resume() {
   gameId = typeof saved.game.id === 'string' ? saved.game.id : newId();
   here = placeOf(saved.game.here);
   again = g.second ? { heard: g.carried.slice() } : null;
+  daily = typeof saved.game.daily === 'string' ? saved.game.daily : '';
   open();
   shown = g.log.length;
   renderLog();
@@ -416,6 +426,8 @@ function record() {
   lastEval = debrief(g);
   firsts = null;
   delete saved.game; // finished: there is nothing left to resume
+  // Today's hail goes down once, the first time it is finished that day.
+  if (daily && saved.daily?.date !== daily) saved.daily = { date: daily, line: shareLine(lastEval, daily), run: encodeRun({ seed: g.seed, acts, tags: g.tags }) };
   // One encounter is one line on the record: picked up in two tabs and finished in both, it is still one.
   if (!saved.runs.some(r => r.id === gameId) && g.second) recordSecond();
   else if (!saved.runs.some(r => r.id === gameId)) {
@@ -450,7 +462,7 @@ function recordSecond() {
 function showEval() {
   const e = lastEval || debrief(g);
   // A shared encounter's debrief is theirs: nothing of it is on this officer's record, and the way on is to answer it.
-  $('eval-eyebrow').textContent = watching ? 'A shared encounter · Debrief' : e.second ? 'Second contact · Debrief' : 'Communications · Debrief';
+  $('eval-eyebrow').textContent = watching ? 'A shared encounter · Debrief' : e.second ? 'Second contact · Debrief' : daily ? 'Today’s hail · Debrief' : 'Communications · Debrief';
   // A friend's shared second contact can't be answered as theirs: the way in is the same people's first hail.
   $('again').textContent = watching ? (e.second ? 'Answer their first hail yourself' : 'Answer this hail yourself') : 'Answer another hail';
   $('eval-title').textContent = e.title;
@@ -497,6 +509,7 @@ function watchEncounter(kept) {
   gameId = '';
   here = null;
   again = null;
+  daily = '';
   open();
   $('watching-text').innerHTML = '<b>A shared encounter, played back</b>Their ship is hailing.';
   play(g.log.slice());
@@ -531,7 +544,7 @@ function openedRun() {
 function shareRun(button) {
   const e = lastEval || debrief(g);
   const code = encodeRun({ seed: g.seed, acts, tags: g.tags, again: g.second ? { heard: g.carried } : null });
-  const line = `${e.second ? 'Second contact' : 'First contact'}: ${e.title}, ${e.decoded} of ${e.of} phrases decoded`;
+  const line = shareLine(e);
   const url = `${LIVE}contact.html#run=${code}`;
   return share(button, { title: 'First contact', text: line, url, copy: `${line}\n${url}` });
 }
@@ -594,7 +607,7 @@ const visible = (...ids) => ids.map(id => $(id));
 const sw = oneSwitch({
   key: 'engage.oneswitch',
   items() {
-    if (!$('brief').hidden) return visible('resume', 'start', 'friend-start', 'one-switch');
+    if (!$('brief').hidden) return visible('resume', 'start', 'daily-start', 'daily-share', 'friend-start', 'one-switch');
     if (!$('eval').hidden) return visible('again', 'to-bridge', 'share-run', 'to-lab');
     if (busy || !g) return [];
     if (g.over) return visible('send');
@@ -608,13 +621,19 @@ $('one-switch').addEventListener('change', e => sw.set(e.target.checked));
 // ---------- Wiring ----------
 
 $('start').addEventListener('click', () => start());
+$('daily-start').addEventListener('click', () => { const day = today(); start(dailySeed(day), null, day); });
+$('daily-share').addEventListener('click', e => {
+  const d = saved.daily, url = `${LIVE}contact.html#run=${d.run}`;
+  share(e.currentTarget, { title: 'First contact', text: d.line, url, copy: `${d.line}\n${url}` });
+});
 $('friend-start').addEventListener('click', () => { const f = nextFriend(); if (f) start(f.seed, carried(f)); });
 $('resume').addEventListener('click', resume);
 $('again').addEventListener('click', () => {
   if (watching) {
-    const { seed } = watching;
+    // The same hail, in the same language: today's, if that is what they shared.
+    const { seed } = watching, day = today();
     history.replaceState(null, '', location.pathname + location.search);
-    start(seed);
+    start(seed, null, seed === dailySeed(day) ? day : '');
     return;
   }
   showBrief();
@@ -666,7 +685,11 @@ watch(KEY, () => {
 // on the record now, as it would have.
 {
   const back = replay(saved.game);
-  if (back?.game.over) { g = back.game; gameId = typeof saved.game.id === 'string' ? saved.game.id : newId(); here = placeOf(saved.game.here); record(); g = null; lastEval = null; here = null; }
+  if (back?.game.over) {
+    g = back.game; gameId = typeof saved.game.id === 'string' ? saved.game.id : newId(); here = placeOf(saved.game.here);
+    acts = saved.game.acts.slice(); daily = typeof saved.game.daily === 'string' ? saved.game.daily : '';
+    record(); g = null; lastEval = null; here = null; daily = ''; acts = [];
+  }
   else if (!back && saved.game) delete saved.game;
 }
 const shared = openedRun();
@@ -675,7 +698,7 @@ sw.set(sw.on);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.contact = {
   get game() { return g; }, get busy() { return busy; }, get draws() { return draws; },
-  start, resume, send, act: doAct, showEval, oneSwitch: sw, watch: watchEncounter, skip: skipWatched, get watching() { return watching; },
+  start, resume, send, act: doAct, daily: () => $('daily-start').click(), showEval, oneSwitch: sw, watch: watchEncounter, skip: skipWatched, get watching() { return watching; },
   // Puts phrases in the reply by meaning, as if tapped in the notebook.
   pick(...ids) { for (const id of ids) if (g.heard.includes(id) && !reply.includes(id) && reply.length < MAX_REPLY) reply.push(id); update(); keepGame(); },
   hint: () => hint(g),
