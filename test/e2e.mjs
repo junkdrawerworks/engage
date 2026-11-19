@@ -2172,9 +2172,12 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 568, height: 320 }
     if (k) await p.click('#open-list');
     await p.locator('#systems .system').nth(k).click();
     await p.locator('#card').evaluate(el => Promise.all(el.getAnimations().map(a => a.finished)));
+    // (A cluster or nebula the bridge doesn't fly to has no Set course: there its last row, the doors and Share, is
+    // what must be on the screen.)
     const card = await p.evaluate(() => {
-      const b = document.getElementById('card-course').getBoundingClientRect(), c = document.getElementById('card').getBoundingClientRect();
-      return { title: document.getElementById('card-title').textContent, top: c.top, button: b.bottom, height: b.height };
+      const course = document.getElementById('card-course'), last = course.hidden ? document.getElementById('card-share-row') : course;
+      const b = last.getBoundingClientRect(), c = document.getElementById('card').getBoundingClientRect();
+      return { title: document.getElementById('card-title').textContent, top: c.top, button: b.bottom, height: course.hidden ? 44 : b.height };
     });
     assert.ok(card.height >= 44 && card.button <= viewport.height + 0.5, `${card.title}'s Set course ends at ${card.button} on a ${viewport.width}×${viewport.height} screen`);
     assert.ok(card.top >= 0, `${card.title}'s card starts above a ${viewport.width}×${viewport.height} screen`);
