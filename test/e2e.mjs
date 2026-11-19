@@ -1138,6 +1138,16 @@ await page.waitForFunction(() => document.querySelector('#file h2')?.textContent
 assert.match(await text('#file .readings'), /94 K \(−179 °C\)/);
 assert.equal(await page.locator('#file a', { hasText: 'Grow a creature' }).count(), 0, 'Titan grows a creature from rules for water');
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'a moon’s file scrolls sideways on a phone');
+// A link to a file far down the strip opens with its globe in view: the strip scrolls to its thumbnail, not the page.
+{
+  const wide = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const p = await wide.newPage();
+  await p.goto(base + 'survey.html#titan');
+  await p.waitForFunction(() => document.querySelector('#file h2')?.textContent === 'Titan');
+  await p.waitForTimeout(400);
+  assert.equal(await p.evaluate(() => scrollY), 0, 'the page scrolled down to the moon’s thumbnail, taking the globe off the top');
+  await wide.close();
+}
 await page.goto(base + 'survey.html#enceladus');
 await page.waitForFunction(() => document.querySelector('#file h2')?.textContent === 'Enceladus');
 await Promise.all([page.waitForNavigation(), page.locator('#file a', { hasText: 'Grow a creature for Enceladus' }).click()]);

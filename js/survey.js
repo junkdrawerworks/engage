@@ -145,7 +145,12 @@ function openFile(i, push = true) {
   $('file').innerHTML = c.of !== undefined ? moonHtml(c) : fileHtml(c);
   document.querySelectorAll('#strip .chip').forEach((b, k) => {
     b.setAttribute('aria-current', k === at ? 'true' : 'false');
-    if (k === at) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: still.matches ? 'auto' : 'smooth' });
+    // The strip scrolls sideways to it on a phone; the page itself stays where it is (a moon's thumbnail, at the foot
+    // of the strip on a wide screen, scrolled the globe off the top).
+    if (k === at) {
+      const strip = $('strip'), box = b.getBoundingClientRect(), frame = strip.getBoundingClientRect();
+      strip.scrollTo({ left: strip.scrollLeft + box.left - frame.left - strip.clientWidth / 2 + box.width / 2, behavior: still.matches ? 'auto' : 'smooth' });
+    }
   });
   if (push) try { history.replaceState(null, '', `#${c.id}`); } catch { /* fine */ }
   if (mode === 'files') document.title = `${label(c)} · Planetary survey · Engage`;
