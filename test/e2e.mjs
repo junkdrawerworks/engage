@@ -1326,14 +1326,21 @@ assert.equal(await page.evaluate(() => location.hash.slice(1)), world);
   const [b0, b1] = await firstOf('TRAPPIST-1 b', 2), [c0] = await firstOf('TRAPPIST-1 c', 1);
   await tapAt(b0); await tapAt(c0); await tapAt(b1);
   assert.match(await status(), /^Those dips aren’t one planet’s/);
-  // Too faint to see: try the planet's own year, and the passes line up.
+  // Too faint to see: try the planet's own year, and the passes line up. 55 Cancri e (seed 1) at twice its year shows
+  // two dips; π Mensae c (seed 2), whose year is six days, lines up too.
+  const tryYear = d => p.locator('#fold-year').evaluate((r, v) => { r.value = v; r.dispatchEvent(new Event('input')); }, Math.round(Math.log(d / 0.5) / Math.log(16) * 3000));
   await p.click('[data-level="2"]');
   assert.equal(await p.locator('#hunt-fold').isVisible(), true);
-  const P = await p.evaluate(() => survey.hunt.curve.planets[0].days);
-  await p.locator('#fold-year').evaluate((r, v) => { r.value = v; r.dispatchEvent(new Event('input')); }, Math.round(Math.log(P * 2 / 0.5) / Math.log(16) * 3000));
-  assert.equal(await status(), 'Two dips in one fold: the year is half this.');
-  await p.locator('#fold-year').evaluate((r, v) => { r.value = v; r.dispatchEvent(new Event('input')); }, Math.round(Math.log(P / 0.5) / Math.log(16) * 3000));
-  assert.match(await status(), /^The passes line up\./);
+  for (const seed of [1, 2]) {
+    await p.goto(`${base}survey.html#hunt=2.${seed}`);
+    await p.waitForFunction(s => survey.hunt.curve?.seed === s, seed);
+    const P = await p.evaluate(() => survey.hunt.curve.planets[0].days);
+    if (seed === 1) { await tryYear(P * 2); assert.equal(await status(), 'Two dips in one fold: the year is half this.'); }
+    await tryYear(P * 1.1);
+    assert.equal(await status(), 'Drag the year until a dip shows in the passes added up.');
+    await tryYear(P);
+    assert.match(await status(), /^The passes line up\./);
+  }
   // The wobble: 51 Pegasi b, at least half Jupiter's mass, and Set course for its star.
   await p.click('[data-level="4"]');
   for (const at of await firstOf()) await tapAt(at);
