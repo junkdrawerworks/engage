@@ -3463,9 +3463,12 @@ await page.emulateMedia({ reducedMotion: null });
     });
   });
   await p.waitForTimeout(200);
-  // By day's colours Starfleet's tags are the cyan ones (more blue than red) and the rest amber.
+  // Starfleet's tags are the ones its charts name (by day, the cyan ones; with 28 of them on the sky another tag's
+  // amber ring can show through a name, so it is told by the name, not the colour).
   const day = await tags();
-  const trek = new Set(day.filter(t => t.blue > t.red).map(t => t.name));
+  const { CHARTS: charted } = await import('../js/charts.js');
+  const trek = new Set(day.filter(t => charted.some(c => c.tag === t.name)).map(t => t.name));
+  assert.ok(day.filter(t => trek.has(t.name) && t.blue > t.red).length >= trek.size - 1, `Starfleet's tags are not cyan by day: ${JSON.stringify(day)}`);
   assert.ok(trek.size >= 2 && day.length - trek.size >= 2, `not enough tags on the sky to compare: ${day.map(t => `${t.name} ${t.red}/${t.blue}`)}`);
   await p.tap('#night');
   await p.waitForTimeout(200);

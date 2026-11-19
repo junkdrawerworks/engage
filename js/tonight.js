@@ -675,6 +675,9 @@ function drawTag(t) {
   const left = p.x - R - 9 - w;
   const onRing = b => ringsAhead.some(o => o.i !== t.i && b.x < o.x + o.r && o.x - o.r < b.x + b.w && b.y < o.y + o.r && o.y - o.r < b.y + b.h);
   if (x + w > W - 6 || overlaps({ x, y, w, h }) || (onRing({ x, y, w, h }) && left >= 6 && !onRing({ x: left, y, w, h }) && !overlaps({ x: left, y, w, h }))) x = left;
+  // Never off the screen's edge: a star just past the left edge (or one whose name had to go left) keeps its whole
+  // name on the screen, where it was cut off at the edge.
+  if (x < 6) x = Math.max(6, Math.min(p.x + R + 9, W - 6 - w));
   const box = { x, y, w, h };
   const reserved = labelBoxes.slice(0, reservedBoxes); // never under the header, the controls or the daylight notice
   if (reserved.some(o => box.x < o.x + o.w && o.x < box.x + box.w && box.y < o.y + o.h && o.y < box.y + box.h) || (overlaps(box) && !trek)) { ctx.restore(); placed.push({ x: p.x, y: p.y, r: 20, hit: { kind: 'star', i: t.i }, rank: -20 }); return; }
