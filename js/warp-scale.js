@@ -184,7 +184,7 @@ export const PLACES = [
   deep('smc', 'beyond', '#d0d6f4', 'galaxy'),
   {
     id: 'andromeda', name: 'Andromeda', group: 'beyond', ly: 2537000, color: '#e8dcff', kind: 'galaxy', sight: 'andromeda',
-    about: 'The nearest big galaxy, and the farthest thing you can see with your eyes. It’s heading our way and will merge with the Milky Way in about 4.5 billion years.',
+    about: 'The nearest big galaxy, and the farthest thing you can see with your eyes. It’s heading our way, but whether it will ever merge with the Milky Way isn’t settled: Hubble and Gaia measurements put the chance at about even in the next 10 billion years.',
     trek: 'In By Any Other Name, the Kelvans take over the Enterprise for a 300-year trip home to Andromeda. That’s about 8,500 times light, faster than warp 9.99.',
   },
 ];

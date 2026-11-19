@@ -33,7 +33,9 @@
 //    163,000 ly); 10.75° × 9.17°.
 //  - The Small Magellanic Cloud: 204,000 ly (62.44 kpc), Graczyk et al. 2020; 5°20′ × 3°5′; magnitude 2.7.
 //  - Andromeda (M31): 2.54 million ly as the warp scale has it (NASA: 2.5 million); about 3° × 1°, long axis 38° east
-//    of north; magnitude 3.4.
+//    of north; magnitude 3.4. Whether it merges with the Milky Way: about even odds in the next 10 billion years
+//    (Sawala et al. 2025, Nature Astronomy, "No certainty of a Milky Way–Andromeda collision"; ESA/Hubble heic2508),
+//    where the long-quoted 4.5 billion years took a merger as certain.
 
 export const KINDS = {
   open: 'Star cluster', globular: 'Globular cluster', nebula: 'Nebula', planetary: 'Planetary nebula',
@@ -110,7 +112,7 @@ export const DEEP_SKY = [
   },
   {
     id: 'andromeda', name: 'Andromeda', aka: 'M31', kind: 'galaxy', ra: 0.7123, dec: 41.269, ly: 2537000, size: [190, 60], pa: 38, vis: 5, rung: 'andromeda',
-    about: 'The nearest big galaxy, and the farthest thing you can see with your eyes: a faint smudge whose light set out 2.5 million years ago. It’s heading our way and will merge with the Milky Way in about 4.5 billion years.',
+    about: 'The nearest big galaxy, and the farthest thing you can see with your eyes: a faint smudge whose light set out 2.5 million years ago. It’s heading our way, but whether it will ever merge with the Milky Way isn’t settled: Hubble and Gaia measurements put the chance at about even in the next 10 billion years.',
     trek: 'In By Any Other Name, the Kelvans take over the Enterprise for a 300-year trip home to Andromeda.',
     bino: true,
   },
