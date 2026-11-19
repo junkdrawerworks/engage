@@ -2917,7 +2917,7 @@ await page.emulateMedia({ reducedMotion: null });
     assert.equal(await p.locator('#hail').textContent(), 'Hail her');
   }
   await p.evaluate(() => window.missions.choose('nh'));
-  assert.match(await p.locator('#hail-note').innerText(), /^Your hail, sent today at .* is \d+% of the way there\./);
+  assert.match(await p.locator('#hail-note').innerText(), /^Your hail, sent (today|\d+ [A-Z][a-z]+) at .* is \d+% of the way there\./);
   // A clock set back while the page is open: the hail isn't a minus number of the way there.
   await p.evaluate(() => { window.missions.hails.v1 = Date.now() + 864e5; window.missions.choose('v1'); });
   assert.doesNotMatch(await p.locator('#hail-note').innerText(), /-\d|Invalid/);
@@ -3510,7 +3510,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.waitForFunction(() => window.contact);
   assert.equal(await offered(), true, 'an encounter left part-way is not offered again after a reload');
   assert.match(await p.locator('#resume-note').textContent(), /^You left an encounter with the channel open: \d+ phrases heard, their patience at 4 of 5\. Answering the hail meets a new ship\.$/);
-  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('.brief button:not([hidden])')].map(b => `${b.id} ${b.className}`)), ['resume primary', 'start secondary']);
+  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('.brief button:not([hidden])')].map(b => `${b.id} ${b.className}`)), ['resume primary', 'start secondary', 'daily-start secondary']);
   await p.tap('#resume');
   await settled();
   assert.deepEqual(await state(), left, 'the encounter that came back is not the one that was left');
