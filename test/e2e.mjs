@@ -4581,8 +4581,9 @@ await page.emulateMedia({ reducedMotion: null });
   await p.waitForFunction(() => window.maru);
   assert.match(await p.locator('#where').innerText(), /Gamma Hydra, Section 10\. Gamma Hydrae is a real star, a yellow giant about 134 light years from Earth\./);
   assert.equal(decodeURIComponent(await through('#where', 'In your sky tonight')), 'tonight.html#star=γ Hydrae');
-  assert.equal(await card(), 'γ Hydrae');
-  assert.match(await p.locator('#card-sub').innerText(), /^134 ly away · in Hydra$/);
+  // It is on Starfleet's charts now, so its card is headed with Gamma Hydra IV, the star's own name under it.
+  assert.equal(await card(), 'Gamma Hydra IV');
+  assert.match(await p.locator('#card-sub').innerText(), /^γ Hydrae · 134 ly away · in Hydra$/);
   await p.goto(base + 'maru.html');
   await p.waitForFunction(() => window.maru);
   assert.equal(decodeURIComponent(await through('#where', 'Set course')), '?course=γ Hydrae');
