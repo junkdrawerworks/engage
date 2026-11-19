@@ -146,7 +146,8 @@ function prepareStars() {
     const i = cat.byName.get(d.star);
     if (i !== undefined) tags.push({ i, dest: d, name: d.title });
   }
-  // Anywhere else the log has been gets a quiet tag of its own, so the whole log shows in the sky.
+  // Anywhere else the log has been gets a tag of its own, so the log shows in the sky: drawn only while it is up and
+  // bright enough to see (see drawTag), and always in the list.
   const tagged = new Set(tags.map(t => t.i));
   for (const i of visits.keys()) {
     if (i >= cat.count) { visits.delete(i); continue; }
@@ -635,6 +636,10 @@ function drawTag(t) {
   const below = t.alt < 0, faint = !t.seen;
   const trek = !!t.chart;
   if (below && !trek && !chosen) return; // only Starfleet's are worth looking down for
+  // A star that is only in your log, too faint to see from here, isn't drawn at all: a keen captain's log is mostly
+  // catalogue stars no suburban sky shows, and their rings buried Starfleet's tags. It stays in the list, and opens
+  // from the log's In your sky tonight, drawn in full while chosen.
+  if (faint && !t.chart && !t.dest && !chosen) return;
   const pal = saved.night ? TAG.night : TAG.day;
   const color = trek ? pal.trek : pal.other;
   if ((below || faint) && !chosen) {

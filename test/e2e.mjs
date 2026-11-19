@@ -2367,6 +2367,31 @@ await bridgeReady();
   await p.evaluate(() => { location.hash = '#star=Mira'; });
   await p.waitForFunction(() => document.getElementById('card-title').textContent === 'Mira');
   assert.match(await p.locator('#card-facts').innerText(), /^Red giant, spectral type M5e-M9e\. The light reaching you tonight left it in 17\d\d\.$/);
+  await p.click('#card .close');
+
+  // A logged star too faint to see from here has no tag and no ring on the sky (a long log of catalogue stars buried
+  // Starfleet's tags in amber "too faint to see" and rings); it stays in the list, Been there, and is drawn in full
+  // while it is chosen. Gliese 153 A, magnitude 9 from Earth, never sets from New York.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => { engage.jump('Gliese 153A'); engage.closeSheets(); });
+  await p.goto(base + 'tonight.html');
+  await p.waitForFunction(() => window.tonight);
+  await p.evaluate(() => { tonight.place(40.71, -74.01, 'New York', 'America/New_York'); tonight.at('2026-10-11T03:30:00Z'); tonight.aimAt('Gliese 153A'); });
+  await p.keyboard.press('Escape'); // looking that way with nothing chosen
+  await p.evaluate(() => tonight.look(tonight.state.view.az, tonight.state.view.alt, 80));
+  await p.waitForTimeout(200);
+  const faint = await p.evaluate(() => ({ tag: tonight.tag('Gliese 153A'), tags: tonight.tags().map(t => t.name), rings: tonight.rings(), at: tonight.where('Gliese 153A') }));
+  assert.ok(faint.tag && faint.tag.alt > 0 && !faint.tag.seen, `Gliese 153A is not up and too faint: ${JSON.stringify(faint.tag)}`);
+  assert.ok(faint.at && faint.at.x > 0 && faint.at.x < 390 && faint.at.y > 100 && faint.at.y < 700, 'Gliese 153A is not on the screen');
+  assert.ok(!faint.tags.includes('Gliese 153A') && !faint.rings.includes('Gliese 153A'), 'a logged star too faint to see is marked on the sky');
+  assert.ok(faint.tags.length + faint.rings.length > 0, 'nothing else is tagged there either');
+  await p.click('#open-list');
+  const row = p.locator('#systems .system', { hasText: 'Gliese 153A' });
+  assert.match(await row.innerText(), /Been there[\s\S]*too faint to see/i);
+  await row.click();
+  await p.waitForTimeout(1100);
+  assert.ok((await p.evaluate(() => tonight.tags())).some(t => t.name === 'Gliese 153A' && t.been), 'a faint logged star chosen from the list is not drawn');
   await been.close();
 }
 
