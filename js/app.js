@@ -7,6 +7,7 @@ import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inT
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { ask } from './computer.js';
+import { SHOWN_IN, onScreen, onScreenParts, variableFor } from './variables.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, current, keep, watch } from './store.js';
 import { ROOMS, inWords, roomList } from './rooms.js';
@@ -307,7 +308,7 @@ function frame(now) {
   if (trip) fly(now, dt);
   if (turn) steer(now);
   const pulsing = state.sunPulse && now - state.sunPulse < 2400;
-  if (dirty || trip || turn || pulsing) {
+  if (dirty || trip || turn || pulsing || behaving()) {
     sky.render(viewNow(dt));
     drawLabels(now);
     dirty = false;
@@ -315,10 +316,17 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-const viewNow = dt => ({
-  cam: viewCam(), yaw: state.yaw, pitch: state.pitch, fov: state.fov, lines: state.opts.lines || earthHeld,
-  warp: trip?.warp || 0, warpSpeed: trip?.streak || 0, dt,
-});
+const viewNow = dt => {
+  sky.behave = behaving() ? { star: state.at, ...onScreen(variableFor(cat.names[state.at]), behaveClock ?? performance.now() / 1000) } : null;
+  return {
+    cam: viewCam(), yaw: state.yaw, pitch: state.pitch, fov: state.fov, lines: state.opts.lines || earthHeld,
+    warp: trip?.warp || 0, warpSpeed: trip?.streak || 0, dt,
+  };
+};
+// Holding at a star that behaves (Algol, Mira, Delta Cephei, Betelgeuse, Proxima), its disc does what the star does,
+// sped up, so the viewscreen is drawn every frame there. Not with reduced motion asked for: the disc keeps still.
+const behaving = () => !trip && !still.matches && !!variableFor(cat.names[state.at]);
+let behaveClock = null; // a moment to hold the disc at, in seconds, for pictures (see engage.holdBehave)
 
 // The graphics driver can reset under the page (a long freeze, waking a laptop). The browser usually hands the
 // viewscreen back on its own within a moment; if it doesn't, offer a reload instead of leaving a blank screen.
@@ -569,6 +577,11 @@ function updateHud() {
   // With the five-year mission's clock on, it takes the stardate's place, and runs on through a flight.
   const when = !state.opts.clock ? sd : trip?.clock0 ? clockSaid(trip.clock0.years + trip.elapsed) : clockNow(state.log).said;
   $('when').innerHTML = `<span>${when}</span> <span>${fromSol < 0.001 ? 'Home' : far}</span>`; // the dot between them is drawn by the stylesheet
+  // At a star that behaves, its real period, and that the viewscreen shows it sped up.
+  const v = !trip && variableFor(cat.names[state.at]);
+  $('behaves').innerHTML = v ? onScreenParts(v, !still.matches).map(p => `<span>${esc(p)}</span>`).join(' ') : '';
+  $('behaves').title = v && !still.matches ? (v.kind === 'flare' ? 'The viewscreen shows a flare every few seconds.' : `The viewscreen shows one cycle in ${SHOWN_IN} seconds.`) : '';
+  $('behaves').hidden = !v;
 }
 
 // ---------- Saying what happens ----------
@@ -1873,7 +1886,7 @@ function bind() {
     // Left for a room from the welcome card: the card was read, and isn't up on the way back.
     if (state.seenIntro && !$('intro').hidden) { $('intro').hidden = true; behind(); }
   });
-  still.addEventListener?.('change', () => { dirty = true; });
+  still.addEventListener?.('change', () => { dirty = true; updateHud(); });
 
   // Drag to look around, pinch or scroll to zoom, tap to pick a star.
   const view = $('labels');
@@ -1994,6 +2007,10 @@ function hooks() {
     labels: () => drawn,
     // Draws now and returns the viewscreen as an image (the drawing buffer is cleared once it's on screen).
     snapshot() { sky.render(viewNow(0)); return $('sky').toDataURL('image/png'); },
+    // What the disc of a star that behaves was last drawn doing: { star, light, size, glow }, or null.
+    get behave() { return sky.behave; },
+    // Holds the disc of a star that behaves at one moment of its sped-up cycle (null lets it run): for pictures.
+    holdBehave(seconds) { behaveClock = seconds; dirty = true; },
     closeSheets,
     earthSky,
     get earthHeld() { return earthHeld; },

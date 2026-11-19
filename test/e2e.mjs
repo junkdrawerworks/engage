@@ -571,6 +571,30 @@ await page.locator('#list .row').first().click();
 assert.equal(await text('#target-name'), '40 Eridani');
 assert.equal(await text('#target-sub'), 'Keid · Vulcan · Orange dwarf', 'the helm does not say why Vulcan found 40 Eridani');
 
+// Holding at a star that behaves, the disc does what the star does, sped up, and the header says its real period;
+// with reduced motion asked for it keeps still, and the header gives the period alone. (On a page of its own, so
+// these arrivals stay out of the log the rest of this walk-through reads.)
+for (const reducedMotion of ['no-preference', 'reduce']) {
+  const ctxV = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion });
+  await ctxV.addInitScript(() => localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })));
+  const p = await ctxV.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => engage.jump('Algol'));
+  await p.waitForTimeout(300);
+  const still = reducedMotion === 'reduce';
+  assert.equal((await p.locator('#behaves').textContent()).replace(/\s+/g, ' '), still ? 'Dims every 2.87 days' : 'Dims every 2.87 days sped up');
+  const b = await p.evaluate(() => engage.behave);
+  if (still) assert.equal(b, null, 'the disc moves under reduced motion');
+  else assert.ok(b && b.star === await p.evaluate(() => engage.state.at) && b.light <= 1, `Algol's disc: ${JSON.stringify(b)}`);
+  await p.evaluate(() => engage.jump('Vega'));
+  await p.waitForTimeout(300);
+  assert.equal(await p.locator('#behaves').evaluate(el => el.hidden), true, 'a steady star says it behaves');
+  assert.equal(await p.evaluate(() => engage.behave), null);
+  await ctxV.close();
+}
+
 // Picking from the list, and searching. The sheet keeps its height while the list shrinks to one hit, so the search
 // field stays near the top of the screen, clear of a phone's keyboard; and when a keyboard covers the bottom of the
 // screen (faked here: the visible part of the page ends 340 px short), the sheet stands on top of it.

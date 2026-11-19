@@ -59,7 +59,7 @@ attribute vec2 a_xy; uniform vec2 u_center; uniform float u_extent; uniform vec2
 void main() { v_px = a_xy * u_extent; gl_Position = vec4((u_center + v_px) / u_res * 2.0 - 1.0, 0.0, 1.0); }`;
 const SUN_FS = `
 precision highp float;
-varying vec2 v_px; uniform float u_disc; uniform float u_glow; uniform vec3 u_col; uniform float u_bright;
+varying vec2 v_px; uniform float u_disc; uniform float u_glow; uniform vec3 u_col; uniform float u_bright; uniform float u_light;
 void main() {
   float d = length(v_px);
   float disc = 0.0;
@@ -69,7 +69,7 @@ void main() {
   }
   float glow = exp(-d / u_glow * 2.4) * 0.9 + exp(-d / (u_glow * 3.0)) * 0.035;
   float spikes = (exp(-abs(v_px.x) / 1.2) + exp(-abs(v_px.y) / 1.2)) * exp(-d / (u_glow * 1.6)) * 0.3;
-  vec3 c = u_col * (glow + spikes) * u_bright + mix(u_col, vec3(1.0), 0.4) * disc;
+  vec3 c = (u_col * (glow + spikes) * u_bright + mix(u_col, vec3(1.0), 0.4) * disc) * u_light;
   gl_FragColor = vec4(c, 1.0);
 }`;
 
@@ -284,8 +284,10 @@ export class Sky {
     const dist = cat.distanceFrom(i, camAbs);
     const m = apparentMag(cat.absmag[i], dist);
     const flux = Math.pow(10, -0.4 * (m - limit));
-    const discPx = (cat.radius[i] * SUN_RADIUS_AU / (dist * AU_PER_PC)) * this.last.focal;
-    const glowPx = Math.min(Math.max(4 * Math.pow(flux, 0.15), 3), 260) * this.dpr * 0.35 + discPx * 0.6;
+    // A star that behaves (see variables.js) brightens, dims or swells as `behave` says: { star, light, size, glow }.
+    const b = this.behave?.star === i ? this.behave : null;
+    const discPx = (cat.radius[i] * SUN_RADIUS_AU / (dist * AU_PER_PC)) * this.last.focal * (b ? b.size : 1);
+    const glowPx = (Math.min(Math.max(4 * Math.pow(flux, 0.15), 3), 260) * this.dpr * 0.35 + discPx * 0.6) * (b ? Math.sqrt(b.glow) : 1);
     gl.useProgram(this.sunProg.p);
     gl.uniform2f(this.sunProg.u.u_center, s.x * this.dpr, (this.canvas.height - s.y * this.dpr));
     gl.uniform1f(this.sunProg.u.u_extent, Math.max(glowPx * 5, discPx * 1.5));
@@ -294,6 +296,7 @@ export class Sky {
     gl.uniform1f(this.sunProg.u.u_glow, glowPx);
     gl.uniform3fv(this.sunProg.u.u_col, cat.color.subarray(i * 3, i * 3 + 3));
     gl.uniform1f(this.sunProg.u.u_bright, Math.min(1, 0.4 + Math.log10(flux) / 12));
+    gl.uniform1f(this.sunProg.u.u_light, b ? b.light : 1);
     attr(gl, this.sunProg, 'a_xy', this.quad, 2);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     clearAttrs(gl);

@@ -92,3 +92,40 @@ export function nowLine(v, t, { when, day, fromEarth = false }) {
   }
   return `${v.what}. ${its} ${rising ? 'brightening' : 'fading'} now, at ${mag(m)}, and next at its brightest, magnitude 3.5, ${when(peak)}.`;
 }
+
+// ---------- On the viewscreen ----------
+
+// Holding at one of them, its disc does what the star does, sped up: one cycle in SHOWN_IN seconds, or for Proxima a
+// flare every few seconds. `s` is seconds on the page's clock. Returns { light, size, glow }, each 1 for the star as
+// usual: light scales its brightness, size its disc's width, glow its halo. The dimming is the star's own, in
+// magnitudes, but held to at most 1.3 (Mira's swing of five and a half would leave no disc to see).
+export const SHOWN_IN = 12;
+const frac = x => x - Math.floor(x);
+export function onScreen(v, s) {
+  if (v.kind === 'flare') {
+    // A faint flicker, and a flare in each nine seconds, at a moment of its own: up in a fifth of a second, down over
+    // about two.
+    const flicker = 1 + 0.04 * Math.sin(s * 7.3) + 0.03 * Math.sin(s * 12.1 + 1);
+    const w = Math.floor(s / 9), at = w * 9 + 1 + 6 * frac(Math.sin(w * 12.9898 + 4.1) * 43758.5453);
+    const since = s - at;
+    const flare = since < 0 || since > 3 ? 0 : since < 0.2 ? since / 0.2 : Math.exp(-(since - 0.2) / 0.6);
+    return { light: flicker + 2.2 * flare, size: 1, glow: 1 + 1.5 * flare };
+  }
+  const phase = frac(s / SHOWN_IN);
+  const dim = v.kind === 'semiregular' ? (1 - Math.cos(2 * Math.PI * phase)) / 2 : dimAt(v, phase);
+  const range = Math.min(v.faint - v.bright, 1.3);
+  const light = 10 ** (-0.4 * range * dim);
+  // A pulsing star is widest when it is dimmest (Mira's radius runs from about 330 to 400 Suns: Wikipedia, after
+  // Woodruff and others 2004); an eclipse leaves the disc as it is.
+  const size = v.kind === 'eclipse' ? 1 : 1 + (v.star === 'Mira' ? 0.18 : 0.07) * dim;
+  return { light, size, glow: light };
+}
+
+// The line under the header while the ship holds there: the real period, and that the viewscreen speeds it up, as
+// two parts short enough for a phone's header. With reduced motion asked for the disc stays still, and the line
+// gives only the period.
+const REAL = {
+  Algol: 'Dims every 2.87 days', Mira: 'Pulses over 332 days', 'δ Cephei': 'Pulses every 5.37 days',
+  Betelgeuse: 'Pulses, about 400 days', 'Proxima Centauri': 'Flares without warning',
+};
+export const onScreenParts = (v, moving = true) => (moving ? [REAL[v.star], 'sped up'] : [REAL[v.star]]);

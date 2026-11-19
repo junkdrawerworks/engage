@@ -46,6 +46,7 @@ async function open(viewport, deviceScaleFactor) {
   await page.goto(base);
   await page.waitForFunction(() => typeof window.engage?.jump === 'function'); // not just the Engage button, by its id
   await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => engage.holdBehave?.(0.5)); // a star that behaves (Proxima) is pictured between flares
   return page;
 }
 
@@ -62,7 +63,7 @@ if (!only || only === 'bridge') {
 
   await page.reload();
   await page.waitForFunction(() => typeof window.engage?.jump === 'function'); // not just the Engage button, by its id
-  await page.evaluate(() => { engage.speed(10); engage.target('Proxima Centauri'); });
+  await page.evaluate(() => { engage.holdBehave(0.5); engage.speed(10); engage.target('Proxima Centauri'); });
   await page.click('#engage');
   await page.waitForFunction(() => !document.getElementById('arrival').hidden, null, { timeout: 20000 });
   await page.waitForTimeout(1600);

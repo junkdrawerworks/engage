@@ -82,6 +82,7 @@ body.auto #labels { cursor: none; }
 .where .sub span { position: relative; white-space: nowrap; }
 .where .sub span + span::before { content: '·'; position: absolute; left: -0.7em; }
 .where .sub { margin: 3px 0 0; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
+.where .behaves { color: var(--sun); }
 .hud-buttons { display: flex; gap: 8px; pointer-events: auto; flex: none; }
 .round { position: relative; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel); display: grid; place-items: center; padding: 0;
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: border-color .15s, background .15s; }

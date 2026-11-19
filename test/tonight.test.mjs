@@ -8,7 +8,7 @@ import {
   riseSet, darkHours, bestTime, SHOWERS, solarLongitude, showerPeak, showersOn, showerTonight, radiantDir, tonightPlan, planLines, compassPoint,
 } from '../js/astro.js';
 import { CHARTS } from '../js/charts.js';
-import { VARIABLES, dimAt, magAt, nextAt, nowLine, phaseAt, variableFor } from '../js/variables.js';
+import { SHOWN_IN, VARIABLES, dimAt, magAt, nextAt, nowLine, onScreen, onScreenParts, phaseAt, variableFor } from '../js/variables.js';
 import { buildCatalog, constellationLabels } from '../js/catalog.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} is not within ${tol} of ${b}`);
@@ -520,4 +520,26 @@ test('a variable star says where in its cycle it is', () => {
   assert.match(nowLine(variableFor('δ Cephei'), Date.parse('2026-11-19T05:00:00Z'), { when, day }), /^A Cepheid.* It’s fading now, at magnitude 4\.\d, and next at its brightest, magnitude 3\.5, 2026-11-22T03:1\d\.$/);
   assert.match(nowLine(variableFor('Betelgeuse'), 0, { when, day }), /no saying where in its cycle/);
   assert.match(nowLine(variableFor('Proxima Centauri'), 0, { when, day }), /^A flare star.*68 times brighter/);
+});
+
+test('on the viewscreen a star that behaves does what it does, sped up', () => {
+  const algol = variableFor('Algol'), mira = variableFor('Mira'), prox = variableFor('Proxima Centauri');
+  // Algol: steady, then one eclipse each cycle of the viewscreen's, at most 1.3 magnitudes deep.
+  assert.deepEqual(onScreen(algol, SHOWN_IN * 0.5), { light: 1, size: 1, glow: 1 });
+  assert.ok(Math.abs(onScreen(algol, SHOWN_IN * 3).light - 10 ** (-0.4 * 1.3)) < 1e-9);
+  // Mira: dimmest and widest just before it rises, and back to itself at the peak.
+  const low = onScreen(mira, SHOWN_IN * (1 - mira.rise));
+  assert.ok(low.light < 0.31 && low.size > 1.15, JSON.stringify(low));
+  assert.deepEqual(onScreen(mira, 0), { light: 1, size: 1, glow: 1 });
+  // Proxima: a flicker, and a flare in every nine seconds.
+  for (let w = 0; w < 20; w++) {
+    let top = 0;
+    for (let s = w * 9; s < w * 9 + 9; s += 0.05) top = Math.max(top, onScreen(prox, s).light);
+    assert.ok(top > 2.5, `no flare between ${w * 9} and ${w * 9 + 9} seconds`);
+  }
+  assert.ok(onScreen(prox, 0.5).light < 1.2);
+  // The header says the real period, and that the viewscreen speeds it up, unless reduced motion keeps it still.
+  assert.deepEqual(onScreenParts(algol), ['Dims every 2.87 days', 'sped up']);
+  assert.deepEqual(onScreenParts(algol, false), ['Dims every 2.87 days']);
+  for (const v of VARIABLES) assert.ok(onScreenParts(v)[0].length <= 22, `${v.star}'s line is too long for a phone's header`);
 });
