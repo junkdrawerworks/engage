@@ -136,7 +136,7 @@ function setSide(side) {
 const solMag = () => apparentMag(4.83, Math.hypot(...here.world.hostPc));
 
 let B, W, H, S;
-function basis() {
+function basis(pitchDeg) {
   const up = here.sky[here.side];
   const target = here.side === 'day' ? here.sky.sun : here.sky.mark;
   let h0 = unit(target.map((x, k) => x - dot(target, up) * up[k]));
@@ -144,7 +144,7 @@ function basis() {
   const cy = Math.cos(here.yaw), sy = Math.sin(here.yaw);
   const fwd = h0.map((x, k) => cy * x + sy * right0[k]);
   const right = right0.map((x, k) => cy * x - sy * h0[k]);
-  const pitch = (here.side === 'day' ? 10 : 36) * DEG;
+  const pitch = pitchDeg * DEG;
   const f = fwd.map((x, k) => Math.cos(pitch) * x + Math.sin(pitch) * up[k]);
   return { f, r: right, u: cross(right, f), up, fwd, right };
 }
@@ -165,9 +165,14 @@ function draw(time = performance.now()) {
   if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
   const g = canvas.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  B = basis();
-  const fov = (W > H ? 90 : 75) * DEG;
-  S = W / 2 / (2 * Math.tan(fov / 4));
+  // Frame the view so the ground is in it, 12° of it, and the sun by day or the Sun by night, 10° clear of the top:
+  // as wide as 75° across where the screen allows, and wider on a wide screen to take in the height.
+  const target = here.side === 'day' ? here.sky.sun : here.sky.mark;
+  const a = Math.min(75, Math.max(10, altitude(target, here.sky[here.side])));
+  const across = Math.max(75, Math.min(150, (a + 22) * W / H)) * DEG;
+  S = W / 2 / (2 * Math.tan(across / 4));
+  const tall = 4 * Math.atan(H / 2 / S / 2) / DEG; // the view's height, in degrees, at that scale
+  B = basis(-12 + tall / 2);
   const day = here.side === 'day';
   const sc = starColor(here.world.star.temp).map(v => v * 255);
 
@@ -201,7 +206,7 @@ function draw(time = performance.now()) {
     const r = Math.min(4, 0.6 + (6.4 - s.mag) * 0.42), c = cat.color.subarray(s.i * 3, s.i * 3 + 3);
     g.fillStyle = `rgba(${c[0] * 255 | 0}, ${c[1] * 255 | 0}, ${c[2] * 255 | 0}, ${Math.min(1, (6.4 - s.mag) / 2)})`;
     g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill();
-    if (s.mag < 1.6 && named.length < 6 && !/^(HIP|Gliese|HD|GJ) /.test(cat.names[s.i])) named.push([cat.names[s.i], p]);
+    if (s.mag < 1.6 && s.i !== 0 && named.length < 6 && !/^(HIP|Gliese|HD|GJ) /.test(cat.names[s.i])) named.push([cat.names[s.i], p]);
   }
   g.font = "500 11px 'Chakra Petch', sans-serif"; g.fillStyle = 'rgba(205, 213, 227, 0.7)'; g.textAlign = 'left';
   if (!day) for (const [name, p] of named) g.fillText(name, p.x + 6, p.y - 5);
@@ -241,7 +246,7 @@ function draw(time = performance.now()) {
       const glare = g.createRadialGradient(p.x, p.y, r, p.x, p.y, r + 90);
       glare.addColorStop(0, rgb(sc, 0.75)); glare.addColorStop(1, rgb(sc, 0));
       g.fillStyle = glare; g.beginPath(); g.arc(p.x, p.y, r + 90, 0, 7); g.fill();
-      g.fillStyle = rgb(sc.map(v => Math.min(255, v + 40))); g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill();
+      g.fillStyle = rgb(sc); g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill();
     }
   }
 
