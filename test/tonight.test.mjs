@@ -8,6 +8,7 @@ import {
   riseSet, darkHours, bestTime, SHOWERS, solarLongitude, showerPeak, showersOn, showerTonight, radiantDir, tonightPlan, planLines, compassPoint,
 } from '../js/astro.js';
 import { CHARTS } from '../js/charts.js';
+import { VARIABLES, dimAt, magAt, nextAt, nowLine, phaseAt, variableFor } from '../js/variables.js';
 import { buildCatalog, constellationLabels } from '../js/catalog.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} is not within ${tol} of ${b}`);
@@ -479,3 +480,44 @@ test('each constellation’s name has a place on its own figure', async () => {
   assert.equal(cat.constellationToward(radec(18.616, 38.78)), 'Lyra');
 });
 
+
+// ---------- Stars that behave ----------
+
+test('the variable stars keep their published timings', async () => {
+  const { names } = JSON.parse(await readFile(new URL('../data/stars.json', import.meta.url)));
+  for (const v of VARIABLES) assert.ok(names.includes(v.star), `${v.star} is not in the catalogue`);
+  const algol = variableFor('Algol'), mira = variableFor('Mira'), cep = variableFor('δ Cephei');
+  // Algol's minima as the RASC Observer's Handbook 2025 lists them (to its minute, and a few minutes either side).
+  for (const iso of ['2025-01-02T07:53:00Z', '2025-05-02T18:23:00Z', '2025-12-03T19:22:00Z']) {
+    const p = phaseAt(algol, Date.parse(iso));
+    assert.ok(Math.min(p, 1 - p) * algol.period * 1440 < 20, `Algol's minimum at ${iso} is ${Math.round(Math.min(p, 1 - p) * algol.period * 1440)} minutes out`);
+  }
+  // Mira peaked about 10 May 2024; Delta Cephei's GCVS maximum is JD 2455479.905.
+  const pm = phaseAt(mira, Date.parse('2024-05-10T00:00:00Z'));
+  assert.ok(Math.min(pm, 1 - pm) * mira.period < 3);
+  assert.ok(phaseAt(cep, (2455479.905 - 2440587.5) * 86400000 + 10 * 5.366208 * 86400000) < 1e-6);
+  // The light curves: Algol is dimmest mid-eclipse and steady outside it; a pulsing star is brightest at the peak
+  // and faintest just before it starts to rise.
+  assert.equal(dimAt(algol, 0), 1);
+  assert.equal(dimAt(algol, 0.5), 0);
+  assert.equal(dimAt(algol, algol.span / 2), 0);
+  assert.equal(magAt(cep, 0), 3.5);
+  assert.ok(Math.abs(magAt(cep, 1 - cep.rise) - 4.4) < 1e-9);
+  const t = Date.parse('2026-11-19T05:00:00Z');
+  assert.equal(phaseAt(algol, nextAt(algol, t)) < 1e-9 || phaseAt(algol, nextAt(algol, t)) > 1 - 1e-9, true);
+  assert.ok(nextAt(algol, t) > t && nextAt(algol, t) - t <= algol.period * 86400000);
+  assert.equal(phaseAt(variableFor('Betelgeuse'), t), null);
+});
+
+test('a variable star says where in its cycle it is', () => {
+  const when = t => new Date(t).toISOString().slice(0, 16), day = t => new Date(t).toISOString().slice(0, 10);
+  const algol = variableFor('Algol');
+  assert.equal(nowLine(algol, Date.parse('2026-11-19T05:00:00Z'), { when, day }),
+    'An eclipsing star: every 2.87 days its dimmer companion passes in front of it. It’s shining at its usual magnitude 2.1 now. The next eclipse is deepest 2026-11-21T11:36, when it fades to 3.4 for a few hours either side.');
+  assert.match(nowLine(algol, Date.parse('2026-12-20T00:00:00Z'), { when, day, fromEarth: true }), /Seen from Earth, it’s in eclipse now, at magnitude 2\.2 and fading to 3\.4, deepest 2026-12-20T03:4\d\.$/);
+  assert.match(nowLine(variableFor('Mira'), Date.parse('2024-05-01T00:00:00Z'), { when, day }), /near its brightest now.*peak due about 2024-05-1\d/);
+  assert.match(nowLine(variableFor('Mira'), Date.parse('2026-11-19T00:00:00Z'), { when, day }), /brightening now, at about magnitude [67]\.\d, too faint to see without a telescope\. The next peak is due about 2027-01-3\d\.$/);
+  assert.match(nowLine(variableFor('δ Cephei'), Date.parse('2026-11-19T05:00:00Z'), { when, day }), /^A Cepheid.* It’s fading now, at magnitude 4\.\d, and next at its brightest, magnitude 3\.5, 2026-11-22T03:1\d\.$/);
+  assert.match(nowLine(variableFor('Betelgeuse'), 0, { when, day }), /no saying where in its cycle/);
+  assert.match(nowLine(variableFor('Proxima Centauri'), 0, { when, day }), /^A flare star.*68 times brighter/);
+});

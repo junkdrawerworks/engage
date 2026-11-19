@@ -17,6 +17,7 @@ import { LIVE, share } from './share.js';
 import { PLACES } from './warp-scale.js';
 import { fileForHome, label as fileLabel } from './classes.js';
 import { linesForStar, readContacts } from './contacts.js';
+import { nowLine, variableFor } from './variables.js';
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -777,7 +778,7 @@ function fillCard(s) {
   const course = $('card-course');
   course.hidden = s.kind !== 'star' || here;
   $('card-here').hidden = !here;
-  let kind, title, sub = '', line = '', facts = '', seeIt = '', been = '';
+  let kind, title, sub = '', line = '', facts = '', seeIt = '', been = '', now = '';
   const skyIn = SKIES[saved.sky].inText;
   const night = sky.sunAlt > -12 ? ' once it’s dark' : '';
   if (s.kind === 'star') {
@@ -807,6 +808,9 @@ function fillCard(s) {
     const what = d?.kind || describeKind(cat.spect[s.i], cat.temp[s.i], unmeasured ? null : cat.absmag[s.i]);
     facts = unmeasured ? `${what}. Nobody has measured how far away it is, so there’s no saying how old its light is.`
       : `${what}. The light reaching you tonight left it ${ly < 5000 ? `in ${formatYear(left)}` : `about ${formatLy(ly).replace(' ly', '')} years ago`}.`;
+    // A star that behaves (Algol, Mira, Delta Cephei, Betelgeuse, Proxima): where it is in its cycle tonight.
+    const variable = variableFor(cat.names[s.i]);
+    if (variable) now = nowLine(variable, +sky.date, { when: t => `${new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: tzOf() })}, ${timeOf(new Date(t))}`, day: t => dayOf(new Date(t)) });
     course.href = `${BRIDGE}?course=${encodeURIComponent(cat.names[s.i])}`;
     // The star's name is the card's heading; with it in the button too, the words ran to two lines on a phone.
     setText('card-course', v ? 'Set course again' : 'Set course');
@@ -844,6 +848,8 @@ function fillCard(s) {
   $('card-line').hidden = !line;
   setText('card-facts', facts);
   $('card-facts').hidden = !facts;
+  setText('card-now', now);
+  $('card-now').hidden = !now;
   setText('card-been', been);
   $('card-been').hidden = !been;
   // A star can be sent: its link turns this sky to it and opens this card. (The planets and the Moon have no link.)

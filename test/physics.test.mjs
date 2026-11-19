@@ -674,6 +674,9 @@ test('the log says where a planet would be temperate, how far a giant reaches, a
   for (const name of ['Mira', 'Gliese 3121', 'Sol']) assert.ok(!entry(name).some(s => /A temperate orbit|Its life/.test(s[0]) || /Sun’s place/.test(s[1])), name);
   const lost = cat.unmeasured.findIndex(u => u);
   assert.ok(!entry(cat.names[lost]).some(s => /A temperate orbit|Its life/.test(s[0])), 'a star with no distance');
+  // A star that behaves says where it is in its cycle, as Earth sees it on the day.
+  assert.match(said('Algol', 'Right now'), /^An eclipsing star: .* Seen from Earth, it’s /);
+  assert.equal(said('Vega', 'Right now'), undefined);
   // Every figure is hedged.
   for (const name of ['Denebola', 'Alsafi', 'Gliese 1294A', 'Regulus']) for (const s of entry(name).filter(x => /temperate|life/i.test(x[0]))) assert.match(s[1], /about|hundreds|trillions/, `${name}: ${s[1]}`);
 });

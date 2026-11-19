@@ -1622,6 +1622,13 @@ assert.equal(await page.evaluate(() => tonight.tag('Wolf 359').seen), false, 'Wo
   await frame();
   assert.ok(!(await page.evaluate(() => tonight.tags())).some(t => t.name === 'Wolf 359'), 'Wolf 359, too faint to see, still has a whole tag');
   assert.ok((await page.evaluate(() => tonight.rings())).includes('Wolf 359'), 'Wolf 359 lost its ring');
+  // A star that behaves says where it is in its cycle tonight: Algol's next eclipse, in New York's time.
+  await page.evaluate(() => { tonight.aimAt('Algol I'); tonight.show({ kind: 'star', i: tonight.state.sel.i }); });
+  assert.match(await text('#card-now'), /^An eclipsing star: every 2\.87 days .* The next eclipse is deepest Mon 12 Oct, 4:1\d\sam, when it fades to 3\.4/);
+  await page.click('#card [data-close]');
+  await page.evaluate(() => { tonight.aimAt('Vulcan'); tonight.show({ kind: 'star', i: tonight.state.sel.i }); });
+  assert.equal(await shown('#card-now'), false, 'a steady star has a Right now line');
+  await page.click('#card [data-close]');
 }
 assert.match(await text('#clock'), /12:30/);
 assert.equal(await shown('#daylight'), false, 'the daylight notice shows at night');

@@ -56,7 +56,7 @@ export function reachLine(radius) {
   const f = au / ORBITS[0][1];
   if (f < 0.075) return 'Put in the Sun’s place, it would reach less than a tenth of the way to Mercury’s orbit.';
   const part = FRACTIONS.reduce((a, b) => (Math.abs(Math.log(b[0] / f)) < Math.abs(Math.log(a[0] / f)) ? b : a))[1];
-  return `Put in the Sun’s place, it would reach about ${part} of the way to Mercury’s orbit.`;
+  return `Put in the Sun’s place, it would reach about ${part}${/^(half|nearly all)$/.test(part) ? '' : ' of'} the way to Mercury’s orbit.`;
 }
 
 // An ordinary (main-sequence) star's mass from all its light, in Suns, by the textbook mass-luminosity relation

@@ -7,6 +7,7 @@ import { ANCHORS, DESTINATIONS } from './destinations.js';
 import { chartFor } from './charts.js';
 import { byId as shipById } from './ships.js';
 import { lifeLine, reachLine, temperateLine } from './lives.js';
+import { nowLine, variableFor } from './variables.js';
 
 const NOTES = new Map(DESTINATIONS.map(d => [d.star, d]));
 const COLOUR = { O: 'Blue', B: 'Blue-white', A: 'White', F: 'Yellow-white', G: 'Yellow', K: 'Orange', M: 'Red' };
@@ -254,6 +255,10 @@ export function tripLine(ly, warp, fromTitle, nominal = false) {
   return `${nominal ? 'By the charts’ nominal distance, ' : ''}${formatLy(ly)} from ${fromTitle} in ${formatDuration(t)} at warp ${w}. Light needs ${formatDuration(ly)} to cover that; Voyager 1 would need ${formatDuration(voyagerYears(ly))}.`;
 }
 
+// A moment and a day as the log writes them, in the device's own time: "Sat 21 Nov, 3:15 am", "21 Nov".
+const daySaid = t => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+const momentSaid = t => `${new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, ${new Date(t).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s/g, ' ').toLowerCase()}`;
+
 // The full entry, as plain data so it can be kept in the log.
 // `nominal` says the trip started from a star whose distance isn't known.
 export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nominal = false, date = new Date() }) {
@@ -282,6 +287,9 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
     : `${kind}. ${temp}, ${approx}${ratio(cat.radius[i], 'width', !notes)}, and ${approx}${ratio(cat.lum[i], 'brightness', !notes).replace(/^about /, '')}.${reach}`]);
   if (notes?.planets) sections.push(['Planets', notes.planets]);
   for (const n of notes?.notes || []) sections.push(['', n]);
+  // A star that behaves: where it is in its cycle, as Earth sees it on the day of the entry.
+  const variable = variableFor(cat.names[i]);
+  if (variable) sections.push(['Right now', nowLine(variable, date.getTime(), { when: momentSaid, day: daySaid, fromEarth: true })]);
   // After the planets there really are: where a planet would be as warm as Earth, and, for an ordinary star with no
   // notes, its mass, life and end. Ordinary means a main-sequence star, luminosity class V, or a yellow, orange or
   // red one as faint as a dwarf: the mass rule is only for those (on a giant it makes Arcturus four times too
