@@ -837,6 +837,9 @@ const apart = {
   light: (a, b) => (a.env.dark !== b.env.dark ? 2 : a.env.star !== b.env.star ? 1.5 : 0),
   heat: (a, b) => Math.abs(L10(a.env.temp) - L10(b.env.temp)) / 0.15,
 };
+// Where each kind of creature lives, for "One lives on dry land and the other in the sea" (its place's own word,
+// a vent or a mesa, doesn't always go after "in the").
+const WHERE = { land: 'on dry land', sea: 'in the sea', 'under-ice': 'in the sea under the ice', burrow: 'underground', cloud: 'in the clouds', rock: 'on bare rock', plant: 'rooted in the ground' };
 const ALIKE = 0.15; // closer than this, a reading is the same for both
 
 // Two creatures side by side: a row for each field note, with each one's reading and whether they are alike, and
@@ -855,7 +858,7 @@ export function compare(a, b) {
     sentence = `${r.label}: ${r.a} against ${r.b}. That is why one ${one} and the other ${other}.`;
     break;
   }
-  if (!sentence && places) sentence = `One lives in the ${a.env.place} and the other in the ${b.env.place}, and that, more than any reading, is why one ${looksFor.gravity(a)} and the other ${looksFor.gravity(b)}.`;
+  if (!sentence && places) sentence = `One lives ${WHERE[a.env.habitat]} and the other ${WHERE[b.env.habitat]}, and that, more than any reading, is why one ${looksFor.gravity(a)} and the other ${looksFor.gravity(b)}.`;
   if (!sentence) sentence = order.length ? 'Their worlds differ, but not enough to change their bodies: what tells them apart is chance.' : 'Their worlds read alike, so what tells them apart is chance.';
   return { rows, sentence };
 }

@@ -521,7 +521,12 @@ test('two creatures side by side: a row for each field note, and a sentence from
   // Thin air against Earth's: breathing sacs.
   assert.equal(compare(grow('K', 8371), grow('M', 42)).sentence, 'Air: 0.017 atm against 1.1 atm. That is why one breathes through sacs along its back and the other breathes much as we do.');
   // A swimmer and a walker differ because one lives in the water, whatever the readings say.
-  assert.match(compare(grow('O', 5), grow('M', 5)).sentence, /^One lives in the .+ and the other in the .+, and that, more than any reading, is why one is a swimmer .+ long and the other stands .+ tall/);
+  assert.match(compare(grow('O', 5), grow('M', 5)).sentence, /^One lives in the sea and the other on dry land, and that, more than any reading, is why one is a swimmer .+ long and the other stands .+ tall/);
+  // Said in words that fit every kind of place: never "in the vent" or "in the sub-ice".
+  for (const [x, y] of [['R', 'M'], ['P', 'K'], ['D', 'H'], ['J', 'O'], ['lava-world', 'super-earth']]) for (let s = 1; s <= 30; s++) {
+    const t = compare(grow(x, s), grow(y, s)).sentence;
+    if (t.startsWith('One lives')) assert.match(t, /^One lives (on dry land|in the sea|in the sea under the ice|underground|in the clouds|on bare rock|rooted in the ground) and the other (on dry land|in the sea|in the sea under the ice|underground|in the clouds|on bare rock|rooted in the ground), /, t);
+  }
   // The same creature twice is alike in every row.
   const same = compare(grow('M', 42), grow('M', 42));
   assert.ok(same.rows.every(r => r.alike));
