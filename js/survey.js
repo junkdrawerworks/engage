@@ -3,6 +3,7 @@ import { CLASSES, byId, label, quizReadings, grows, streakRecord } from './class
 import { Globe, paint, paintSoon } from './planet-art.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
+import { Pace } from './pace.js';
 import { LIVE, share } from './share.js';
 import { planetByName, standable, systemFor } from './worlds.js';
 
@@ -441,8 +442,11 @@ function sizeFor(canvas) {
 
 // The globe is painted pixel by pixel, the dearest thing any room draws. It is drawn only while it is on the screen
 // (not while a long file is being read under it), and at most 30 times a second as it turns: at 0.12 radians a second
-// that is a pixel or two between pictures. Another world, or another size, is drawn at once.
+// that is a pixel or two between pictures. Another world, or another size, is drawn at once. On a phone too slow to
+// draw it in 10 ms, it is drawn at three-quarters of the size and then three-fifths, and the page stretches it back
+// up (js/pace.js): a little softer, and a tap no longer waits behind it.
 let drew = 0;
+const pace = new Pace();
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
@@ -450,8 +454,14 @@ function frame(now) {
     turn += dt * (still.matches ? 0 : 0.12);
     const g = mode === 'files' ? globe : drillGlobe;
     if (inView.get(g).on) {
-      const size = sizeFor(g.canvas);
-      if (now - drew >= 30 || g.stale(size)) { g.draw(turn, size); drew = now; }
+      const size = Math.round(sizeFor(g.canvas) * pace.scale);
+      const fresh = g.stale(size);
+      if (now - drew >= 30 || fresh) {
+        const t0 = performance.now();
+        g.draw(turn, size);
+        if (!fresh) pace.took(performance.now() - t0);
+        drew = now;
+      }
     }
   }
   requestAnimationFrame(frame);
@@ -462,4 +472,4 @@ bind();
 fromHash();
 requestAnimationFrame(frame);
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
-window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, get world() { return drill; }, answer, get cached() { return maps.size; }, get draws() { return (globe.draws || 0) + (drillGlobe.draws || 0); } };
+window.survey = { open: id => openFile(order.findIndex(c => c.id === id)), mode: setMode, get world() { return drill; }, answer, get cached() { return maps.size; }, get draws() { return (globe.draws || 0) + (drillGlobe.draws || 0); }, get globeScale() { return pace.scale; } };

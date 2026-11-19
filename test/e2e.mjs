@@ -1157,6 +1157,24 @@ assert.equal(await page.evaluate(() => location.hash.slice(1)), world);
   await quiet.close();
 }
 
+// On a slow phone (the processor slowed to a quarter) the survey's globe is drawn smaller and stretched back up to
+// the same place on the screen, so a tap on Next isn't held up behind it.
+{
+  const slow = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await slow.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const cdp = await slow.newCDPSession(p);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+  await p.goto(base + 'survey.html#M');
+  await p.waitForFunction(() => window.survey);
+  const box0 = await p.locator('#globe').boundingBox();
+  await p.waitForFunction(() => survey.globeScale < 1, null, { timeout: 30000 });
+  await p.waitForFunction(() => { const c = document.getElementById('globe'); return c.width < Math.round(c.getBoundingClientRect().width * 2) * 0.8; }, null, { timeout: 10000 });
+  assert.deepEqual(await p.locator('#globe').boundingBox(), box0, 'the smaller globe moved or shrank on the screen');
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  await slow.close();
+}
+
 // The Kobayashi Maru: reached from the bridge, played to the end, graded and remembered.
 await page.goto(base);
 await bridgeReady();
