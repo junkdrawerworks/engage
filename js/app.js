@@ -1628,11 +1628,12 @@ function renderList() {
 // The voyages, at the top of Set course: each with its stops, how far they add up to from here and how long that is
 // at the helm's warp. The one under way says which leg is next and counts only what is left; a flown one says so.
 function voyagesHtml() {
-  const done = flown(state.log), cam = camAbs();
+  const done = flown(state.log), cam = camAbs(), guessed = !!cat.unmeasured[state.at];
   const rows = VOYAGES.map(v => {
     const on = state.voyage?.id === v.id;
     const leg = on ? state.voyage.leg : setOut(v, state.at, findStar).leg;
-    const ly = routeLength(v, leg, cam, findStar, starPos) * LY_PER_PC;
+    // From a star nobody has measured the distance to, the ship's own place is a guess, and so is the first leg.
+    const ly = guessed ? null : routeLength(v, leg, cam, findStar, starPos) * LY_PER_PC;
     const badge = on ? `leg ${leg + 1} of ${v.stops.length}` : done.has(v.id) ? 'flown' : '';
     // Each stop stays whole on its line, with the dot after it, so no line starts with one.
     const stops = v.stops.map((name, k) => {
@@ -1641,9 +1642,9 @@ function voyagesHtml() {
     }).filter(Boolean).join(' ');
     return `<button class="row voyage${on ? ' on' : ''}" type="button" data-voyage="${v.id}" title="${esc(v.line)}">
       <span class="name">${esc(v.name)}${badge ? `<span class="badge">${badge}</span>` : ''}</span>
-      <span class="dist">${formatLy(ly)}</span>
+      <span class="dist${guessed ? ' unmeasured' : ''}">${guessed ? 'distance not measured' : formatLy(ly)}</span>
       <span class="meta stops">${stops}</span>
-      <span class="meta">${on ? 'The rest' : `${v.stops.length} stops`} · ${formatDuration(tripYears(ly, state.warp))} at warp ${warpSaid(state.warp)}</span></button>`;
+      <span class="meta">${on ? 'The rest' : `${v.stops.length} stops`}${guessed ? '' : ` · ${formatDuration(tripYears(ly, state.warp))} at warp ${warpSaid(state.warp)}`}</span></button>`;
   }).join('');
   const leave = state.voyage ? `<button class="text-button leave-voyage" type="button" data-leave>Leave ${esc(voyageById(state.voyage.id).name)}</button>` : '';
   return `<p class="group">Voyages</p>${rows}${leave}`;

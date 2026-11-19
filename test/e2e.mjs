@@ -3866,6 +3866,9 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#arrival-next');
   assert.deepEqual((await groups()).slice(0, 3), ['VOYAGES', 'HOME', 'THE SUN’S NEIGHBOURS'], 'Set course named the stars nearest a ship whose own place is not known');
   assert.equal(await p.locator('#list .row:not(.voyage) .dist').first().innerText(), 'distance not measured');
+  // The voyages too: how far they add up to from a place nobody has measured is a guess, and so is the time.
+  assert.deepEqual([...new Set(await p.locator('#list .row.voyage .dist').allInnerTexts())], ['distance not measured']);
+  assert.doesNotMatch(await p.locator('#list .row.voyage').first().innerText(), /at warp/);
   await p.evaluate(() => engage.closeSheets());
   await p.tap('#open-settings');
   assert.match(await p.locator('#settings .about').innerText(), /beyond 80 light years the charts hold only the stars bright enough to see from Earth/);
