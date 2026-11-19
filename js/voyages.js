@@ -96,3 +96,31 @@ export function legLine(tag, next) {
   if (!v) return '';
   return tag.leg === tag.of ? `Leg ${tag.of} of ${tag.of}: ${v.name} is flown.` : `Leg ${tag.leg} of ${tag.of} of ${v.name}. Next, ${next}.`;
 }
+
+// Autopilot: where the ship goes next on its own. A voyage under way flies its next leg. Otherwise, the nearest star
+// of the first tier (the destinations with notes) not yet in the log, then of the next tier (the brightest named
+// stars), and once every one has been visited, the one visited longest ago. Never the star the ship is at.
+// `tiers` are lists of star indices, `distance(i)` how far star i is from the ship, `log` newest first.
+export function autopilotNext({ at, log, tiers, distance, voyageNext = null }) {
+  if (voyageNext != null && voyageNext !== at) return voyageNext;
+  const visited = new Set(log.map(e => e.star));
+  for (const tier of tiers) {
+    let best = null, bestD = Infinity;
+    for (const i of tier) {
+      if (i === at || visited.has(i)) continue;
+      const d = distance(i);
+      if (d < bestD) { best = i; bestD = d; }
+    }
+    if (best != null) return best;
+  }
+  // Everything visited: the star whose last visit is furthest back in the log.
+  const last = new Map();
+  log.forEach((e, k) => { if (!last.has(e.star)) last.set(e.star, k); });
+  let best = null, oldest = -1;
+  for (const i of tiers.flat()) {
+    if (i === at) continue;
+    const k = last.get(i) ?? Infinity;
+    if (k > oldest) { best = i; oldest = k; }
+  }
+  return best;
+}

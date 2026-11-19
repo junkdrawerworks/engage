@@ -947,6 +947,73 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   await ctx2.close();
 }
 
+// Autopilot: from Bridge settings the helm and the round buttons go and the ship flies itself, to the nearest
+// destination with notes not yet in the log, holding at each with two lines on screen and writing each stop in the
+// log, then on again. A voyage under way flies its next leg. A touch takes the helm back without picking a star; at a
+// keyboard F starts it and any key stops it.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await ctx2.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#intro-go');
+  await p.evaluate(() => engage.speed(30));
+  await p.tap('#open-settings');
+  await p.tap('#autopilot');
+  assert.ok(await p.evaluate(() => engage.auto));
+  assert.ok(await p.locator('#settings').evaluate(el => el.hidden), 'Bridge settings stayed up');
+  assert.ok(await p.locator('#console').evaluate(el => el.inert), 'the helm stayed in reach');
+  assert.equal(await p.locator('.hud-buttons').evaluate(el => getComputedStyle(el).visibility), 'hidden');
+  const stop = async n => p.waitForFunction(n => engage.state.log.length >= n && !engage.trip && !document.getElementById('caption').hidden, n, { timeout: 30000 });
+  await stop(1);
+  assert.equal(await p.locator('#cap-title').innerText(), 'Proxima Centauri', 'the first stop is not the nearest destination');
+  assert.match(await p.locator('#cap-sub').innerText(), /4\.2\d ly from Sol$/);
+  assert.ok(await p.locator('#arrival').evaluate(el => el.hidden), 'the arrival’s log came up under autopilot');
+  // On by itself, after the hold: Alpha Centauri, next door.
+  await stop(2);
+  assert.equal(await p.locator('#cap-title').innerText(), 'Alpha Centauri');
+  assert.deepEqual(await p.evaluate(() => engage.state.log.map(e => e.title)), ['Alpha Centauri', 'Proxima Centauri']);
+  // A touch on the viewscreen takes the helm back, and picks no star.
+  await p.waitForFunction(() => engage.trip?.phase === 'cruise', null, { timeout: 30000 });
+  await p.touchscreen.tap(195, 400);
+  assert.equal(await p.evaluate(() => engage.auto), false);
+  await p.waitForFunction(() => !engage.trip, null, { timeout: 30000 });
+  assert.equal(await p.locator('#console').evaluate(el => el.inert), false, 'the helm did not come back');
+  assert.ok(await p.locator('#caption').evaluate(el => el.hidden));
+  assert.equal(await p.evaluate(() => engage.state.target), null, 'the touch that stopped it picked a star');
+  assert.ok(await p.locator('#arrival').evaluate(el => !el.hidden), 'the flight under way did not end in its log entry');
+  const n = await p.evaluate(() => engage.state.log.length);
+  await p.waitForTimeout(1500);
+  assert.equal(await p.evaluate(() => engage.state.log.length), n, 'it went on flying after the helm was taken back');
+  // With a voyage under way it flies the next leg, not the nearest new star.
+  await p.evaluate(() => { engage.closeSheets(); engage.state.voyage = { id: 'brightest', leg: 0 }; engage.autopilot(true); });
+  await stop(n + 1);
+  assert.equal(await p.locator('#cap-title').innerText(), 'Sirius', 'autopilot did not fly the voyage’s next leg');
+  assert.match(await p.locator('#cap-sub').innerText(), /^Leg 1 of 7, The brightest seven · /);
+  await p.evaluate(() => engage.autopilot(false));
+  await ctx2.close();
+}
+// At a keyboard: F starts it, and any key stops it, doing nothing else.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const p = await ctx2.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.click('#intro-go');
+  await p.evaluate(() => engage.speed(30));
+  await p.locator('body').press('f');
+  assert.ok(await p.evaluate(() => engage.auto), 'F did not start autopilot');
+  await p.waitForFunction(() => engage.state.log.length >= 1 && !engage.trip, null, { timeout: 30000 });
+  const fov = await p.evaluate(() => engage.state.fov);
+  await p.keyboard.press('-');
+  assert.equal(await p.evaluate(() => engage.auto), false, 'a key did not take the helm back');
+  assert.equal(await p.evaluate(() => engage.state.fov), fov, 'the key that stopped it zoomed out as well');
+  assert.equal(await p.locator('#console').evaluate(el => el.inert), false);
+  await ctx2.close();
+}
+
 // The planetary survey: flip through the files, set course from one, and play the drill.
 await page.goto(base + 'survey.html#K');
 await page.waitForFunction(() => window.survey);

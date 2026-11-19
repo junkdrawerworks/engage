@@ -15,7 +15,8 @@ import { linesForVisit, readContacts } from './contacts.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
 import { cleanName, cleanRegistry, fullName, shipOf, withRegistry } from './myship.js';
 import { carried, contents, fileName, fromRaw, jarsLeft, pack, plan, rawOf, unpack } from './records.js';
-import { VOYAGES, arrivedAt, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from './voyages.js';
+import { hold as wakeHold, release as wakeRelease } from './wake.js';
+import { VOYAGES, arrivedAt, autopilotNext, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from './voyages.js';
 import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, story, supplementals } from './voyage.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
@@ -756,11 +757,11 @@ function arrive() {
   state.ly += T.ly;
   if (save()) askToKeep(); // once ever: the first entry kept is worth keeping
   $('readout').hidden = true;
-  helmAway(false);
+  if (!auto) helmAway(false);
   setTarget(null, false);
   updateHud();
   say(T.i === 0 ? 'Dropped out of warp in Earth orbit.' : `Dropped out of warp at ${inTextFor(cat, T.i)}.`);
-  showArrival(entry);
+  if (auto) holdHere(entry); else showArrival(entry);
   dirty = true;
 }
 
@@ -776,6 +777,90 @@ function flash(strength) {
   if (still.matches) return; // a white flash over the whole screen is just what reduced motion asks to skip
   if (document.body.classList.contains('red')) strength *= 0.3; // and under night vision it is kept faint
   $('flash').animate([{ opacity: 0 }, { opacity: strength, offset: 0.25 }, { opacity: 0 }], { duration: 700, easing: 'ease-out' });
+}
+
+// ---------- Autopilot ----------
+
+// From Bridge settings, or F at a keyboard: the helm and the round buttons go, the screen goes full and stays awake,
+// and the ship flies itself. A voyage under way flies its next leg; otherwise it goes to the nearest destination
+// with notes not yet in the log, then the brightest named stars, then wherever it was longest ago (see
+// autopilotNext in js/voyages.js). At each star it holds about 20 seconds with two lines on screen, then goes on.
+// Every stop is written to the log as any arrival is. Any key or touch drops back to the helm (a flight under way
+// finishes first, and its log entry comes up as usual). Under reduced motion each flight is the cross-fade it always is.
+const AUTO_HOLD = 20; // seconds at each star
+let auto = null; // { timer, full } while it flies
+
+function autopilot(on) {
+  if (on === !!auto) return;
+  if (on) {
+    closeSheets();
+    auto = { timer: 0, full: false };
+    document.body.classList.add('auto');
+    helmAway(true);
+    wakeHold();
+    const el = document.documentElement;
+    if (el.requestFullscreen && !document.fullscreenElement) {
+      el.requestFullscreen({ navigationUI: 'hide' }).then(() => { if (auto) auto.full = true; else document.exitFullscreen?.().catch(() => {}); }).catch(() => {});
+    }
+    const hint = $('auto-hint');
+    hint.hidden = false;
+    hint.classList.remove('gone');
+    setTimeout(() => hint.classList.add('gone'), 4000);
+    say('Autopilot engaged. Press any key or touch the screen to take the helm.');
+    if (!trip) autoNext();
+    return;
+  }
+  clearTimeout(auto.timer);
+  const full = auto.full;
+  auto = null;
+  document.body.classList.remove('auto');
+  $('caption').hidden = true;
+  $('auto-hint').hidden = true;
+  wakeRelease();
+  if (full && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  if (!trip) { helmAway(false); $('choose').focus({ preventScroll: true }); }
+  say('Autopilot off. You have the helm.');
+}
+
+function autoNext() {
+  if (!auto || trip) return;
+  $('caption').hidden = true;
+  const i = autopilotNext({
+    at: state.at, log: state.log, distance: i => cat.distanceFrom(i, camAbs()),
+    // Home is where it set out from, not somewhere to explore.
+    tiers: [DESTINATIONS.map(d => findStar(d.star)).filter(i => i > 0 && !cat.unmeasured[i]), candidates().filter(i => i > 0 && !cat.unmeasured[i])],
+    voyageNext: state.voyage ? nextStop(state.voyage, findStar) : null,
+  });
+  if (i == null) { autopilot(false); return; }
+  setTarget(i, false);
+  engage();
+}
+
+// Holding at a star under autopilot: its name and one line, then on to the next.
+function holdHere(entry) {
+  const i = entry.star;
+  const leg = entry.voyage ? `Leg ${entry.voyage.leg} of ${entry.voyage.of}, ${voyageById(entry.voyage.id)?.name}` : '';
+  const far = i === 0 ? 'Home, in Earth orbit' : cat.unmeasured[i] ? '' : `${formatLy(Math.hypot(...starPos(i)) * LY_PER_PC)} from Sol`;
+  $('cap-title').textContent = entry.title;
+  $('cap-sub').textContent = [leg, i === 0 ? '' : metaFor(i), far].filter(Boolean).join(' · ');
+  $('caption').hidden = false;
+  clearTimeout(auto.timer);
+  auto.timer = setTimeout(autoNext, AUTO_HOLD * 1000 / speedUp);
+}
+
+// Any key or touch takes the helm back, and does nothing else: the tap that stops it doesn't also pick a star.
+function bindAutopilot() {
+  $('autopilot').addEventListener('click', () => autopilot(true));
+  const stop = e => {
+    if (!auto) return;
+    e.preventDefault();
+    e.stopPropagation();
+    autopilot(false);
+  };
+  addEventListener('pointerdown', stop, true);
+  addEventListener('keydown', e => { if (!['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) stop(e); }, true);
+  // Leaving the full screen (Escape, which the browser keeps for itself there) leaves autopilot too.
+  document.addEventListener('fullscreenchange', () => { if (auto?.full && !document.fullscreenElement) autopilot(false); });
 }
 
 // ---------- Earth's sky, held to compare ----------
@@ -1648,6 +1733,7 @@ function bind() {
   $('look-home').addEventListener('click', lookHome);
   $('arrival-home').addEventListener('click', lookHome);
   bindEarthSky();
+  bindAutopilot();
   // The log entry goes away as Set course opens, so focus comes back to the destination button instead.
   // On a voyage it sets course for the next leg instead, straight away.
   $('arrival-next').addEventListener('click', e => {
@@ -1747,6 +1833,7 @@ function bind() {
       dirty = true;
     } else if (zooms[e.key]) setFov(state.fov * zooms[e.key]);
     else if (e.key === '/') $('choose').click();
+    else if (e.key === 'f' || e.key === 'F') autopilot(true);
     else return;
     e.preventDefault();
   });
@@ -1896,6 +1983,8 @@ function hooks() {
     closeSheets,
     earthSky,
     get earthHeld() { return earthHeld; },
+    autopilot,
+    get auto() { return !!auto; },
   };
 }
 

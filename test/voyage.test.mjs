@@ -3,7 +3,7 @@
 process.env.TZ = 'UTC'; // the day headings follow the calendar where the captain is: here, Greenwich
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VOYAGES, arrivedAt, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from '../js/voyages.js';
+import { VOYAGES, arrivedAt, autopilotNext, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from '../js/voyages.js';
 import { DESTINATIONS } from '../js/destinations.js';
 import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from '../js/logbook.js';
 
@@ -347,4 +347,18 @@ test('a voyage’s length is its legs from where the ship is, and a damaged save
   assert.deepEqual(tidyVoyage({ id: 'atlas', leg: 3 }), { id: 'atlas', leg: 3 });
   for (const bad of [null, 'atlas', { id: 'nowhere', leg: 0 }, { id: 'atlas', leg: 6 }, { id: 'atlas', leg: -1 }, { id: 'atlas', leg: 1.5 }]) assert.equal(tidyVoyage(bad), null, JSON.stringify(bad));
   assert.equal(flown([{ voyage: { id: 'nowhere', leg: 3, of: 3 } }, null, { voyage: { id: 'atlas', leg: 5, of: 6 } }]).size, 0);
+});
+
+test('autopilot flies a voyage’s next leg, else the nearest star not yet in the log, else the one visited longest ago', () => {
+  const far = { 1: 4, 2: 6, 3: 8, 4: 20, 5: 50 };
+  const go = (at, log, voyageNext) => autopilotNext({ at, log: log.map(star => ({ star })), tiers: [[1, 2, 3], [4, 5]], distance: i => far[i], voyageNext });
+  assert.equal(go(0, []), 1, 'not the nearest notable star');
+  assert.equal(go(0, [1]), 2);
+  assert.equal(go(1, []), 2, 'it stayed at the star it is at');
+  assert.equal(go(0, [3, 2, 1]), 4, 'the next tier waited for the first to be done');
+  assert.equal(go(0, [5, 4, 3, 2, 1]), 1, 'everything visited: the one visited longest ago is next');
+  assert.equal(go(1, [5, 4, 3, 2, 1]), 2);
+  assert.equal(go(0, [], 5), 5, 'a voyage under way did not fly its next leg');
+  assert.equal(go(5, [], 5), 1);
+  assert.equal(autopilotNext({ at: 0, log: [], tiers: [[0]], distance: () => 1 }), null, 'nowhere to go is nowhere');
 });

@@ -45,6 +45,24 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .earth-note { position: absolute; left: 50%; top: calc(132px + var(--safe-t)); transform: translateX(-50%); margin: 0; padding: 6px 12px; border-radius: 999px;
   background: rgba(5, 7, 13, 0.7); border: 1px solid rgba(255, 210, 122, 0.4); color: var(--sun); font: 600 11px/1.2 var(--display); letter-spacing: 0.12em;
   text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+/* Autopilot: the round buttons and the helm are away, and each star held at gets two lines near the foot. */
+body.auto .hud-buttons { visibility: hidden; }
+body.auto #labels { cursor: none; }
+.caption { position: absolute; left: max(16px, var(--safe-l)); right: max(16px, var(--safe-r)); bottom: calc(40px + var(--safe-b)); margin: 0 auto; width: fit-content; max-width: 560px; text-align: center;
+  padding: 10px 18px 12px; border-radius: 16px; background: rgba(5, 7, 13, 0.62);
+  pointer-events: none; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.95); animation: caption-in 1.2s both; }
+@keyframes caption-in { from { opacity: 0; } }
+.caption p { margin: 0; }
+.cap-title { font: 600 26px/1.2 var(--display); letter-spacing: 0.02em; }
+.cap-sub { margin-top: 6px !important; color: var(--muted); font-size: 14px; }
+.auto-hint { position: absolute; left: 50%; bottom: calc(12px + var(--safe-b)); transform: translateX(-50%); margin: 0; white-space: nowrap; color: var(--dim);
+  font: 500 11px/1.2 var(--display); letter-spacing: 0.1em; text-transform: uppercase; pointer-events: none; transition: opacity 1.5s; }
+.auto-hint.gone { opacity: 0; }
+.autopilot-row { display: flex; align-items: center; gap: 14px; padding: 14px 2px; border-bottom: 1px solid var(--line); }
+.autopilot-row .secondary { flex: none; height: 44px; font-size: 13px; }
+.autopilot-row p { margin: 0; font-size: 13px; color: var(--muted); }
+.auto-hint .on-touch { display: none; }
+@media (pointer: coarse) { .autopilot-row .keys, .auto-hint .on-keys { display: none; } .auto-hint .on-touch { display: inline; } }
 #flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, #fff 0%, #cfe6ff 30%, rgba(160, 200, 255, 0) 75%); opacity: 0; pointer-events: none; }
 
 .eyebrow { margin: 0; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
@@ -435,5 +453,5 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sheet, .console { animation: none; transition: none; }
+  .sheet, .console, .caption { animation: none; transition: none; }
 }

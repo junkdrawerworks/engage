@@ -35,6 +35,12 @@
     <canvas id="fade" aria-hidden="true"></canvas>
     <p class="earth-note" id="earth-note" hidden>Earth’s sky · the same direction from home</p>
     <div id="flash" aria-hidden="true"></div>
+    <!-- Under autopilot: two lines on each star it holds at, and how to take the helm back. -->
+    <div class="caption" id="caption" hidden>
+      <p class="cap-title" id="cap-title"></p>
+      <p class="cap-sub" id="cap-sub"></p>
+    </div>
+    <p class="auto-hint" id="auto-hint" hidden>Autopilot · <span class="on-touch">touch the screen for the helm</span><span class="on-keys">press any key or click for the helm</span></p>
 
     <header class="hud">
       <div class="where">
@@ -149,6 +155,10 @@
       <label class="toggle"><input type="checkbox" id="opt-sound" checked> <span>Engine sound</span></label>
       <label class="toggle"><input type="checkbox" id="opt-night"> <span>Night vision</span></label>
       <label class="toggle"><input type="checkbox" id="opt-clock"> <span>Five-year mission clock<small>Each trip’s time at warp counts toward five years.</small></span></label>
+      <div class="autopilot-row">
+        <button class="secondary" id="autopilot" type="button">Autopilot</button>
+        <p>The ship flies itself from star to star, writing each stop in the log, with the screen kept on. Touch the screen or press any key to take the helm back. <span class="keys">Press F on the bridge to start it.</span></p>
+      </div>
       <div class="about">
         <h3>Your ship</h3>
         <div class="ship-fields">
