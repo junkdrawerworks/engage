@@ -174,8 +174,9 @@ assert.ok(await page.locator('#engage').isDisabled(), 'engage works with no dest
 }
 
 // On a small phone, or any phone turned on its side, the welcome card is taller than the screen, so it scrolls and
-// Take the helm can still be reached. It opens at the top all the same, though Take the helm has the focus.
-for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }]) {
+// Take the helm can still be reached. It opens at the top all the same, though Take the helm has the focus. (667 by 375
+// is a smaller phone on its side, such as an iPhone SE.)
+for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }, { width: 667, height: 375 }]) {
   const small = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const p = await small.newPage();
   p.on('pageerror', e => problems.push(e.message));
