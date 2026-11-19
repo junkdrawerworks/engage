@@ -166,7 +166,12 @@ function finish() {
 function go() {
   if (shift.over) return;
   if (shift.t === 0 && innerWidth < 900) $('deck').scrollIntoView({ block: 'start', behavior: still.matches ? 'auto' : 'smooth' });
-  running = true; last = performance.now(); frame = requestAnimationFrame(tick); render(); }
+  running = true;
+  lastK = -1; // the order's words turn from the briefing's to the bridge's
+  last = performance.now();
+  frame = requestAnimationFrame(tick);
+  render();
+}
 function pause() { running = false; cancelAnimationFrame(frame); render(); }
 
 for (const f of ['a', 'd', 'c']) {

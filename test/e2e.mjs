@@ -6693,6 +6693,8 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.locator('#mix').innerText(), 'Mix one to one: every gram of antimatter meets a gram of deuterium.');
   await p.tap('#start');
   await p.waitForFunction(() => engineering.shift.t > 2, null, { timeout: 10000 });
+  // The bridge's first order is said as soon as the shift starts, not only once it is paused or the hour turns.
+  assert.equal(await p.locator('#order-line').innerText(), '“Engineering, bring us to warp 7.”');
   await p.tap('#pause');
   assert.match(await p.locator('#gauges').innerText(), /HOLDING\s+Warp 7\s+On the order/i);
   assert.match(await p.locator('#order-hour').innerText(), /Bridge · hour 1 of 8/i);
