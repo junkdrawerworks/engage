@@ -253,6 +253,10 @@ test('the computer finds kinds of star, planets, and the destinations still to v
   assert.ok(!names(ask(cat, 'white dwarfs', shipAt('Sol'))).includes('Sirius'), 'Sirius A is called a white dwarf');
   assert.ok(names(ask(cat, 'red supergiants', shipAt('Sol'))).includes('Betelgeuse'));
   assert.ok(ask(cat, 'white dwarfs', shipAt('Sol')).stars.every(i => kindOf(cat.spect[i], cat.temp[i], cat.absmag[i]).special === 'white dwarf'));
+  // A catalogue class that says giant on a star as faint as a dwarf isn't believed: the nearest giants are Pollux and
+  // Arcturus, not Guniibuu (an orange dwarf listed K2:III:) or HIP 58910 (listed a supergiant at absolute magnitude 8.9).
+  assert.deepEqual(names(ask(cat, 'giants', shipAt('Sol'))).slice(0, 2), ['Pollux', 'Arcturus']);
+  assert.ok(!names(ask(cat, 'supergiants', shipAt('Sol'))).includes('HIP 58910'), 'a faint star is called a supergiant');
   const planets = ask(cat, 'nearest with planets', shipAt('Sol'));
   assert.equal(names(planets)[0], 'Proxima Centauri');
   assert.ok(planets.stars.every(i => DESTINATIONS.find(d => d.star === cat.names[i])?.worlds));

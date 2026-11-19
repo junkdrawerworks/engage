@@ -52,6 +52,11 @@ export function kindOf(spect, temp, absmag) {
   return { letter, size, special };
 }
 const GIANTS = ['giant', 'bright giant', 'supergiant', 'hypergiant'];
+// Whether kindOf's giant is a slip in the catalogue: a class that says giant on a star as faint as a dwarf. The log
+// names a star by its class, but Guniibuu (36 Ophiuchi), an orange dwarf 19 light years away, is listed K2:III: at
+// absolute magnitude 5.5, and HIP 58910 a supergiant at 8.9. Nothing that rests on its being big (how far it would
+// reach, a place in the computer's list of giants) is said of one.
+export const giantSlip = (size, absmag) => GIANTS.includes(size) && absmag > DWARF_ABSMAG;
 // The surface temperatures each class spans, in kelvin, with a tenth to spare either side. A star whose colour on the
 // charts gives a temperature far outside its class (Mira, a red giant whose colour reads as an orange star's) has
 // had its brightness and width worked out from the wrong colour, and the log says nothing more that rests on them.
@@ -280,7 +285,7 @@ export function composeEntry(cat, i, { cam, holdAU, warp, fromTitle, tripLy, nom
   // width and brightness, which for a star with notes were measured, and otherwise come from the catalogue.
   const { letter, size, special } = kindOf(cat.spect[i], cat.temp[i], unmeasured ? null : cat.absmag[i]);
   const sound = i !== 0 && !unmeasured && special !== 'white dwarf' && (notes || fits(letter, cat.temp[i]));
-  const reach = sound && GIANTS.includes(size) ? ` ${reachLine(cat.radius[i])}` : '';
+  const reach = sound && GIANTS.includes(size) && !giantSlip(size, cat.absmag[i]) ? ` ${reachLine(cat.radius[i])}` : '';
   sections.push(['The star', i === 0
     ? `${kind}. ${temp}.`
     : unmeasured ? `${kind}. ${temp}. Its width and brightness can’t be worked out without its distance.`

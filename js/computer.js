@@ -4,7 +4,7 @@
 // Anything it doesn't understand is left to the name search (ask returns null). Pure, checked by
 // test/search.test.mjs.
 import { LY_PER_PC, apparentMag, formatDuration, roughLy, tripYears } from './physics.js';
-import { companions, kindOf, nearestStars, notesFor, titleFor } from './log.js';
+import { companions, giantSlip, kindOf, nearestStars, notesFor, titleFor } from './log.js';
 import { fold } from './search.js';
 
 const LIST = 60;          // the most rows an answer lists
@@ -90,6 +90,7 @@ export function ask(cat, query, ship) {
         continue;
       }
       const k = kindOf(cat.spect[j], cat.temp[j], cat.absmag[j]);
+      if (giantSlip(k.size, cat.absmag[j])) continue; // a slip in the catalogue's class (see giantSlip)
       if (kind.special ? k.special === kind.special : k.size === kind.size && (!kind.colour || COLOURS[k.letter] === kind.colour)) stars.push(j);
     }
     if (guessed) stars.sort((a, b) => cat.absmag[a] - cat.absmag[b]); else byNear(stars);

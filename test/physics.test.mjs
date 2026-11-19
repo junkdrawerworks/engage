@@ -678,8 +678,10 @@ test('the log says where a planet would be temperate, how far a giant reaches, a
   // A star that behaves says where it is in its cycle, as Earth sees it on the day.
   assert.match(said('Algol', 'Right now'), /^An eclipsing star: .* Seen from Earth, it’s /);
   assert.equal(said('Vega', 'Right now'), undefined);
-  // A width near the Sun's is said with one "about".
-  assert.match(said('Guniibuu', 'The star'), /^Orange giant, .*\. 5,120 K at the surface, about the Sun’s width, and/);
+  // A width near the Sun's is said with one "about"; a catalogue class that calls a faint star a giant (Guniibuu,
+  // listed K2:III: at absolute magnitude 5.5) gets no giant's reach.
+  assert.match(said('Guniibuu', 'The star'), /^Orange giant, .*, about the Sun’s width, and/);
+  assert.ok(!/about about|Sun’s place/.test(said('Guniibuu', 'The star')), said('Guniibuu', 'The star'));
   // Every figure is hedged.
   for (const name of ['Denebola', 'Alsafi', 'Gliese 1294A', 'Regulus']) for (const s of entry(name).filter(x => /temperate|life/i.test(x[0]))) assert.match(s[1], /about|hundreds|trillions/, `${name}: ${s[1]}`);
 });
