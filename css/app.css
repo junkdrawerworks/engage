@@ -200,6 +200,14 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .entries .day:first-of-type { margin-top: 8px; }
 .past summary .sd small { display: block; font-size: 11px; margin-top: 2px; }
 .entries .more { display: block; min-height: 44px; margin: 4px auto 8px; }
+/* Past 30 entries the log can be searched, and shown by star: one row for each, with its visits. */
+.log-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px; flex: none; }
+.log-tools .search { flex: 1 1 180px; width: auto; }
+.log-view { display: flex; flex: none; border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; }
+.log-view button { min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: var(--muted); font: 600 12px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+.log-view button + button { border-left: 1px solid var(--line-strong); }
+.log-view button[aria-pressed="true"] { background: rgba(134, 216, 255, 0.12); color: var(--text); }
+.past.star[open] summary span:last-child { display: block; }
 
 .arrival { max-height: 62vh; max-height: 62dvh; }
 .arrival .entry { overflow-y: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px 8px; flex: 1 1 auto; min-height: 0; }

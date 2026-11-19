@@ -117,6 +117,13 @@
     </div>
     <p class="stats" id="stats"></p>
     <p class="unsaved" id="log-unsaved" hidden></p>
+    <div class="log-tools" id="log-tools" hidden>
+      <input class="search" id="log-search" type="search" enterkeyhint="search" placeholder="Search the log" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search the log">
+      <div class="log-view" role="group" aria-label="Show the log">
+        <button type="button" id="log-by-day" aria-pressed="true">By day</button>
+        <button type="button" id="log-by-star" aria-pressed="false">By star</button>
+      </div>
+    </div>
     <div class="entries" id="entries"></div>
     <footer class="jd-foot">
       <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>

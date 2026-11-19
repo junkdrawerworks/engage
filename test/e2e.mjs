@@ -4549,6 +4549,65 @@ await page.emulateMedia({ reducedMotion: null });
   await long.close();
 }
 
+// Past 30 entries the log can be searched, and shown by star: one row for each star with how many visits and when,
+// opening on the newest entry for it. A star visited 60 times used to appear 60 times.
+{
+  const stars = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await stars.addInitScript(() => {
+    if (localStorage.getItem('engage.v1')) return;
+    const now = Date.now(), log = [];
+    for (let n = 0; n < 31; n++) {
+      const star = n % 3 === 0 ? 2 : 3 + n; // every third arrival at the same star
+      log.push({ id: now - 3600000 - n * 6 * 3600000, star, title: star === 2 ? 'Often' : `Star ${n}`, stardate: '2026.880', intro: `Arrival ${n}.`, sections: [['Star', n === 7 ? 'A blue straggler.' : 'A star.']], ly: 1 });
+    }
+    localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false }, log: log.slice(1), at: 1 }));
+    sessionStorage.setItem('whole', JSON.stringify(log[0]));
+  });
+  const p = await stars.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  // Thirty entries: no search and no By star yet.
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#log-tools').isHidden(), true);
+  await p.evaluate(() => { engage.closeSheets(); engage.state.log.unshift(JSON.parse(sessionStorage.getItem('whole'))); });
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#log-tools').isVisible(), true);
+  assert.equal(await p.locator('#log-by-day').getAttribute('aria-pressed'), 'true');
+  // By star: eleven visits to one star make one row, first, since it was visited last.
+  await p.tap('#log-by-star');
+  assert.equal(await p.locator('#log-by-star').getAttribute('aria-pressed'), 'true');
+  const rows = await p.locator('#entries .past').evaluateAll(els => els.map(d => [d.querySelector('b').textContent, d.querySelector('.sd').textContent]));
+  assert.equal(rows.length, 21);
+  assert.deepEqual(rows[0], ['Often', '11 visits']);
+  assert.deepEqual(rows[1], ['Star 1', '1 visit']);
+  assert.match(await p.locator('#entries .past summary > span:last-child').first().innerText(), /^Last \d{1,2} \w{3} · first \d{1,2} \w{3}$/);
+  assert.equal(await p.locator('#records').count(), 1, 'the records stay at the head of the log');
+  // A row opens on the newest entry for its star, which can be acted on as any entry can.
+  await p.locator('#entries .past summary').first().tap();
+  assert.equal(await p.locator('#entries .past').first().locator('.intro-line').innerText(), 'Arrival 0.');
+  assert.equal(await p.locator('#entries .past').first().getByRole('button', { name: 'Set course again' }).count(), 1);
+  // A search: the stars whose entries mention it.
+  await p.locator('#log-search').fill('straggler');
+  assert.deepEqual(await p.locator('#entries .past b').allInnerTexts(), ['Star 7']);
+  assert.equal(await p.locator('#records').count(), 0, 'a search shows only what it found');
+  // By day, the same search: the one arrival, under its day with no count.
+  await p.tap('#log-by-day');
+  assert.deepEqual(await p.locator('#entries .past b').allInnerTexts(), ['Star 7']);
+  assert.doesNotMatch(await p.locator('#entries .day').innerText(), /arrival/i);
+  await p.locator('#log-search').fill('nowhere at all');
+  assert.equal(await p.locator('#entries .empty').innerText(), 'Nothing in the log mentions “nowhere at all”.');
+  await p.locator('#log-search').fill('');
+  assert.equal(await p.locator('#entries .past').count(), 31);
+  // The log opens by day, with nothing searched for, whatever it was left on.
+  await p.locator('#log-search').fill('often');
+  await p.tap('#log-by-star');
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-log');
+  assert.deepEqual([await p.locator('#log-search').inputValue(), await p.locator('#log-by-day').getAttribute('aria-pressed')], ['', 'true']);
+  await stars.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
 const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html'];

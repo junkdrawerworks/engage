@@ -12,7 +12,7 @@ import { ROOMS, inWords, roomList } from './rooms.js';
 import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
-import { PAGE, byDay, clockTime, dayHeading, newest, timeline } from './logbook.js';
+import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -932,7 +932,9 @@ function shipLink(ship, style) {
 
 function renderLog() {
   save(); // try again: room may have been made since
-  shown = PAGE; // the log opens on its newest arrivals
+  shown = PAGE; // the log opens on its newest arrivals, by day, with nothing searched for
+  logView = 'day';
+  $('log-search').value = '';
   drawLog();
 }
 
@@ -1034,6 +1036,7 @@ function returnTo(coursed) {
     return;
   }
   shown = Math.max(PAGE, Math.ceil((k + 1) / PAGE) * PAGE); // an entry further back than the log first shows is shown too
+  logView = 'day';
   drawLog();
   openSheet('log', $('open-log'));
   const past = $('entries').querySelector(`.past[data-k="${k}"]`);
@@ -1053,35 +1056,66 @@ function drawLog() {
   $('stats').textContent = state.log.length
     ? `${n} ${n === 1 ? 'star' : 'stars'} visited · ${formatLy(state.ly)} travelled`
     : 'Nothing logged yet. Choose a star and engage.';
-  $('entries').innerHTML = recordsHtml() + daysHtml();
+  // Past 30 entries the log can be searched, and shown by star.
+  $('log-tools').hidden = state.log.length <= LONG_LOG;
+  if ($('log-tools').hidden) { logView = 'day'; $('log-search').value = ''; }
+  drawEntries();
+}
+
+let logView = 'day'; // or 'star': one row for each star
+function drawEntries() {
+  const q = $('log-search').value.trim();
+  $('log-by-day').setAttribute('aria-pressed', String(logView === 'day'));
+  $('log-by-star').setAttribute('aria-pressed', String(logView === 'star'));
+  $('entries').innerHTML = (q ? '' : recordsHtml()) + (logView === 'star' ? starsHtml(q) : daysHtml(q));
 }
 
 // The log under a heading for each day ("Wednesday 18 November · 6 arrivals"), each arrival with the time it was
 // made beside its stardate: a day's arrivals used to carry one stardate between them, in one flat list. It opens on
 // the newest 50 arrivals, and Show earlier adds 50 more.
+// A search shows the arrivals that mention what is typed, under the days they were made, without the days' counts.
 let shown = PAGE;
-function daysHtml() {
-  const all = timeline(state.log);
+function daysHtml(q) {
+  const all = timeline(state.log).filter(x => matches(x, q));
+  if (!all.length) return `<p class="empty">Nothing in the log mentions “${esc(q)}”.</p>`;
   const counts = new Map(byDay(all).map(d => [d.key, d]));
   const now = Date.now();
   let html = byDay(newest(all, shown)).map(day => {
     const whole = counts.get(day.key);
-    const head = day.key === 'undated' ? 'Undated' : dayHeading(day.t, whole.arrivals, whole.supps, now);
+    const head = day.key === 'undated' ? 'Undated' : q ? dayHeading(day.t, 0, 0, now) : dayHeading(day.t, whole.arrivals, whole.supps, now);
     return `<h3 class="day">${esc(head)}</h3>${day.items.map(itemHtml).join('')}`;
   }).join('');
-  const left = state.log.length - shown;
-  if (left > 0) html += `<button class="text-button more" type="button" data-more>Show earlier · ${Math.min(left, PAGE)} more of ${left}</button>`;
+  html += moreHtml(all.filter(x => x.entry).length, 'Show earlier');
   return html;
 }
 
-// Show earlier: 50 more arrivals, and the keyboard's place on the first of them.
+const moreHtml = (n, words) => (n > shown ? `<button class="text-button more" type="button" data-more>${words} · ${Math.min(n - shown, PAGE)} more of ${n - shown}</button>` : '');
+
+// By star: one row for each star in the log, the most recently visited first, with how many visits and when. A row
+// opens on the newest entry for its star. A search keeps the stars any of whose entries mention it.
+const dayMonth = t => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+function starsHtml(q) {
+  const rows = byStar(state.log).filter(r => !q || state.log.some(e => e.star === r.star && matches(e, q)));
+  if (!rows.length) return `<p class="empty">Nothing in the log mentions “${esc(q)}”.</p>`;
+  return rows.slice(0, shown).map(r => {
+    const last = entryTime(r.last), first = entryTime(r.first);
+    const when = [last && `Last ${dayMonth(last)}`, r.n > 1 && first && `first ${dayMonth(first)}`].filter(Boolean).join(' · ');
+    return `
+    <details class="past star" data-k="${state.log.indexOf(r.last)}">
+      <summary><b>${esc(r.title)}</b><span class="sd">${r.n} ${r.n === 1 ? 'visit' : 'visits'}</span><span>${esc(when)}</span></summary>
+      <div class="entry">${entryHtml(r.last, false)}</div>
+    </details>`;
+  }).join('') + moreHtml(rows.length, 'Show more');
+}
+
+// Show earlier: 50 more, and the keyboard's place on the first of them.
 function showEarlier() {
   const first = shown;
   shown += PAGE;
   const top = $('entries').scrollTop;
-  drawLog();
+  drawEntries();
   $('entries').scrollTop = top;
-  $('entries').querySelector(`.past[data-k="${first}"] summary`)?.focus({ preventScroll: true });
+  $('entries').querySelectorAll('.past')[first]?.querySelector('summary').focus({ preventScroll: true });
 }
 
 function itemHtml({ entry: e, k, t }) {
@@ -1209,6 +1243,10 @@ function bind() {
   });
   watchKeyboard();
   $('open-log').addEventListener('click', e => { renderLog(); openSheet('log', e.currentTarget); });
+  $('log-search').addEventListener('input', () => { shown = PAGE; drawEntries(); $('entries').scrollTop = 0; });
+  for (const [id, to] of [['log-by-day', 'day'], ['log-by-star', 'star']]) {
+    $(id).addEventListener('click', () => { logView = to; shown = PAGE; drawEntries(); $('entries').scrollTop = 0; });
+  }
   // Set course again, on an entry in the log, or for the star nearest to it, there and on the arrival's entry: the
   // sheet closes on the helm with that star chosen.
   for (const id of ['entries', 'arrival-entry']) {

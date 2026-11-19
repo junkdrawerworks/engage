@@ -3,7 +3,7 @@
 process.env.TZ = 'UTC'; // the day headings follow the calendar where the captain is: here, Greenwich
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAGE, byDay, clockTime, dayHeading, entryTime, newest, timeline } from '../js/logbook.js';
+import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from '../js/logbook.js';
 
 const at = iso => Date.parse(iso);
 const entry = (iso, star = 1, title = 'Vega', more = {}) => ({ id: at(iso), star, title, stardate: '2026.880', intro: `At ${title}.`, sections: [], ly: 1, ...more });
@@ -53,4 +53,24 @@ test('a supplemental line goes in among the arrivals by its time, and arrivals w
   assert.deepEqual(days.map(d => [d.key, d.arrivals, d.supps]), [['2026-11-18', 2, 1], ['2026-11-17', 0, 1], ['undated', 2, 0]]);
   // A page of one arrival takes the lines between it and the next arrival, which waits for Show earlier.
   assert.deepEqual(newest(all, 1).map(x => x.entry?.title ?? x.supp.room), ['Altair', 'maru']);
+});
+
+test('by star: one row for each star, the most recently visited first, with its visits and its first and last', () => {
+  const log = [entry('2026-11-18T15:00:00Z', 2, 'Altair'), entry('2026-11-18T09:00:00Z', 1, 'Vega'), entry('2026-11-10T09:00:00Z', 2, 'Altair'), entry('2026-11-01T09:00:00Z', 2, 'Altair')];
+  const rows = byStar(log);
+  assert.deepEqual(rows.map(r => [r.title, r.n]), [['Altair', 3], ['Vega', 1]]);
+  assert.equal(rows[0].last, log[0]);
+  assert.equal(rows[0].first, log[3]);
+  assert.equal(rows[1].first, rows[1].last);
+});
+
+test('a search finds a star’s name, the line under it or anything its entry says, whatever the capitals and accents', () => {
+  const e = { title: 'Proxima Centauri', intro: 'We’ve dropped out of warp at Proxima Centauri.', sections: [['Planets', 'Proxima b orbits in the habitable zone.'], ['', 'Alnitak is brighter.']] };
+  assert.ok(matches({ entry: e }, 'proxima'));
+  assert.ok(matches(e, 'HABITABLE'));
+  assert.ok(matches(e, 'álnitak'));
+  assert.ok(!matches(e, 'Vega'));
+  assert.ok(matches(e, '  '), 'nothing typed finds everything');
+  assert.ok(matches({ supp: { text: 'Supplemental: sat the Kobayashi Maru.' } }, 'kobayashi'));
+  assert.equal(LONG_LOG, 30);
 });
