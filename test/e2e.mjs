@@ -1591,6 +1591,30 @@ const vulcan = await page.evaluate(() => tonight.tag('Vulcan'));
 assert.ok(vulcan.alt > 20 && vulcan.alt < 26, `Vulcan’s sun is not where it is at 12:30 am in New York: ${vulcan.alt}`);
 assert.ok(vulcan.seen, 'a magnitude 4.4 star is not visible from the suburbs');
 assert.equal(await page.evaluate(() => tonight.tag('Wolf 359').seen), false, 'Wolf 359 can be seen without a telescope');
+// Only Starfleet's stars that are up and bright enough get a whole tag; the rest are a quiet ring, still there to tap.
+{
+  await page.evaluate(() => tonight.look(180, 30, 120));
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const [boxes, rings] = await page.evaluate(() => [tonight.tags().map(t => t.name), tonight.rings()]);
+  assert.ok(rings.length > 0, 'no quiet rings drawn');
+  for (const n of rings) {
+    const t = await page.evaluate(name => tonight.tag(name), n);
+    if (t) assert.ok(t.alt < 0 || !t.seen, `${n} is up and visible but drawn as a ring alone`);
+  }
+  for (const n of boxes) {
+    const t = await page.evaluate(name => tonight.tag(name), n);
+    if (t) assert.ok(t.alt >= 0 && t.seen, `${n} has a whole tag though it is ${t.alt < 0 ? 'below the horizon' : 'too faint to see'}`);
+  }
+  // Wolf 359 is far too faint: chosen, it is drawn in full; its card closed, it goes back to a ring.
+  const frame = () => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.evaluate(() => { tonight.aimAt('Wolf 359'); tonight.show({ kind: 'star', i: tonight.state.sel.i }); });
+  await frame();
+  assert.ok((await page.evaluate(() => tonight.tags())).some(t => t.name === 'Wolf 359'), 'the chosen star is still a ring alone');
+  await page.click('#card [data-close]');
+  await frame();
+  assert.ok(!(await page.evaluate(() => tonight.tags())).some(t => t.name === 'Wolf 359'), 'Wolf 359, too faint to see, still has a whole tag');
+  assert.ok((await page.evaluate(() => tonight.rings())).includes('Wolf 359'), 'Wolf 359 lost its ring');
+}
 assert.match(await text('#clock'), /12:30/);
 assert.equal(await shown('#daylight'), false, 'the daylight notice shows at night');
 await page.evaluate(() => tonight.aimAt('Vulcan'));

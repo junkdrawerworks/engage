@@ -417,7 +417,13 @@ function draw() {
 
   drawGround();
 
-  // The tags: Starfleet's names, then Engage's other destinations.
+  // The tags: Starfleet's names, then Engage's other destinations. First where each whole tag's ring will be, so a
+  // name can be put on the side of its star that keeps clear of the others' rings (Merak II's and Mizar II's).
+  ringsAhead = [];
+  for (const t of tags) {
+    const p = project(t.local);
+    if (p && p.z >= 0.05 && (sel?.kind === 'star' && sel.i === t.i || (t.alt >= 0 && t.seen))) ringsAhead.push({ x: p.x, y: p.y, r: (t.chart ? 19 : 9) + 2, i: t.i });
+  }
   for (const t of tags) drawTag(t);
   drawRadiant();
 
@@ -585,6 +591,7 @@ const TAG = {
   day: { trek: '134, 216, 255', other: '255, 181, 74', sub: '200, 210, 230', subA: 0.85 },
   night: { trek: '255, 255, 255', other: '236, 196, 180', sub: '255, 240, 236', subA: 1, otherSub: '226, 200, 190' },
 };
+let ringsAhead = []; // where this frame's whole tags put their rings: { x, y, r, i }
 let labelBoxes = [], reservedBoxes = 0; // the first few are the page's own: the header, the controls and the daylight notice
 let bodies = [];   // the planets and the Moon drawn last frame: { name, x, y, r, mag }
 let labelled = []; // the names written beside things last frame, with their boxes on screen, for tests
@@ -616,15 +623,29 @@ function label(text, x, y, gap, style) {
 const meets = (b, o) => b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h;
 const overlaps = b => labelBoxes.some(o => b.x < o.x + o.w + 4 && o.x < b.x + b.w + 4 && b.y < o.y + o.h && o.y < b.y + b.h);
 
-// A Starfleet tag: a targeting ring on the star, its name and a line under it.
+// A Starfleet tag: a targeting ring on the star, its name and a line under it. Only a star that is up and bright
+// enough to see from your sky gets all of that; the rest (below the horizon, or too faint) are a quiet dashed ring,
+// still there to tap, so 28 of Starfleet's stars don't bury the few you can find tonight. The one chosen is always
+// drawn in full.
 function drawTag(t) {
   const p = project(t.local);
   if (!p || p.z < 0.05 || p.x < -60 || p.x > W + 60 || p.y < -40 || p.y > H + 40) return;
+  const chosen = sel?.kind === 'star' && sel.i === t.i;
   const below = t.alt < 0, faint = !t.seen;
   const trek = !!t.chart;
-  if (below && !trek && !(sel?.kind === 'star' && sel.i === t.i)) return; // only Starfleet's are worth looking down for
+  if (below && !trek && !chosen) return; // only Starfleet's are worth looking down for
   const pal = saved.night ? TAG.night : TAG.day;
   const color = trek ? pal.trek : pal.other;
+  if ((below || faint) && !chosen) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(${color}, ${below ? 0.3 : 0.5})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.arc(p.x, p.y, trek ? 10 : 8, 0, 7); ctx.stroke();
+    ctx.restore();
+    placed.push({ x: p.x, y: p.y, r: 20, hit: { kind: 'star', i: t.i }, rank: -20, quiet: true });
+    return;
+  }
   const a = below ? 0.4 : 1;
   const R = trek ? 12 : 9;
   ctx.save();
@@ -650,7 +671,9 @@ function drawTag(t) {
   const wSub = ctx.measureText(sub).width;
   const w = Math.max(wName, wSub) + 14, h = 34;
   let x = p.x + R + 9, y = p.y - h / 2;
-  if (x + w > W - 6 || overlaps({ x, y, w, h })) x = p.x - R - 9 - w;
+  const left = p.x - R - 9 - w;
+  const onRing = b => ringsAhead.some(o => o.i !== t.i && b.x < o.x + o.r && o.x - o.r < b.x + b.w && b.y < o.y + o.r && o.y - o.r < b.y + b.h);
+  if (x + w > W - 6 || overlaps({ x, y, w, h }) || (onRing({ x, y, w, h }) && left >= 6 && !onRing({ x: left, y, w, h }) && !overlaps({ x: left, y, w, h }))) x = left;
   const box = { x, y, w, h };
   const reserved = labelBoxes.slice(0, reservedBoxes); // never under the header, the controls or the daylight notice
   if (reserved.some(o => box.x < o.x + o.w && o.x < box.x + box.w && box.y < o.y + o.h && o.y < box.y + box.h) || (overlaps(box) && !trek)) { ctx.restore(); placed.push({ x: p.x, y: p.y, r: 20, hit: { kind: 'star', i: t.i }, rank: -20 }); return; }
@@ -1205,6 +1228,8 @@ function hooks() {
     where(name) { const t = tags.find(x => x.name === name); const i = t ? t.i : cat.byName.get(name); B = basis(); return project(toLocal(sky.f, starDir(i))); },
     // The tags drawn last frame, with their boxes on screen.
     tags: () => placed.filter(q => q.box).map(q => ({ name: nameOf(q.hit), been: !!q.been, ...q.box })),
+    // The tags drawn last frame as a quiet ring alone: below the horizon or too faint to see.
+    rings: () => placed.filter(q => q.quiet).map(q => nameOf(q.hit)),
     tag(name) { const t = tags.find(x => x.name === name); return t && { alt: t.alt, seen: t.seen, mag: t.mag }; },
     // The meteor shower marked on the sky, if one is: its name, where its radiant is on screen, and whether it was drawn.
     get shower() { const sh = sky.shower; return sh ? { name: sh.shower.name, alt: altAz(sh.local).alt, drawn: placed.some(q => q.hit.kind === 'shower') } : null; },
