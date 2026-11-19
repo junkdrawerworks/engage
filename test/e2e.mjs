@@ -4803,7 +4803,7 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).opts.clock), true);
   await p.evaluate(() => engage.closeSheets());
   assert.equal(await when(), 'Year 1, day 1 of 5');
-  // Betelgeuse at warp 6 costs fifteen months of the mission; at warp 9.9, about a month.
+  // From Earth, Betelgeuse at warp 6 costs fifteen months of the mission; at warp 9.9, about two months.
   await p.evaluate(() => engage.target('Betelgeuse'));
   await p.locator('#warp').fill('6');
   assert.match(await p.locator('#trip').innerText(), / · 15 months at this warp · arriving year 2, day 99 · light takes/);
