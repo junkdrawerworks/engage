@@ -145,8 +145,8 @@ export function milestoneText(ship, m, passed = false) {
 // (science.nasa.gov/mission/voyager/golden-record-contents/, with its pages on the greetings, the sounds and music,
 // the images and the cover; checked November 2026).
 export const GOLDEN_RECORD = {
-  // The greetings, each language with its words in English as NASA gives them. On the record they run from Akkadian
-  // to Wu, as here.
+  // The greetings, each language with its words in English as NASA gives them, in NASA's order: alphabetical, from
+  // Akkadian to Wu. (On the record itself they run in another order, starting with Sumerian.)
   greetings: [
     ['Akkadian', 'May all be very well.'],
     ['Amoy (Min dialect)', 'Friends from space, how are you all? Have you eaten yet? Come visit us if you have time.'],
