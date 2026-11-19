@@ -71,3 +71,18 @@ test('every destination but home has a course page of its own, written as tools/
   assert.match(pages['course/vega.html'], /location\.replace\("\.\.\/\?course=Vega"\)/);
   assert.match(pages['course/the-pleiades.html'], /<meta property="og:title" content="Set course for the Pleiades">/);
 });
+
+// ---------- What's new off the bridge ----------
+import { ROOMS as ALL_ROOMS, newRooms, whatsNew } from '../js/rooms.js';
+
+test('a room added since the last visit is named, with a link to it, and nothing else is', () => {
+  const all = ALL_ROOMS.map(r => r.id);
+  assert.deepEqual(newRooms(all), []);
+  assert.deepEqual(newRooms(null), [], 'a save from before the bridge kept count was told of rooms it may have seen');
+  assert.deepEqual(newRooms(all.filter(id => id !== 'away')).map(r => r.id), ['away']);
+  const two = newRooms(all.filter(id => !['system', 'away'].includes(id)));
+  assert.equal(whatsNew(two), 'New since your last visit: <a href="system.html" data-room="system">System\u00a0view</a> and <a href="away.html" data-room="away">Away\u00a0team</a>.');
+  assert.equal(whatsNew(newRooms(['survey', 'maru'])).match(/<a /g).length, ALL_ROOMS.length - 2);
+  assert.match(whatsNew(newRooms(['survey', 'maru'])), /<\/a>, <a .*<\/a> and <a [^,]*<\/a>\.$/);
+  assert.equal(whatsNew([]), '');
+});

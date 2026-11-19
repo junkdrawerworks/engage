@@ -66,6 +66,43 @@ assert.equal(await shown('#intro'), false);
 assert.equal(await text('#where'), 'Earth orbit');
 assert.ok(await page.locator('#engage').isDisabled(), 'engage works with no destination');
 
+// A room added since the last visit: one line under where the ship is, naming it with a link, until it is closed
+// or one of its rooms opened. A first visit, which the welcome card tells of every room, gets none, and nor does a
+// save from before the bridge kept count.
+{
+  const fresh = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await fresh.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const { ROOMS: ALL } = await import('../js/rooms.js');
+  const rooms = () => p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1') || '{}').rooms);
+  await p.goto(base);
+  await bridgeReady(p);
+  assert.equal(await p.locator('#whats-new').isVisible(), false, 'a first visit was told what’s new');
+  await p.click('#intro-go');
+  assert.deepEqual(await rooms(), ALL.map(r => r.id));
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.v1')); delete s.rooms; localStorage.setItem('engage.v1', JSON.stringify(s)); });
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await p.locator('#whats-new').isVisible(), false, 'a save from before the bridge kept count was told every room is new');
+  assert.deepEqual(await rooms(), ALL.map(r => r.id));
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.v1')); s.rooms = s.rooms.filter(id => id !== 'system' && id !== 'away'); localStorage.setItem('engage.v1', JSON.stringify(s)); });
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await p.locator('#whats-new').isVisible(), true, 'two new rooms went untold');
+  assert.equal(await p.locator('#whats-new-text').textContent(), 'New since your last visit: System view and Away team.');
+  assert.deepEqual(await p.locator('#whats-new a').evaluateAll(as => as.map(a => a.getAttribute('href'))), ['system.html', 'away.html']);
+  const box = await p.locator('#whats-new-close').boundingBox();
+  assert.ok(box.width >= 44 && box.height >= 44, 'the close button is too small to tap');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the line pushes the bridge sideways');
+  await p.locator('#whats-new-close').tap();
+  assert.equal(await p.locator('#whats-new').isVisible(), false);
+  assert.deepEqual(await rooms(), ALL.map(r => r.id));
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await p.locator('#whats-new').isVisible(), false, 'a closed line came back');
+  await fresh.close();
+}
+
 // The welcome card lists the rooms off the bridge, each a link with its picture, its name and a line, from the same
 // table as Bridge settings' list. Bridge settings can bring the card back. The round buttons are drawn at 38 px on a
 // phone, but each can be tapped anywhere in a 44 px square around its middle, without reaching its neighbour.

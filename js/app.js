@@ -11,7 +11,7 @@ import { ask } from './computer.js';
 import { SHOWN_IN, onScreen, onScreenParts, variableFor } from './variables.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, current, keep, watch } from './store.js';
-import { ROOMS, inWords, roomList } from './rooms.js';
+import { ROOMS, inWords, roomList, newRooms, whatsNew } from './rooms.js';
 import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
@@ -62,6 +62,7 @@ function defaults() {
     at: 0, offset: homeOffset(), yaw: START_YAW, pitch: START_PITCH, fov: 60 * DEG,
     target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, sound: true, clock: false }, seenIntro: false, ship: null,
     voyage: null, // the voyage under way, if one is (see js/voyages.js)
+    rooms: null, // the rooms the bridge has told of, by id (js/rooms.js), for the line that says what's new
   };
 }
 
@@ -102,6 +103,7 @@ function tidy() {
   for (const k of Object.keys(d.opts)) if (typeof state.opts[k] !== 'boolean') state.opts[k] = d.opts[k];
   state.ship = shipOf(state); // her name and registry, from Bridge settings, or null
   state.voyage = tidyVoyage(state.voyage);
+  state.rooms = Array.isArray(state.rooms) ? state.rooms.filter(x => typeof x === 'string') : null;
 }
 
 // Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
@@ -111,8 +113,8 @@ function tidy() {
 let unsaved = null;
 function save() {
   viewMoved = false;
-  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage } = state;
-  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}) }) || null;
+  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms } = state;
+  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}) }) || null;
   return !unsaved;
 }
 
@@ -256,6 +258,7 @@ async function start() {
     if (coursed) courseLine();
     $('intro').hidden = false; behind(); $('intro-go').focus({ preventScroll: true });
   }
+  roomsNews();
   bind();
   restored();
   watch(KEY, adopt);
@@ -266,6 +269,24 @@ async function start() {
   requestAnimationFrame(frame);
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
   window.engage = hooks();
+}
+
+// A room added since the last visit gets one line under where the ship is, until it is closed or one of its rooms
+// is opened. The welcome card lists every room, so a first visit knows them all; so does a save from before the
+// bridge kept count, since nobody can say which rooms it saw.
+function roomsNews() {
+  const fresh = state.seenIntro ? newRooms(state.rooms) : [];
+  const all = ROOMS.map(r => r.id);
+  if (!state.seenIntro || !state.rooms) {
+    state.rooms = all;
+    if (state.seenIntro) save();
+  }
+  $('whats-new').hidden = !fresh.length;
+  if (!fresh.length) return;
+  $('whats-new-text').innerHTML = whatsNew(fresh, ROOM_BASE, AWAY);
+  const seen = () => { state.rooms = all; save(); $('whats-new').hidden = true; };
+  $('whats-new-close').addEventListener('click', () => { seen(); $('choose').focus({ preventScroll: true }); });
+  $('whats-new-text').addEventListener('click', e => { if (e.target.closest('a')) seen(); });
 }
 
 // A link like ?course=Proxima%20Centauri, from the planetary survey or someone's shared course, sets course for that
