@@ -2,7 +2,8 @@
 // here: both lists are drawn from this table. `href` is the room's page beside the bridge; `button` is the id of the
 // link to it on the bridge (the round buttons, and the warp scale under the warp slider), or null for a room the
 // bridge reaches from the captain's log instead (the system view and the away team, from a star's planets; subspace
-// radio, from a star's line about Earth's broadcasts, and from Set course; astrometrics, from a star's own line); `icon`
+// radio, from a star's line about Earth's broadcasts, and from Set course; astrometrics, from a star's own line; the
+// distress call, from this list alone until the bridge's round buttons are settled); `icon`
 // is the inside of that button's 24 × 24 drawing, so the list shows the same picture as the button. Pure, checked by
 // test/bridge.test.mjs.
 
@@ -51,6 +52,11 @@ export const ROOMS = [
     id: 'radio', href: 'radio.html', button: null, name: 'Subspace radio',
     line: 'Which real stars are hearing Earth’s broadcasts from 1969 tonight, and the messages in flight.',
     icon: '<path d="M12 21V11"/><circle cx="12" cy="9" r="1.6"/><path d="M8.6 12.4a4.8 4.8 0 0 1 0-6.8M15.4 5.6a4.8 4.8 0 0 1 0 6.8M5.8 15.2a8.8 8.8 0 0 1 0-12.4M18.2 2.8a8.8 8.8 0 0 1 0 12.4"/><path d="M8.5 21h7"/>',
+  },
+  {
+    id: 'distress', href: 'distress.html', button: null, name: 'Distress call',
+    line: 'Survivors describe their sky. Find their star on Earth’s real sky before their air runs out.',
+    icon: '<path d="M12 3.5l1.5 3.2 3.5.4-2.6 2.4.7 3.5L12 11.3 8.9 13l.7-3.5L7 7.1l3.5-.4z"/><path d="M4.8 15.5a10 10 0 0 0 14.4 0M7.6 18.6a6.5 6.5 0 0 0 8.8 0"/><path d="M12 20.5v.01"/>',
   },
   {
     id: 'tonight', href: 'tonight.html', button: 'open-sky', name: 'Tonight’s sky',

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Distress call · Engage</title>
+  <meta name="description" content="A garbled distress call describes the sky the survivors can see: the colour of their sun, where our Sun sits in their night and how faint it looks. Find the real star they are at, on Earth’s real sky, before their air runs out.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="Distress call">
+  <meta property="og:description" content="Survivors describe their sky. Find their star on Earth’s real sky before their air runs out.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-distress.png">
+  <meta property="og:image:alt" content="Engage, communications. A distress call: Earth’s night sky with its constellations, a star ringed in amber and the survivors’ clues about their sky beside it.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/distress.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/distress.css">
+</head>
+<body class="survey distress-page">
+  <noscript><p class="noscript">The distress call needs JavaScript to draw the sky.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · Communications</p>
+      <h1>Distress call</h1>
+    </div>
+  </header>
+
+  <main>
+    <section class="briefing" id="briefing" aria-labelledby="brief-head">
+      <h2 id="brief-head">A signal on the emergency band</h2>
+      <p>Survivors on a crippled ship can’t say where they are. All they can tell you is what their sky looks like: the colour of their sun, where our Sun sits among their stars and how faint it looks. Every star has a sky of its own. Find theirs on Earth’s real sky, lock on, and a rescue ship goes. Their air is running out as you look.</p>
+      <p class="standing" id="standing"></p>
+      <div class="go">
+        <button type="button" class="primary" id="today">Answer today’s call</button>
+        <button type="button" class="secondary" id="another">Answer a new call</button>
+      </div>
+      <p class="today-said" id="today-said" hidden></p>
+      <details class="how">
+        <summary>How to read their sky</summary>
+        <ul>
+          <li><b>Where our Sun sits.</b> If they see our Sun in Hercules, they are on the opposite side of our sky from Hercules. <b>Turn round</b>, under the chart, takes you there.</li>
+          <li><b>How faint our Sun looks.</b> The fainter it is, the farther they are: magnitude 2 from about 9 light years, 4 from about 22, 6 (as faint as the eye can see) from about 56.</li>
+          <li><b>Their sun’s colour.</b> Tap a star on the chart for its colour and how far it is.</li>
+          <li><b>Cleaning up the signal</b> gives another clue and costs air. So does locking on to the wrong star.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="call" id="call" hidden aria-labelledby="call-head">
+      <h2 class="sr" id="call-head">The call</h2>
+      <div class="air" id="air-box">
+        <span class="air-label" id="air-label">Air</span>
+        <div class="air-bar" role="progressbar" aria-labelledby="air-label" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="air-bar"><span id="air-fill"></span></div>
+        <output class="air-left" id="air-left" for="air-bar">100%</output>
+      </div>
+      <div class="deck">
+        <div class="signal-box">
+          <ol class="signal" id="signal" aria-label="What they have said" aria-live="polite"></ol>
+          <button type="button" class="clean" id="clean">Clean up the signal <small id="clean-cost"></small></button>
+        </div>
+        <div class="sky-side">
+          <div class="screen"><canvas id="chart" tabindex="0" aria-label="Earth’s night sky. Drag to look round, pinch to zoom, tap a star."></canvas>
+            <p class="chart-tag" id="chart-tag">Earth’s sky</p>
+          </div>
+          <div class="chart-tools">
+            <button type="button" id="turn">Turn round</button>
+            <label class="find"><span class="sr">Find a star by name</span><input id="find" list="names" placeholder="Find a star by name" autocomplete="off" enterkeyhint="go"></label>
+            <datalist id="names"></datalist>
+          </div>
+        </div>
+        <div class="pick-box">
+          <article class="picked" id="picked" aria-live="polite"><p class="hint">Tap a star on the chart to see its colour and distance.</p></article>
+          <p class="said" id="said" role="status"></p>
+          <section class="debrief" id="debrief" hidden aria-labelledby="debrief-head">
+            <h2 id="debrief-head">Debrief</h2>
+            <p id="debrief-1"></p>
+            <p id="debrief-2"></p>
+            <div class="skies" role="group" aria-label="Which sky the chart shows">
+              <button type="button" data-sky="theirs" aria-pressed="true">Their sky</button>
+              <button type="button" data-sky="earth" aria-pressed="false">Earth’s sky</button>
+            </div>
+            <p class="links" id="debrief-links"></p>
+            <button type="button" class="primary" id="again">Answer a new call</button>
+          </section>
+        </div>
+      </div>
+    </section>
+    <p class="sources">Stars: the HYG catalogue. Every clue is worked out from it: their sun’s colour from its own, how bright each star looks from theirs by its true brightness and distance, and where our Sun sits by the IAU’s constellation boundaries.</p>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/distress.js"></script>
+</body>
+</html>

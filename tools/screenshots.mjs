@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio or astrometrics; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics or distress; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -492,6 +492,30 @@ if (!only || only === 'astrometrics') {
   const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('wall'); return [c.toDataURL(), c.height / c.width]; });
   await wide.context().close();
   await ogCard(shot, aspect, 'Engage · Astrometrics lab', 'Astrometrics', '17,000 real stars by colour and true brightness.', 'And the Sun’s life, to white dwarf', 'og-astrometrics.png');
+}
+
+// The distress call: a call from Procyon, cleaned once, with Procyon picked on Earth's sky; and for the link preview,
+// the debrief's sky from Procyon, our Sun in Aquila.
+if (!only || only === 'distress') {
+  const page = await open({ width: 390, height: 844 }, 2);
+  await page.goto(base + 'distress.html');
+  await page.waitForFunction(() => window.distress?.ready);
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => { distress.startAt('Procyon'); distress.hold(true); });
+  await page.click('#clean');
+  await page.evaluate(() => { distress.turnTo('Betelgeuse'); distress.choose('Procyon'); });
+  await page.waitForTimeout(300);
+  await save(await page.screenshot(), 'docs/phone-distress.png');
+  await page.context().close();
+  const wide = await open({ width: 1000, height: 900 }, 1);
+  await wide.goto(base + 'distress.html');
+  await wide.waitForFunction(() => window.distress?.ready);
+  await wide.evaluate(() => document.fonts.ready);
+  await wide.evaluate(() => { distress.startAt('Procyon'); distress.hold(true); distress.finish(); });
+  await wide.waitForTimeout(400);
+  const [shot, aspect] = await wide.evaluate(() => { const c = document.getElementById('chart'); return [c.toDataURL(), c.height / c.width]; });
+  await wide.context().close();
+  await ogCard(shot, aspect, 'Engage · Communications', 'Distress call', 'Survivors describe their sky. Find their star before their air runs out.', 'Every star has a sky of its own', 'og-distress.png');
 }
 
 if (!only || only === 'courses') {

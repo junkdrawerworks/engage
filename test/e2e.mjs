@@ -353,7 +353,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await bridgeReady(p);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
   await p.tap('#open-settings');
-  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all twelve rooms work with no signal.', null, { timeout: 20000 })
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all thirteen rooms work with no signal.', null, { timeout: 20000 })
     .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
   assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
   assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
@@ -5079,7 +5079,7 @@ await page.emulateMedia({ reducedMotion: null });
   // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
   // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
   // half the time once the service worker was handing the stylesheet over.
-  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html']) {
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html']) {
     assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
   }
   for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
@@ -6485,9 +6485,80 @@ await page.emulateMedia({ reducedMotion: null });
   await ac.close();
 }
 
+// The distress call: two clues open, cleaning the signal opens another for air, a wrong lock says which clue rules
+// the star out and costs air, the right one ends in the debrief in their own sky, and the record keeps the day's call.
+// Air running out ends a call too.
+{
+  const dc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await dc.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await dc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'distress.html');
+  await p.waitForFunction(() => window.distress?.ready);
+  assert.equal(await p.locator('#standing').innerText(), '');
+  await p.tap('#today');
+  await p.evaluate(() => distress.hold(true));
+  assert.equal(await p.locator('#signal li:not(.garbled)').count(), 2);
+  assert.equal(await p.locator('#signal li.garbled').count(), 3);
+  assert.match(await p.locator('#signal li').first().innerText(), /^…our sun is an? [a-z-]+ star…$/);
+  const star = await p.evaluate(() => distress.call.star);
+  await p.tap('#clean');
+  assert.equal(await p.locator('#signal li:not(.garbled)').count(), 3);
+  assert.match(await p.locator('#signal li').nth(2).innerText(), /^…your Sun shines at magnitude \d\.\d here…$/);
+  assert.equal(await p.locator('#air-left').innerText(), '85%');
+  // A tap on the chart picks a star; locking on to the wrong one says why, and costs air.
+  const wrong = ['Vega', 'Altair', 'Deneb', 'Rigel', 'Betelgeuse', 'Polaris', 'Spica'].filter(n => n !== star);
+  await p.evaluate(n => distress.turnTo(n), wrong[0]);
+  const box = await p.locator('#chart').boundingBox(), at = await p.evaluate(n => distress.where(n), wrong[0]);
+  await p.touchscreen.tap(box.x + at.x, box.y + at.y);
+  assert.equal(await p.evaluate(() => distress.pick), wrong[0]);
+  assert.match(await p.locator('#picked').innerText(), new RegExp(`^${wrong[0]}\\n+A [a-z-]+ star · \\d+ light years away`));
+  await p.tap('#lock');
+  assert.match(await p.locator('#said').innerText(), new RegExp(`^Not ${wrong[0]}: .* That cost 20% of their air\\.$`));
+  assert.equal(await p.locator('#air-left').innerText(), '65%');
+  assert.equal(await p.locator('#lock').isDisabled(), true, 'a star already ruled out could be locked on to again');
+  // The air runs down as you look.
+  await p.evaluate(() => distress.hold(false));
+  await p.waitForFunction(() => parseInt(document.getElementById('air-left').textContent, 10) < 65, null, { timeout: 10000 }).catch(() => assert.fail('the air did not run down'));
+  await p.evaluate(() => distress.hold(true));
+  // A star found by name, and locked on to: the debrief, in their own sky.
+  await p.fill('#find', star);
+  await p.press('#find', 'Enter');
+  assert.equal(await p.evaluate(() => distress.pick), star);
+  await p.tap('#lock');
+  assert.match(await p.locator('#debrief-1').innerText(), /^Found: they were at .*, \d+(\.\d)? light years out\. A rescue ship is on its way, with \d+% of their air left \(3 of 5 clues, 1 wrong lock\)\.$/);
+  assert.match(await p.locator('#debrief-2').innerText(), /every star has a sky of its own\.$/);
+  assert.match(await p.locator('#chart-tag').innerText(), /^The sky from /i);
+  assert.equal(await p.evaluate(() => distress.sky), 'theirs');
+  assert.equal(await p.locator('#debrief-links a').first().getAttribute('href'), `./?course=${encodeURIComponent(star)}`);
+  await p.tap('[data-sky="earth"]');
+  assert.equal(await p.evaluate(() => distress.sky), 'earth');
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.distress.v1')));
+  assert.deepEqual([kept.answered, kept.rescued, kept.calls.length, kept.calls[0].found, kept.calls[0].open, kept.calls[0].wrong], [1, 1, 1, true, 3, 1]);
+  assert.match(kept.calls[0].day, /^\d{4}-\d\d-\d\d$/);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the room is wider than the phone');
+  // Back at the briefing, the day's call is answered and the record says so.
+  await p.reload();
+  await p.waitForFunction(() => window.distress?.ready);
+  assert.match(await p.locator('#standing').innerText(), /^Rescued 1 of 1 call\. Today’s call: found at .* with \d+% of their air left\.$/);
+  assert.equal(await p.locator('#today').isVisible(), false, 'the day’s call could be answered twice');
+  // A new call lost: five wrong locks leave them no air.
+  await p.tap('#another');
+  await p.evaluate(() => distress.hold(true));
+  const lost = await p.evaluate(() => distress.call.star);
+  for (const n of ['Vega', 'Altair', 'Deneb', 'Rigel', 'Betelgeuse', 'Polaris', 'Spica'].filter(n => n !== lost).slice(0, 5)) {
+    await p.evaluate(x => distress.choose(x), n);
+    await p.tap('#lock');
+  }
+  assert.match(await p.locator('#debrief-1').innerText(), /^Their air ran out\. They were at /);
+  assert.equal(await p.locator('#air-left').innerText(), '0%');
+  assert.deepEqual(await p.evaluate(() => { const k = JSON.parse(localStorage.getItem('engage.distress.v1')); return [k.answered, k.rescued, k.calls[1].day]; }), [2, 1, null]);
+  await dc.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
-const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html'];
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html'];
 const until = async (ok, ms, what) => {
   for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
 };
@@ -6505,7 +6576,7 @@ for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await 
 const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
-const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics' };
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress' };
 const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
 net = 'down';
 await ctx.setOffline(true);
@@ -6570,7 +6641,7 @@ server.close();
 // a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
 // index.html; the first 8 hex of the sha1 of those).
 // Everything the ten pages and their scripts load is on the list: a file left off opens online and not offline.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
@@ -6580,7 +6651,7 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html']) {
   const html = await readFile(join(root, f), 'utf8');
   assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
   const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';

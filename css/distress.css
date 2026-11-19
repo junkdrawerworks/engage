@@ -1,0 +1,80 @@
+/* The distress call. Builds on css/app.css and the survey's header from css/survey.css. */
+
+.distress-page h2 { font: 600 22px/1.15 var(--display); letter-spacing: 0.03em; margin: 8px 0 6px; }
+.briefing { max-width: 680px; }
+.briefing p { margin: 0 0 10px; }
+.standing { color: var(--sun); }
+.standing:empty { display: none; }
+.go { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 10px; }
+.go button { flex: 1 1 200px; }
+.today-said { color: var(--muted); font-size: 14px; }
+.how { margin-top: 8px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.how summary { cursor: pointer; font: 600 13px/1.6 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.how ul { margin: 8px 0 2px; padding-left: 18px; }
+.how li { margin: 0 0 6px; font-size: 14px; }
+
+/* Air */
+.air { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin: 4px 0 10px; }
+.air-label { font: 600 12px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.air-bar { height: 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); overflow: hidden; }
+.air-bar span { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #4fd1a5, var(--cyan)); transition: width 0.3s; }
+.air.low .air-bar span { background: linear-gradient(90deg, #ff6b5a, var(--amber)); }
+.air-left { min-width: 3.2em; text-align: right; font: 600 16px/1 var(--display); font-variant-numeric: tabular-nums; color: var(--cyan); }
+.air.low .air-left { color: #ff8a6a; }
+
+.deck { display: grid; gap: 12px; }
+/* On a wide screen the chart takes the left and the signal and the star picked stack beside it. */
+@media (min-width: 900px) {
+  .deck { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); grid-template-areas: "sky signal" "sky pick"; grid-template-rows: auto 1fr; align-items: start; gap: 12px 18px; }
+  .signal-box { grid-area: signal; } .sky-side { grid-area: sky; } .pick-box { grid-area: pick; }
+}
+
+/* The chart */
+.screen { position: relative; aspect-ratio: 1 / 0.95; border-radius: 20px; overflow: hidden; border: 1px solid var(--line-strong); background: #02040a;
+  box-shadow: 0 0 0 4px rgba(134, 216, 255, 0.04), inset 0 0 40px rgba(0, 0, 0, 0.6); }
+@media (min-width: 900px) { .screen { aspect-ratio: 4 / 3.3; } }
+.screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.chart-tag { position: absolute; left: 12px; top: 10px; margin: 0; padding: 4px 10px; border-radius: 999px; background: rgba(5, 7, 13, 0.7); border: 1px solid var(--line);
+  font: 600 11px/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); pointer-events: none; }
+.chart-tag.theirs { color: var(--sun); border-color: rgba(255, 210, 122, 0.45); }
+.chart-tools { display: flex; gap: 8px; margin-top: 10px; }
+.chart-tools button { flex: none; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--text);
+  font: 600 12px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.find { flex: 1 1 auto; min-width: 0; }
+.find input { width: 100%; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.03); font-size: 16px; }
+
+/* The signal */
+.signal { list-style: none; margin: 0; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(255, 181, 74, 0.35); background: var(--panel); display: grid; gap: 6px; }
+.signal li { font: 500 16px/1.35 var(--display); letter-spacing: 0.02em; color: var(--sun); }
+.signal li.garbled { color: var(--dim); letter-spacing: 0.12em; }
+.clean { width: 100%; min-height: 46px; margin-top: 10px; border-radius: 14px; border: 1px solid rgba(255, 210, 122, 0.45); background: transparent; color: var(--sun);
+  font: 600 13px/1.2 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.clean small { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+.clean:disabled { opacity: 0.45; cursor: default; }
+
+/* The star picked, and locking on */
+.picked { margin-top: 0; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(134, 216, 255, 0.35); background: var(--panel); }
+.picked p { margin: 0; }
+.picked .hint { color: var(--muted); font-size: 14px; }
+.picked h3 { margin: 0; font: 600 19px/1.2 var(--display); letter-spacing: 0.02em; }
+.picked .what { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.lock { width: 100%; margin-top: 10px; }
+.said { margin: 10px 0 0; font-size: 15px; min-height: 1.5em; }
+.said.wrong { color: #ff9a80; }
+
+/* The debrief */
+.debrief { margin-top: 12px; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(255, 181, 74, 0.45); background: var(--panel); }
+.debrief h2 { margin-top: 0; }
+.debrief p { margin: 0 0 8px; }
+.skies { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 4px 0 6px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.skies button { min-height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 12px/1.15 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.skies button[aria-pressed="true"] { background: rgba(255, 181, 74, 0.14); color: var(--amber); box-shadow: 0 0 0 1px rgba(255, 181, 74, 0.35) inset; }
+.links { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 8px 0 12px !important; }
+.links a { min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--text); text-decoration: none;
+  font: 600 11px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
+.links a:first-child { border-color: rgba(255, 181, 74, 0.55); color: var(--amber); }
+.links a:hover { border-color: var(--cyan); }
+.debrief .primary { width: 100%; }
+
+.sources { margin: 16px 0 0; font-size: 12px; color: var(--dim); }
+.distress-page .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }
