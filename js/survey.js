@@ -289,7 +289,8 @@ function newWorld() {
     if (saved.exam?.day !== day) { saved.exam = { day, marks: [] }; save(); }
     examAt = saved.exam.marks.length;
     if (examAt >= EXAM) return null;
-    return { ...exam(day)[examAt], maps: {} };
+    // `exam` says which day's exam it is and which of its five, so an answer goes on that exam only, in its own place.
+    return { ...exam(day)[examAt], maps: {}, exam: { day, at: examAt } };
   }
   return { ...question(saved.round, Math.random, drill ? [drill.cls.id] : []), maps: {} };
 }
@@ -385,9 +386,12 @@ function answer(id) {
   const right = id === c.id;
   const reverse = drill.kind === 'reverse';
   saved.seen++;
-  // Today's exam is its own score: it leaves the streak alone.
+  // Today's exam is its own score: it leaves the streak alone. Whether this is the exam goes by the world on screen,
+  // not the round, which another tab can change under it; and an exam world another tab has answered meanwhile
+  // isn't marked twice.
   const bestBefore = saved.best;
-  if (isExam()) saved.exam.marks.push(right);
+  const inExam = !!drill.exam;
+  if (inExam) { if (saved.exam?.day === drill.exam.day && saved.exam.marks.length === drill.exam.at) saved.exam.marks.push(right); }
   else {
     saved.streak = right ? saved.streak + 1 : 0;
     saved.best = Math.max(saved.best, saved.streak);
@@ -397,7 +401,7 @@ function answer(id) {
   if (reverse) onRecord(saved, id, c.id); else onRecord(saved, c.id, id);
   save();
   // A new best streak is said in the verdict, not left to the small score line under it.
-  const record = right && !isExam() && streakRecord(bestBefore, saved.streak);
+  const record = right && !inExam && streakRecord(bestBefore, saved.streak);
   $('verdict-record').hidden = !record;
   $('verdict-record').textContent = record ? `Best streak yet: ${saved.streak}` : '';
   $('choices').querySelectorAll('.choice').forEach(b => {
@@ -412,7 +416,7 @@ function answer(id) {
   $('verdict-head').className = `verdict-head ${right ? 'ok' : 'bad'}`;
   $('verdict-text').textContent = right ? c.tell : reverse ? `${picked.tell} ${hint(c)}.` : `${c.tell} ${hint(picked)}.`;
   $('verdict-file').href = `#${c.id}`;
-  $('drill-next').textContent = isExam() && saved.exam.marks.length >= EXAM ? 'See how you did' : 'Next world';
+  $('drill-next').textContent = inExam && saved.exam.marks.length >= EXAM ? 'See how you did' : 'Next world';
   $('verdict').hidden = false;
   $('prompt').hidden = true;
   renderScore();
@@ -443,7 +447,8 @@ function midSentence(s) {
 }
 
 // The quiz played in another tab: the streak and the best here are what that tab saved.
-watch(KEY, () => { Object.assign(saved, load()); renderScore(); });
+// The round stays this tab's own.
+watch(KEY, () => { const { round } = saved; Object.assign(saved, load(), { round }); renderScore(); });
 
 // Under the score, a badge for each of the 17 files, lit once a world has been rightly filed under it, and the slip
 // made most often.

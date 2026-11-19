@@ -1269,6 +1269,31 @@ assert.equal(await page.evaluate(() => location.hash.slice(1)), world);
   await p.close();
 }
 
+// Two tabs: one at a Standard world, the other opening today's exam. The Standard answer counts on the streak, not on
+// the exam, and one exam world answered in both tabs is marked once.
+{
+  const two = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const a = await two.newPage(), b = await two.newPage();
+  a.on('pageerror', e => problems.push(e.message));
+  const kept = () => a.evaluate(() => JSON.parse(localStorage.getItem('engage.survey.v1')));
+  await a.goto(base + 'survey.html#drill');
+  await a.waitForFunction(() => window.survey?.world);
+  await b.goto(base + 'survey.html#exam');
+  await b.waitForFunction(() => window.survey?.world?.exam);
+  await a.waitForFunction(() => JSON.parse(localStorage.getItem('engage.survey.v1')).round === 'exam');
+  await a.evaluate(() => survey.answer(survey.world.cls.id));
+  let s = await kept();
+  assert.deepEqual(s.exam.marks, [], 'a Standard world answered in one tab went on the exam open in another');
+  assert.equal(s.streak, 1, 'a Standard world answered while another tab sat the exam missed the streak');
+  await a.click('[data-round="exam"]');
+  assert.equal(await a.locator('#exam-head').textContent(), 'Today’s exam · World 1 of 5');
+  await b.evaluate(() => survey.answer(survey.world.cls.id));
+  await a.evaluate(() => survey.answer(survey.world.cls.id));
+  s = await kept();
+  assert.deepEqual(s.exam.marks, [true], 'one exam world answered in two tabs was marked twice');
+  await two.close();
+}
+
 // Long-range sensors: Planet hunt. Tap three dips on the star's light for the planet's year, set the line at the floor
 // of the dip for its size, then file it. A tap on nothing says so; three dips of two planets aren't a year; dips too
 // faint to see are found by trying years until the passes add up; and the wobble gives 51 Pegasi b's mass.
