@@ -1891,6 +1891,7 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   assert.match(await p.locator('#news-go').innerText(), /^Voyager 2’s answer to your hail came in today at 6:\d\d\u202fpm\.$/);
   assert.equal(await p.locator('#tally').innerText(), 'HAILS SENT 3, ANSWERED 1');
   assert.match(await p.locator('#hail-note').innerText(), /and her answer came back today at 6:\d\d\u202fpm\./);
+  assert.match(await p.locator('#reply-head').textContent(), /^Her answer came in today at 6:\d\d\u202fpm$/);
   const full = await p.locator('#reply-full').textContent();
   assert.match(full, /^Voyager 2 to Earth\. Your hail reached me 18 Nov at 10:\d\d\u202fpm, 144\.\d AU from the Sun and 20 hours out from you\..* Canberra .* I am sending this at 160 bits a second\. Voyager 2 out\.$/);
   assert.ok((await p.locator('#reply-text').textContent()).length < full.length, 'her answer did not type out');

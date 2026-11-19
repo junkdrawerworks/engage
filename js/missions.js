@@ -307,7 +307,7 @@ function showReply(ship, change, fresh, nowMs) {
       constellation: skyMeta ? constellationOf(ship.id, jdOf(arrive)) : null,
     });
     reply = { key, text, sky: !!skyMeta, start: reply.key === key ? reply.start : fresh && !still.matches ? nowMs : -Infinity };
-    $('reply-head').textContent = `Her answer, in ${fmtWhen(new Date(sent + 2 * lt))}`;
+    $('reply-head').textContent = `Her answer came in ${fmtWhen(new Date(sent + 2 * lt))}`;
     $('reply-full').textContent = text;
     $('reply-note').textContent = `Written from her file and the numbers when your hail reached her, and typed out as fast as she sends: ${ship.reply.rate}. The real ${ship.near ? 'Webb' : ship.name} answers only ${ship.near ? 'her mission team' : 'NASA'}.`;
   }
