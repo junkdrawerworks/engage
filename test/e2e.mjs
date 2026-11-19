@@ -4959,6 +4959,22 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await q.evaluate(() => localStorage.getItem('engage.oneswitch')), 'on');
   assert.equal(await q.locator('#settings').isVisible(), true);
   assert.equal(await q.locator('#records-said').innerText(), 'Added from your copy: 2 log entries, 1 creature in a jar, 3 simulations.');
+  // A browser with no room for the copy: nothing is half restored, and what was here is all still here.
+  const kept = await q.evaluate(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])));
+  await q.evaluate(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'engage.xeno.v1' && !window.room) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      return set.call(this, key, value);
+    };
+  });
+  await q.locator('#records-file').setInputFiles(copy);
+  await q.waitForFunction(() => !document.getElementById('records-found').hidden);
+  await q.tap('#records-replace');
+  await q.tap('#records-replace');
+  assert.equal(await q.locator('#records-said').innerText(), 'This browser’s storage is full, so the copy wasn’t restored, and nothing here was changed. Clearing the log makes room.');
+  assert.deepEqual(await q.evaluate(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)]))), kept);
+  await q.evaluate(() => { window.room = true; });
   // Replace: only what the copy has. The survey's record goes, and the log is the copy's.
   await q.locator('#records-file').setInputFiles(copy);
   await q.waitForFunction(() => !document.getElementById('records-found').hidden);

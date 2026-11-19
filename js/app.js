@@ -1089,15 +1089,20 @@ function restore(b) {
     setTimeout(() => disarm(b), 4000);
     return;
   }
-  const now = Object.fromEntries(keysNow().map(([key, raw]) => [key, fromRaw(raw)]));
+  const before = new Map(keysNow());
   const how = b.id === 'records-add' ? 'add' : 'replace';
-  const { write, remove } = plan(found, now, how);
+  const { write, remove } = plan(found, Object.fromEntries([...before].map(([key, raw]) => [key, fromRaw(raw)])), how);
   try {
     for (const key of remove) localStorage.removeItem(key);
     for (const [key, value] of Object.entries(write)) localStorage.setItem(key, rawOf(value));
   } catch {
+    // Half a restore is worse than none: everything goes back as it was, and nothing here is lost.
+    try {
+      for (const key of Object.keys(write)) if (!before.has(key)) localStorage.removeItem(key);
+      for (const [key, raw] of before) if (localStorage.getItem(key) !== raw) localStorage.setItem(key, raw);
+    } catch { /* as much as the browser allows */ }
     disarm(b);
-    $('records-said').textContent = 'This browser’s storage is full or blocked, so the copy couldn’t be restored in full. Clearing the log makes room.';
+    $('records-said').textContent = 'This browser’s storage is full, so the copy wasn’t restored, and nothing here was changed. Clearing the log makes room.';
     return;
   }
   try { sessionStorage.setItem(RESTORED, `${how === 'add' ? 'Added' : 'Restored'} from your copy: ${contents(found)}.`); } catch { /* said nowhere */ }
