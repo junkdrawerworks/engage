@@ -11,6 +11,7 @@
 
 import { peoplesMet, peoplesMade } from './contact-sim.js';
 import { mergeDuty } from './duty.js';
+import { tidyYard, MAX_DESIGNS } from './shipyard-sim.js';
 
 export const FORMAT = 'Engage ship’s records';
 export const VERSION = 1;
@@ -179,6 +180,12 @@ const MERGE = {
     const byStar = new Map();
     for (const h of [...list(theirs.hails), ...list(here.hails)]) if (typeof h.star === 'string' && !(byStar.get(h.star)?.sent >= h.sent)) byStar.set(h.star, h);
     return { ...here, hails: [...byStar.values()].sort((a, b) => b.sent - a.sent) };
+  },
+  'engage.shipyard.v1'(here, theirs) {
+    // The ships kept on either, here's first and as many as the shipyard holds; every requisition filled on either.
+    const y = tidyYard(here), t = tidyYard(theirs);
+    const u = union(y.designs, t.designs, d => d.id);
+    return { ...here, designs: u.all.slice(0, MAX_DESIGNS), filled: { ...t.filled, ...y.filled } };
   },
   'engage.missions.v1'(here, theirs) {
     const hails = { ...obj(theirs.hails) };

@@ -10,10 +10,12 @@ import { DAY, entryTime } from './logbook.js';
 import { standing as contactStanding } from './contact-sim.js';
 import { hailProgress, spanSaid } from './radio.js';
 import { yearsSaid } from './longway.js';
+import { tidyYard } from './shipyard-sim.js';
+import { fullName } from './myship.js';
 
 // The rooms that keep a record of what was done in them, and where each keeps it.
 export const RECORDS = { maru: 'engage.maru.v1', contact: 'engage.contact.v1', xeno: 'engage.xeno.v1', survey: 'engage.survey.v1', missions: 'engage.missions.v1', radio: 'engage.radio.v1',
-  distress: 'engage.distress.v1', longway: 'engage.longway.v1', engineering: 'engage.engineering.v1', directive: 'engage.directive.v1' };
+  distress: 'engage.distress.v1', longway: 'engage.longway.v1', engineering: 'engage.engineering.v1', directive: 'engage.directive.v1', shipyard: 'engage.shipyard.v1' };
 export function readRecords() {
   const out = {};
   for (const [room, key] of Object.entries(RECORDS)) {
@@ -46,8 +48,9 @@ const LETTERS = /^[ABCDF]$/;
 //   radio:    the latest hail sent to each star, and the day it lands
 //   distress: each distress call answered (the latest 50), rescued or lost
 //   longway:  each trip home from the Delta Quadrant (the latest 50)
+//   shipyard: each ship kept, and whether she filled a requisition
 // `lyOf(name)` is how far a star is, for a hail kept before the room kept that with it.
-export function supplementals({ maru, contact, xeno, survey, missions, radio, distress, longway } = {}, now = Date.now(), { lyOf } = {}) {
+export function supplementals({ maru, contact, xeno, survey, missions, radio, distress, longway, shipyard } = {}, now = Date.now(), { lyOf } = {}) {
   const out = [];
   // `kind` says what happened, for the counts a mission's summary makes of them.
   const add = (at, room, kind, line, href) => { const t = momentOf(at); if (t && t <= now + 60000) out.push({ t, room, kind, text: `Supplemental: ${line}`, href }); };
@@ -103,6 +106,9 @@ export function supplementals({ maru, contact, xeno, survey, missions, radio, di
   for (const a of list(obj(longway).arrivals)) {
     if (!(a.years > 0)) continue;
     add(a.at, 'longway', 'home', `home from the Delta Quadrant in ${yearsSaid(a.years)}.`, 'longway.html');
+  }
+  for (const d of tidyYard(shipyard).designs) {
+    add(d.at, 'shipyard', 'design', `laid down the ${fullName(d)} at the shipyard${d.req ? ', and filled Starfleet’s requisition with her' : ''}.`, 'shipyard.html');
   }
   return out.sort((a, b) => b.t - a.t);
 }
@@ -210,6 +216,7 @@ export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
   const stars = starHails(rec.radio, now, lyOf), landed = stars.filter(h => h.landed).length;
   const distress = obj(rec.distress), longway = obj(rec.longway), eng = obj(rec.engineering);
   const hearings = list(obj(rec.directive).heard).filter(h => Number.isFinite(h.t)).length;
+  const yard = tidyYard(rec.shipyard), filled = Object.keys(yard.filled).length;
   return [
     { room: 'maru', name: 'Kobayashi Maru', href: 'maru.html', none: 'Not sat yet',
       line: taken ? `${Math.min(seen.size, 9)} of 9 endings · best ${grades.join(' ')}${passed ? ' · Officer’s Test passed' : ''}${rescueSaid ? ` · ${rescueSaid}` : ''}`
@@ -232,6 +239,8 @@ export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
       line: count(eng.shifts) ? `${capital(some(count(eng.shifts), 'shift'))} stood${eng.best > 0 ? ` · best ${Math.round(Math.min(1, eng.best) * 100)}% held` : ''}` : '' },
     { room: 'directive', name: 'The Prime Directive', href: 'directive.html', none: 'No hearings yet',
       line: hearings ? `${capital(some(hearings, 'hearing'))} before the board of inquiry` : '' },
+    { room: 'shipyard', name: 'The shipyard', href: 'shipyard.html', none: 'No ships designed yet',
+      line: yard.designs.length || filled ? `${capital(some(yard.designs.length, 'ship'))} kept · ${filled ? `${words(filled)} requisition${filled === 1 ? '' : 's'} filled` : 'no requisitions filled yet'}` : '' },
   ];
 }
 

@@ -1,7 +1,7 @@
 // Duty: what brings an officer back to the bridge each day, read from every room's record. Today on the bridge, at
 // the head of the captain's log, gathers what is new today across the rooms: Starfleet's order of the day, today's
 // hail, simulation, exam and distress call, a friend hailing again, a hail landing, a long mission's answer due, a trip
-// home under way, today's rescue test. The service record
+// home under way, today's rescue test and the shipyard's requisition. The service record
 // carries a rank, from Cadet to Captain, earned from what has been done in every room, with what the next one needs,
 // the days served (and the tour under way, which a single missed day doesn't end), and commendations to see coming.
 // Everything is worked out in the page from the date and the records, the same for every officer on the same day:
@@ -12,6 +12,8 @@ import { DESTINATIONS } from './destinations.js';
 import { CHALLENGES } from './contact-sim.js';
 import { entryTime } from './logbook.js';
 import { EXAM } from './quiz.js';
+import { requisition, tidyYard } from './shipyard-sim.js';
+import { fullName } from './myship.js';
 
 const obj = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
 const list = x => (Array.isArray(x) ? x.filter(y => y && typeof y === 'object' && !Array.isArray(y)) : []);
@@ -190,6 +192,10 @@ export function todayItems(rec = {}, day, { landings = [], friend = null, answer
   const rescue = obj(obj(obj(rec.maru).rescue).daily), rescued = rescue.date === day && typeof rescue.line === 'string';
   items.push({ id: 'rescue', name: 'Today’s rescue test', href: 'maru.html', done: rescued,
     line: rescued ? rescue.line.replace(/^Rescue test, [^:]+: /, '') : 'Two ships, one transporter, the same for every cadet' });
+  // Starfleet's requisition, at the shipyard: filled by a design kept that day that meets it.
+  const yard = tidyYard(rec.shipyard), filledBy = yard.designs.find(d => d.id === yard.filled[day]) || (yard.filled[day] ? {} : null);
+  items.push({ id: 'requisition', name: 'Today’s requisition', href: 'shipyard.html', done: !!filledBy,
+    line: filledBy ? (filledBy.name ? `Filled with the ${fullName(filledBy)}` : 'Filled') : requisition(day).says.replace(/\.$/, '') });
   if (friend) items.push({ id: 'friend', name: `The ${friend} are hailing again`, href: 'contact.html', done: false, line: 'Second contact' });
   for (const h of landings) items.push({ id: `landed:${h.star}`, name: `Your hail reached ${h.title}`, href: `radio.html#hail=${encodeURIComponent(h.star)}`, done: true, line: 'Today, after the long way there' });
   for (const a of answers) {
@@ -218,10 +224,11 @@ export const ROOM_RECORDS = {
   longway: r => count(r.homes) > 0,
   engineering: r => count(r.shifts) > 0,
   directive: r => list(r.heard).length > 0,
+  shipyard: r => list(r.designs).length > 0,
 };
 export const roomsOnRecord = rec => Object.entries(ROOM_RECORDS).filter(([k, has]) => has(obj(rec[k]))).length;
 
-// Starfleet's ranks, lowest first, and what each needs: stars visited, rooms with something on record (of the ten
+// Starfleet's ranks, lowest first, and what each needs: stars visited, rooms with something on record (of the eleven
 // above), days served, orders of the day carried out, and for an ensign, one Kobayashi Maru sat. The names are
 // Starfleet's own; the thresholds are Engage's.
 export const RANKS = [

@@ -6,6 +6,7 @@ import {
   ASKS, COMMENDATIONS, ORDERS, ORDER_PLACES, RANKS, activeDays, addDays, answersDue, carriedOut, commendations, dayOf, mergeDuty,
   orderOf, rankOf, reportOf, roomsOnRecord, served, tidyDuty, todayItems, update,
 } from '../js/duty.js';
+import { requisition } from '../js/shipyard-sim.js';
 import { DESTINATIONS } from '../js/destinations.js';
 
 const noon = day => new Date(`${day}T12:00:00`).getTime();
@@ -120,12 +121,13 @@ test('ranks from Cadet to Captain, each with what the next one needs, and never 
   assert.equal(rankOf({ stars: 0 }, 99).name, 'Cadet', 'a rank that isn’t one');
 });
 
-test('the rooms on record are the ten with a record to keep', () => {
+test('the rooms on record are the eleven with a record to keep', () => {
   assert.equal(roomsOnRecord({}), 0);
   assert.equal(roomsOnRecord({
     maru: { taken: 1 }, contact: { met: 1 }, survey: { seen: 3 }, xeno: { tribble: { n: 1 } }, missions: { hails: { v1: 1 } }, radio: { hails: [{ star: 'Vega', sent: 1 }] },
-    distress: { answered: 1 }, longway: { homes: 1 }, engineering: { shifts: 2 }, directive: { heard: [{ case: 'a' }] },
-  }), 10);
+    distress: { answered: 1 }, longway: { homes: 1 }, engineering: { shifts: 2 }, directive: { heard: [{ case: 'a' }] }, shipyard: { designs: [{ id: 'a' }] },
+  }), 11);
+  assert.equal(roomsOnRecord({ maru: { rescue: { taken: 1 } } }), 1, 'the rescue test puts the Kobayashi Maru on record');
   assert.equal(roomsOnRecord({ maru: 'x', xeno: { jars: [] }, longway: { trip: { seed: 1 } } }), 0);
 });
 
@@ -147,8 +149,11 @@ test('today on the bridge: today’s simulation, hail and distress call, a frien
   const blank = todayItems({}, day);
   assert.deepEqual(blank.map(x => [x.name, x.done, x.href]), [
     ['Today’s simulation', false, 'maru.html'], ['Today’s hail', false, 'contact.html'], ['Today’s distress call', false, 'distress.html'],
-    ['Today’s exam', false, 'survey.html#exam'], ['Today’s rescue test', false, 'maru.html'],
+    ['Today’s exam', false, 'survey.html#exam'], ['Today’s rescue test', false, 'maru.html'], ['Today’s requisition', false, 'shipyard.html'],
   ]);
+  assert.equal(blank[5].line, requisition(day).says.slice(0, -1));
+  const filled = todayItems({ shipyard: { designs: [{ id: 'a', name: 'Meridian', hull: 'scout', e: 40, s: 30 }], filled: { [day]: 'a' } } }, day)[5];
+  assert.deepEqual([filled.line, filled.done], ['Filled with the USS Meridian', true]);
   const rec = {
     maru: { daily: { date: day }, rescue: { daily: { date: day, line: 'Rescue test, 20 Nov: 450 home, of the 480 it allowed' } } }, contact: { daily: { date: '2026-11-19' } },
     distress: { calls: [{ day, star: 'Procyon', found: true }] },
@@ -161,11 +166,12 @@ test('today on the bridge: today’s simulation, hail and distress call, a frien
     ['Today’s distress call', 'Rescued at Procyon', true],
     ['Today’s exam', 'Cover your tracks: 2 of 5 worlds so far', false],
     ['Today’s rescue test', '450 home, of the 480 it allowed', true],
+    ['Today’s requisition', requisition(day).says.slice(0, -1), false],
     ['The Qaethuk are hailing again', 'Second contact', false],
     ['Your hail reached Proxima Centauri', 'Today, after the long way there', true],
     ['The long way home', 'Under way: year 3, 61,235 light years to go', false],
   ]);
-  assert.equal(items[6].href, 'radio.html#hail=Proxima%20Centauri');
+  assert.equal(items[7].href, 'radio.html#hail=Proxima%20Centauri');
   // Yesterday's rescue is not today's.
   assert.equal(todayItems({ maru: { rescue: { daily: { date: '2026-11-19', line: 'x' } } } }, day)[4].done, false);
   assert.equal(todayItems({ distress: { calls: [{ day, star: 'Vega', left: true }] } }, day)[2].line, 'Lost');

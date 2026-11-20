@@ -134,9 +134,9 @@ test('rescues and trips home go in the log, and on the service record', async ()
     ['distress', 'Supplemental: answered a distress call. Found at Procyon with 42% of their air left.', 'distress.html'],
   ]);
   const rows = serviceRecord({ distress, longway });
-  assert.deepEqual(rows.slice(-4, -2).map(r => [r.name, r.line]), [['Distress calls', 'Rescued 1 of 3 calls'], ['The long way home', 'Home twice · best 58 years 3 months']]);
-  assert.equal(serviceRecord({ longway: { trip: { seed: 4 } } }).at(-3).none, 'A trip home under way');
-  assert.equal(serviceRecord({ longway: { homes: 1, best: 75 } }).at(-3).line, 'Home once · best 75 years');
+  assert.deepEqual(rows.filter(r => ['distress', 'longway'].includes(r.room)).map(r => [r.name, r.line]), [['Distress calls', 'Rescued 1 of 3 calls'], ['The long way home', 'Home twice · best 58 years 3 months']]);
+  assert.equal(serviceRecord({ longway: { trip: { seed: 4 } } }).find(r => r.room === 'longway').none, 'A trip home under way');
+  assert.equal(serviceRecord({ longway: { homes: 1, best: 75 } }).find(r => r.room === 'longway').line, 'Home once · best 75 years');
 });
 
 test('a hail to a star goes in the log the day it is sent and the day it lands, and on the service record', async () => {
@@ -206,6 +206,7 @@ test('the service record: a row for each room’s record, saying what is on it o
     ['The long way home', '', 'Not home yet', 'longway.html'],
     ['Main engineering', '', 'No shifts stood yet', 'engineering.html'],
     ['The Prime Directive', '', 'No hearings yet', 'directive.html'],
+    ['The shipyard', '', 'No ships designed yet', 'shipyard.html'],
   ]);
   const now = at('2026-11-19T12:00:00Z');
   const rows = serviceRecord({
@@ -221,11 +222,20 @@ test('the service record: a row for each room’s record, saying what is on it o
     'Best streak 7',
     'Two creatures in jars',
     'One ship hailed',
-    '', '', '', '', '',
+    '', '', '', '', '', '',
+  ]);
+  // The shipyard: ships kept, and requisitions filled.
+  const yard = { designs: [{ id: 'a', name: 'Meridian', hull: 'explorer', e: 40, s: 30, at: '2026-11-20T10:00:00.000Z', req: '2026-11-20' }, { id: 'b', name: 'Kestrel', hull: 'scout', e: 40, s: 30, at: '2026-11-20T11:00:00.000Z' }], filled: { '2026-11-20': 'a' } };
+  assert.equal(serviceRecord({ shipyard: yard }).at(-1).line, 'Two ships kept · one requisition filled');
+  assert.equal(serviceRecord({ shipyard: { designs: yard.designs.slice(1) } }).at(-1).line, 'One ship kept · no requisitions filled yet');
+  const { supplementals } = await import('../js/voyage.js');
+  assert.deepEqual(supplementals({ shipyard: yard }, at('2026-11-21T00:00:00Z')).map(l => [l.room, l.text]), [
+    ['shipyard', 'Supplemental: laid down the USS Kestrel at the shipyard.'],
+    ['shipyard', 'Supplemental: laid down the USS Meridian at the shipyard, and filled Starfleet’s requisition with her.'],
   ]);
   // Main engineering and the Prime Directive: the shifts stood and the hearings sat.
   const more = serviceRecord({ engineering: { shifts: 3, best: 0.8234 }, directive: { heard: [{ case: 'a', path: [], t: 1 }, { case: 'a', path: [], t: 2 }] } });
-  assert.deepEqual(more.slice(-2).map(r => r.line), ['Three shifts stood · best 82% held', 'Two hearings before the board of inquiry']);
+  assert.deepEqual(more.filter(r => ['engineering', 'directive'].includes(r.room)).map(r => r.line), ['Three shifts stood · best 82% held', 'Two hearings before the board of inquiry']);
   // The rescue test's best goes on the Kobayashi Maru's row, and is there before the Maru itself is sat.
   assert.equal(serviceRecord({ maru: { taken: 1, runs: [{ title: 'The lifeboat' }], best: {}, rescue: { taken: 3, best: 0.9134 } } })[0].line, '1 of 9 endings · best – – – – · rescue test best 91%');
   assert.equal(serviceRecord({ maru: { rescue: { taken: 1, best: 1 } } })[0].line, 'Not sat yet · rescue test best 100%');
@@ -360,6 +370,11 @@ test('ship’s records: everything Engage keeps in one file, read back, and adde
   const rescue = plan({ keys: { 'engage.maru.v1': { runs: [], rescue: { taken: 2, best: 1, full: 1, runs: [r1, r2], daily: { date: '2026-11-19', line: 'b' } } } } },
     { 'engage.maru.v1': { runs: [], rescue: { taken: 1, best: 0.889, full: 0, runs: [r1], daily: { date: '2026-11-18', line: 'a' } } } }, 'add').write['engage.maru.v1'].rescue;
   assert.deepEqual([rescue.taken, rescue.best, rescue.full, rescue.runs.length, rescue.daily.line], [2, 1, 1, 2, 'b']);
+  // The shipyard: the ships on either, once each, and every requisition filled.
+  const ship = (id, name) => ({ id, name, hull: 'scout', e: 40, s: 30, at: '2026-11-20T10:00:00.000Z' });
+  const yard = plan({ keys: { 'engage.shipyard.v1': { designs: [ship('a', 'Meridian'), ship('c', 'Clarion')], filled: { '2026-11-19': 'c' } } } },
+    { 'engage.shipyard.v1': { designs: [ship('a', 'Meridian'), ship('b', 'Kestrel')], filled: { '2026-11-20': 'a' } } }, 'add').write['engage.shipyard.v1'];
+  assert.deepEqual([yard.designs.map(d => d.id), yard.filled], [['a', 'b', 'c'], { '2026-11-19': 'c', '2026-11-20': 'a' }]);
   const contact = plan({ keys: { 'engage.contact.v1': { runs: [{ id: 'x', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-18T10:00:00.000Z' }], met: 1, contacts: 1, best: { decoded: 9, of: 10 }, friends: [{ people: 'Mipen', seed: 4 }] } } },
     { 'engage.contact.v1': { runs: [{ id: 'y', title: 'Ships passing', outcome: 'alone', people: 'Qaethuk', at: '2026-11-17T10:00:00.000Z' }], met: 1, contacts: 0, best: { decoded: 3, of: 10 } } }, 'add').write['engage.contact.v1'];
   assert.deepEqual([contact.runs.map(r => r.id), contact.met, contact.contacts, contact.best, contact.friends.map(f => f.people)], [['y', 'x'], 2, 1, { decoded: 9, of: 10 }, ['Mipen']]);

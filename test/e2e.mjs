@@ -6094,7 +6094,7 @@ await page.emulateMedia({ reducedMotion: null });
     ['Xenobiology lab', 'No creatures kept yet', 'xeno.html'], ['Long missions', 'No ships hailed yet', 'missions.html'],
     ['Hails to stars', 'No stars hailed yet', 'radio.html#hail'], ['Distress calls', 'No calls answered yet', 'distress.html'],
     ['The long way home', 'Not home yet', 'longway.html'], ['Main engineering', 'No shifts stood yet', 'engineering.html'],
-    ['The Prime Directive', 'No hearings yet', 'directive.html'],
+    ['The Prime Directive', 'No hearings yet', 'directive.html'], ['The shipyard', 'No ships designed yet', 'shipyard.html'],
   ]);
   await p.evaluate(() => engage.closeSheets());
   const before = await p.evaluate(() => Object.keys(localStorage).sort());
@@ -6106,7 +6106,7 @@ await page.emulateMedia({ reducedMotion: null });
     localStorage.setItem('engage.longway.v1', JSON.stringify({ trip: null, best: 58.25, homes: 1, arrivals: [{ at: new Date(Date.now() - 20000).toISOString(), years: 58.25, nebula: 3, world: 2 }] }));
   });
   await p.tap('#open-log');
-  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed', 'No stars hailed yet', 'Rescued 1 of 1 call', 'Home once · best 58 years 3 months', 'No shifts stood yet', 'No hearings yet']);
+  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed', 'No stars hailed yet', 'Rescued 1 of 1 call', 'Home once · best 58 years 3 months', 'No shifts stood yet', 'No hearings yet', 'No ships designed yet']);
   // A rescue and a trip home each have their line in the log, leading to their room.
   assert.deepEqual(await p.locator('#entries .supp a').evaluateAll(as => as.filter(a => /^(longway|distress)/.test(a.getAttribute('href'))).map(a => [a.textContent, a.getAttribute('href')])), [
     ['Supplemental: home from the Delta Quadrant in 58 years 3 months.', 'longway.html'],
@@ -6453,7 +6453,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#open-log');
   assert.equal(await p.locator('#order .says').innerText(), order.says, 'the order of the day is not the one for the date');
   assert.equal(await p.locator('#order').getAttribute('class'), 'order');
-  assert.deepEqual(await p.locator('#today li b').allInnerTexts(), ['Today’s simulation', 'Today’s hail', 'Today’s distress call', 'Today’s exam', 'Today’s rescue test']);
+  assert.deepEqual(await p.locator('#today li b').allInnerTexts(), ['Today’s simulation', 'Today’s hail', 'Today’s distress call', 'Today’s exam', 'Today’s rescue test', 'Today’s requisition']);
   assert.match(await p.locator('#served').innerText(), /^Cadet · Your first day aboard$/);
   assert.match(await p.locator('#today .served.next').innerText(), /^Next, Ensign: 10 more stars, 1 more Kobayashi Maru run\.$/);
   assert.ok((await p.locator('#today li a').evaluateAll(as => as.map(a => a.getBoundingClientRect().height))).every(h => h >= 44));
@@ -6491,7 +6491,7 @@ await page.emulateMedia({ reducedMotion: null });
   assert.match(await p.locator('#order .done').innerText(), /^Carried out\./);
   if (order.kind === 'star') assert.ok((await p.locator('#order .done').innerText()).length > 20, 'a star order carried out reported nothing from the log');
   assert.deepEqual(await p.locator('#today li').evaluateAll(els => els.map(el => [el.querySelector('b').textContent, el.className])), [
-    ['Today’s simulation', 'done'], ['Today’s hail', order.kind === 'contact' ? 'done' : ''], ['Today’s distress call', 'done'], ['Today’s exam', ''], ['Today’s rescue test', ''], ['The Qaethuk are hailing again', ''],
+    ['Today’s simulation', 'done'], ['Today’s hail', order.kind === 'contact' ? 'done' : ''], ['Today’s distress call', 'done'], ['Today’s exam', ''], ['Today’s rescue test', ''], ['Today’s requisition', ''], ['The Qaethuk are hailing again', ''],
   ]);
   assert.equal(await p.locator('#today [data-today="friend"]').getAttribute('href'), 'contact.html');
   assert.match(await p.locator('#served').innerText(), /^Cadet · 1 day served$/);
