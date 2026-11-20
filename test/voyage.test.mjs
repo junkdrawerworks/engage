@@ -295,6 +295,9 @@ test('ship’s records: everything Engage keeps in one file, read back, and adde
   const more = { jars: [{ id: 'H', seed: 1 }, { id: 'H', seed: 2 }, { id: 'M', seed: 1 }] };
   assert.equal(plan({ keys: { 'engage.xeno.v1': more } }, { 'engage.xeno.v1': full }, 'add').write['engage.xeno.v1'].jars.length, 40);
   assert.equal(jarsLeft(full, more), 1);
+  // The Sun's hello, said on either copy, has been said.
+  assert.equal(plan({ keys: { 'engage.v1': { log: [], sunHello: true } } }, { 'engage.v1': { log: [] } }, 'add').write['engage.v1'].sunHello, true);
+  assert.equal(plan({ keys: { 'engage.v1': { log: [] } } }, { 'engage.v1': { log: [] } }, 'add').write['engage.v1'].sunHello, undefined);
   // The tribbles' jar is apart from the shelf: the copy's comes over when there is none here, and one here stays.
   const tribble = { at: '2026-11-18T10:00:00.000Z' };
   assert.deepEqual(plan({ keys: { 'engage.xeno.v1': { jars: [], tribble } } }, { 'engage.xeno.v1': full }, 'add').write['engage.xeno.v1'].tribble, tribble);

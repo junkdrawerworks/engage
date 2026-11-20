@@ -98,7 +98,8 @@ const MERGE = {
     const u = union(list(here.log), list(theirs.log), ENTRY);
     const log = u.all.sort((a, b) => entryWhen(b) - entryWhen(a));
     const ly = (Number.isFinite(here.ly) ? here.ly : 0) + u.added.reduce((sum, e) => sum + (e.ly > 0 ? e.ly : 0), 0);
-    return { ...here, log, ly, seenIntro: !!(here.seenIntro || theirs.seenIntro), ...(here.ship || !theirs.ship ? {} : { ship: theirs.ship }) };
+    // The Sun says hello once ever: said on either, it has been said.
+    return { ...here, log, ly, seenIntro: !!(here.seenIntro || theirs.seenIntro), ...(here.ship || !theirs.ship ? {} : { ship: theirs.ship }), ...(here.sunHello || theirs.sunHello ? { sunHello: true } : {}) };
   },
   'engage.maru.v1'(here, theirs) {
     const u = union(list(here.runs), list(theirs.runs), RUN);
