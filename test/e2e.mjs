@@ -6776,10 +6776,10 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.locator('#three li').count(), 3);
   assert.match(await p.locator('#three li a').first().getAttribute('href'), /^\.\/\?course=/);
   assert.match(await p.locator('#three li a').nth(1).getAttribute('href'), /^\.\/tonight\.html#star=/);
-  // The dial moves the year; 1938 was on the air.
+  // The dial moves the year; 1938's FA Cup Final went out on television.
   await p.locator('#dial').fill('1938');
   assert.equal(await p.locator('#dial-out').innerText(), '1938');
-  assert.equal(await p.locator('#year-line').innerText(), 'On the air in 1938: Orson Welles’s radio play The War of the Worlds.');
+  assert.equal(await p.locator('#year-line').innerText(), 'On the air in 1938: the BBC televised the FA Cup Final live and in full for the first time.');
   // This year: no star is near enough yet.
   const thisYear = new Date().getUTCFullYear();
   await p.locator('#dial').fill(String(thisYear));

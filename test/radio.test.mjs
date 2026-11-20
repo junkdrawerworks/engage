@@ -65,7 +65,7 @@ test('a star’s own name is told from a catalogue number', () => {
 });
 
 test('every year from 1936 to 1956 with something on the air says what, and later years name their moment', () => {
-  assert.equal(yearLine(1938), 'On the air in 1938: Orson Welles’s radio play The War of the Worlds.');
+  assert.equal(yearLine(1938), 'On the air in 1938: the BBC televised the FA Cup Final live and in full for the first time.');
   assert.equal(yearLine(1966), 'In 1966, Star Trek premiered on television.');
   assert.equal(yearLine(1969), 'In 1969, people first walked on the Moon.');
   assert.equal(yearLine(1940), '');

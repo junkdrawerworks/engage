@@ -59,12 +59,16 @@ export const properName = name => !/^(HIP|HD|HR|HYG|Gliese|GJ|Wolf|Ross|LHS|LP|G
 // is a broadcast that went out that year. 1936, 1937, 1941 and 1947 were checked on 19 November 2026 against
 // Wikipedia ("First day of BBC television", "1937 in British television", "1947 World Series") and the Television
 // Academy's "July 1, 1941: The Day Commercial Television Was Born"; the BBC's 1936 service is the first regular
-// *high-definition* one, since Berlin's 180-line service began in 1935. The other five are well-known dates not
-// looked up again.
+// *high-definition* one, since Berlin's 180-line service began in 1935. 1938 was checked on 20 November 2026 against
+// Wikipedia's "1938 FA Cup final" (Preston North End 1, Huddersfield Town 0, 30 April 1938, the first final broadcast
+// on television) and "1937 FA Cup final" (part of that match was shown; 1938's was the first televised in its
+// entirety). Only television is listed: radio of the time went out on AM, which the ionosphere bends back to the
+// ground, so Orson Welles's The War of the Worlds (1938) is left out. The other four are well-known dates not looked
+// up again.
 export const ON_AIR = [
   [1936, 'the Berlin Olympics were televised, and the BBC opened the world’s first regular high-definition television service'],
   [1937, 'the BBC televised the coronation procession of George VI'],
-  [1938, 'Orson Welles’s radio play The War of the Worlds'],
+  [1938, 'the BBC televised the FA Cup Final live and in full for the first time'],
   [1939, 'NBC televised the opening of the New York World’s Fair'],
   [1941, 'the first paid television advertisement, for a Bulova clock, in New York'],
   [1947, 'the first televised World Series'],
