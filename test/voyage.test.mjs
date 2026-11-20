@@ -553,3 +553,20 @@ test('the line under the chart counts the stars, names the farthest and owns up 
   assert.equal(chartLine(chartOf([{ star: 1 }], chartCat), i => titles[i], roughLy), '1 star charted: Ahead, 10 light years out.');
   assert.equal(chartLine(chartOf([], chartCat), i => titles[i], roughLy), 'Nothing charted yet beyond home.');
 });
+
+// ---------- A picture of a log entry ----------
+import { entryCard, squareAround, ENTRY_CARD } from '../js/logbook.js';
+
+test('a log entry’s picture: its star, its stardate and what it says about seeing home', () => {
+  const e = { star: 7, title: 'Proxima Centauri', stardate: '2026.886', intro: 'We’ve dropped out of warp at Proxima Centauri.', sections: [['The star', 'Red dwarf.'], ['Looking home', 'The Sun is a magnitude 0.4 star in Cassiopeia.']] };
+  const c = entryCard(e);
+  assert.deepEqual(c, { eyebrow: 'ENGAGE · CAPTAIN’S LOG', title: 'Proxima Centauri', stardate: 'Stardate 2026.886', home: 'The Sun is a magnitude 0.4 star in Cassiopeia.', file: 'proxima-centauri-stardate-2026-886.png' });
+  assert.equal(entryCard(e, 'USS Meridian NCC-1987').eyebrow, 'CAPTAIN’S LOG · USS MERIDIAN NCC-1987');
+  // Home has no line about seeing home: the opening line instead.
+  assert.equal(entryCard({ title: 'Sol', stardate: '2026.9', intro: 'Back home, in Earth’s orbit.', sections: [] }).home, 'Back home, in Earth’s orbit.');
+  assert.deepEqual([ENTRY_CARD.w, ENTRY_CARD.h], [1080, 1620]);
+  // The viewscreen's square, round the star and inside the picture.
+  assert.deepEqual(squareAround(780, 1688, 390, 300), { sx: 0, sy: 0, s: 780 });
+  assert.deepEqual(squareAround(780, 1688, 390, 900), { sx: 0, sy: 510, s: 780 });
+  assert.deepEqual(squareAround(2560, 1600, 1900, 800), { sx: 960, sy: 0, s: 1600 });
+});

@@ -100,3 +100,28 @@ export const LONG_LOG = 30;
 // And shows this many arrivals at a time.
 export const PAGE = 50;
 
+
+// ---------- A picture of an entry ----------
+
+// Save a picture on an entry draws a card the size of the lab's creature card (CARD_W by CARD_H in js/xeno-art.js):
+// the viewscreen at that star, its name, the stardate and what the entry says about seeing home. These are the words
+// on it, from the entry alone: { eyebrow, title, stardate, home, file }. `ship` is the ship's full name, or ''.
+export const ENTRY_CARD = { w: 1080, h: 1620, view: 960 };
+export function entryCard(e, ship = '') {
+  const home = (e?.sections || []).find(s => Array.isArray(s) && s[0] === 'Looking home')?.[1] || '';
+  const title = String(e?.title || '');
+  return {
+    eyebrow: ship ? `CAPTAIN’S LOG · ${ship.toUpperCase()}` : 'ENGAGE · CAPTAIN’S LOG',
+    title,
+    stardate: `Stardate ${e?.stardate ?? ''}`,
+    // Home itself has no line about seeing home: the entry's opening says where the ship is instead.
+    home: home || String(e?.intro || ''),
+    file: `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'log-entry'}-stardate-${String(e?.stardate ?? '').replace(/[^0-9]+/g, '-')}.png`,
+  };
+}
+// The square of a picture `w` by `h` to show, as big as fits and centred as near (x, y) as the edges allow: the star.
+export function squareAround(w, h, x, y) {
+  const s = Math.min(w, h);
+  const clamp = (v, hi) => Math.max(0, Math.min(hi, v));
+  return { sx: clamp(x - s / 2, w - s), sy: clamp(y - s / 2, h - s), s };
+}

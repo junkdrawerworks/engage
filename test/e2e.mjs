@@ -735,7 +735,7 @@ assert.ok(!('firsts' in await page.evaluate(() => engage.state.log[0])) && !/Fir
 // The new entry offers the star in tonight's sky, and no course for the star the ship has just reached.
 // (It does offer one for the nearest star, which from Proxima is the Sun: Alpha Centauri's two are its companions.)
 assert.deepEqual(await page.locator('#arrival-entry .entry-actions > *').evaluateAll(els => els.map(el => [el.textContent, el.getAttribute('href')])),
-  [['Set course for Sol', null], ['In your sky tonight', 'tonight.html#star=Proxima%20Centauri'], ['Share this course', null]]);
+  [['Set course for Sol', null], ['In your sky tonight', 'tonight.html#star=Proxima%20Centauri'], ['Share this course', null], ['Save a picture', null]]);
 // Share this course hands the phone's share sheet a link to the live site that sets the same course: for a
 // destination with notes, its own page, which previews as that star in a chat and passes straight on to the bridge.
 // (The sheet itself can't be opened here, so it is stood in for.)
@@ -1099,6 +1099,50 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   await p.evaluate(() => { engage.jump('Sol'); engage.closeSheets(); });
   await p.keyboard.press('h');
   await p.waitForFunction(() => engage.planet?.name === 'Earth', null, { timeout: 20000 });
+  await ctx2.close();
+}
+
+// Save a picture on a log entry: a 1080 × 1620 card with the viewscreen at that star (the one on screen, at the star
+// the ship holds at; drawn again from where it held, for an earlier entry), its name, the stardate and the line
+// about seeing home, downloaded where the browser can't share a file. Drawing an earlier star's view leaves the
+// bridge's own as it was.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, acceptDownloads: true });
+  await ctx2.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await ctx2.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => { engage.jump('Sirius'); engage.jump('Proxima Centauri'); });
+  await p.waitForTimeout(400);
+  const card = async () => p.evaluate(async () => {
+    const img = new Image();
+    img.src = engage.lastPicture();
+    await img.decode();
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const at = (x, y) => { const d = g.getImageData(x, y, 1, 1).data; return d[0] + d[1] + d[2]; };
+    return { w: img.width, h: img.height, middle: at(540, 610), corner: at(70, 1080) };
+  });
+  let dl = p.waitForEvent('download');
+  await p.tap('#arrival-entry [data-picture]');
+  assert.equal((await dl).suggestedFilename(), (await p.evaluate(() => `proxima-centauri-stardate-${engage.state.log[0].stardate.replace('.', '-')}.png`)));
+  const live = await card();
+  assert.deepEqual([live.w, live.h], [1080, 1620]);
+  assert.ok(live.middle > 600, `the star is not in the middle of its viewscreen: ${live.middle}`);
+  // An earlier entry, from the log: Sirius, drawn from where the ship held there, and the bridge's view untouched.
+  const before = await p.evaluate(() => engage.project('Proxima Centauri'));
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-log');
+  await p.locator('#entries summary').nth(1).click();
+  dl = p.waitForEvent('download');
+  await p.locator('#entries [data-picture]').nth(1).click();
+  assert.match((await dl).suggestedFilename(), /^sirius-stardate-\d+-\d+\.png$/);
+  const past = await card();
+  assert.ok(past.middle > 600, `Sirius is not in the middle of its viewscreen: ${past.middle}`);
+  await p.waitForTimeout(200);
+  const after = await p.evaluate(() => engage.project('Proxima Centauri'));
+  assert.ok(Math.abs(after.x - before.x) < 1 && Math.abs(after.y - before.y) < 1, 'drawing Sirius’s view moved the bridge’s');
   await ctx2.close();
 }
 
@@ -2741,10 +2785,11 @@ await bridgeReady();
   await p.goto(base);
   await bridgeReady(p);
   await p.evaluate(() => { for (const name of ['ρ Cassiopeiae', 'Mira', 'Sol']) { engage.jump(name); engage.closeSheets(); } });
-  // The entry for coming home has no course to share (a link home sets nothing on a bridge that is already there).
+  // The entry for coming home has no course to share (a link home sets nothing on a bridge that is already there),
+  // though it has a picture.
   await p.click('#open-log');
   await p.locator('.past').first().locator('summary').click();
-  assert.deepEqual(await p.locator('.past').first().locator('.entry-actions > *').evaluateAll(els => els.map(el => el.textContent)), ['In your sky tonight']);
+  assert.deepEqual(await p.locator('.past').first().locator('.entry-actions > *').evaluateAll(els => els.map(el => el.textContent)), ['In your sky tonight', 'Save a picture']);
   assert.equal(await p.locator('.past').nth(1).locator('[data-share]').count(), 1);
   await p.goto(base + 'tonight.html#star=' + encodeURIComponent('ρ Cassiopeiae'));
   await p.waitForFunction(() => window.tonight && document.getElementById('card-title').textContent === 'ρ Cassiopeiae');
@@ -4980,7 +5025,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.evaluate(() => engage.jump('Denebola'));
   assert.deepEqual(await p.locator('#arrival-entry dt').allInnerTexts(), ['THE STAR', 'A TEMPERATE ORBIT', 'ITS LIFE', 'THE SKY FROM HERE', 'LOOKING HOME', 'THE TRIP']);
   assert.equal(await p.locator('#arrival-entry dt:text-is("The sky from here") + dd').innerText(), 'The brightest star in this sky is Arcturus, magnitude −1.2. The nearest is Gliese 452.1, 3.6 light years away.');
-  assert.deepEqual(await p.locator('#arrival-entry .entry-actions > *').allInnerTexts(), ['SET COURSE FOR GLIESE 452.1', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE']);
+  assert.deepEqual(await p.locator('#arrival-entry .entry-actions > *').allInnerTexts(), ['SET COURSE FOR GLIESE 452.1', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE', 'SAVE A PICTURE']);
   // Next destination opens on the stars nearest the ship, nearest first, each as far as the helm will say.
   // The headings were written from Earth: away from it, the first group of destinations is the Sun's neighbours,
   // not "Next door".
@@ -5004,11 +5049,11 @@ await page.emulateMedia({ reducedMotion: null });
   // Kept in the log, the entry still offers it; once the ship is there, it doesn't.
   await p.tap('#open-log');
   await p.locator('.past summary').first().tap();
-  assert.deepEqual(await p.locator('.past').first().locator('.entry-actions > *').allInnerTexts(), ['SET COURSE FOR GLIESE 452.1', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE']);
+  assert.deepEqual(await p.locator('.past').first().locator('.entry-actions > *').allInnerTexts(), ['SET COURSE FOR GLIESE 452.1', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE', 'SAVE A PICTURE']);
   await p.evaluate(() => { engage.closeSheets(); engage.jump('Gliese 452.1'); engage.closeSheets(); });
   await p.tap('#open-log');
   await p.locator('.past summary').nth(1).tap();
-  assert.deepEqual(await p.locator('.past').nth(1).locator('.entry-actions > *').allInnerTexts(), ['SET COURSE AGAIN', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE']);
+  assert.deepEqual(await p.locator('.past').nth(1).locator('.entry-actions > *').allInnerTexts(), ['SET COURSE AGAIN', 'IN YOUR SKY TONIGHT', 'SHARE THIS COURSE', 'SAVE A PICTURE']);
   await p.evaluate(() => engage.closeSheets());
   // A star listed at the same place is a companion, in the entry and in the list: Sirius B, 21 AU from Sirius.
   await p.evaluate(() => engage.jump('Sirius'));

@@ -19,7 +19,7 @@ import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
 import { chartEdge, chartLine, chartOf, dotAt } from './cartography.js';
 import { drawChart } from './chart-view.js';
-import { LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryTime, matches, newest, timeline } from './logbook.js';
+import { ENTRY_CARD, LONG_LOG, PAGE, byDay, byStar, clockTime, dayHeading, entryCard, entryTime, matches, newest, squareAround, timeline } from './logbook.js';
 import { cleanName, cleanRegistry, fullName, shipOf, withRegistry } from './myship.js';
 import { carried, contents, fileName, fromRaw, jarsLeft, pack, plan, rawOf, unpack } from './records.js';
 import { hold as wakeHold, release as wakeRelease } from './wake.js';
@@ -1476,7 +1476,8 @@ function entryActions(e, arrival) {
   // A course for home isn't one to send: nearly everyone who opens the link is already there.
   // (On the arrival sheet the button stands for that entry itself: the log can gain entries from another tab under it.)
   const send = e.star === 0 ? '' : `<button type="button" data-share="${arrival ? 'arrival' : state.log.indexOf(e)}">Share this course</button>`;
-  return `<p class="entry-actions">${again}${near}${tonight}${send}</p>`;
+  const picture = `<button type="button" data-picture="${arrival ? 'arrival' : state.log.indexOf(e)}">Save a picture</button>`;
+  return `<p class="entry-actions">${again}${near}${tonight}${send}${picture}</p>`;
 }
 
 function shareCourse(button) {
@@ -1489,6 +1490,131 @@ function shareCourse(button) {
     url: `${LIVE}${coursePath(cat.names[e.star]) ?? `?course=${encodeURIComponent(cat.names[e.star])}`}`,
   });
 }
+
+// ---------- A picture of an entry ----------
+
+// Save a picture on a log entry draws a card like the lab's creature card (js/logbook.js has its words): the
+// viewscreen at that star, its name, the stardate and the line about seeing home, handed to the share sheet or
+// downloaded. At the star the ship is holding at, the viewscreen is the one on screen, as it is, names and all; for
+// an earlier entry it is drawn again from where the ship held there, facing the star as it arrived (from the star
+// before it in the log, or from Sol).
+function viewAt(e, k) {
+  const canvas = $('sky');
+  const out = document.createElement('canvas');
+  if (!trip && e.star === state.at) {
+    sky.render(viewNow(0));
+    drawLabels(performance.now());
+    const p = sky.project(state.at), f = canvas.width / (canvas.clientWidth || 1);
+    const q = squareAround(canvas.width, canvas.height, p && !p.behind ? p.x * f : canvas.width / 2, p && !p.behind ? p.y * f : canvas.height / 2);
+    out.width = out.height = q.s;
+    const g = out.getContext('2d');
+    g.drawImage(canvas, q.sx, q.sy, q.s, q.s, 0, 0, q.s, q.s);
+    g.drawImage($('labels'), q.sx, q.sy, q.s, q.s, 0, 0, q.s, q.s);
+    dirty = true;
+    return out;
+  }
+  const S = starPos(e.star);
+  const before = k >= 0 ? state.log.slice(k + 1).find(x => x.star !== e.star) : null;
+  const from = before && Number.isInteger(before.star) && before.star < cat.count ? starPos(before.star) : [0, 0, 0];
+  let dir = S.map((v, i) => v - from[i]);
+  let len = Math.hypot(...dir);
+  if (!len) { dir = [Math.cos(START_YAW), Math.sin(START_YAW), 0]; len = 1; }
+  dir = dir.map(v => v / len);
+  const hold = e.star === 0 ? 1 / AU_PER_PC : holdAU(e.star) / AU_PER_PC;
+  const cam = S.map((v, i) => v - dir[i] * hold);
+  const { yaw, pitch } = headingOf(dir);
+  const origin = sky.origin.slice(), behave = sky.behave;
+  try {
+    sky.behave = null;
+    sky.setOrigin(S);
+    sky.render({ cam, yaw, pitch, fov: state.fov, lines: state.opts.lines, warp: 0, warpSpeed: 0, dt: 0 });
+    const q = squareAround(canvas.width, canvas.height, canvas.width / 2, canvas.height / 2);
+    out.width = out.height = q.s;
+    out.getContext('2d').drawImage(canvas, q.sx, q.sy, q.s, q.s, 0, 0, q.s, q.s);
+  } finally {
+    sky.setOrigin(origin);
+    sky.behave = behave;
+    dirty = true;
+  }
+  return out;
+}
+
+async function saveEntryPicture(button) {
+  const k = button.dataset.picture === 'arrival' ? state.log.indexOf(arrived) : Number(button.dataset.picture);
+  const e = button.dataset.picture === 'arrival' ? arrived : state.log[k];
+  if (!e || button.disabled) return;
+  button.disabled = true;
+  try {
+    await Promise.all(['600 64px "Chakra Petch"', '28px "IBM Plex Sans"'].map(f => document.fonts.load(f))).catch(() => {});
+    const words = entryCard(e, state.ship ? fullName(state.ship) : '');
+    const { w: W, h: H, view: V } = ENTRY_CARD, pad = (W - V) / 2;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#0b1222'); bg.addColorStop(1, '#05070d');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.textBaseline = 'alphabetic';
+    const display = n => `600 ${n}px "Chakra Petch", "Arial Narrow", sans-serif`, body = n => `${n}px "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif`;
+    g.fillStyle = '#ffb54a'; g.font = display(30);
+    g.fillText(words.eyebrow, pad, 96, V);
+    // The viewscreen, in a frame like the bridge's.
+    const view = viewAt(e, k), top = 130;
+    g.save();
+    g.beginPath(); if (g.roundRect) g.roundRect(pad, top, V, V, 28); else g.rect(pad, top, V, V); g.clip();
+    g.fillStyle = '#000'; g.fillRect(pad, top, V, V);
+    g.drawImage(view, pad, top, V, V);
+    g.restore();
+    g.strokeStyle = 'rgba(140,180,255,0.32)'; g.lineWidth = 2;
+    g.beginPath(); if (g.roundRect) g.roundRect(pad, top, V, V, 28); else g.rect(pad, top, V, V); g.stroke();
+    // The stardate, the star and the line about home, in rows no wider than the frame.
+    const rows = (text, max) => {
+      const out = [];
+      let line = '';
+      for (const word of text.split(' ')) { const t = line ? `${line} ${word}` : word; if (g.measureText(t).width > V && line) { out.push(line); line = word; } else line = t; }
+      out.push(line);
+      if (out.length > max) { out.length = max; out[max - 1] = `${out[max - 1].replace(/[,;.]?\s*\S*$/, '')}…`; }
+      return out;
+    };
+    let y = top + V + 70;
+    g.fillStyle = '#86d8ff'; g.font = display(32);
+    g.fillText(words.stardate, pad, y);
+    y += 78;
+    g.fillStyle = '#e8edf6'; g.font = display(words.title.length > 18 ? 58 : 72);
+    for (const r of rows(words.title, 2)) { g.fillText(r, pad, y, V); y += words.title.length > 18 ? 64 : 78; }
+    // As many of its sentences as fit whole above the foot (cut short only if even the first doesn't).
+    g.fillStyle = '#cdd5e3'; g.font = body(32);
+    const left = Math.max(1, Math.floor((H - 120 - y) / 44));
+    const said = words.home.split(/(?<=[.!?])\s+(?=[A-Z“‘"'])/); // (not at the point in "magnitude 0.4")
+    let text = said[0].trim();
+    for (const next of said.slice(1)) { const more = `${text} ${next.trim()}`; if (rows(more, 99).length > left) break; text = more; }
+    for (const r of rows(text, left)) { y += 6; g.fillText(r, pad, y, V); y += 38; }
+    const foot = H - 62;
+    g.fillStyle = '#6fe3a4'; g.font = display(34);
+    g.fillText('Logged on the bridge', pad, foot);
+    g.fillStyle = '#93a0b8'; g.font = body(28); g.textAlign = 'right';
+    g.fillText('engage.junkdrawer.works', W - pad, foot);
+    g.textAlign = 'left';
+    lastPicture = cv;
+    const blob = await new Promise(done => cv.toBlob(done, 'image/png'));
+    if (!blob) return;
+    const file = new File([blob], words.file, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: `Captain’s log, stardate ${e.stardate}: ${e.title}`, text: `${LIVE}${e.star === 0 ? '' : coursePath(cat.names[e.star]) ?? `?course=${encodeURIComponent(cat.names[e.star])}`}` });
+        return;
+      } catch (err) { if (err?.name === 'AbortError') return; } // closed the sheet; otherwise download it instead
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } finally { button.disabled = false; }
+}
+let lastPicture = null; // the last card drawn, for the tests
 
 // Links to the planetary survey's files on this star's planets.
 function surveyLinks(i, style) {
@@ -2280,6 +2406,8 @@ function bind() {
       noteLeaving(id, e);
       const b = e.target.closest('[data-share]');
       if (b) shareCourse(b);
+      const pic = e.target.closest('[data-picture]');
+      if (pic) saveEntryPicture(pic);
       const again = e.target.closest('[data-again], [data-course]');
       if (!again) return;
       sound.blip(990);
@@ -2599,6 +2727,8 @@ function hooks() {
     earthSky,
     get earthHeld() { return earthHeld; },
     get earthTurned() { return !!earthLook; },
+    // The last picture of a log entry drawn, as a data URL (see saveEntryPicture).
+    lastPicture: () => lastPicture?.toDataURL('image/png') || null,
     // The planet drawn beside the star the ship holds at: its name, where it is on the screen, and how far from its star.
     get planet() { return planet?.at && heldPlanet() ? { name: planet.name, ...planet.at, theta: planet.theta / DEG, dir: planet.dir } : null; },
     autopilot,
