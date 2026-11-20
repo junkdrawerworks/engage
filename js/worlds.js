@@ -9,8 +9,8 @@
 // temperature in °C, instead, and `dayHours`, the length of a day from noon to noon. `src` is where the numbers are
 // from. The exoplanets are the NASA Exoplanet Archive's composite values (exoplanetarchive.ipac.caltech.edu, table
 // pscomppars, read 19 November 2026), with the paper each comes from; the Solar System's are NASA's planetary fact
-// sheet (nssdc.gsfc.nasa.gov/planetary/factsheet, read the same day). `locked` marks a planet close enough to a small
-// star that it is expected to keep one face to it, as the Moon does to Earth: tides lock a planet that close within a
+// sheet (nssdc.gsfc.nasa.gov/planetary/factsheet, read the same day). `locked` marks a planet close enough to its star
+// (a small star, or a giant a few days out) that it is expected to keep one face to it, as the Moon does to Earth: tides lock a planet that close within a
 // few billion years (Barnes 2017, "Tidal locking of habitable exoplanets", Celestial Mechanics and Dynamical
 // Astronomy 129, 509). Nobody has seen it happen on any of them; the rooms say "expected".
 import { SUN_RADIUS_AU, widthFor } from './physics.js';
@@ -62,11 +62,53 @@ export const SYSTEMS = [
       { name: 'TRAPPIST-1 h', au: 0.06189, days: 18.772866, width: 0.755, mass: 0.326, teq: 171.7, locked: true, src: 'Agol et al. 2021, PSJ 2, 1' },
     ],
   },
+  // The stars below were added later, from the same table (read 20 November 2026). Where the archive puts together a
+  // planet's figures from more than one paper, `src` names each. A giant's width is nowhere measured: `guess` marks the
+  // archive's own estimate from its mass (the mass-radius relation of Chen and Kipping 2017, ApJ 834, 17), and so is
+  // a giant's `teq` where no paper gives one: the archive works it out for a planet that reflects no light at all.
+  {
+    star: 'Barnard\'s Star', planets: [
+      { name: 'Barnard’s Star d', au: 0.0188, days: 2.3402, mass: 0.263, least: true, teq: 483, locked: true, src: 'Basant et al. 2025, ApJL 982, L1' },
+      { name: 'Barnard’s Star b', au: 0.0229, days: 3.1542, mass: 0.299, least: true, teq: 438, locked: true, src: 'Basant et al. 2025, ApJL 982, L1' },
+      { name: 'Barnard’s Star c', au: 0.0274, days: 4.1244, mass: 0.335, least: true, teq: 400, locked: true, src: 'Basant et al. 2025, ApJL 982, L1' },
+      { name: 'Barnard’s Star e', au: 0.0381, days: 6.7392, mass: 0.193, least: true, teq: 340, locked: true, src: 'Basant et al. 2025, ApJL 982, L1' },
+    ],
+  },
+  {
+    star: 'Ran', title: 'Epsilon Eridani', planets: [
+      { name: 'Ægir', au: 3.53, days: 2680, width: 13.8, guess: true, mass: 317.8, teq: 112, src: 'Thompson et al. 2025, AJ 170, 301; its temperature and width are the archive’s estimates' },
+    ],
+  },
+  {
+    star: 'Copernicus', title: '55 Cancri', planets: [
+      { name: '55 Cancri e', au: 0.01544, days: 0.7365474, width: 1.875, mass: 7.99, teq: 1958, locked: true, src: 'Bourrier et al. 2018, A&A 619, A1; its temperature from Demory et al. 2011, A&A 533, A114' },
+      { name: '55 Cancri b', au: 0.118, days: 14.651552, width: 13.9, guess: true, mass: 264.0, teq: 700, src: 'Moutou et al. 2026, A&A 705, A190 (orbit), Baluev 2015, MNRAS 446, 1493 (mass) and Salz et al. 2015, A&A 576, A42 (temperature); its width is the archive’s estimate' },
+      { name: '55 Cancri c', au: 0.247, days: 44.3936, width: 8.51, guess: true, mass: 54.47, teq: 499, src: 'Moutou et al. 2026, A&A 705, A190 (orbit) and Baluev 2015, MNRAS 446, 1493 (mass); its temperature and width are the archive’s estimates' },
+      { name: '55 Cancri f', au: 0.802, days: 260.58, width: 7.59, guess: true, mass: 44.81, teq: 277, src: 'Moutou et al. 2026, A&A 705, A190 (orbit) and Baluev 2015, MNRAS 446, 1493 (mass); its temperature and width are the archive’s estimates' },
+      { name: '55 Cancri d', au: 5.6, days: 4799, width: 13.0, guess: true, mass: 1232, teq: 105, src: 'Moutou et al. 2026, A&A 705, A190 (orbit) and Baluev 2015, MNRAS 446, 1493 (mass); its temperature and width are the archive’s estimates' },
+    ],
+  },
+  {
+    star: 'Pollux', planets: [
+      { name: 'Thestias', au: 1.64, days: 589.64, width: 13.3, guess: true, mass: 731, least: true, teq: 550, src: 'Hatzes et al. 2006, A&A 457, 335; its temperature and width are the archive’s estimates' },
+    ],
+  },
+  {
+    star: 'Helvetios', title: '51 Pegasi', planets: [
+      { name: 'Dimidium', au: 0.052, days: 4.2307966, width: 14.1, guess: true, mass: 193.9, teq: 1329, locked: true, src: 'Cont et al. 2026, A&A 710, A345; its temperature and width are the archive’s estimates' },
+    ],
+  },
+  {
+    star: 'τ Boötis', title: 'Tau Boötis', planets: [
+      { name: 'Tau Boötis b', au: 0.049, days: 3.3124568, width: 12.8, guess: true, mass: 1891, teq: 1682, locked: true, src: 'Borsa et al. 2015, A&A 578, A64 (orbit) and Brogi et al. 2012, Nature 486, 502 (mass); its temperature and width are the archive’s estimates' },
+    ],
+  },
 ];
 
 // Capitals and the kind of apostrophe don't matter, since names travel in links.
 const plain = s => String(s ?? '').toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
-export const systemFor = star => SYSTEMS.find(s => plain(s.star) === plain(star)) || null;
+// A system by its star's catalogue name, or by the title the bridge's charts give it (Epsilon Eridani is Ran there).
+export const systemFor = star => SYSTEMS.find(s => plain(s.star) === plain(star) || (s.title && plain(s.title) === plain(star))) || null;
 // A planet by its name, with its system: { planet, system }, or null.
 export function planetByName(name) {
   const n = plain(name);
@@ -292,7 +334,9 @@ export function readout(p, star) {
   const rows = [
     ['Orbit', `${auText(p.au)} from its star`],
     ['Year', yearText(p.days)],
-    ['Size', p.width === 1 && p.mass === 1 ? 'Earth’s own: 12,756 km across' : p.width ? `${fig(p.width)} times Earth’s width, ${fig(p.mass)} times its mass`
+    ['Size', p.width === 1 && p.mass === 1 ? 'Earth’s own: 12,756 km across'
+      : p.guess ? `${p.least ? 'At least ' : ''}${fig(p.mass)} times Earth’s mass; a giant that heavy is about ${fig(p.width)} times its width`
+      : p.width ? `${fig(p.width)} times Earth’s width, ${fig(p.mass)} times its mass`
       : `${p.least ? 'At least ' : ''}${fig(p.mass)} times Earth’s mass; if it is rock, about ${fig(w)} times its width`],
     ['Starlight', lightText(sunlight(star.lum, p.au))],
     p.meanC != null ? ['Temperature', `${celsiusText(p.meanC)} on average`]

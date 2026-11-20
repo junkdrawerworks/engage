@@ -23,7 +23,10 @@ test('every system is a star in the catalogue with notes, its planets nearest fi
   const names = new Set();
   for (const s of SYSTEMS) {
     assert.ok(cat.byName.has(s.star), `${s.star} is not in the catalogue`);
-    assert.ok(DESTINATIONS.some(d => d.star === s.star && d.worlds), `${s.star} has no notes saying it has worlds`);
+    // (55 Cancri and Tau Boötis are stars the survey's files name, with no notes in the charts.)
+    const noted = DESTINATIONS.find(d => d.star === s.star);
+    assert.ok(noted ? noted.worlds : ['Copernicus', 'τ Boötis'].includes(s.star), `${s.star} has notes that don’t say it has worlds`);
+    if (noted && noted.title.replace('’', "'") !== s.star) assert.equal(s.title, noted.title, `${s.star} is ${noted.title} on the charts`);
     assert.ok(s.planets.every((p, k) => k === 0 || p.au > s.planets[k - 1].au), `${s.star}'s planets are not nearest first`);
     for (const p of s.planets) {
       assert.ok(!names.has(p.name), `${p.name} is in the table twice`); names.add(p.name);
@@ -34,14 +37,22 @@ test('every system is a star in the catalogue with notes, its planets nearest fi
     }
     assert.equal(systemFor(s.star.toLowerCase()), s);
   }
-  assert.equal(names.size, 22, 'the table has 22 planets');
+  assert.equal(names.size, 35, 'the table has 35 planets');
+  assert.equal(systemFor('Epsilon Eridani')?.star, 'Ran', 'a system is found by its title on the charts too');
 });
 
 test('each orbit and year agree by Kepler’s third law, a check on the figures copied from the Archive', () => {
   // The star's mass in Suns: the Sun, and the Archive's stellar masses beside each planet (pscomppars, st_mass).
-  const MASS = { Sol: 1, 'Proxima Centauri': 0.1221, 'Luyten\'s Star': 0.29, 'Teegarden\'s Star': 0.097, 'TRAPPIST-1': 0.0898 };
+  // Where the orbit comes from a paper that took another mass for the star, that paper's (the Archive's ps table):
+  // 55 Cancri e's orbit is Bourrier et al.'s (0.905), its sisters' Moutou et al.'s (1.015); Pollux's 1.7 is Reffert
+  // and others 2006's, which fits Hatzes et al.'s orbit (the composite's 2.0 is from a later paper).
+  const MASS = {
+    Sol: 1, 'Proxima Centauri': 0.1221, 'Luyten\'s Star': 0.29, 'Teegarden\'s Star': 0.097, 'TRAPPIST-1': 0.0898,
+    'Barnard\'s Star': 0.162, Ran: 0.82, Copernicus: 1.015, '55 Cancri e': 0.905, Pollux: 1.7, Helvetios: 1.07, 'τ Boötis': 1.32,
+  };
+  assert.ok(SYSTEMS.length >= 11);
   for (const s of SYSTEMS) for (const p of s.planets) {
-    const days = 365.25 * Math.sqrt(p.au ** 3 / MASS[s.star]);
+    const days = 365.25 * Math.sqrt(p.au ** 3 / (MASS[p.name] ?? MASS[s.star]));
     assert.ok(Math.abs(days / p.days - 1) < 0.05, `${p.name}: ${p.au} AU round ${s.star} takes ${days.toFixed(2)} days, not ${p.days}`);
   }
 });
@@ -95,7 +106,14 @@ test('on the ground: gravity, and which planets have ground to stand on', () => 
   near(gravity(planetByName('Mars').planet), 0.378, 0.005, 'Mars');
   near(gravity(planetByName('Earth').planet), 1, 1e-9, 'Earth');
   assert.deepEqual(SYSTEMS[0].planets.filter(standable).map(p => p.name), ['Mercury', 'Venus', 'Earth', 'Mars']);
-  assert.ok(SYSTEMS.slice(1).every(s => s.planets.every(standable)), 'every exoplanet in the table is small enough to be rock');
+  assert.ok(SYSTEMS.slice(1, 5).every(s => s.planets.every(standable)), 'every planet round the first four stars is small enough to be rock');
+  // Barnard's Star's four are; the giants, and 55 Cancri e at 1.9 times Earth's width, are not.
+  assert.deepEqual(SYSTEMS.slice(5).flatMap(s => s.planets.filter(standable)).map(p => p.name), ['Barnard’s Star d', 'Barnard’s Star b', 'Barnard’s Star c', 'Barnard’s Star e']);
+  // A giant's width is the Archive's estimate from its mass, and its readout says so.
+  const aegir = Object.fromEntries(readout(planetByName('Ægir').planet, starOf('Ran')));
+  assert.equal(aegir.Size, '318 times Earth’s mass; a giant that heavy is about 14 times its width');
+  const thestias = Object.fromEntries(readout(planetByName('Thestias').planet, starOf('Pollux')));
+  assert.match(thestias.Size, /^At least 731 times Earth’s mass; a giant that heavy/);
   // A planet with only a minimum mass is as wide as rock that heavy, and says so.
   const pb = planetByName('Proxima b').planet;
   near(widthOf(pb), 1.015, 0.01, 'Proxima b if it is rock');

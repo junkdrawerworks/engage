@@ -6399,9 +6399,27 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.locator('#planet-list').isHidden(), true);
   assert.match(await p.locator('#sys-intro').innerText(), /No planets are confirmed here yet/);
   // A star the log says has planets, though this room doesn't draw them yet, is not called empty.
+  await p.goto(base + 'system.html#star=Lalande%2021185');
+  await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Lalande 21185');
+  assert.match(await p.locator('#sys-intro').innerText(), /^Lalande 21185, .* Its planets aren’t drawn here yet: the captain’s log has what is known of them\./);
+  // Epsilon Eridani's giant, Ægir, is drawn: its mass from the Archive, its width the Archive's estimate, no way down.
   await p.goto(base + 'system.html#star=Epsilon%20Eridani');
   await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Ran');
-  assert.match(await p.locator('#sys-intro').innerText(), /^Epsilon Eridani, .* Its planets aren’t drawn here yet: the captain’s log has what is known of them\./);
+  assert.equal(await p.evaluate(() => systemView.selected), 'Ægir');
+  assert.match(await p.locator('#sys-intro').innerText(), /^Epsilon Eridani, 10\.\d ly from Sol\. One known planet, drawn on its orbit/);
+  assert.match(await p.locator('#close-text').innerText(), /318 times Earth’s mass; a giant that heavy is about 14 times its width/);
+  assert.match(await p.locator('#close-text').innerText(), /Thompson et al\. 2025/);
+  assert.equal(await p.locator('#close-text a.beam').count(), 0);
+  // 55 Cancri's five, nearest first; its lava world is too wide for the away team.
+  await p.goto(base + 'system.html#planet=55%20Cancri%20e');
+  await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Copernicus');
+  assert.equal(await p.locator('#planet-list button').count(), 5);
+  assert.match(await p.locator('#close-text').innerText(), /Too wide to be sure of ground/);
+  // Barnard's Star's four small planets can be stood on.
+  await p.goto(base + 'system.html#star=Barnard%27s%20Star');
+  await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Barnard\'s Star');
+  assert.equal(await p.locator('#planet-list button').count(), 4);
+  assert.equal(await p.locator('#close-text a.beam').getAttribute('href'), 'away.html#world=Barnard%E2%80%99s%20Star%20d');
   await p.goto(base + 'system.html#star=HIP%203');
   await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'HIP 3');
   assert.match(await p.locator('#sys-intro').innerText(), /No planets are known here yet/);
@@ -6431,7 +6449,8 @@ await page.emulateMedia({ reducedMotion: null });
   await p.waitForFunction(() => window.awayTeam?.ready && awayTeam.world === null);
   assert.match(await p.locator('#away-intro').innerText(), /Jupiter is a giant, with no ground to stand on/);
   assert.equal(await p.locator('#surface').isHidden(), true);
-  assert.equal(await p.locator('#pick-list a').count(), 18, 'the transporter does not list the 18 worlds with ground');
+  assert.equal(await p.locator('#pick-list a').count(), 22, 'the transporter does not list the 22 worlds with ground');
+  assert.match(await p.locator('#pick-list').innerText(), /Barnard’s Star\s+Barnard’s Star d/i);
 
   // The survey's Your stars: home and the stars in the log, newest first, each opening the system view to place a planet.
   await p.goto(base + 'survey.html#yours');

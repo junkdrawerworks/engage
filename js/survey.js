@@ -492,7 +492,7 @@ function renderYours() {
   $('yours-list').innerHTML = stars.map(s => {
     const known = systemFor(s.title);
     return `<li><a href="${BRIDGE}system.html#star=${encodeURIComponent(s.title)}&amp;place"${AWAY}><b>${esc(s.star === 0 ? 'Sol, home' : s.title)}</b>`
-      + `<span>${known ? `${known.planets.length} known planets, and room for yours` : 'Place a planet round it'}</span></a></li>`;
+      + `<span>${known ? `${known.planets.length === 1 ? 'One known planet' : `${known.planets.length} known planets`}, and room for yours` : 'Place a planet round it'}</span></a></li>`;
   }).join('');
   $('yours-none').hidden = stars.length > 1;
 }

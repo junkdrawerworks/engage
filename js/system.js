@@ -55,6 +55,9 @@ function starIndex(name) {
   return null;
 }
 
+// A star's name here: the charts' title, else the one its planets go by (55 Cancri, not the catalogue's Copernicus).
+const nameOf = i => (notesFor(cat, i) ? titleFor(cat, i) : systemFor(cat.names[i])?.title || titleFor(cat, i));
+
 function open() {
   const h = fromHash();
   const fromPlanet = h.planet ? planetByName(h.planet) : null;
@@ -64,7 +67,7 @@ function open() {
   if (!(i >= 0 && i < cat.count)) i = 0;
   view.i = i;
   view.name = cat.names[i];
-  view.title = titleFor(cat, i);
+  view.title = nameOf(i);
   view.star = { lum: cat.lum[i], temp: cat.temp[i], radius: cat.radius[i] };
   view.zone = temperateZone(view.star.lum, view.star.temp);
   view.sys = systemFor(view.name);
@@ -231,7 +234,7 @@ function showClose(animate = true) {
     <h2>${esc(p.name)}</h2>
     ${kind ? `<p class="kind">${esc(kind)}</p>` : ''}
     <dl class="readings">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
-    ${standable(p) ? '' : '<p class="no-ground">A giant: no ground to stand on, so no away team.</p>'}
+    ${standable(p) ? '' : `<p class="no-ground">${widthOf(p) >= 3.5 ? 'A giant: no ground to stand on, so no away team.' : 'Too wide to be sure of ground: most planets past 1.6 times Earth’s width keep a deep layer of gas, so no away team.'}</p>`}
     <p class="doors">${links.join('')}</p>
     <p class="src">${esc(p.src)}${p.least ? '. Its mass is a minimum, from its star’s wobble.' : '.'}</p>`;
   drawStarSize(p);
@@ -304,6 +307,7 @@ function render() {
   const where = view.i === 0 ? 'Home' : `${view.title}, ${formatLy(dist())} from Sol`;
   $('sys-intro').textContent = view.unknown ? 'That star isn’t in the charts, so here is the star the ship is at.'
     : view.unmeasured ? `${view.title}: the catalogue has no measured distance for this star, so how bright it really is, and where its temperate zone would be, can’t be worked out.`
+    : n === 1 ? `${where}. One known planet, drawn on its orbit at true spacing. Tap it to fly in.`
     : n ? `${where}. ${n === 8 && view.i === 0 ? 'Eight planets' : `${n} known planets`}, drawn on their orbits at true spacing. Tap one to fly in.`
     // A star the log says has planets that aren't in this room's table yet must not be called empty.
     : notesFor(cat, view.i)?.worlds ? `${where}. Its planets aren’t drawn here yet: the captain’s log has what is known of them. Place one of your own below.`
@@ -317,12 +321,12 @@ function render() {
   renderPlace();
   $('others').innerHTML = SYSTEMS.map(s => {
     const i = cat.byName.get(s.star);
-    return s === sys ? `<b>${esc(titleFor(cat, i))}</b>` : `<a href="#star=${encodeURIComponent(s.star)}">${esc(titleFor(cat, i))}</a>`;
+    return s === sys ? `<b>${esc(nameOf(i))}</b>` : `<a href="#star=${encodeURIComponent(s.star)}">${esc(nameOf(i))}</a>`;
   }).join(' · ') + '. The stars in your captain’s log are under Your stars in the <a href="survey.html#yours">planetary survey</a>.';
   drawMap();
   paintAll();
 }
-const sizeShort = p => (p.width ? `${Number(p.width.toPrecision(2))} × Earth’s width` : `${p.least ? '≥ ' : ''}${Number(p.mass.toPrecision(2))} × Earth’s mass`);
+const sizeShort = p => (p.width && !p.guess ? `${Number(p.width.toPrecision(2))} × Earth’s width` : `${p.least ? '≥ ' : ''}${Math.round(p.mass) >= 100 ? Math.round(p.mass).toLocaleString('en-US') : Number(p.mass.toPrecision(2))} × Earth’s mass`);
 
 function renderPlace() {
   const unmeasured = view.unmeasured;
