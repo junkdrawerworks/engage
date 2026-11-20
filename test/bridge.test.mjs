@@ -115,6 +115,10 @@ test('words drawn into pictures grow with the text size and with the browser’s
   assert.equal(textScale('largest', 20), 1.3 * 1.25);
   assert.equal(textScale('standard', NaN), 1);
   assert.equal(textScale('odd', 16), 1);
+  // On an iPhone the usual size is Apple's 17 px body: at it nothing grows, and two notches of Larger Text up (21 px) grow.
+  assert.equal(textScale('standard', 17, 17), 1);
+  assert.ok(Math.abs(textScale('large', 21, 17) - 1.15 * 21 / 17) < 1e-12);
+  assert.equal(textScale('standard', 16, NaN), 1);
 });
 
 test('the bridge falls quiet on arrival at Wolf 359, and only there', () => {

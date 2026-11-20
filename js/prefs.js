@@ -41,9 +41,11 @@ export function withPref(prefs, key, value) {
 }
 
 // How much bigger the words drawn into pictures (tonight's tags, the Maru's display, the missions map) are than
-// their standard size: the browser's own text size against its usual 16 px, times the setting's scale.
-export function textScale(text, rootPx = 16) {
-  const browser = Number.isFinite(rootPx) && rootPx > 0 ? rootPx / 16 : 1;
+// their standard size: the browser's own text size against its usual size, times the setting's scale. The usual size
+// (`basePx`) is 16 px, or on an iPhone, whose Larger Text comes through Apple's body size, 17 (css/app.css's --base).
+export function textScale(text, rootPx = 16, basePx = 16) {
+  const base = Number.isFinite(basePx) && basePx > 0 ? basePx : 16;
+  const browser = Number.isFinite(rootPx) && rootPx > 0 ? rootPx / base : 1;
   return browser * (SCALE[text] ?? 1);
 }
 

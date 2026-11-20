@@ -309,6 +309,30 @@ try {
     assert.equal(await bodyPx(), 18.75, 'the browser\'s own text size is ignored');
     assert.equal(await h1(), h1Standard * 1.25);
 
+    // An iPhone's Larger Text comes through Apple's body size, 17 px at the usual setting (css/app.css takes it as the
+    // root's size there, with --base 17). Chromium has no -apple-system-body, so the sizes it would give are put in by
+    // hand: at 17 px every word is as on any other phone, and two notches up (21 px) the words and the names in the
+    // pictures are 21/17 as big.
+    {
+      const iphone = await phone();
+      const q = watch(await iphone.newPage());
+      const ios = { px: 17 };
+      await q.route('**/css/app.css', async r => {
+        const css = await (await r.fetch()).text();
+        await r.fulfill({ contentType: 'text/css', body: `${css}\nhtml { font-size: ${ios.px}px; } :root { --base: 17; }\n` });
+      });
+      const sizes = () => q.evaluate(async () => [parseFloat(getComputedStyle(document.body).fontSize), (await import('./js/room.js')).textScale()]);
+      await q.goto(base + 'tonight.html');
+      await ready(q, 'tonight.html');
+      assert.deepEqual(await sizes(), [15, 1], 'an iPhone at its usual text size is larger than before');
+      ios.px = 21;
+      await q.reload();
+      await ready(q, 'tonight.html');
+      const [body, scale] = await sizes();
+      assert.ok(Math.abs(body - 15 * 21 / 17) < 0.01 && Math.abs(scale - 21 / 17) < 1e-9, `an iPhone two notches up: ${body} px, pictures × ${scale}`);
+      await iphone.close();
+    }
+
     // Largest on a narrow phone: every room fits, with its speaker on the screen and clear of the room's name.
     await p.evaluate(() => localStorage.setItem('engage.prefs', JSON.stringify({ sound: true, buzz: true, text: 'largest' })));
     await p.setViewportSize({ width: 360, height: 780 });

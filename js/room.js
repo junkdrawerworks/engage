@@ -52,7 +52,10 @@ export function applyContrast(on = current().contrast) {
 // change of the setting, so a picture drawn every frame can ask every frame.
 let scale = null;
 export function textScale() {
-  if (scale === null) scale = scaleFor(current().text, parseFloat(getComputedStyle(document.documentElement).fontSize));
+  if (scale === null) {
+    const root = getComputedStyle(document.documentElement);
+    scale = scaleFor(current().text, parseFloat(root.fontSize), parseFloat(root.getPropertyValue('--base')));
+  }
   return scale;
 }
 
