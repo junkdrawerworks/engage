@@ -7039,6 +7039,9 @@ await page.emulateMedia({ reducedMotion: null });
   await p.locator('#ships [data-scrap]').last().tap();
   assert.equal(await p.locator('#ships li').count(), 1);
   assert.equal(Object.keys((await p.evaluate(() => JSON.parse(localStorage.getItem('engage.shipyard.v1')))).filled).length, 1);
+  // The one scrapped was the Meridian, who filled it: the card still says it's filled, not that the bench can fill it.
+  assert.match(await p.locator('#ships li').innerText(), /USS Valiant/);
+  assert.equal(await p.locator('#req-state').innerText(), 'Filled today. Tomorrow brings another.');
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the shipyard is wider than the phone');
   await sy.close();
 }

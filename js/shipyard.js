@@ -75,14 +75,15 @@ function render() {
 
 function renderReq(st = stats(bench)) {
   const day = dayOf(), r = requisition(day);
-  const filledBy = yard.designs.find(d => d.id === yard.filled[day]);
+  // The ship that filled it, or {} once she is scrapped: the requisition stays filled (and keeping another won't fill it again).
+  const filledBy = yard.designs.find(d => d.id === yard.filled[day]) || (yard.filled[day] ? {} : null);
   $('req-head').textContent = `Starfleet requisition · ${shortDay(day)}`;
   $('req-says').textContent = r.says;
   $('req-asks').innerHTML = r.asks.map(a => `<li>${esc(a[0].toUpperCase() + a.slice(1))}</li>`).join('');
   const short = shortOf(st, r.needs);
   $('req').classList.toggle('filled', !!filledBy);
   $('req-state').className = `req-state${filledBy ? ' done' : !short.length ? ' meets' : ''}`;
-  $('req-state').textContent = filledBy ? `Filled today with the ${fullName(filledBy)}. Tomorrow brings another.`
+  $('req-state').textContent = filledBy ? `${filledBy.name ? `Filled today with the ${fullName(filledBy)}` : 'Filled today'}. Tomorrow brings another.`
     : !short.length ? 'The design on the bench meets it. Keep her to fill it.'
       : `The design on the bench falls short: ${short.join('; ')}.`;
 }
