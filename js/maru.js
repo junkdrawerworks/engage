@@ -7,10 +7,10 @@ import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { fullName, readShip } from './myship.js';
-import { buzz, setUpRoom } from './room.js';
+import { buzz, setUpRoom, typing } from './room.js';
 
-// The speaker in the header, and the text size from Bridge settings.
-setUpRoom({ sound });
+// The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
+setUpRoom({ sound, keys: [['1 to 9', 'Give the order with that number, counting down the list']] });
 
 const KEY = 'engage.maru.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -797,6 +797,14 @@ $('daily-share').addEventListener('click', e => {
 });
 $('share-run').addEventListener('click', e => shareRun(e.currentTarget));
 $('skip').addEventListener('click', skipWatched);
+// 1 to 9 give the orders, counting down the list as it stands.
+addEventListener('keydown', e => {
+  if (typing(e) || e.repeat || busy || !/^[1-9]$/.test(e.key)) return;
+  const b = $('orders').querySelectorAll('.order')[Number(e.key) - 1];
+  if (!b || b.getAttribute('aria-disabled') === 'true' || !b.getClientRects().length) return;
+  e.preventDefault();
+  b.click();
+});
 $('orders').addEventListener('click', e => {
   const b = e.target.closest('.order');
   if (b && b.getAttribute('aria-disabled') !== 'true') give(b.dataset.id);

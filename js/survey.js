@@ -12,8 +12,8 @@ import { planetByName, standable, systemFor } from './worlds.js';
 import { sound } from './audio.js';
 import { setUpRoom } from './room.js';
 
-// The speaker in the header, and the text size from Bridge settings.
-setUpRoom({ sound });
+// The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
+setUpRoom({ sound, keys: [['← →', 'The previous or next survey file']] });
 
 const KEY = 'engage.survey.v1';
 // Where Engage itself is. The single-file copy points this at the live site.

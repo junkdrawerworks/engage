@@ -226,8 +226,9 @@ function setNight(on) {
 async function start() {
   preview();
   showNight(); // before the stars are in: no bright moment on the way
-  // Sound and the text size are every room's settings (js/room.js), followed here and in Bridge settings.
-  setUpRoom({ sound });
+  // Sound and the text size are every room's settings (js/room.js), followed here and in Bridge settings; ? shows the
+  // bridge's keys.
+  setUpRoom({ sound, keys: BRIDGE_KEYS });
   follow(p => { $('opt-sound').checked = p.sound; $('opt-buzz').checked = p.buzz; });
   $('opt-buzz-row').hidden = !canBuzz(); // iPhones and computers can't vibrate: no setting for it there
   const img = new Image();
@@ -443,7 +444,7 @@ function drawLabels(now) {
       const lw = labelWidth(g, name, dist), x = side(p.x, r + 6, lw);
       label(g, name, dist, x, p.y + 4, CYAN);
       taken.push(box(x, p.y + 4, lw));
-      drawn.push({ text: name, x, y: p.y + 4, w: lw });
+      drawn.push({ text: name, x, y: p.y + 4, w: lw, star: target });
     }
   }
 
@@ -504,10 +505,10 @@ function drawLabels(now) {
     if (x < 0 || x + tw > w || p.y < 8 || p.y > h - 8 || !free(x, p.y + 4, tw)) continue; // too near an edge to fit
     g.fillStyle = red ? 'rgba(255, 240, 236, 0.8)' : 'rgba(200, 212, 235, 0.62)';
     g.fillText(text, x, p.y + 4);
-    drawn.push({ text, x, y: p.y + 4, w: tw });
+    drawn.push({ text, x, y: p.y + 4, w: tw, star: i });
   }
 }
-let drawn = []; // the names on screen, for the tests: { text, x, y (the baseline), w }
+let drawn = []; // the names on screen, for N and the tests: { text, x, y (the baseline), w, star (if a star's) }
 
 function labelWidth(g, text, sub) {
   g.font = '600 13px "Chakra Petch", system-ui, sans-serif';
@@ -2088,7 +2089,9 @@ function bind() {
     // keyboard is on the bridge, a button included (they used to stop as soon as anything had been clicked or
     // tabbed to, and nothing gave the sky the keyboard back), but not in a field or on the warp slider, which have
     // their own use for them, nor with a sheet up, nor in flight.
-    if (trip || e.ctrlKey || e.metaKey || e.altKey || $('bridge').inert || e.target.closest?.('input, select, textarea, .sheet')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || $('bridge').inert || e.target.closest?.('input, select, textarea, .sheet')) return;
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); setReporting(!reporting); return; } // in flight too
+    if (trip) return;
     const step = state.fov * 0.08;
     const moves = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
     const zooms = { '+': 1 / 1.25, '=': 1 / 1.25, '-': 1.25, _: 1.25 };
@@ -2100,6 +2103,11 @@ function bind() {
     } else if (zooms[e.key]) setFov(state.fov * zooms[e.key]);
     else if (e.key === '/') $('choose').click();
     else if (e.key === 'f' || e.key === 'F') autopilot(true);
+    else if (e.key === 'e' || e.key === 'E') { if (!$('engage').disabled) engage(); }
+    else if (e.key === 'h' || e.key === 'H') lookHome();
+    else if (e.key === 'l' || e.key === 'L') $('open-log').click();
+    else if (e.key === '[' || e.key === ']') nudgeWarp(e.key === ']' ? 0.1 : -0.1);
+    else if (e.key === 'n' || e.key === 'N') nextNamed(e.shiftKey ? -1 : 1);
     else return;
     e.preventDefault();
   });
@@ -2211,6 +2219,36 @@ function setFov(f) {
   state.fov = Math.max(2 * DEG, Math.min(100 * DEG, f));
   dirty = true;
   viewMoved = true;
+}
+
+// ---------- Keys ----------
+
+// The bridge's rows on the Keys card (js/room.js adds the ones every room has).
+const BRIDGE_KEYS = [
+  ['← → ↑ ↓', 'Look around'], ['+ −', 'Zoom in or out'], ['/', 'Set course'], ['N', 'The next named star in view, as the destination'],
+  ['E', 'Engage'], ['[ ]', 'Warp down or up a tenth'], ['H', 'Look toward the Sun'], ['L', 'Captain’s log'],
+  ['R', 'Report: what is on the viewscreen'], ['F', 'Autopilot'],
+];
+
+// [ and ] move the warp slider a tenth, as its own arrow keys do.
+function nudgeWarp(by) {
+  const w = $('warp');
+  w.value = String(Math.round((Number(w.value) + by) * 10) / 10);
+  w.dispatchEvent(new Event('input', { bubbles: true }));
+  w.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+// N steps the destination through the stars named on the viewscreen, brightest first, as a tap on each would (Shift+N
+// goes back). The names are the ones drawn last frame, so it is what you see.
+function nextNamed(by) {
+  const cam = camAbs(), mag = i => apparentMag(cat.absmag[i], cat.distanceFrom(i, cam));
+  const stars = [...new Set(drawn.filter(d => d.star != null && d.star !== state.at).map(d => d.star))].sort((a, b) => mag(a) - mag(b) || a - b);
+  if (!stars.length) { say('No named star in view.'); return; }
+  const at = stars.indexOf(state.target);
+  const i = stars[at < 0 ? (by > 0 ? 0 : stars.length - 1) : (at + by + stars.length) % stars.length];
+  sound.blip(990);
+  setTarget(i, false);
+  say(`Destination: ${titleFor(cat, i)}, ${nominal(i) ? 'distance not measured' : lySaid(lyFromShip(i))}.`);
 }
 
 // ---------- Hooks for tests and screenshots ----------

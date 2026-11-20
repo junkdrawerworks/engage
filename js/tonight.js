@@ -24,8 +24,8 @@ import { DEEP_SKY, KINDS, sightById, sightDir, sightSize, sightWidthLy, seenIn }
 import { sound } from './audio.js';
 import { setUpRoom } from './room.js';
 
-// The speaker in the header, and the text size from Bridge settings.
-setUpRoom({ sound });
+// The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
+setUpRoom({ sound, keys: [['← → ↑ ↓', 'Look around']] });
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.

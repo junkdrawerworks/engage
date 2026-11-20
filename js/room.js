@@ -72,12 +72,72 @@ export function speaker(sound) {
   });
 }
 
-// Every room calls this once: the text size, the speaker, and the settings followed when another tab changes them.
-let set = false;
-export function setUpRoom({ sound = null } = {}) {
+// ---------- The Keys card ----------
+
+// Press ? in any room for a small card of its keys. It opens only from a key press, so a phone never sees it. Each
+// room gives its own rows ([keys, what they do]); every card ends with the ones every room has. M turns the sound on
+// and off anywhere.
+const EVERY = [['M', 'Sound on or off'], ['Tab', 'Move between controls'], ['Esc', 'Close a card or sheet'], ['?', 'This card']];
+
+// Whether a key press is meant as typing (in a field) or with a modifier held: the rooms' own keys leave those alone.
+export const typing = e => e.ctrlKey || e.metaKey || e.altKey || !!e.target?.closest?.('input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea, [contenteditable=""], [contenteditable="true"]');
+
+let card = null, cardFrom = null;
+function openCard(rows) {
+  if (!card) {
+    card = document.createElement('div');
+    card.className = 'keys-card';
+    card.id = 'keys-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    card.setAttribute('aria-labelledby', 'keys-title');
+    const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+    const row = ([k, what]) => `<dt>${k.split(' ').map(x => (/^(or|to|and)$/.test(x) ? ` ${x} ` : `<kbd>${esc(x)}</kbd>`)).join('')}</dt><dd>${esc(what)}</dd>`;
+    card.innerHTML = `<div class="keys-box"><div class="keys-head"><h2 id="keys-title">Keys</h2><button class="close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <dl>${[...rows, ...EVERY].map(row).join('')}</dl></div>`;
+    card.addEventListener('click', e => { if (e.target === card || e.target.closest('.close')) closeCard(); });
+    document.body.append(card);
+  }
+  cardFrom = document.activeElement;
+  card.hidden = false;
+  card.querySelector('.close').focus({ preventScroll: true });
+}
+function closeCard() {
+  if (!card || card.hidden) return;
+  card.hidden = true;
+  if (cardFrom?.isConnected) cardFrom.focus({ preventScroll: true });
+  cardFrom = null;
+}
+export const cardOpen = () => !!card && !card.hidden;
+
+// The card's own keys come first, before the room's: while it is up it keeps the keyboard (Tab stays on its close
+// button, Escape and ? put it away), and nothing behind it moves.
+export function keysCard(rows, sound) {
+  addEventListener('keydown', e => {
+    if (cardOpen()) {
+      if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); e.stopImmediatePropagation(); closeCard(); return; }
+      if (e.key === 'Tab') { e.preventDefault(); card.querySelector('.close').focus(); }
+      if (e.key !== 'Enter' && e.key !== ' ') { e.stopImmediatePropagation(); if (e.key !== 'Tab') e.preventDefault(); }
+      return;
+    }
+    // One-switch play has every key for its own (see js/switch.js).
+    if (typing(e) || e.repeat || document.documentElement.classList.contains('one-switch')) return;
+    if (e.key === '?') { e.preventDefault(); e.stopImmediatePropagation(); openCard(rows); }
+    else if (e.key === 'm' || e.key === 'M') {
+      e.preventDefault();
+      const on = !current().sound;
+      setPref('sound', on);
+      if (on) sound?.blip?.(880);
+    }
+  }, true);
+}
+
+// Every room calls this once: the text size, the speaker, its Keys card, and the settings followed when another tab
+// changes them.
+export function setUpRoom({ sound = null, keys = [] } = {}) {
   applyText();
   speaker(sound);
-  if (set) return;
-  set = true;
+  keysCard(keys, sound);
   watch(PREFS, () => { held = null; applyPrefs(); });
 }

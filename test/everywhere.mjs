@@ -283,6 +283,111 @@ try {
     assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).opts.report), false);
     await c.close();
   }
+
+  // ---------- The Keys card ----------
+  // ? opens a card of the room's keys in every room, on top of everything, and Escape or ? puts it away with the
+  // keyboard's place back where it was. Typing ? in a field types it. M turns the sound off and on anywhere.
+  {
+    const c = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    await c.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+    const p = watch(await c.newPage());
+    const OWN = { 'survey.html': 1, 'xeno.html': 1, 'tonight.html': 1, 'away.html': 1, 'maru.html': 1, 'contact.html': 3 };
+    for (const room of Object.keys(ROOMS)) {
+      await p.goto(base + room);
+      await ready(p, room);
+      assert.equal(await p.locator('#keys-card').count(), 0, `${room} has a Keys card before a key is pressed`);
+      await p.keyboard.press('?');
+      assert.equal(await p.locator('#keys-card').isVisible(), true, `${room}: ? opened no Keys card`);
+      assert.equal(await p.locator('#keys-card').getAttribute('role'), 'dialog');
+      assert.equal(await p.locator('#keys-card dt').count(), (OWN[room] || 0) + 4, `${room}'s card has the wrong rows`);
+      assert.equal(await p.evaluate(() => document.activeElement.closest('#keys-card') !== null), true, `${room}: the card doesn't have the keyboard`);
+      const box = await p.locator('.keys-box').boundingBox();
+      assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= 1280 && box.y + box.height <= 800, `${room}: the card runs off the screen`);
+      await p.keyboard.press('Escape');
+      assert.equal(await p.locator('#keys-card').isVisible(), false, `${room}: Escape left the card up`);
+    }
+    // M: the sound, off and on.
+    await p.keyboard.press('m');
+    assert.equal(await p.locator('#speaker').getAttribute('aria-pressed'), 'false');
+    await p.keyboard.press('M');
+    assert.equal(await p.locator('#speaker').getAttribute('aria-pressed'), 'true');
+
+    // The bridge's own keys: N picks the named stars in view in turn, brightest first, E engages, [ and ] nudge the
+    // warp, H looks home, L opens the log, R reports.
+    await p.goto(base);
+    await bridgeReady(p);
+    await p.keyboard.press('?');
+    assert.equal(await p.locator('#keys-card dt').count(), 14);
+    assert.match(await p.locator('#keys-card').innerText(), /The next named star in view, as the destination/);
+    await p.keyboard.press('?');
+    assert.equal(await p.locator('#keys-card').isVisible(), false, '? left the card up');
+    await p.waitForTimeout(300);
+    await p.keyboard.press('n');
+    const first = await p.evaluate(() => engage.state.target);
+    await p.keyboard.press('n');
+    const second = await p.evaluate(() => engage.state.target);
+    await p.keyboard.press('n');
+    const third = await p.evaluate(() => engage.state.target);
+    const names = await p.evaluate(() => engage.labels().map(l => l.text));
+    assert.ok(first != null && second != null && third != null && new Set([first, second, third]).size === 3, 'N did not step through three stars');
+    const titles = await p.evaluate(ids => ids.map(i => engage.cat().names[i]), [first, second, third]);
+    assert.ok(titles.every(t => names.some(n => n.includes(t) || t.includes(n))), `N chose stars not named on the screen: ${titles} of ${names}`);
+    await p.keyboard.press('Shift+N');
+    assert.equal(await p.evaluate(() => engage.state.target), second, 'Shift+N did not go back');
+    await p.keyboard.press(']');
+    assert.equal(await p.evaluate(() => engage.state.warp), 9.1);
+    await p.keyboard.press('[');
+    await p.keyboard.press('[');
+    assert.equal(await p.evaluate(() => engage.state.warp), 8.9);
+    await p.keyboard.press('r');
+    assert.equal(await p.locator('#report-line').isVisible(), true, 'R did not report');
+    await p.keyboard.press('r');
+    await p.keyboard.press('l');
+    assert.equal(await p.locator('#log').isVisible(), true, 'L did not open the log');
+    await p.keyboard.press('Escape');
+    // ? typed into Set course's search is a question mark, not the card.
+    await p.keyboard.press('/');
+    await p.keyboard.type('vega?');
+    assert.equal(await p.locator('#search').inputValue(), 'vega?');
+    assert.equal(await p.locator('#keys-card').isVisible(), false);
+    await p.keyboard.press('Escape');
+    await p.evaluate(() => engage.speed(6));
+    await p.keyboard.press('e');
+    assert.ok(await p.evaluate(() => !!engage.trip), 'E did not engage');
+    await p.waitForFunction(() => !engage.trip && !document.getElementById('arrival').hidden, null, { timeout: 30000 });
+    await p.keyboard.press('Escape');
+    const yaw = await p.evaluate(() => engage.state.yaw);
+    await p.keyboard.press('h');
+    await p.waitForTimeout(1500);
+    assert.notEqual(await p.evaluate(() => engage.state.yaw), yaw, 'H did not turn toward the Sun');
+
+    // The Kobayashi Maru: 1 to 9 give the orders, counting down the list.
+    await p.goto(base + 'maru.html');
+    await ready(p, 'maru.html');
+    await p.click('#start');
+    const second2 = await p.locator('.order').nth(1).getAttribute('data-id');
+    await p.keyboard.press('2');
+    await p.waitForFunction(() => !maru.busy, null, { timeout: 20000 });
+    assert.deepEqual(await p.evaluate(() => maru.given), [second2], '2 did not give the second order');
+
+    // First contact: 1 adds the notebook's first phrase to the reply, Enter sends it, L listens again.
+    await p.goto(base + 'contact.html');
+    await ready(p, 'contact.html');
+    await p.click('#start');
+    await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+    await p.evaluate(() => document.activeElement.blur());
+    const heard = await p.evaluate(() => contact.game.log.length);
+    await p.keyboard.press('l');
+    await p.waitForFunction(n => !contact.busy && contact.game.log.length > n, heard, { timeout: 20000 });
+    await p.evaluate(() => document.activeElement.blur());
+    await p.keyboard.press('1');
+    assert.equal(await p.locator('#send').isDisabled(), false, '1 put nothing in the reply');
+    const beat = await p.evaluate(() => contact.game.beat);
+    await p.evaluate(() => document.activeElement.blur());
+    await p.keyboard.press('Enter');
+    await p.waitForFunction(b => !contact.busy && contact.game.beat > b, beat, { timeout: 20000 });
+    await c.close();
+  }
 } finally {
   await browser.close();
   server.close();

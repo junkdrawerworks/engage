@@ -3,7 +3,7 @@ import { CASES, caseOf, choices, choose, heard, line, newHearing, recordHearing,
 import { sound } from './audio.js';
 import { setUpRoom } from './room.js';
 
-// The speaker in the header, and the text size from Bridge settings.
+// The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);

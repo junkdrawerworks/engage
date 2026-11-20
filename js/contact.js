@@ -10,10 +10,10 @@ import { onScreen } from './onscreen.js';
 import { readShipPlace, whereWords } from './contacts.js';
 import { readShip, shortName } from './myship.js';
 import { stardate } from './physics.js';
-import { setUpRoom } from './room.js';
+import { setUpRoom, typing } from './room.js';
 
-// The speaker in the header, and the text size from Bridge settings.
-setUpRoom({ sound });
+// The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
+setUpRoom({ sound, keys: [['1 to 9', 'Add the phrase with that number in your notebook to your reply'], ['Enter', 'Send your reply'], ['L', 'Listen again']] });
 
 const KEY = 'engage.contact.v1';
 const LAB = 'xeno.html'; // the xenobiology lab, for what might live on their world
@@ -722,6 +722,25 @@ $('reply').addEventListener('click', e => {
   update();
   keepGame();
   ($('reply').querySelector(`button[data-i="${Math.min(+b.dataset.i, reply.length - 1)}"]`) || $('book').querySelector(`li[data-id="${id}"] .ph-add`))?.focus({ preventScroll: true });
+});
+// From the keyboard: 1 to 9 add the notebook's phrases, counting down it; Enter sends the reply (unless a button has
+// the keyboard, which Enter presses); L listens again.
+addEventListener('keydown', e => {
+  if (typing(e) || e.repeat || !g || watching) return;
+  if (/^[1-9]$/.test(e.key)) {
+    const b = $('book').querySelectorAll('.ph-add')[Number(e.key) - 1];
+    if (!b) return;
+    e.preventDefault();
+    b.click();
+  } else if (e.key === 'Enter' && !e.target.closest?.('button, a, select, summary')) {
+    if ($('send').disabled) return;
+    e.preventDefault();
+    $('send').click();
+  } else if (e.key === 'l' || e.key === 'L') {
+    if ($('listen').disabled || !$('listen').getClientRects().length) return;
+    e.preventDefault();
+    $('listen').click();
+  }
 });
 $('book').addEventListener('click', e => {
   const b = e.target.closest('.ph-add');
