@@ -85,10 +85,12 @@ export function makeHood(cv, { cat, near, named, titleOf, onPick, onTurn = () =>
     for (const p of placed) if (visited.has(p.s.star)) { g.beginPath(); g.arc(p.x, p.y, 4.5, 0, Math.PI * 2); g.stroke(); }
     // The rings' distances, over the stars, each where it doesn't crowd another (seen edge on, they all meet).
     g.font = '500 10px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
-    const ringAt = [];
+    const ringAt = [], boxes = [];
     for (const [t, x, y] of ringNames) {
       if (ringAt.some(([a, b]) => Math.abs(a - x) < 30 && Math.abs(b - y) < 14)) continue;
       ringAt.push([x, y]);
+      const w = g.measureText(t).width;
+      boxes.push([x - w / 2, y, x + w / 2, y + 12]); // the names below keep clear of it
       g.strokeStyle = 'rgba(5, 7, 13, 0.85)'; g.lineWidth = 3; g.lineJoin = 'round'; g.strokeText(t, x, y);
       g.fillStyle = 'rgba(147, 160, 184, 0.95)'; g.fillText(t, x, y);
     }
@@ -111,7 +113,6 @@ export function makeHood(cv, { cat, near, named, titleOf, onPick, onTurn = () =>
     // each where it fits without covering another.
     g.font = '500 10.5px "IBM Plex Sans", sans-serif';
     g.textBaseline = 'middle';
-    const boxes = [];
     const name = (x, y, t, strong, force) => {
       const w = g.measureText(t).width, h = 13, right = x + 7 + w < W - 4;
       const bx = right ? x + 7 : x - 7 - w, b = [bx, y - h / 2, bx + w, y + h / 2];

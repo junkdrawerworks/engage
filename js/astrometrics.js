@@ -322,6 +322,7 @@ window.astrometrics = {
     dots: () => (hood ? hood.dots().map(d => ({ x: d.x, y: d.y, name: cat.names[d.star] })) : []),
     get view() { return hood?.view; },
     turn: (yaw, pitch) => hood?.turn(yaw, pitch),
+    zoom: by => hood?.zoom(by),
     draw: () => hood?.draw(),
   },
   get pick() { return view.pick == null ? null : cat.names[view.pick]; },
