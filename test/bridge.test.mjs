@@ -120,3 +120,18 @@ test('words drawn into pictures grow with the text size and with the browser’s
 test('the bridge falls quiet on arrival at Wolf 359, and only there', () => {
   assert.deepEqual(DESTINATIONS.filter(d => d.quiet).map(d => d.star), ['Wolf 359']);
 });
+
+// ---------- First Contact Day ----------
+import { firstContactDay, isFirstContactDay } from '../js/rooms.js';
+
+test('on 5 April, and only then, the bridge greets you with First Contact Day', () => {
+  assert.equal(isFirstContactDay(new Date(2027, 3, 5, 0, 1)), true);
+  assert.equal(isFirstContactDay(new Date(2027, 3, 5, 23, 59)), true);
+  assert.equal(isFirstContactDay(new Date(2027, 3, 4, 23, 59)), false);
+  assert.equal(isFirstContactDay(new Date(2027, 3, 6)), false);
+  assert.equal(isFirstContactDay(new Date(2027, 4, 5)), false, 'May is not April');
+  const line = firstContactDay();
+  assert.match(line, /^5 April, First Contact Day: in 2063 Zefram Cochrane flew the Phoenix to warp 1/);
+  assert.match(line, /<a href="contact\.html">First\u00a0contact<\/a>$/);
+  assert.match(firstContactDay('https://engage.junkdrawer.works/', ' target="_blank"'), /href="https:\/\/engage\.junkdrawer\.works\/contact\.html" target="_blank"/);
+});

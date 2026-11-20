@@ -417,6 +417,21 @@ try {
       await p.keyboard.press('Escape');
     }
 
+    // First Contact Day: on 5 April the bridge greets you with the Phoenix, 2063, in a line under where the ship is.
+    // Closed, it stays away until the next 5 April; on any other day there is no line.
+    for (const [day, shown] of [['2027-04-04T12:00:00', false], ['2027-04-05T09:00:00', true], ['2027-04-05T21:00:00', false], ['2027-04-06T09:00:00', false], ['2028-04-05T09:00:00', true]]) {
+      await p.clock.setFixedTime(new Date(day));
+      await p.goto(base);
+      await bridgeReady(p);
+      assert.equal(await p.locator('#greeting').isVisible(), shown, `${day}: the greeting is ${shown ? 'missing' : 'up'}`);
+      if (!shown) continue;
+      assert.match(await p.locator('#greeting').innerText(), /^5 April, First Contact Day: in 2063 Zefram Cochrane flew the Phoenix to warp 1, and a passing Vulcan ship came down to meet him\. First contact$/);
+      const box = await p.locator('#greeting').boundingBox();
+      assert.ok(box.x >= 0 && box.x + box.width <= 390, 'the greeting runs off the screen');
+      await p.locator('#greeting-close').click();
+      assert.equal(await p.locator('#greeting').isVisible(), false);
+    }
+
     // Warp 10: Your warp on the warp scale pushed hard against its stop three times running says what happened in
     // Voyager's "Threshold". Twice, or three times slowly, is just using the slider.
     await p.clock.setFixedTime(t0);

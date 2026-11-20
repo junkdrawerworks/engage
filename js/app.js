@@ -12,7 +12,7 @@ import { ask, flightLine, report } from './computer.js';
 import { SHOWN_IN, onScreen, onScreenParts, variableFor } from './variables.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, current, keep, watch } from './store.js';
-import { ROOMS, inWords, roomList, newRooms, whatsNew } from './rooms.js';
+import { ROOMS, firstContactDay, inWords, isFirstContactDay, roomList, newRooms, whatsNew } from './rooms.js';
 import { backCloses, swipeDown } from './sheets.js';
 import { coursePath } from './courses.js';
 import { linesForVisit, readContacts } from './contacts.js';
@@ -68,6 +68,7 @@ function defaults() {
     target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, clock: false, report: false }, seenIntro: false, ship: null,
     voyage: null, // the voyage under way, if one is (see js/voyages.js)
     rooms: null, // the rooms the bridge has told of, by id (js/rooms.js), for the line that says what's new
+    greeted: null, // the year First Contact Day's line was last closed (see greeting)
   };
 }
 
@@ -109,6 +110,7 @@ function tidy() {
   state.ship = shipOf(state); // her name and registry, from Bridge settings, or null
   state.voyage = tidyVoyage(state.voyage);
   state.rooms = Array.isArray(state.rooms) ? state.rooms.filter(x => typeof x === 'string') : null;
+  if (!Number.isInteger(state.greeted)) state.greeted = null;
 }
 
 // Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
@@ -118,8 +120,8 @@ function tidy() {
 let unsaved = null;
 function save() {
   viewMoved = false;
-  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms } = state;
-  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}) }) || null;
+  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms, greeted } = state;
+  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}), ...(greeted ? { greeted } : {}) }) || null;
   return !unsaved;
 }
 
@@ -274,6 +276,7 @@ async function start() {
     $('intro').hidden = false; behind(); $('intro-go').focus({ preventScroll: true });
   }
   roomsNews();
+  greeting();
   bind();
   restored();
   watch(KEY, adopt);
@@ -302,6 +305,19 @@ function roomsNews() {
   const seen = () => { state.rooms = all; save(); $('whats-new').hidden = true; };
   $('whats-new-close').addEventListener('click', () => { seen(); $('choose').focus({ preventScroll: true }); });
   $('whats-new-text').addEventListener('click', e => { if (e.target.closest('a')) seen(); });
+}
+
+// On 5 April the bridge greets you with First Contact Day (js/rooms.js), in a line like the one above, once a year:
+// closed, or its link followed, it stays away until next 5 April.
+function greeting() {
+  const now = new Date(), year = now.getFullYear();
+  const on = isFirstContactDay(now) && state.greeted !== year;
+  $('greeting').hidden = !on;
+  if (!on) return;
+  $('greeting-text').innerHTML = firstContactDay(ROOM_BASE, AWAY);
+  const seen = () => { state.greeted = year; save(); $('greeting').hidden = true; };
+  $('greeting-close').addEventListener('click', () => { seen(); $('choose').focus({ preventScroll: true }); });
+  $('greeting-text').addEventListener('click', e => { if (e.target.closest('a')) seen(); });
 }
 
 // A link like ?course=Proxima%20Centauri, from the planetary survey or someone's shared course, sets course for that

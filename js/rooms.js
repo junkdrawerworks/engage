@@ -109,6 +109,13 @@ export function whatsNew(rooms, base = '', away = '') {
   return list ? `New since your last visit: ${list}.` : '';
 }
 
+// 5 April is First Contact Day: in 2063 Zefram Cochrane's Phoenix made Earth's first warp flight, and a Vulcan ship
+// passing by came down to meet him (Star Trek: First Contact; Voyager's “Homestead” names the holiday). On that day,
+// by the phone's own calendar, the bridge greets you with it in one line under where the ship is.
+export const isFirstContactDay = (date = new Date()) => date.getMonth() === 3 && date.getDate() === 5;
+export const firstContactDay = (base = '', away = '') =>
+  `5 April, First Contact Day: in 2063 Zefram Cochrane flew the Phoenix to warp 1, and a passing Vulcan ship came down to meet him. <a href="${base}contact.html"${away}>First\u00a0contact</a>`;
+
 // A count in words, for "all ten rooms": a room list is never long.
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
   'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
