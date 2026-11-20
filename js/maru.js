@@ -351,6 +351,8 @@ function showEval() {
   $('eval-firsts').textContent = firsts?.newEnding ? `New ending · ${firsts.endingsSeen} of ${ENDINGS.length} seen` : '';
   // The four grades arrive one after another, as an arrival's log does on the bridge.
   const stagger = k => (still.matches ? '' : ` style="animation: rise .5s ${(0.15 + k * 0.14).toFixed(2)}s both"`);
+  // Each lands with a stamp, as it finishes rising.
+  e.grades.forEach((x, k) => sound.stamp(still.matches ? k * 0.18 : 0.15 + k * 0.14 + 0.3));
   $('grades').innerHTML = e.grades.map((x, k) => `<div class="grade ${x.letter}"${stagger(k)}><span class="l">${x.letter}</span><span class="n">${esc(x.name)}${firsts?.better.includes(x.name) ? ' <b class="best-yet">best yet</b>' : ''}</span><span class="w">${esc(x.why)}</span>${x.ceiling ? '<span class="ceil">The best this simulation allows</span>' : ''}</div>`).join('');
   $('eval-note').innerHTML = e.note.map(n => `<p>${esc(n)}</p>`).join('');
   $('eval-moral').textContent = moral(e);

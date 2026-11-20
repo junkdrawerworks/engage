@@ -120,7 +120,7 @@ try {
     await bridgeReady(p);
     assert.equal(await p.locator('#opt-buzz-row').evaluate(el => el.hidden), false, 'no Vibration setting on a phone that vibrates');
     const fly = async () => {
-      await p.evaluate(() => { engage.speed(40); engage.target(engage.state.at === 0 ? 'Proxima Centauri' : 'Sol'); });
+      await p.evaluate(() => { engage.speed(6); engage.target(engage.state.at === 0 ? 'Proxima Centauri' : 'Sol'); });
       await p.locator('#engage').tap();
       await p.waitForFunction(() => !engage.trip && !document.getElementById('arrival').hidden, null, { timeout: 30000 });
       await p.evaluate(() => engage.closeSheets());
@@ -153,6 +153,77 @@ try {
     await p.goto(base);
     await bridgeReady(p);
     assert.equal(await p.locator('#opt-buzz-row').evaluate(el => el.hidden), true, 'a Vibration setting where nothing can vibrate');
+    await c.close();
+  }
+
+  // ---------- New sounds at the moments that had none ----------
+  // Nobody building Engage can hear them, so each says its name to a test that listens.
+  {
+    const c = await phone();
+    await c.addInitScript(() => { localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); window.engageHeard = []; });
+    const p = watch(await c.newPage());
+    const heard = () => p.evaluate(() => window.engageHeard.slice());
+    // The warp scale's race: a sweep as the five leave, and a ring as each arrives.
+    await p.goto(base + 'warp.html#vega');
+    await ready(p, 'warp.html');
+    await p.locator('#go').tap();
+    await p.waitForFunction(() => document.getElementById('go').textContent === 'Race again', null, { timeout: 30000 });
+    assert.deepEqual(await heard(), ['raceStart', 'laneIn', 'laneIn', 'laneIn', 'laneIn', 'laneIn']);
+    // Skipped, the race rings no more.
+    await p.locator('#go').tap();
+    await p.locator('#go').tap();
+    assert.deepEqual((await heard()).slice(6), ['raceStart']);
+    // Long missions: a hail going out, and landing while the room is open (the Moon's distance is put in for her).
+    await p.goto(base + 'missions.html');
+    await ready(p, 'missions.html');
+    await p.locator('#hail').tap();
+    assert.deepEqual(await heard(), ['hailOut']);
+    await p.evaluate(() => {
+      const id = missions.sel, light = missions.readings(id, Date.now() / 86400000 + 2440587.5).lightSeconds * 1000;
+      localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { [id]: Date.now() - light + 1500 } }));
+    });
+    await p.reload();
+    await ready(p, 'missions.html');
+    await p.waitForFunction(() => window.engageHeard.includes('hailIn'), null, { timeout: 10000 });
+    // The survey's quiz: right, then wrong.
+    await p.goto(base + 'survey.html#drill');
+    await p.waitForFunction(() => window.survey?.world);
+    await p.locator(`#choices [data-id="${await p.evaluate(() => survey.world.cls.id)}"]`).tap();
+    await p.locator('#drill-next').tap();
+    await p.locator(`#choices [data-id="${await p.evaluate(() => survey.world.choices.find(c => c.id !== survey.world.cls.id).id)}"]`).tap();
+    assert.deepEqual(await heard(), ['right', 'wrong']);
+    // The lab: a clink as a creature goes into a jar, and none as it is let go.
+    await p.goto(base + 'xeno.html');
+    await p.waitForFunction(() => window.xeno?.current);
+    await p.locator('#keep').tap();
+    await p.locator('#keep').tap();
+    assert.deepEqual(await heard(), ['clink']);
+    // The Kobayashi Maru's evaluation: a stamp for each of the four grades.
+    await p.goto(base + 'maru.html');
+    await ready(p, 'maru.html');
+    await p.locator('#start').tap();
+    for (const id of ['hail-maru', 'leave']) {
+      await p.locator(`.order[data-id="${id}"]`).tap();
+      await p.waitForFunction(() => !maru.busy, null, { timeout: 20000 });
+    }
+    await p.evaluate(() => { window.engageHeard = []; });
+    await p.locator('#read-eval').tap();
+    assert.deepEqual(await heard(), ['stamp', 'stamp', 'stamp', 'stamp']);
+    // First contact: breaking off closes the channel, on a falling figure.
+    await p.goto(base + 'contact.html');
+    await ready(p, 'contact.html');
+    await p.locator('#start').tap();
+    await p.waitForFunction(() => !contact.busy, null, { timeout: 20000 });
+    await p.evaluate(() => { window.engageHeard = []; contact.act('leave'); });
+    await p.waitForFunction(() => !contact.busy && contact.game.over, null, { timeout: 20000 });
+    assert.deepEqual((await heard()).filter(x => x !== 'blip'), ['channelClosed']);
+    // With the sound off, none of it is played.
+    await p.locator('#speaker').tap();
+    await p.goto(base + 'warp.html#vega');
+    await ready(p, 'warp.html');
+    await p.locator('#go').tap();
+    await p.locator('#go').tap();
+    assert.deepEqual(await heard(), []);
     await c.close();
   }
 } finally {

@@ -69,6 +69,7 @@ const unseen = c => c.stage !== 'sent' && saved.seen[c.id] !== c.key;
 // Counts each answer that has come back, once, and keeps the news of the latest unseen change for the line over the
 // map. Run as the page opens and every couple of seconds after.
 let news = null; // { id, stage, at, key }
+let settled = false; // the news the room opened with is known
 function settle(nowMs) {
   let changed = false;
   const all = hailChanges(nowMs);
@@ -80,7 +81,12 @@ function settle(nowMs) {
     }
   }
   const fresh = all.filter(unseen).sort((a, b) => b.at - a.at)[0];
-  if (fresh && (!news || fresh.at > news.at || fresh.key !== news.key && fresh.id === news.id)) news = fresh;
+  if (fresh && (!news || fresh.at > news.at || fresh.key !== news.key && fresh.id === news.id)) {
+    // A hail landing while the room is open is heard: three falling chirps (not the news it opened with).
+    if (settled) sound.hailIn();
+    news = fresh;
+  }
+  settled = true;
   if (changed) save();
   return all;
 }
@@ -217,6 +223,7 @@ function hail() {
     saved.hails[sel] = now;
     saved.sent += 1;
     save();
+    sound.hailOut();
   }
   pulses.push({ id: sel, t: performance.now() });
   tick(true);

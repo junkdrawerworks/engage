@@ -127,10 +127,11 @@ function engage() {
   if (race && !race.done) return skip();
   if (!trip) plan();
   if (still.matches) return finish();
-  race = { start: performance.now() };
+  race = { start: performance.now(), rung: 0 };
   lastNote = '';
   setButton();
   note('Engaging…');
+  sound.raceStart();
   requestAnimationFrame(tick);
 }
 
@@ -147,11 +148,16 @@ function finish() {
 function tick(now) {
   if (!race || race.done) return;
   const s = race.frozen ?? (now - race.start) / 1000;
-  if (s >= trip.clock.seconds) return finish();
+  if (s >= trip.clock.seconds) {
+    if (!race.frozen) while (race.rung < trip.lanes.length) sound.laneIn(race.rung++); // the last ones in, at the end
+    return finish();
+  }
   draw(s);
   const t = trip.clock.at(s);
   const there = trip.lanes.filter(l => l.years <= t);
   markArrived(t);
+  // Each ship arriving rings, a little lower than the one before (not a race held still for a picture).
+  if (!race.frozen) while (race.rung < there.length) sound.laneIn(race.rung++);
   if (there.length) {
     const l = there[there.length - 1];
     note(`${l.label} is there, after ${formatSpan(l.years)}.`);

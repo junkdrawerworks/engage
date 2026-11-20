@@ -389,6 +389,7 @@ function answer(id) {
   drill.answered = true;
   const c = drill.cls;
   const right = id === c.id;
+  if (right) sound.right(); else sound.wrong();
   const reverse = drill.kind === 'reverse';
   saved.seen++;
   // Today's exam is its own score: it leaves the streak alone. Whether this is the exam goes by the world on screen,

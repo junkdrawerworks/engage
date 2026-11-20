@@ -74,6 +74,7 @@ function keptGame() {
   return back && !back.game.over ? back : null;
 }
 let shown = 0; // log lines on screen so far
+const ended = new WeakSet(); // the encounters whose end has been heard
 let busy = false;
 let speakingUntil = 0;
 let lastEval = null;
@@ -280,6 +281,8 @@ function play(lines) {
     renderLog();
     update();
     sayPatience();
+    // The end of an encounter: a rising figure for contact made, a falling one for the channel closing.
+    if (g.over && !ended.has(g)) { ended.add(g); if (g.over === 'contact' || g.over === 'friends') sound.contactMade(); else sound.channelClosed(); }
     if (g.over && !watching) record();
     if (watching) { if (g.over) $('watching').hidden = true; else setTimeout(nextWatched, watching.skip ? 0 : still.matches ? 300 : 900); }
     // The buttons a finished encounter switches off can't hold the keyboard's place: Read the debrief takes it.

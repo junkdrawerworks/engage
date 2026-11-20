@@ -291,6 +291,7 @@ function sendHail() {
   if (out && !hailProgress(out.sent, lyOf(i), Date.now()).arrived) return;
   saved.hails = [{ star: name, sent: Date.now() }, ...saved.hails.filter(h => h.star !== name)];
   store();
+  sound.hailOut();
   const p = hailProgress(Date.now(), lyOf(i), Date.now());
   $('hail-said').textContent = `Hailing frequencies open. Your hail is on its way to ${titleFor(cat, i)}, and gets there in ${monthYear(p.arrives)}.`;
   renderChosen();
