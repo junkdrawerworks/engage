@@ -125,7 +125,7 @@ console.log(`survey.html: ${(surveyOut.length / 1024).toFixed(0)} KB`);
 
 // The Kobayashi Maru, as its own single file. Links back to the bridge go to the live site.
 const maruHtml = await read('maru.html');
-const maruJs = await bundle(['audio', 'store', 'prefs', 'room', 'onscreen', 'share', 'switch', 'archive', 'maru-sim', 'officer-sim', 'officer', 'myship', 'maru'], liveBridge('maru'));
+const maruJs = await bundle(['audio', 'store', 'prefs', 'room', 'onscreen', 'share', 'switch', 'archive', 'maru-sim', 'officer-sim', 'officer', 'rescue-sim', 'rescue', 'myship', 'maru'], liveBridge('maru'));
 const maruOut = `<title>Kobayashi Maru</title>
 <meta name="theme-color" content="#05070d">
 <style>

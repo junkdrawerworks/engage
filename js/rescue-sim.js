@@ -46,12 +46,12 @@ const DANGERS = [
 
 // A rescue to try from `seed`. Not every throw makes a fair test: one where everyone can be saved, or where the
 // orders the examiners expect (go to one, beam everyone you can) are already the best, is thrown again. Every test
-// keeps: nobody can save everyone, and the best run saves people from both ships.
+// keeps: nobody can save everyone (the best leaves at least 40 behind), and the best run saves people from both ships.
 export function newRescue(seed = Date.now()) {
   for (let k = 0; k < 200; k++) {
     const t = setUp((seed + k * 7919) >>> 0, seed >>> 0);
     const top = best(t), plain = best(t, PLAIN).rescued, total = t.ships[0].aboard + t.ships[1].aboard;
-    if (top.rescued < total && top.rescued >= plain + 20 && run(t, top.orders).ships.every(s => s.saved > 0)) return { ...t, most: top.rescued, plain, total, plan: top.orders };
+    if (top.rescued <= total - 40 && top.rescued >= plain + 20 && run(t, top.orders).ships.every(s => s.saved > 0)) return { ...t, most: top.rescued, plain, total, plan: top.orders };
   }
   throw new Error('rescue-sim: no fair test from that seed');
 }

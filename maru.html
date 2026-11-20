@@ -70,6 +70,18 @@
         <p class="officer-record" id="officer-record" hidden></p>
         <button class="secondary" id="officer-start" type="button">Take the test</button>
       </div>
+      <div class="card officer-card rescue-card">
+        <p class="eyebrow">Also at the Academy</p>
+        <h2>The rescue test</h2>
+        <p>Two ships in trouble, millions of kilometres apart, and one transporter that reaches 40,000 kilometres. The examiners say there is time to save one of them. Engage’s own test: no episode has it, though Riker remembers a classmate, Paul Rice, beating an Academy test by ignoring its three answers and finding a fourth (<i>The Next Generation</i>, “The Arsenal of Freedom”).</p>
+        <p class="officer-record" id="rescue-record" hidden></p>
+        <button class="secondary" id="rescue-start" type="button">Take the test</button>
+        <div class="daily">
+          <button class="secondary" id="rescue-daily" type="button">Today’s rescue</button>
+          <p class="daily-note" id="rescue-daily-note">The same two ships for every cadet today.</p>
+          <button class="text-button" id="rescue-share" type="button" hidden>Share</button>
+        </div>
+      </div>
       <div class="card officer-card">
         <p class="eyebrow">Also at the Academy</p>
         <h2>The Prime Directive</h2>
@@ -139,6 +151,36 @@
           <button class="secondary" id="officer-back" type="button">Back to the briefing</button>
           <button class="primary" id="officer-again" type="button">Take it again</button>
         </div>
+      </div>
+    </section>
+
+    <section id="rescue" hidden aria-label="The rescue test">
+      <div class="plot-wrap">
+        <canvas id="rescue-plot" role="img" aria-label="The two ships in trouble, your ship and its transporter range"></canvas>
+        <p class="turn" id="rescue-turn">Rescue test · Minute 0</p>
+        <p class="caption" id="rescue-caption" aria-hidden="true"></p>
+      </div>
+      <div class="side">
+        <div class="status" id="rescue-status" role="group" aria-label="The two ships"></div>
+        <div class="orders" id="rescue-orders" aria-label="Orders"></div>
+      </div>
+      <div class="comms" id="rescue-comms" role="log" aria-live="polite" aria-label="Communications"></div>
+    </section>
+
+    <section id="rescue-eval" hidden aria-label="The board’s verdict">
+      <div class="card evaluation">
+        <p class="eyebrow" id="rescue-eyebrow">Starfleet Academy · Rescue test</p>
+        <h2 id="rescue-title" tabindex="-1"></h2>
+        <p class="summary" id="rescue-summary"></p>
+        <p class="firsts" id="rescue-firsts" hidden></p>
+        <h3>The board’s notes</h3>
+        <div id="rescue-note"></div>
+        <p class="moral" id="rescue-moral"></p>
+        <div class="eval-actions">
+          <button class="secondary" id="rescue-back" type="button">Back to the briefing</button>
+          <button class="primary" id="rescue-again" type="button">Take it again</button>
+        </div>
+        <p class="share-row"><button class="text-button" id="rescue-share-run" type="button" hidden>Share today’s rescue</button></p>
       </div>
     </section>
 

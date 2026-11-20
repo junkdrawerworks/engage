@@ -1617,6 +1617,41 @@ assert.match(await page.evaluate(() => JSON.parse(localStorage.getItem('engage.m
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await bot.close();
 }
+// The rescue test, the Academy's third: the transporter reaches only the ship alongside, the best run is commended,
+// the briefing keeps the record, and today's rescue is the same two ships for everyone, with a line to send.
+{
+  const rt = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await rt.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'maru.html');
+  await p.waitForFunction(() => window.maru?.rescue);
+  assert.equal(await p.locator('#rescue-record').isHidden(), true);
+  await p.evaluate(() => maru.rescue.start(false, 42));
+  assert.equal(await p.locator('#rescue').isVisible(), true);
+  assert.equal(await p.locator('[data-rescue="beam"]').getAttribute('aria-disabled'), 'true', 'energize works out of range');
+  assert.match(await p.locator('#rescue-comms').innerText(), /There is time to save one of them\./);
+  const plan = await p.evaluate(() => maru.rescue.test.plan);
+  for (const id of plan) await p.tap(`[data-rescue="${id}"]`);
+  await p.tap('#rescue-read');
+  assert.equal(await p.locator('#rescue-title').innerText(), 'Commended');
+  assert.match(await p.locator('#rescue-summary').innerText(), /and you found it\.$/);
+  assert.equal(await p.locator('#rescue-share-run').isHidden(), true, 'a test that isn’t today’s offers to share');
+  await p.tap('#rescue-back');
+  assert.equal(await p.locator('#rescue-record').innerText(), 'One test taken. Best: 100% of what was possible, found the most once.');
+  // Today's: orders until it ends, then the line to send, on the verdict and on the card.
+  await p.tap('#rescue-daily');
+  for (let k = 0; k < 30 && !(await p.evaluate(() => maru.rescue.test.over)); k++) await p.locator('#rescue-orders .order:not([aria-disabled])').first().tap();
+  await p.tap('#rescue-read');
+  assert.equal(await p.locator('#rescue-eyebrow').innerText(), 'TODAY’S RESCUE · THE BOARD’S VERDICT');
+  assert.equal(await p.locator('#rescue-share-run').isVisible(), true);
+  await p.tap('#rescue-back');
+  assert.equal(await p.locator('#rescue-daily').isHidden(), true, 'today’s rescue offered twice');
+  assert.match(await p.locator('#rescue-daily-note').innerText(), /^TODAY’S RESCUE\n\d+ home, of the \d+ it allowed$/);
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.maru.v1')).rescue);
+  assert.deepEqual([kept.taken, kept.runs.length, kept.full >= 1, !!kept.daily.line], [2, 2, true, true]);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await rt.close();
+}
 // One-switch play: with the toggle on the briefing, a highlight steps through the choices and one key or one tap
 // anywhere picks the highlighted one, for the whole test and the evaluation. The setting is remembered, and first
 // contact can be played the same way, a meaning in the notebook stepped on by each press.

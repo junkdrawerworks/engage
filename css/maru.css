@@ -71,6 +71,13 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 #officer-bar { background: var(--amber); }
 #officer-eval:not([hidden]) { display: block; max-width: 680px; margin: 6px auto 0; }
 #officer-title.passed { color: var(--green); }
+/* The rescue test: its card, screen and verdict are the officer's test's, with its own canvas and the ships' status. */
+.rescue-card .daily { margin-top: 8px; }
+#rescue:not([hidden]) { display: block; }
+#rescue-plot { display: block; width: 100%; aspect-ratio: 10 / 7; }
+#rescue-eval:not([hidden]) { display: block; max-width: 680px; margin: 6px auto 0; }
+#rescue-title.passed { color: var(--green); }
+#rescue-status .g-v { font-size: calc(15 * var(--px)); }
 
 /* The tactical display */
 .plot-wrap { position: relative; margin: 4px -16px 0; border-block: var(--bw) solid rgba(255, 107, 94, 0.18); background: #04060b; }
@@ -164,7 +171,7 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
   .top { padding: calc(20px + var(--safe-t)) max(24px, var(--safe-r)) 14px max(24px, var(--safe-l)); }
   .title h1 { font-size: calc(26 * var(--px)); }
   .maru main { padding: 0 max(24px, var(--safe-r)) 0 max(24px, var(--safe-l)); }
-  #officer:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); grid-template-areas: 'plot side' 'comms side'; gap: 12px 20px; align-items: start; }
+  #officer:not([hidden]), #rescue:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); grid-template-areas: 'plot side' 'comms side'; gap: 12px 20px; align-items: start; }
   #sim:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); grid-template-areas: 'plot side' 'comms side'; gap: 12px 20px; align-items: start; }
   .plot-wrap { grid-area: plot; margin: 4px 0 0; border: var(--bw) solid rgba(255, 107, 94, 0.18); border-radius: 18px; overflow: hidden; }
   #plot { aspect-ratio: 10 / 7; }

@@ -10,7 +10,7 @@ const SEEDS = Array.from({ length: 25 }, (_, k) => 1000 + k * 7919);
 test('every test is fair: nobody can save everyone, and the best run takes people off both ships', () => {
   for (const seed of SEEDS) {
     const t = newRescue(seed);
-    assert.ok(t.most < t.total, `seed ${seed}: everyone can be saved`);
+    assert.ok(t.most <= t.total - 40, `seed ${seed}: everyone, or nearly, can be saved`);
     const end = play(t, t.plan);
     assert.equal(saved(end), t.most, `seed ${seed}: the plan doesn't bring home what the search said`);
     assert.ok(end.ships.every(s => s.saved > 0), `seed ${seed}: the best run saves from one ship only`);

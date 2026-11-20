@@ -95,6 +95,22 @@ const better = (a, b) => (['A', 'B', 'C', 'D', 'F'].includes(a) && (!b || a < b)
 const notebook = x => (x && Number.isInteger(x.decoded) && Number.isInteger(x.of) && x.of > 0 ? x : null);
 const newer = (a, b) => (obj(a) && obj(b) ? (String(b.date) > String(a.date) ? b : a) : obj(a) || obj(b) || undefined);
 export const JAR_MAX = 40; // the lab's shelf (js/xeno.js)
+// The rescue test's record, kept in the Maru's (js/rescue.js): its runs together, the counts up by what was added,
+// the better best and the newer of today's lines.
+function rescue(h, t) {
+  if (!h && !t) return {};
+  h = h || {}; t = t || {};
+  const u = union(list(h.runs), list(t.runs), r => `${r.at}|${r.rescued}`);
+  const share = x => (Number.isFinite(x) && x > 0 ? Math.min(1, x) : 0);
+  const full = rs => rs.filter(r => r.rescued >= r.most).length;
+  return { rescue: {
+    taken: Math.max(count(h.taken) + u.added.length, count(t.taken) + u.only.length, u.all.length),
+    best: Math.max(share(h.best), share(t.best)),
+    full: Math.max(count(h.full) + full(u.added), count(t.full) + full(u.only)),
+    runs: u.all.sort((a, b) => when(a) - when(b)).slice(-30),
+    ...(newer(h.daily, t.daily) ? { daily: newer(h.daily, t.daily) } : {}),
+  } };
+}
 
 const MERGE = {
   'engage.v1'(here, theirs) {
@@ -119,6 +135,7 @@ const MERGE = {
       seen: [...new Set([...(Array.isArray(here.seen) ? here.seen : []), ...(Array.isArray(theirs.seen) ? theirs.seen : [])])],
       best,
       ...(oh.taken || ot.taken ? { officer: { taken: Math.max(count(oh.taken), count(ot.taken)), passed } } : {}),
+      ...(rescue(obj(here.rescue), obj(theirs.rescue))),
       ...(newer(here.daily, theirs.daily) ? { daily: newer(here.daily, theirs.daily) } : {}),
       ...(here.game || !theirs.game ? {} : { game: theirs.game }),
     };

@@ -349,6 +349,11 @@ test('ship’s records: everything Engage keeps in one file, read back, and adde
   assert.deepEqual(maru.seen, ['The lifeboat', 'Died trying']);
   assert.deepEqual(maru.best, { Compassion: 'A', Nerve: 'B' });
   assert.equal(maru.officer.passed, '2026-11-18T11:00:00.000Z');
+  // The rescue test's record rides in the Maru's: runs together, counts up by what was added, the better best.
+  const r1 = { at: '2026-11-18T10:00:00.000Z', rescued: 400, of: 600, most: 450 }, r2 = { at: '2026-11-19T10:00:00.000Z', rescued: 450, of: 600, most: 450 };
+  const rescue = plan({ keys: { 'engage.maru.v1': { runs: [], rescue: { taken: 2, best: 1, full: 1, runs: [r1, r2], daily: { date: '2026-11-19', line: 'b' } } } } },
+    { 'engage.maru.v1': { runs: [], rescue: { taken: 1, best: 0.889, full: 0, runs: [r1], daily: { date: '2026-11-18', line: 'a' } } } }, 'add').write['engage.maru.v1'].rescue;
+  assert.deepEqual([rescue.taken, rescue.best, rescue.full, rescue.runs.length, rescue.daily.line], [2, 1, 1, 2, 'b']);
   const contact = plan({ keys: { 'engage.contact.v1': { runs: [{ id: 'x', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-18T10:00:00.000Z' }], met: 1, contacts: 1, best: { decoded: 9, of: 10 }, friends: [{ people: 'Mipen', seed: 4 }] } } },
     { 'engage.contact.v1': { runs: [{ id: 'y', title: 'Ships passing', outcome: 'alone', people: 'Qaethuk', at: '2026-11-17T10:00:00.000Z' }], met: 1, contacts: 0, best: { decoded: 3, of: 10 } } }, 'add').write['engage.contact.v1'];
   assert.deepEqual([contact.runs.map(r => r.id), contact.met, contact.contacts, contact.best, contact.friends.map(f => f.people)], [['y', 'x'], 2, 1, { decoded: 9, of: 10 }, ['Mipen']]);
