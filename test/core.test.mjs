@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEUT_TANK, HOT, LIMIT, MEGATON, ORDERS, ORDER_SECONDS, PAIR_J, TOLERANCE, costOf, flowsFor, grade, massSaid, need, newShift,
+  DEUT_TANK, HOT, LIMIT, MEGATON, ORDERS, ORDER_SECONDS, PAIR_J, TOLERANCE, asked, costOf, flowsFor, grade, massSaid, need, newShift,
   orders, reading, recordShift, run, warpOf, yardsticks,
 } from '../js/core.js';
 
@@ -50,6 +50,18 @@ test('the bridge asks for eight orders, warp 3 to 9.5, each a warp and a half fr
     }
   }
   assert.deepEqual(orders(42), orders(42));
+  // The bridge's words never contradict the number: the fourth order eases her back only when it is slower.
+  assert.equal(asked([5, 7, 9, 6], 3), '“Ease her back to warp 6.”');
+  assert.equal(asked([5, 7, 4, 6], 3), '“Bring her up to warp 6.”');
+  for (let seed = 0; seed < 300; seed++) {
+    const o = orders(seed);
+    for (let k = 0; k < ORDERS; k++) {
+      const words = asked(o, k);
+      assert.ok(words.toLowerCase().includes(`warp ${o[k]}`), words);
+      if (/back/.test(words)) assert.ok(o[k] < o[k - 1], `seed ${seed}: “${words}” after warp ${o[k - 1]}`);
+      if (/ up /.test(words)) assert.ok(o[k] > o[k - 1], `seed ${seed}: “${words}” after warp ${o[k - 1]}`);
+    }
+  }
   // A careful engineer can hold every order the bridge gives, without running hot.
   for (let w = 3; w <= 9.5; w += 0.5) {
     const f = flowsFor(w), s = { ...newShift(1), ...f, orders: Array(ORDERS).fill(w) };

@@ -58,6 +58,22 @@ export function orders(seed) {
   return out;
 }
 
+// The bridge's words for order k, in turn: `said` writes the warp factor. The fourth eases the ship back when the
+// order is slower than the last and brings her up when it is faster, so the words never contradict the number.
+export function asked(list, k, said = String) {
+  const w = said(list[k]), up = k > 0 && list[k] > list[k - 1];
+  return [
+    `“Engineering, bring us to warp ${w}.”`,
+    `“Warp ${w}, please.”`,
+    `“We need warp ${w}. Now.”`,
+    up ? `“Bring her up to warp ${w}.”` : `“Ease her back to warp ${w}.”`,
+    `“Give me warp ${w}.”`,
+    `“Warp ${w}, and hold it there.”`,
+    `“Engineering, warp ${w}.”`,
+    `“Last hour: warp ${w}.”`,
+  ][k];
+}
+
 export function newShift(seed) {
   return {
     seed: seed >>> 0, orders: orders(seed), t: 0, a: 0, d: 0, c: 0,

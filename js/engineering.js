@@ -1,7 +1,7 @@
 // Main engineering: the warp core, its three flows, the bridge's orders and the shift's burn. The rules are in
 // js/core.js.
 import {
-  DEUT_TANK, HOT, LIMIT, ORDERS, ORDER_SECONDS, costOf, flowsFor, grade, massSaid, newShift, reading, recordShift, run,
+  DEUT_TANK, HOT, LIMIT, ORDERS, ORDER_SECONDS, asked, costOf, flowsFor, grade, massSaid, newShift, reading, recordShift, run,
   yardsticks,
 } from './core.js';
 
@@ -20,17 +20,6 @@ let saved = read();
 let shift = newShift(fresh());
 let running = false, last = 0, frame = 0, glow = 0;
 
-// The bridge's words for each order, in turn.
-const ASKS = [
-  w => `“Engineering, bring us to warp ${w}.”`,
-  w => `“Warp ${w}, please.”`,
-  w => `“We need warp ${w}. Now.”`,
-  w => `“Ease her back to warp ${w}.”`,
-  w => `“Give me warp ${w}.”`,
-  w => `“Warp ${w}, and hold it there.”`,
-  w => `“Engineering, warp ${w}.”`,
-  w => `“Last hour: warp ${w}.”`,
-];
 
 // ---------- The core ----------
 
@@ -104,7 +93,7 @@ function renderOrder() {
     say('order-line', `The bridge will ask for ${ORDERS} warp factors, one an hour. The first: warp ${w}. Set the flows, then start.`);
   } else {
     say('order-hour', `Bridge · hour ${r.k + 1} of ${ORDERS}`);
-    say('order-line', ASKS[r.k](w));
+    say('order-line', asked(shift.orders, r.k, warpSaid));
   }
   say('order-cost', `Warp ${w} needs ${pct(cost.kg)} of this core’s power: ${massSaid(cost.kg)} of antimatter an hour, ${Math.round(cost.megatons)} megatons.`);
 }
