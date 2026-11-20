@@ -13,7 +13,7 @@ import { yearsSaid } from './longway.js';
 
 // The rooms that keep a record of what was done in them, and where each keeps it.
 export const RECORDS = { maru: 'engage.maru.v1', contact: 'engage.contact.v1', xeno: 'engage.xeno.v1', survey: 'engage.survey.v1', missions: 'engage.missions.v1', radio: 'engage.radio.v1',
-  distress: 'engage.distress.v1', longway: 'engage.longway.v1' };
+  distress: 'engage.distress.v1', longway: 'engage.longway.v1', engineering: 'engage.engineering.v1', directive: 'engage.directive.v1' };
 export function readRecords() {
   const out = {};
   for (const [room, key] of Object.entries(RECORDS)) {
@@ -202,7 +202,8 @@ export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
   const n = tally(rec, [], now);
   const taken = n.failed + n.rewritten;
   const stars = starHails(rec.radio, now, lyOf), landed = stars.filter(h => h.landed).length;
-  const distress = obj(rec.distress), longway = obj(rec.longway);
+  const distress = obj(rec.distress), longway = obj(rec.longway), eng = obj(rec.engineering);
+  const hearings = list(obj(rec.directive).heard).filter(h => Number.isFinite(h.t)).length;
   return [
     { room: 'maru', name: 'Kobayashi Maru', href: 'maru.html', none: 'Not sat yet',
       line: taken ? `${Math.min(seen.size, 9)} of 9 endings · best ${grades.join(' ')}${passed ? ' · Officer’s Test passed' : ''}` : '' },
@@ -220,6 +221,10 @@ export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
       line: count(distress.answered) ? `Rescued ${count(distress.rescued)} of ${count(distress.answered)} call${count(distress.answered) === 1 ? '' : 's'}` : '' },
     { room: 'longway', name: 'The long way home', href: 'longway.html', none: obj(longway.trip).seed != null ? 'A trip home under way' : 'Not home yet',
       line: count(longway.homes) ? `Home ${count(longway.homes) === 1 ? 'once' : count(longway.homes) === 2 ? 'twice' : `${words(count(longway.homes))} times`}${longway.best > 0 ? ` · best ${yearsSaid(longway.best)}` : ''}` : '' },
+    { room: 'engineering', name: 'Main engineering', href: 'engineering.html', none: 'No shifts stood yet',
+      line: count(eng.shifts) ? `${capital(some(count(eng.shifts), 'shift'))} stood${eng.best > 0 ? ` · best ${Math.round(Math.min(1, eng.best) * 100)}% held` : ''}` : '' },
+    { room: 'directive', name: 'The Prime Directive', href: 'directive.html', none: 'No hearings yet',
+      line: hearings ? `${capital(some(hearings, 'hearing'))} before the board of inquiry` : '' },
   ];
 }
 

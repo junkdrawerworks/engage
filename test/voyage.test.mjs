@@ -131,9 +131,9 @@ test('rescues and trips home go in the log, and on the service record', async ()
     ['distress', 'Supplemental: answered a distress call. Found at Procyon with 42% of their air left.', 'distress.html'],
   ]);
   const rows = serviceRecord({ distress, longway });
-  assert.deepEqual(rows.slice(-2).map(r => [r.name, r.line]), [['Distress calls', 'Rescued 1 of 3 calls'], ['The long way home', 'Home twice · best 58 years 3 months']]);
-  assert.equal(serviceRecord({ longway: { trip: { seed: 4 } } }).at(-1).none, 'A trip home under way');
-  assert.equal(serviceRecord({ longway: { homes: 1, best: 75 } }).at(-1).line, 'Home once · best 75 years');
+  assert.deepEqual(rows.slice(-4, -2).map(r => [r.name, r.line]), [['Distress calls', 'Rescued 1 of 3 calls'], ['The long way home', 'Home twice · best 58 years 3 months']]);
+  assert.equal(serviceRecord({ longway: { trip: { seed: 4 } } }).at(-3).none, 'A trip home under way');
+  assert.equal(serviceRecord({ longway: { homes: 1, best: 75 } }).at(-3).line, 'Home once · best 75 years');
 });
 
 test('a hail to a star goes in the log the day it is sent and the day it lands, and on the service record', async () => {
@@ -201,6 +201,8 @@ test('the service record: a row for each room’s record, saying what is on it o
     ['Hails to stars', '', 'No stars hailed yet', 'radio.html#hail'],
     ['Distress calls', '', 'No calls answered yet', 'distress.html'],
     ['The long way home', '', 'Not home yet', 'longway.html'],
+    ['Main engineering', '', 'No shifts stood yet', 'engineering.html'],
+    ['The Prime Directive', '', 'No hearings yet', 'directive.html'],
   ]);
   const now = at('2026-11-19T12:00:00Z');
   const rows = serviceRecord({
@@ -216,8 +218,11 @@ test('the service record: a row for each room’s record, saying what is on it o
     'Best streak 7',
     'Two creatures in jars',
     'One ship hailed',
-    '', '', '',
+    '', '', '', '', '',
   ]);
+  // Main engineering and the Prime Directive: the shifts stood and the hearings sat.
+  const more = serviceRecord({ engineering: { shifts: 3, best: 0.8234 }, directive: { heard: [{ case: 'a', path: [], t: 1 }, { case: 'a', path: [], t: 2 }] } });
+  assert.deepEqual(more.slice(-2).map(r => r.line), ['Three shifts stood · best 82% held', 'Two hearings before the board of inquiry']);
   // Played but never right: a streak of nought is still a record.
   assert.equal(serviceRecord({ survey: { best: 0, seen: 3 } })[2].line, 'Best streak 0');
 });
