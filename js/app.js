@@ -1580,10 +1580,12 @@ function returnTo(coursed) {
 
 // What the other rooms have on record, read again each time the log is drawn: the lines they add to it.
 let supps = [], records = {};
+// How far a star is from Sol by its catalogue name, in light years, for a hail to it kept before subspace radio kept that.
+const starLy = name => { const i = cat?.byName.get(name); return i > 0 && !cat.unmeasured[i] ? Math.hypot(...starPos(i)) * LY_PER_PC : undefined; };
 function drawLog() {
   contacts = readContacts();
   records = readRecords();
-  supps = supplementals(records);
+  supps = supplementals(records, Date.now(), { lyOf: starLy });
   unsavedNote('log-unsaved', 'The log is full: new entries and the ship’s position aren’t being kept. Clearing the log, in settings, makes room.',
     'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;
@@ -1694,7 +1696,7 @@ async function saveChart(button) {
 // The service record: the career in one card, read from every room's record, each row leading to its room. It is
 // there once anything is on record anywhere, and a room with nothing yet says so.
 function serviceHtml() {
-  const rows = serviceRecord(records);
+  const rows = serviceRecord(records, Date.now(), { lyOf: starLy });
   if (!state.log.length && rows.every(r => !r.line)) return '';
   const chev = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   // With the five-year mission's clock on, it heads the card: which mission, how far into it, and how many are done.
@@ -1755,7 +1757,7 @@ function starsHtml(q) {
 // from the browser's own menu, and let go afterwards.
 function printLog() {
   records = readRecords();
-  supps = supplementals(records);
+  supps = supplementals(records, Date.now(), { lyOf: starLy });
   const days = byDay(timeline(state.log, supps, missionItems()).reverse());
   const n = new Set(state.log.map(e => e.star)).size;
   const printed = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });

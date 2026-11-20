@@ -114,6 +114,33 @@ test('each room adds a line to the log when something in it finishes, read from 
   assert.deepEqual(supplementals({ maru: [], contact: 'x', xeno: { jars: 'x' }, survey: null, missions: { hails: [] } }), []);
 });
 
+test('a hail to a star goes in the log the day it is sent and the day it lands, and on the service record', async () => {
+  const { supplementals, serviceRecord } = await import('../js/voyage.js');
+  const { hailProgress } = await import('../js/radio.js');
+  const now = at('2031-06-01T12:00:00Z');
+  // Proxima, 4.24 light years: sent in November 2026, it landed in February 2031. Vega, 25 light years, is on its way.
+  // A hail kept before the room kept the distance is timed by the catalogue's, handed in.
+  const radio = { hails: [
+    { star: 'Proxima Centauri', title: 'Proxima Centauri', sent: at('2026-11-19T12:00:00Z'), ly: 4.24 },
+    { star: 'Vega', sent: at('2026-11-20T12:00:00Z') },
+    { star: 'Nowhere', sent: now + 86400000 * 30 },
+  ] };
+  const lines = supplementals({ radio }, now, { lyOf: name => (name === 'Vega' ? 25.04 : undefined) });
+  const lands = hailProgress(at('2026-11-19T12:00:00Z'), 4.24, now).arrives;
+  assert.deepEqual(lines.map(l => [l.t, l.kind, l.text, l.href]), [
+    [lands, 'landed', 'Supplemental: your hail reached Proxima Centauri, 4 years 3 months after it left Earth.', 'radio.html#hail=Proxima%20Centauri'],
+    [at('2026-11-20T12:00:00Z'), 'starhail', 'Supplemental: hailed Vega on subspace radio. It gets there in 2051.', 'radio.html#hail=Vega'],
+    [at('2026-11-19T12:00:00Z'), 'starhail', 'Supplemental: hailed Proxima Centauri on subspace radio. It gets there in 2031.', 'radio.html#hail=Proxima%20Centauri'],
+  ]);
+  // Before it lands, only the line for sending it.
+  assert.equal(supplementals({ radio }, at('2027-01-01T00:00:00Z')).filter(l => l.kind === 'landed').length, 0);
+  // The service record: how many have gone out and how many have landed, leading to the room.
+  const row = serviceRecord({ radio }, now, { lyOf: () => 25.04 }).find(r => r.room === 'radio');
+  assert.deepEqual([row.name, row.line, row.href], ['Hails to stars', '2 sent · 1 landed', 'radio.html#hail']);
+  assert.equal(serviceRecord({ radio }, at('2027-01-01T00:00:00Z')).find(r => r.room === 'radio').line, '2 sent · none landed yet');
+  assert.deepEqual(serviceRecord({}).find(r => r.room === 'radio').line, '');
+});
+
 test('the log in one sentence: how long since it began, and what every room has done', async () => {
   const { story, sinceSaid, words } = await import('../js/voyage.js');
   const now = at('2027-01-20T12:00:00Z');
@@ -149,6 +176,7 @@ test('the service record: a row for each room’s record, saying what is on it o
     ['Cover your tracks', '', 'Not played yet', 'survey.html#drill'],
     ['Xenobiology lab', '', 'No creatures kept yet', 'xeno.html'],
     ['Long missions', '', 'No ships hailed yet', 'missions.html'],
+    ['Hails to stars', '', 'No stars hailed yet', 'radio.html#hail'],
   ]);
   const now = at('2026-11-19T12:00:00Z');
   const rows = serviceRecord({
@@ -164,6 +192,7 @@ test('the service record: a row for each room’s record, saying what is on it o
     'Best streak 7',
     'Two creatures in jars',
     'One ship hailed',
+    '',
   ]);
   // Played but never right: a streak of nought is still a record.
   assert.equal(serviceRecord({ survey: { best: 0, seen: 3 } })[2].line, 'Best streak 0');
@@ -298,6 +327,9 @@ test('ship’s records: everything Engage keeps in one file, read back, and adde
   const bothMet = plan({ keys: { 'engage.contact.v1': { runs: [{ id: 'z', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-19T10:00:00.000Z' }], met: 1, contacts: 1, friends: [{ people: 'Mipen', seed: 4 }] } } },
     { 'engage.contact.v1': { runs: [{ id: 'x', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-18T10:00:00.000Z' }], met: 1, contacts: 1, friends: [{ people: 'Mipen', seed: 4 }] } }, 'add').write['engage.contact.v1'];
   assert.deepEqual([bothMet.runs.length, bothMet.met, bothMet.contacts, bothMet.peoples], [2, 1, 1, ['Mipen']]);
+  // Subspace radio: one hail to each star, the later of two.
+  const radio = plan({ keys: { 'engage.radio.v1': { hails: [{ star: 'Vega', sent: 5 }, { star: 'Altair', sent: 2 }] } } }, { 'engage.radio.v1': { hails: [{ star: 'Vega', sent: 3 }, { star: 'Sirius', sent: 4 }] } }, 'add').write['engage.radio.v1'];
+  assert.deepEqual(radio.hails.map(h => [h.star, h.sent]), [['Vega', 5], ['Sirius', 4], ['Altair', 2]]);
   // The lab's shelf holds 40: what is here stays, and the copy fills what room is left.
   const full = { jars: Array.from({ length: 39 }, (_, n) => ({ id: 'M', seed: n + 1 })) };
   const more = { jars: [{ id: 'H', seed: 1 }, { id: 'H', seed: 2 }, { id: 'M', seed: 1 }] };

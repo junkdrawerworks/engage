@@ -142,15 +142,17 @@ export const arrivalSaid = row => `${row.arrived ? 'arrived' : 'due'} about ${ye
 
 // ---------- Your hails ----------
 
-// What the room keeps, read back: { hails: [{ star, sent }] }, a star's name and the moment the hail left (ms). One
-// hail to a star: a hail on its way isn't sent again. Anything else, or a moment still to come, is left out.
+// What the room keeps, read back: { hails: [{ star, sent, ly, title }] }, a star's name and the moment the hail left
+// (ms), with how far it had to go and the star's name as the room says it, for the captain's log (a hail kept before
+// those were has only the first two). One hail to a star: a hail on its way isn't sent again. Anything else, or a
+// moment still to come, is left out.
 export function readHails(s, nowMs = Date.now()) {
   const list = Array.isArray(s?.hails) ? s.hails : [];
   const seen = new Set(), hails = [];
   for (const h of list) {
     if (!h || typeof h.star !== 'string' || !h.star || !Number.isFinite(h.sent) || h.sent <= 0 || h.sent > nowMs + 60000 || seen.has(h.star)) continue;
     seen.add(h.star);
-    hails.push({ star: h.star, sent: h.sent });
+    hails.push({ star: h.star, sent: h.sent, ...(Number.isFinite(h.ly) && h.ly > 0 ? { ly: h.ly } : {}), ...(typeof h.title === 'string' && /^[^<>]{1,60}$/.test(h.title) ? { title: h.title } : {}) });
   }
   return { hails };
 }

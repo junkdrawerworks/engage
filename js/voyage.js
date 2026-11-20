@@ -8,9 +8,10 @@ import { byId as shipById, hailSent } from './ships.js';
 import { byId as classById, label as classLabel } from './classes.js';
 import { DAY, entryTime } from './logbook.js';
 import { standing as contactStanding } from './contact-sim.js';
+import { hailProgress, spanSaid } from './radio.js';
 
 // The rooms that keep a record of what was done in them, and where each keeps it.
-export const RECORDS = { maru: 'engage.maru.v1', contact: 'engage.contact.v1', xeno: 'engage.xeno.v1', survey: 'engage.survey.v1', missions: 'engage.missions.v1' };
+export const RECORDS = { maru: 'engage.maru.v1', contact: 'engage.contact.v1', xeno: 'engage.xeno.v1', survey: 'engage.survey.v1', missions: 'engage.missions.v1', radio: 'engage.radio.v1' };
 export function readRecords() {
   const out = {};
   for (const [room, key] of Object.entries(RECORDS)) {
@@ -40,7 +41,9 @@ const LETTERS = /^[ABCDF]$/;
 //   xeno:     each creature kept in a jar (a jar kept before jars carried a date has no line)
 //   survey:   the latest best streak in Cover your tracks
 //   missions: the latest hail sent to each ship
-export function supplementals({ maru, contact, xeno, survey, missions } = {}, now = Date.now()) {
+//   radio:    the latest hail sent to each star, and the day it lands
+// `lyOf(name)` is how far a star is, for a hail kept before the room kept that with it.
+export function supplementals({ maru, contact, xeno, survey, missions, radio } = {}, now = Date.now(), { lyOf } = {}) {
   const out = [];
   // `kind` says what happened, for the counts a mission's summary makes of them.
   const add = (at, room, kind, line, href) => { const t = momentOf(at); if (t && t <= now + 60000) out.push({ t, room, kind, text: `Supplemental: ${line}`, href }); };
@@ -76,7 +79,27 @@ export function supplementals({ maru, contact, xeno, survey, missions } = {}, no
     const ship = shipById(id);
     if (ship && hailSent(t, now)) add(t, 'missions', 'hail', `hailed ${ship.name} from Earth.`, `missions.html#${id}`);
   }
+  for (const h of starHails(radio, now, lyOf)) {
+    const href = `radio.html#hail=${encodeURIComponent(h.star)}`;
+    add(h.sent, 'radio', 'starhail', `hailed ${h.title} on subspace radio${h.lands ? `. It gets there in ${yearOf(h.lands)}` : ''}.`, href);
+    if (h.landed) add(h.lands, 'radio', 'landed', `your hail reached ${h.title}, ${spanSaid(h.lands - h.sent)} after it left Earth.`, href);
+  }
   return out.sort((a, b) => b.t - a.t);
+}
+
+// The hails to stars subspace radio keeps, read for the log: { star, title, sent, lands (ms, or null when nobody can
+// say how far the star is), landed }.
+const yearOf = ms => { const y = new Date(ms).getUTCFullYear(); return y >= 10000 ? y.toLocaleString('en-US') : String(y); };
+export function starHails(radio, now = Date.now(), lyOf) {
+  const out = [];
+  for (const h of list(obj(radio).hails)) {
+    const star = text(h.star, 60), sent = hailSent(h.sent, now);
+    if (!star || !sent) continue;
+    const ly = h.ly > 0 ? h.ly : lyOf?.(star);
+    const p = ly > 0 ? hailProgress(sent, ly, now) : null;
+    out.push({ star, title: text(h.title, 60) || star, sent, lands: p ? p.arrives : null, landed: !!p?.arrived });
+  }
+  return out;
 }
 
 // ---------- In one sentence ----------
@@ -151,7 +174,7 @@ export function story(rec, { log = [], supps = [], clock = false, now = Date.now
 // keeps a record, read from it, each leading to its room. A room with nothing on record yet says so, so the card is
 // also a list of what there is still to do. Rows: { room, name, href, line } (line is '' with nothing on record),
 // with `none` to say instead.
-export function serviceRecord(rec, now = Date.now()) {
+export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
   const maru = obj(rec.maru), runs = list(maru.runs);
   const seen = new Set([...(Array.isArray(maru.seen) ? maru.seen : []), ...runs.map(r => r.title)].filter(t => text(t, 40)));
   const best = obj(maru.best);
@@ -162,6 +185,7 @@ export function serviceRecord(rec, now = Date.now()) {
   const survey = obj(rec.survey);
   const n = tally(rec, [], now);
   const taken = n.failed + n.rewritten;
+  const stars = starHails(rec.radio, now, lyOf), landed = stars.filter(h => h.landed).length;
   return [
     { room: 'maru', name: 'Kobayashi Maru', href: 'maru.html', none: 'Not sat yet',
       line: taken ? `${Math.min(seen.size, 9)} of 9 endings · best ${grades.join(' ')}${passed ? ' · Officer’s Test passed' : ''}` : '' },
@@ -173,6 +197,8 @@ export function serviceRecord(rec, now = Date.now()) {
       line: n.jars ? (n.jars === 1 ? 'One creature in a jar' : `${capital(words(n.jars))} creatures in jars`) : '' },
     { room: 'missions', name: 'Long missions', href: 'missions.html', none: 'No ships hailed yet',
       line: n.hails ? `${capital(some(n.hails, 'ship'))} hailed` : '' },
+    { room: 'radio', name: 'Hails to stars', href: 'radio.html#hail', none: 'No stars hailed yet',
+      line: stars.length ? `${stars.length.toLocaleString('en-US')} sent · ${landed ? `${landed.toLocaleString('en-US')} landed` : 'none landed yet'}` : '' },
   ];
 }
 

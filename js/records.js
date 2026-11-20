@@ -154,6 +154,12 @@ const MERGE = {
     const most = (a, b) => { const out = { ...(obj(a) || {}) }; for (const [k, v] of Object.entries(obj(b) || {})) if (count(v) > count(out[k])) out[k] = v; return out; };
     return { ...here, best: Math.max(count(here.best), count(theirs.best)), seen: Math.max(count(here.seen), count(theirs.seen)), ...(theirsBest && count(theirs.bestAt) ? { bestAt: theirs.bestAt } : {}), filed: most(here.filed, theirs.filed), mixed: most(here.mixed, theirs.mixed) };
   },
+  'engage.radio.v1'(here, theirs) {
+    // One hail to each star: of two, the later.
+    const byStar = new Map();
+    for (const h of [...list(theirs.hails), ...list(here.hails)]) if (typeof h.star === 'string' && !(byStar.get(h.star)?.sent >= h.sent)) byStar.set(h.star, h);
+    return { ...here, hails: [...byStar.values()].sort((a, b) => b.sent - a.sent) };
+  },
   'engage.missions.v1'(here, theirs) {
     const hails = { ...obj(theirs.hails) };
     for (const [id, t] of Object.entries(obj(here.hails) || {})) if (!(hails[id] >= t)) hails[id] = t;

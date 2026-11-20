@@ -6056,6 +6056,7 @@ await page.emulateMedia({ reducedMotion: null });
   assert.deepEqual(await rows(), [
     ['Kobayashi Maru', 'Not sat yet', 'maru.html'], ['First contact', 'No one met yet', 'contact.html'], ['Cover your tracks', 'Not played yet', 'survey.html#drill'],
     ['Xenobiology lab', 'No creatures kept yet', 'xeno.html'], ['Long missions', 'No ships hailed yet', 'missions.html'],
+    ['Hails to stars', 'No stars hailed yet', 'radio.html#hail'],
   ]);
   await p.evaluate(() => engage.closeSheets());
   const before = await p.evaluate(() => Object.keys(localStorage).sort());
@@ -6065,7 +6066,7 @@ await page.emulateMedia({ reducedMotion: null });
     localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { v1: Date.now() - 60000, nh: Date.now() - 120000 } }));
   });
   await p.tap('#open-log');
-  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed']);
+  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed', 'No stars hailed yet']);
   // It sits under the voyage's sentence and over the log's own records, and every row is a 44 px tap.
   assert.deepEqual(await p.locator('#entries > *').evaluateAll(els => els.slice(0, 3).map(el => el.id)), ['story', 'service', 'records']);
   assert.ok((await p.locator('#service li a').evaluateAll(as => as.map(a => a.getBoundingClientRect().height))).every(h => h >= 44));
@@ -6469,6 +6470,15 @@ await page.emulateMedia({ reducedMotion: null });
   await p.waitForFunction(() => window.radio?.ready);
   await p.tap('[data-tab="hail"]');
   assert.match(await p.locator('#yours li').innerText(), /^Wolf 359[\s\S]*Arrives in \w+ 20\d\d, /);
+  // The hail goes in the captain's log as a supplemental line leading back to it, and on the service record.
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-log');
+  const line = p.locator('#entries .supp a', { hasText: 'Wolf 359' });
+  assert.match(await line.innerText(), /^Supplemental: hailed Wolf 359 on subspace radio\. It gets there in 20\d\d\.$/);
+  assert.equal(await line.getAttribute('href'), 'radio.html#hail=Wolf%20359');
+  assert.equal(await p.locator('#service a[data-room="radio"] span').innerText(), '1 sent · none landed yet');
+  await p.evaluate(() => engage.closeSheets());
   // A link to hail a star opens with it chosen; a star with no measured distance can't be hailed.
   await p.goto(base + 'radio.html#hail=Altair');
   await p.waitForFunction(() => window.radio?.ready && radio.tab === 'hail');

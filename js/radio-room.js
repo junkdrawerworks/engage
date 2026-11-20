@@ -289,7 +289,7 @@ function sendHail() {
   if (i == null || cat.unmeasured[i]) return;
   const name = cat.names[i], out = saved.hails.find(h => h.star === name);
   if (out && !hailProgress(out.sent, lyOf(i), Date.now()).arrived) return;
-  saved.hails = [{ star: name, sent: Date.now() }, ...saved.hails.filter(h => h.star !== name)];
+  saved.hails = [{ star: name, sent: Date.now(), ly: lyOf(i), title: titleFor(cat, i) }, ...saved.hails.filter(h => h.star !== name)];
   store();
   sound.hailOut();
   const p = hailProgress(Date.now(), lyOf(i), Date.now());
