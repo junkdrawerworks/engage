@@ -477,7 +477,9 @@ function record() {
     const newPeople = !peoplesMet(saved).has(lastEval.people), newContact = lastEval.outcome === 'contact' && !peoplesMade(saved).has(lastEval.people);
     // Where it happened goes with it: the bridge's log and tonight's sky read it back for that star.
     const where = here ? { star: here.star, place: here.place, ...(here.visit != null ? { visit: here.visit } : {}), sd: stardate() } : {};
-    saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString(), id: gameId, seed: g.seed, ...where });
+    // After first contact, their new phrase for the day you met goes with it: the captain's log quotes it as their toast.
+    const toast = lastEval.outcome === 'contact' && lastEval.story ? { toast: lastEval.story } : {};
+    saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString(), id: gameId, seed: g.seed, ...where, ...toast });
     // A people you made contact with is kept for good, with where you met them, beyond the 30 encounters listed.
     // Their notebook goes with them, the phrases heard and the guesses, for when they hail again.
     // A people met before (a linguist's challenge answered again, a hail sent by link) is already a friend: first

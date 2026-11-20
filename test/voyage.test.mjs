@@ -571,3 +571,22 @@ test('a log entry’s picture: its star, its stardate and what it says about see
   assert.deepEqual(squareAround(780, 1688, 390, 900), { sx: 0, sy: 510, s: 780 });
   assert.deepEqual(squareAround(2560, 1600, 1900, 800), { sx: 960, sy: 0, s: 1600 });
 });
+
+test('after first contact made, the log quotes the people’s toast: their new phrase for the day you met', async () => {
+  const { supplementals } = await import('../js/voyage.js');
+  const now = Date.parse('2026-11-20T12:00:00Z');
+  const runs = [
+    { title: 'First contact', people: 'Qaethuk', decoded: 9, of: 11, outcome: 'contact', toast: 'Temba and the stranger at Ruvok', at: '2026-11-20T09:00:00.000Z' },
+    { title: 'Strangers still', people: 'Vonai', decoded: 2, of: 11, outcome: 'parted', toast: 'Never said', at: '2026-11-20T10:00:00.000Z' },
+    { title: 'Second contact', people: 'Qaethuk', decoded: 10, of: 12, outcome: 'friends', second: true, toast: 'Not on second contact', at: '2026-11-20T11:00:00.000Z' },
+    { title: 'First contact', people: 'Lirr', decoded: 5, of: 11, outcome: 'contact', at: '2026-11-20T08:00:00.000Z' },
+    { title: 'First contact', people: 'Osk', decoded: 5, of: 11, outcome: 'contact', toast: '<b>loud</b>', at: '2026-11-20T07:00:00.000Z' },
+  ];
+  assert.deepEqual(supplementals({ contact: { runs } }, now).map(l => l.text), [
+    'Supplemental: the Qaethuk hailed again. Second contact, 10 of 12 phrases decoded.',
+    'Supplemental: answered a hail from the Vonai. Strangers still, 2 of 11 phrases decoded.',
+    'Supplemental: answered a hail from the Qaethuk. First contact, 9 of 11 phrases decoded. The Qaethuk raised a toast: “Temba and the stranger at Ruvok.”',
+    'Supplemental: answered a hail from the Lirr. First contact, 5 of 11 phrases decoded.',
+    'Supplemental: answered a hail from the Osk. First contact, 5 of 11 phrases decoded.',
+  ]);
+});

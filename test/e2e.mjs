@@ -3643,6 +3643,12 @@ await page.click('#send');
 assert.equal(await text('#eval-title'), 'First contact');
 assert.match(await text('#eval-score'), /^1\/1[0-9]/, 'the one right guess is not counted');
 assert.ok(await shown('#eval-story'), 'their new phrase is missing');
+// Their new phrase is kept with the encounter: the captain's log quotes it as their toast.
+{
+  const toast = await page.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')).runs.at(-1).toast);
+  assert.match(toast, / and the stranger at /);
+  assert.ok((await text('#eval-story')).includes(toast), 'the toast kept is not the phrase on the debrief');
+}
 // How rare the ending is, from the archive of encounters answered at random.
 assert.match(await text('#eval-archive'), /^EXAMINERS’ ARCHIVE\s+About 1 in 2\d ends this way, of 40,000 encounters answered with phrases picked at random\.$/);
 // Share this encounter: a line and a link that plays it back for a friend, guesses and all, to their debrief, with
