@@ -1,7 +1,7 @@
 // What every room shares, used in Chromium through the real pages:  node test/everywhere.mjs  (needs Playwright)
 // The speaker in each room's header and the one Sound setting behind it, vibration, the Keys card, the text size and
-// high contrast,
-// and the bridge's report on what is on the viewscreen. (Each room's own walk-through is in test/e2e.mjs.)
+// high contrast, the bridge's report on what is on the viewscreen, and the small delights hidden round the ship.
+// (Each room's own walk-through is in test/e2e.mjs.)
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -361,6 +361,45 @@ try {
     await ready(p, 'survey.html');
     assert.equal((await look('.back')).border, '1px');
     assert.equal(await p.evaluate(() => document.documentElement.dataset.contrast), undefined);
+    await c.close();
+  }
+
+  // ---------- Small delights ----------
+  // Hidden touches, each of which stays quiet until its moment.
+  {
+    const c = await phone();
+    const p = watch(await c.newPage());
+    await p.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+    const lab = () => p.evaluate(() => JSON.parse(localStorage.getItem('engage.xeno.v1') || '{}'));
+
+    // Trouble in the lab: a tribble kept from its card lives in a jar of its own, off the shelf, and has a litter of
+    // ten every twelve hours, to Spock's 1,771,561 after three days, where the count stops.
+    const t0 = new Date('2026-11-20T08:00:00Z');
+    await p.clock.setFixedTime(t0);
+    await p.goto(base + 'xeno.html');
+    await ready(p, 'xeno.html');
+    assert.equal(await p.locator('#tribble').isVisible(), false, 'a tribble before one was kept');
+    assert.equal(await p.locator('#jars-wrap').isVisible(), false);
+    await p.locator('.cabinet summary').click();
+    await p.locator('#cabinet [data-tribble]').click();
+    assert.equal(await p.locator('#tribble').isVisible(), true, 'Keep one kept no tribble');
+    assert.equal(await p.locator('#tribble-n').innerText(), '1');
+    assert.match(await p.locator('#tribble-line').innerText(), /^One tribble\./);
+    assert.equal(await p.locator('#jars-n').textContent(), '0 of 40', 'the tribble took a place on the shelf');
+    assert.equal(await p.locator('[data-tribble]').count(), 0, 'a second tribble can be kept');
+    assert.deepEqual(await lab(), { jars: [], tribble: { at: t0.toISOString() } });
+    for (const [hours, n] of [[36, '1,331'], [71, '161,051'], [120, '1,771,561']]) {
+      await p.clock.setFixedTime(new Date(+t0 + hours * 3600e3));
+      await p.reload();
+      await ready(p, 'xeno.html');
+      assert.equal(await p.locator('#tribble-n').innerText(), n, `after ${hours} hours`);
+    }
+    assert.match(await p.locator('#tribble-line').innerText(), /Mr Spock’s figure exactly/);
+    await p.locator('#tribble-go').click();
+    assert.equal(await p.locator('#tribble').isVisible(), false);
+    assert.equal((await lab()).tribble, undefined);
+    assert.equal(await p.locator('#jars-wrap').isVisible(), false, 'an empty shelf is still shown');
+    assert.equal(await p.locator('#cabinet [data-tribble]').count(), 1, 'no tribble to keep again');
     await c.close();
   }
 

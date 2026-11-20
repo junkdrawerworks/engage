@@ -139,7 +139,8 @@ const MERGE = {
   'engage.xeno.v1'(here, theirs) {
     // The shelf holds 40: what is here stays, and the copy's fill what room is left.
     const u = union(list(here.jars), list(theirs.jars), JAR);
-    return { ...here, jars: u.all.slice(0, Math.max(JAR_MAX, list(here.jars).length)) };
+    // The tribbles' jar is apart from the shelf: the one here stays, or the copy's comes over with its count.
+    return { ...here, jars: u.all.slice(0, Math.max(JAR_MAX, list(here.jars).length)), ...(obj(here.tribble) || !obj(theirs.tribble) ? {} : { tribble: theirs.tribble }) };
   },
   'engage.survey.v1'(here, theirs) {
     const theirsBest = count(theirs.best) > count(here.best);

@@ -66,3 +66,21 @@ export const SPECIMENS = [
 export function specimensFor(id) {
   return [...SPECIMENS.filter(s => s.cls === id), ...SPECIMENS.filter(s => s.cls !== id && s.also?.includes(id))];
 }
+
+// ---------- Trouble in the lab ----------
+// Keep a tribble and it does what tribbles do. Spock's count in “The Trouble with Tribbles”: one tribble with a litter
+// of ten every twelve hours comes to 1,771,561 after three days, 11 to the power of 6, one litter for each twelve
+// hours. The jar counts a litter for every twelve hours since the tribble was kept, and stops at his figure, as he did.
+export const TRIBBLE_HOURS = 12;
+const TRIBBLE_LITTERS = 6;
+const AFTER = ['', 'twelve hours', 'a day', 'a day and a half', 'two days', 'two and a half days', 'three days'];
+// { n, done, next (when the next litter is due, ms, or null), line } for a tribble kept at `kept` (an ISO date).
+export function tribbles(kept, now = Date.now()) {
+  const t = Date.parse(kept), step = TRIBBLE_HOURS * 3600e3;
+  const litters = Number.isFinite(t) ? Math.min(TRIBBLE_LITTERS, Math.max(0, Math.floor((now - t) / step))) : 0;
+  const n = 11 ** litters, done = litters === TRIBBLE_LITTERS;
+  const line = litters === 0 ? 'One tribble. Born pregnant: ten more within twelve hours.'
+    : done ? `${n.toLocaleString('en-US')} tribbles after three days: Mr Spock’s figure exactly (“The Trouble with Tribbles”). He stopped counting there, and so does the jar.`
+    : `${n.toLocaleString('en-US')} tribbles after ${AFTER[litters]}. Every one of them has ten young every twelve hours.`;
+  return { n, done, next: done || !Number.isFinite(t) ? null : t + (litters + 1) * step, line };
+}

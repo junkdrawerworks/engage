@@ -3,7 +3,7 @@ import { CLASSES, byId, label, grows, worldByName } from './classes.js';
 import { Globe, paint } from './planet-art.js';
 import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText, tempText, STARS, bench, BENCH, STEPS, benchPos, benchValue, four, readingsOf, changedParts, fileFor, compare, neighbours } from './xeno-gen.js';
 import { drawScene, drawCard, CARD_W, CARD_H } from './xeno-art.js';
-import { SPECIMENS, specimensFor } from './species.js';
+import { SPECIMENS, specimensFor, tribbles } from './species.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
@@ -265,8 +265,10 @@ function loop(now) {
 
 function refHtml(s) {
   const cls = byId.get(s.cls);
+  // The tribbles' card offers one to keep, until one is kept (see Trouble in the lab, below).
+  const keep = s.name === 'Tribbles' && !saved.tribble ? '<button class="text-button ref-keep" type="button" data-tribble>Keep one</button>' : '';
   return `<li><div class="ref-head"><b>${esc(s.name)}</b><span class="ref-kind ${s.kind}">${s.kind === 'trek' ? 'Star Trek' : 'Earth'}</span></div>
-    <p class="ref-home">${esc(s.home)} · ${esc(label(cls))}</p><p>${esc(s.note)}</p></li>`;
+    <p class="ref-home">${esc(s.home)} · ${esc(label(cls))}</p><p>${esc(s.note)}</p>${keep}</li>`;
 }
 
 function renderRefs(id) {
@@ -386,7 +388,7 @@ function renderJars() {
   const typing = $('jars').querySelector('.jar-field');
   if (typing && typing === document.activeElement) { typing.blur(); if (!typing.isConnected) return; }
   const list = saved.jars;
-  $('jars-wrap').hidden = !list.length && !gone;
+  $('jars-wrap').hidden = !list.length && !gone && !saved.tribble;
   if (list.length < 2 && comparing) { comparing = false; picked = []; }
   $('compare').hidden = list.length < 2;
   $('compare').textContent = comparing ? 'Done' : 'Compare two';
@@ -486,9 +488,45 @@ function creatureFrom(text) {
 }
 const open = (h, animate = true) => (h.pair ? (put(growJar(h.pair[0]), animate), showPair(h.pair, true)) : h.bench ? toBench(h.world ? { world: h.world, seed: h.seed } : { id: h.id, seed: h.seed }, h.bench) : h.world ? showWorld(h.world, h.seed, animate) : show(h.id, h.seed, animate));
 
+// ---------- Trouble in the lab ----------
+
+// A tribble kept from its reference card lives in a jar of its own, apart from the shelf and its limit, and does what
+// tribbles do: a litter of ten every twelve hours, so the count goes up while you're away, to Spock's 1,771,561
+// after three days (js/species.js). Kept under the lab's save as { tribble: { at } }.
+let tribbleTimer = 0;
+function renderTribble() {
+  clearTimeout(tribbleTimer);
+  const t = saved.tribble;
+  $('tribble').hidden = !t;
+  if (t) {
+    const now = tribbles(t.at);
+    $('tribble-n').textContent = now.n.toLocaleString('en-US');
+    $('tribble-line').textContent = now.line;
+    $('tribble-go').textContent = now.n === 1 ? 'Give it away' : 'Give them all away';
+    // The next litter arrives on screen too, if the page is still open when it's due.
+    if (now.next) tribbleTimer = setTimeout(renderTribble, Math.min(now.next - Date.now() + 500, 2 ** 31 - 1));
+  }
+}
+function keepTribble(on) {
+  if (on) { saved.tribble = { at: new Date().toISOString() }; sound.clink(); } else delete saved.tribble;
+  save();
+  renderTribble();
+  renderJars();
+  $('cabinet').innerHTML = SPECIMENS.map(refHtml).join('');
+  if (current) renderRefs(current.classId);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-tribble]')) return;
+  keepTribble(true);
+  $('tribble').scrollIntoView({ block: 'center', behavior: still.matches ? 'auto' : 'smooth' });
+});
+$('tribble-go').addEventListener('click', () => keepTribble(false));
+if (saved.tribble && !Number.isFinite(Date.parse(saved.tribble.at))) delete saved.tribble; // a damaged one is none
+
 buildStrip();
 buildSliders();
 $('cabinet').innerHTML = SPECIMENS.map(refHtml).join('');
+renderTribble();
 renderRecords();
 // A record's link grows it in the tank, which may be a long way up the page.
 $('records').addEventListener('click', e => { if (e.target.closest('a')) $('tank').scrollIntoView({ block: 'center', behavior: still.matches ? 'auto' : 'smooth' }); });

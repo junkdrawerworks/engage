@@ -295,6 +295,10 @@ test('ship’s records: everything Engage keeps in one file, read back, and adde
   const more = { jars: [{ id: 'H', seed: 1 }, { id: 'H', seed: 2 }, { id: 'M', seed: 1 }] };
   assert.equal(plan({ keys: { 'engage.xeno.v1': more } }, { 'engage.xeno.v1': full }, 'add').write['engage.xeno.v1'].jars.length, 40);
   assert.equal(jarsLeft(full, more), 1);
+  // The tribbles' jar is apart from the shelf: the copy's comes over when there is none here, and one here stays.
+  const tribble = { at: '2026-11-18T10:00:00.000Z' };
+  assert.deepEqual(plan({ keys: { 'engage.xeno.v1': { jars: [], tribble } } }, { 'engage.xeno.v1': full }, 'add').write['engage.xeno.v1'].tribble, tribble);
+  assert.deepEqual(plan({ keys: { 'engage.xeno.v1': { jars: [], tribble } } }, { 'engage.xeno.v1': { jars: [], tribble: { at: '2026-11-20T10:00:00.000Z' } } }, 'add').write['engage.xeno.v1'].tribble, { at: '2026-11-20T10:00:00.000Z' });
   // Hails: the later of the two to each ship.
   assert.deepEqual(plan({ keys: { 'engage.missions.v1': { hails: { v1: 5, v2: 9 } } } }, { 'engage.missions.v1': { hails: { v1: 7 } } }, 'add').write['engage.missions.v1'].hails, { v1: 7, v2: 9 });
 });

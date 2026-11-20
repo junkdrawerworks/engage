@@ -576,3 +576,28 @@ test('its neighbours: what it eats is smaller, what eats it is a hunter, each wi
   // A real planet's creature has neighbours of its own.
   assert.ok(neighbours(growFor('Proxima b', 7)).eats.name.common);
 });
+
+// ---------- Trouble in the lab ----------
+import { tribbles, TRIBBLE_HOURS } from '../js/species.js';
+
+test('a kept tribble multiplies every twelve hours to Spock’s 1,771,561 after three days, and stops there', () => {
+  const kept = Date.parse('2026-11-20T08:00:00Z'), h = 3600e3;
+  assert.equal(TRIBBLE_HOURS, 12);
+  const at = hours => tribbles(new Date(kept).toISOString(), kept + hours * h);
+  assert.deepEqual([at(0).n, at(11.9).n, at(12).n, at(24).n, at(36).n, at(48).n, at(60).n], [1, 1, 11, 121, 1331, 14641, 161051]);
+  assert.equal(at(72).n, 1771561); // “The Trouble with Tribbles”: one tribble, litters of ten every twelve hours, three days
+  assert.equal(at(72).done, true);
+  assert.equal(at(24 * 30).n, 1771561, 'the jar kept counting past Spock’s figure');
+  assert.equal(at(71).done, false);
+  // The next litter is due at the next twelve hours, and there is none once the count has stopped.
+  assert.equal(at(13).next, kept + 24 * h);
+  assert.equal(at(80).next, null);
+  // Every line says the count, and the last one whose figure it is.
+  assert.match(at(0).line, /^One tribble\. Born pregnant: ten more within twelve hours\.$/);
+  assert.match(at(36).line, /^1,331 tribbles after a day and a half\./);
+  assert.match(at(72).line, /^1,771,561 tribbles after three days: Mr Spock’s figure exactly \(“The Trouble with Tribbles”\)\./);
+  for (let k = 0; k <= 80; k++) assert.doesNotMatch(at(k).line, /undefined|NaN/);
+  // A clock set back, or a damaged date, is a tribble kept just now.
+  assert.equal(tribbles(new Date(kept).toISOString(), kept - 5 * h).n, 1);
+  assert.equal(tribbles('not a date', kept).n, 1);
+});
