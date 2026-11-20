@@ -6983,8 +6983,21 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#hood-reset');
   // A tap on a star picks it: Vulcan's sun, below the disc.
   await p.waitForFunction(() => astrometrics.hood.view.zoom === 1);
-  await p.evaluate(() => astrometrics.hood.draw());
-  const keid = (await p.evaluate(() => astrometrics.hood.dots())).find(d => d.name === 'Keid');
+  // Seen along the disc toward the galactic centre, the centre lies right behind the Sun: its words go above the Sun,
+  // not over it, and no name is written over them.
+  await p.evaluate(() => { astrometrics.hood.turn(0, 9); astrometrics.hood.draw(); });
+  {
+    const words = await p.evaluate(() => astrometrics.hood.words());
+    const { width: cw, height: ch } = box;
+    const gc = words.find(w => w.t === 'TOWARD THE GALACTIC CENTRE');
+    const over = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+    assert.ok(gc && !over(gc.box, [cw / 2 - 4, ch / 2 - 4, cw / 2 + 4, ch / 2 + 4]), `the galactic centre's words cover the Sun: ${JSON.stringify(gc?.box)}`);
+    assert.deepEqual(words.filter(w => w !== gc && over(w.box, gc.box)).map(w => w.t), []);
+    assert.ok(words.some(w => w.t === 'Sol'));
+  }
+  await p.evaluate(() => { astrometrics.hood.turn(0, -9); astrometrics.hood.turn(0, Math.PI / 3); astrometrics.hood.draw(); });
+  assert.deepEqual(await p.evaluate(() => astrometrics.hood.view), { yaw: 0, pitch: Math.PI / 3, zoom: 1 });
+  const keid =(await p.evaluate(() => astrometrics.hood.dots())).find(d => d.name === 'Keid');
   await p.touchscreen.tap(box.x + keid.x, box.y + keid.y);
   await p.waitForFunction(() => astrometrics.pick !== null);
   assert.equal(await p.evaluate(() => astrometrics.pick), 'Keid');

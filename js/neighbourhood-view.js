@@ -10,7 +10,7 @@ const GREY = [0.62, 0.66, 0.74];
 // `cat` the catalogue; `near`, `named` from js/neighbourhood.js; `titleOf(i)` a star's name; `onPick(i)` when a star
 // is tapped. `data()` hands back what changes as the page goes: { visited (a Set), chart (chartOf the log), pick }.
 export function makeHood(cv, { cat, near, named, titleOf, onPick, onTurn = () => {}, data }) {
-  let view = { ...FIRST_VIEW }, dots = [], queued = false, dragged = false;
+  let view = { ...FIRST_VIEW }, dots = [], words = [], queued = false, dragged = false;
   const labelOf = new Map(named.map(n => [n.star, n.label]));
 
   function draw() {
@@ -94,12 +94,18 @@ export function makeHood(cv, { cat, near, named, titleOf, onPick, onTurn = () =>
       g.strokeStyle = 'rgba(5, 7, 13, 0.85)'; g.lineWidth = 3; g.lineJoin = 'round'; g.strokeText(t, x, y);
       g.fillStyle = 'rgba(147, 160, 184, 0.95)'; g.fillText(t, x, y);
     }
-    // Which way the galactic centre is, over the stars.
+    // Which way the galactic centre is, over the stars. Seen along the disc toward it, it lies right behind the Sun,
+    // so the words go just above the Sun instead of over it, and the names below keep clear of them.
     g.font = '600 9px "Chakra Petch", sans-serif'; g.textBaseline = 'middle';
     {
-      const [x, y] = at({ x: REACH * 1.1, y: 0, z: 0 }), t = 'TOWARD THE GALACTIC CENTRE';
+      const [x, y] = at({ x: REACH * 1.1, y: 0, z: 0 }), t = 'TOWARD THE GALACTIC CENTRE', w = g.measureText(t).width;
       g.textAlign = x < W * 0.3 ? 'left' : x > W * 0.7 ? 'right' : 'center';
-      const px = Math.min(W - 6, Math.max(6, x)), py = Math.min(H - 8, Math.max(8, y));
+      const px = Math.min(W - 6, Math.max(6, x));
+      let py = Math.min(H - 8, Math.max(8, y));
+      if (Math.abs(px - W / 2) < w / 2 + 12 && Math.abs(py - H / 2) < 14) py = H / 2 - 24;
+      const left = g.textAlign === 'left' ? px : g.textAlign === 'right' ? px - w : px - w / 2;
+      boxes.push([left, py - 6, left + w, py + 6]);
+      words = [{ t, box: boxes[boxes.length - 1] }];
       g.strokeStyle = 'rgba(5, 7, 13, 0.85)'; g.lineWidth = 3; g.lineJoin = 'round'; g.strokeText(t, px, py);
       g.fillStyle = 'rgba(147, 160, 184, 1)'; g.fillText(t, px, py);
     }
@@ -119,6 +125,7 @@ export function makeHood(cv, { cat, near, named, titleOf, onPick, onTurn = () =>
       if (!force && boxes.some(o => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1])) return false;
       if (!force && (b[0] < 2 || b[2] > W - 2 || b[1] < 2 || b[3] > H - 2)) return false;
       boxes.push(b);
+      words.push({ t, box: b });
       g.textAlign = 'left';
       g.strokeStyle = 'rgba(5, 7, 13, 0.85)'; g.lineWidth = 3; g.lineJoin = 'round';
       g.strokeText(t, bx, y);
@@ -181,5 +188,7 @@ export function makeHood(cv, { cat, near, named, titleOf, onPick, onTurn = () =>
     zoom: by => set(turned(view, 0, 0, by)),
     reset: () => set({ ...FIRST_VIEW }),
     dots: () => dots,
+    // The words last written on it (the galactic centre's, then the stars' names), each with its box.
+    words: () => words,
   };
 }
