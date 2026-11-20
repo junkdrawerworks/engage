@@ -37,8 +37,15 @@ export function greenSeenAs(d) {
   return nm < 450 ? 'violet' : nm < 495 ? 'blue' : nm < 570 ? 'green' : nm < 590 ? 'yellow' : nm < 620 ? 'orange' : 'red';
 }
 
-// The throttle's speed in words: "0.9 of light speed, 269,813 km/s".
+// Full impulse, the mark on the throttle: a quarter of the speed of light. Not a figure said on screen in any episode;
+// it is the one widely given from Star Trek: The Next Generation Technical Manual (Rick Sternbach and Michael Okuda,
+// 1991), and Memory Alpha's "Impulse engine" page gives the same quarter of light speed from the Star Trek: Voyager
+// Technical Manual. Neither manual's own page was read for this.
+export const FULL_IMPULSE = 0.25;
+
+// The throttle's speed in words: "0.9 of light speed, 269,813 km/s", "Full impulse: 0.25 of light speed, 74,948 km/s".
 export function speedSaid(beta) {
   if (beta === 0) return 'Full stop';
-  return `${beta.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')} of light speed, ${Math.round(beta * C_KM_S).toLocaleString('en-US')} km/s`;
+  const said = `${beta.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')} of light speed, ${Math.round(beta * C_KM_S).toLocaleString('en-US')} km/s`;
+  return Math.abs(beta - FULL_IMPULSE) < 0.0005 ? `Full impulse: ${said}` : said;
 }

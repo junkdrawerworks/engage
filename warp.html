@@ -87,7 +87,10 @@
         <div class="impulse-side">
           <div class="throttle">
             <label class="custom-label" for="throttle">Throttle</label>
-            <input type="range" id="throttle" min="0" max="0.999" step="0.001" value="0" aria-describedby="impulse-speed">
+            <div class="throttle-track">
+              <input type="range" id="throttle" min="0" max="0.999" step="0.001" value="0" aria-describedby="impulse-speed">
+              <button type="button" class="full-impulse" id="full-impulse">Full impulse</button>
+            </div>
             <p class="impulse-speed" id="impulse-speed">Full stop</p>
           </div>
           <dl class="impulse-read" id="impulse-read"></dl>

@@ -253,6 +253,9 @@ test('at nine tenths of light speed half the sky is squeezed within 26° of dead
   assert.equal(greenSeenAs(doppler(-1, 0.9)), 'infrared');
   assert.equal(speedSaid(0.9), '0.9 of light speed, 269,813 km/s');
   assert.equal(speedSaid(0), 'Full stop');
+  // A quarter of light speed is full impulse, marked on the throttle.
+  assert.equal(speedSaid(0.25), 'Full impulse: 0.25 of light speed, 74,948 km/s');
+  assert.equal(speedSaid(0.251), '0.251 of light speed, 75,248 km/s');
 });
 
 // ---------- Warp 10 ----------

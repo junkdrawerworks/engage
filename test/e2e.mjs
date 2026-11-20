@@ -2066,6 +2066,14 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   const behind = await p.evaluate(() => { const names = ['Canopus', 'Sirius', 'Rigel', 'Achernar']; return names.map(n => warpScale.impulse.where(n)).find(s => s.fromMiddle > 120); });
   assert.ok(behind && behind.d < 1);
   assert.match(await p.locator('#impulse-sky').getAttribute('aria-label'), /26 degrees round dead ahead/);
+  // The full impulse mark sits under the track where the thumb is at a quarter of light speed, and sets it there.
+  const mark = await p.locator('#full-impulse').boundingBox(), track = await p.locator('#throttle').boundingBox();
+  const at = mark.x + mark.width / 2, want = track.x + 12 + (track.width - 24) * 0.25 / 0.999;
+  assert.ok(Math.abs(at - want) < 2 && mark.y > track.y + track.height / 2 && mark.height >= 32, `the full impulse mark is at ${at}, not ${want}`);
+  await p.locator('#full-impulse').click();
+  assert.equal(await p.locator('#throttle').inputValue(), '0.25');
+  assert.equal(await p.locator('#impulse-speed').innerText(), 'Full impulse: 0.25 of light speed, 74,948 km/s');
+  assert.match(await p.locator('#impulse-read').innerText(), /1 hour aboard is 1 hour 2 minutes on Earth/);
   // A place that is no star heads for Proxima Centauri.
   await p.evaluate(() => warpScale.select('core'));
   assert.equal(await p.evaluate(() => warpScale.impulse.heading), 'Proxima Centauri');

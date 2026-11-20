@@ -13,7 +13,7 @@ import { LIVE, share } from './share.js';
 import { fullName, readShip } from './myship.js';
 import { encodeDesign } from './shipyard-sim.js';
 import { loadCatalog } from './catalog.js';
-import { aberrate, doppler, gamma, greenSeenAs, halfSkyDeg, hourOnEarth, speedSaid } from './impulse.js';
+import { aberrate, doppler, gamma, greenSeenAs, halfSkyDeg, hourOnEarth, speedSaid, FULL_IMPULSE } from './impulse.js';
 import { sound } from './audio.js';
 import { setUpRoom } from './room.js';
 
@@ -626,6 +626,7 @@ function setThrottle(b) {
   $('throttle').value = beta;
   $('throttle').style.setProperty('--fill', `${(beta / 0.999 * 100).toFixed(1)}%`);
   $('impulse-speed').textContent = speedSaid(beta);
+  $('full-impulse').classList.toggle('on', beta === FULL_IMPULSE);
   const ahead = doppler(1, beta), behind = doppler(-1, beta);
   const times = d => (d >= 10 ? Math.round(d) : d.toFixed(d < 1 ? 2 : 1)).toString();
   const rows = beta === 0
@@ -644,6 +645,7 @@ function setThrottle(b) {
 }
 
 $('throttle').addEventListener('input', e => setThrottle(e.target.value));
+$('full-impulse').addEventListener('click', () => setThrottle(FULL_IMPULSE));
 setThrottle(0);
 if ('IntersectionObserver' in window) {
   const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); loadSky(); } }, { rootMargin: '600px 0px' });
