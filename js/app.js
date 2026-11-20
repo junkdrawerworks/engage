@@ -226,12 +226,13 @@ function setNight(on) {
 async function start() {
   preview();
   showNight(); // before the stars are in: no bright moment on the way
-  // Sound and the text size are every room's settings (js/room.js), followed here and in Bridge settings; ? shows the
+  // Sound, the text size and high contrast are every room's settings (js/room.js), followed here and in Bridge settings; ? shows the
   // bridge's keys.
   setUpRoom({ sound, keys: BRIDGE_KEYS });
   follow(p => {
     $('opt-sound').checked = p.sound;
     $('opt-buzz').checked = p.buzz;
+    $('opt-contrast').checked = p.contrast;
     for (const b of $('text-size').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.text === p.text));
     dirty = true; // the names on the viewscreen are drawn at the text size
   });
@@ -2045,6 +2046,7 @@ function bind() {
   $('opt-sound').addEventListener('change', e => setPref('sound', e.target.checked));
   $('report').addEventListener('click', () => setReporting(!reporting));
   $('opt-buzz').addEventListener('change', e => setPref('buzz', e.target.checked));
+  $('opt-contrast').addEventListener('change', e => setPref('contrast', e.target.checked));
   $('text-size').addEventListener('click', e => { const b = e.target.closest('[data-text]'); if (b) setPref('text', b.dataset.text); });
   $('records-save').addEventListener('click', saveCopy);
   $('records-restore').addEventListener('click', () => $('records-file').click());

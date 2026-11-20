@@ -3,7 +3,7 @@
 .lab-intro { margin: 2px 0 0; color: var(--muted); font-size: calc(14 * var(--px)); }
 
 .deck { display: grid; gap: 14px; margin-top: 12px; }
-.screen { position: relative; height: 440px; border-radius: 20px; overflow: hidden; border: 1px solid var(--line-strong); background: #02040a;
+.screen { position: relative; height: 440px; border-radius: 20px; overflow: hidden; border: var(--bw) solid var(--line-strong); background: #02040a;
   box-shadow: 0 0 0 4px rgba(134, 216, 255, 0.04), inset 0 0 40px rgba(0, 0, 0, 0.6); }
 .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .race-note { margin: 10px 2px 0; min-height: 3em; color: #cdd5e3; font-size: calc(14 * var(--px)); }
@@ -21,9 +21,9 @@
 /* The real ship in the bottom lane: Voyager 1, New Horizons, Parker Solar Probe, or one of two ideas. */
 .real-pick { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px; }
 .real-pick .custom-label { color: #6fe3a4; }
-.real-pick select { width: 100%; min-width: 0; height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--panel-solid); color: var(--text); font: calc(16 * var(--px)) var(--body); }
+.real-pick select { width: 100%; min-width: 0; height: 44px; padding: 0 10px; border-radius: 10px; border: var(--bw) solid var(--line-strong); background: var(--panel-solid); color: var(--text); font: calc(16 * var(--px)) var(--body); }
 
-.place { padding: 18px 18px 10px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
+.place { padding: 18px 18px 10px; border-radius: 20px; border: var(--bw) solid var(--line); background: var(--panel); }
 .place h2 { margin: 4px 0 2px; font: 600 calc(26 * var(--px))/1.1 var(--display); letter-spacing: 0.02em; }
 .place .dist { margin: 0 0 4px; color: var(--cyan); font-size: calc(14 * var(--px)); }
 .place .about { margin: 12px 0 8px; color: #cdd5e3; }
@@ -48,7 +48,7 @@
 
 .times { width: 100%; border-collapse: collapse; margin: 6px 0 0; font-size: calc(14 * var(--px)); }
 .times caption { text-align: left; padding: 10px 0 6px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
-.times th, .times td { padding: 7px 0; border-top: 1px solid var(--line); vertical-align: top; text-align: left; }
+.times th, .times td { padding: 7px 0; border-top: var(--bw) solid var(--line); vertical-align: top; text-align: left; }
 .times th { font: 600 calc(13 * var(--px))/1.4 var(--display); letter-spacing: 0.04em; white-space: nowrap; padding-right: 12px; width: 1%; }
 .times th i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
 .times td { color: #cdd5e3; font-variant-numeric: tabular-nums; }
@@ -59,7 +59,7 @@
 /* The ladder */
 .section-head { margin: 28px 0 4px; font: 600 calc(13 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .ladder-sub { margin: 0 0 6px; color: var(--muted); font-size: calc(14 * var(--px)); }
-.rung { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 4.6em); gap: 8px; align-items: center; width: 100%; padding: 9px 6px; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.rung { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 4.6em); gap: 8px; align-items: center; width: 100%; padding: 9px 6px; text-align: left; background: none; border: 0; border-bottom: var(--bw) solid var(--line); border-radius: 0; }
 .rung:hover { background: rgba(255, 255, 255, 0.03); }
 .rung[aria-current="true"] { background: rgba(255, 181, 74, 0.08); box-shadow: inset 3px 0 0 var(--amber); }
 .rung-head { padding-top: 4px; padding-bottom: 4px; cursor: default; }
@@ -84,8 +84,8 @@
 .throttle input[type=range]::-webkit-slider-runnable-track { background: linear-gradient(90deg, #3a7bd5, var(--cyan) var(--fill, 0%), rgba(255, 255, 255, 0.12) var(--fill, 0%)); }
 .throttle input[type=range]::-moz-range-progress { background: var(--cyan); }
 .impulse-read { margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 0 14px; font-size: calc(14 * var(--px)); }
-.impulse-read dt { padding: 8px 0; border-top: 1px solid var(--line); font: 600 calc(11 * var(--px))/1.6 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
-.impulse-read dd { margin: 0; padding: 7px 0; border-top: 1px solid var(--line); color: #cdd5e3; font-variant-numeric: tabular-nums; }
+.impulse-read dt { padding: 8px 0; border-top: var(--bw) solid var(--line); font: 600 calc(11 * var(--px))/1.6 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
+.impulse-read dd { margin: 0; padding: 7px 0; border-top: var(--bw) solid var(--line); color: #cdd5e3; font-variant-numeric: tabular-nums; }
 .impulse-card { margin-top: 14px; padding: 12px 14px; border-left: 3px solid #c9a2ff; background: rgba(201, 162, 255, 0.06); border-radius: 0 12px 12px 0; }
 .impulse-card h3 { margin: 0 0 6px; font: 600 calc(11 * var(--px))/1.3 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: #c9a2ff; }
 .impulse-card p { margin: 0; color: #cdd5e3; font-size: calc(14 * var(--px)); }

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
-  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
+  <!-- The text size and contrast from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var e = JSON.parse(localStorage.getItem('engage.prefs') || '{}'); if (e.text === 'large' || e.text === 'largest') document.documentElement.dataset.text = e.text; if (e.contrast === true) document.documentElement.dataset.contrast = 'high'; } catch (e) {}</script>
   <title>System view · Engage</title>
   <meta name="description" content="Fly in to the planets of a real star: each on its orbit at true spacing with the temperate zone shaded, the star as big as it looks from there, and a planet of your own to place round any star you have visited.">
   <meta property="og:site_name" content="Engage">

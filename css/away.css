@@ -3,15 +3,15 @@
 .lab-intro { margin: 2px 0 0; color: var(--muted); font-size: calc(14 * var(--px)); }
 .away-page h2 { font: 600 calc(22 * var(--px))/1.15 var(--display); letter-spacing: 0.03em; margin: 4px 0 6px; }
 .surface { display: grid; gap: 10px; margin-top: 12px; }
-.horizon { position: relative; aspect-ratio: 4 / 5; max-height: 72vh; width: 100%; border-radius: 20px; overflow: hidden; border: 1px solid var(--line-strong); background: #02040a; touch-action: pan-y; cursor: grab; }
+.horizon { position: relative; aspect-ratio: 4 / 5; max-height: 72vh; width: 100%; border-radius: 20px; overflow: hidden; border: var(--bw) solid var(--line-strong); background: #02040a; touch-action: pan-y; cursor: grab; }
 @media (min-width: 700px) { .horizon { aspect-ratio: 16 / 9; } }
 .horizon canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .drag-hint { position: absolute; right: 10px; bottom: 8px; margin: 0; font: 500 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(205, 213, 227, 0.55); pointer-events: none; }
-.side-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.side-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.03); }
 .side-pick button { min-height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 calc(12 * var(--px))/1.2 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
 .side-pick button[aria-pressed="true"] { background: rgba(255, 181, 74, 0.14); color: var(--amber); box-shadow: 0 0 0 1px rgba(255, 181, 74, 0.35) inset; }
 .seen { margin: 0 2px; color: #cdd5e3; font-size: calc(14 * var(--px)); min-height: 3em; }
-.ground-card, .pick { max-width: 760px; width: 100%; margin: 0 auto; padding: 16px 18px 8px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
+.ground-card, .pick { max-width: 760px; width: 100%; margin: 0 auto; padding: 16px 18px 8px; border-radius: 20px; border: var(--bw) solid var(--line); background: var(--panel); }
 .pick { margin-top: 18px; }
 .away-page .readings div { grid-template-columns: 9em 1fr; }
 .creature { margin: 12px 0 0; color: #cdd5e3; font-size: calc(14 * var(--px)); }
@@ -22,7 +22,7 @@
 .doors { margin: 4px 0 0; display: flex; flex-wrap: wrap; gap: 0 22px; }
 .pick h3 { margin: 14px 0 6px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .pick ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-.pick li a { display: grid; gap: 2px; min-height: 48px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); color: var(--text); text-decoration: none; }
+.pick li a { display: grid; gap: 2px; min-height: 48px; padding: 8px 12px; border-radius: 12px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.02); color: var(--text); text-decoration: none; }
 .pick li a b { font: 600 calc(14 * var(--px))/1.2 var(--display); }
 .pick li a span { font-size: calc(12 * var(--px)); color: var(--muted); }
 .pick li a[aria-current="page"] { border-color: rgba(255, 181, 74, 0.6); }

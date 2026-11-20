@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
-  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
+  <!-- The text size and contrast from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var e = JSON.parse(localStorage.getItem('engage.prefs') || '{}'); if (e.text === 'large' || e.text === 'largest') document.documentElement.dataset.text = e.text; if (e.contrast === true) document.documentElement.dataset.contrast = 'high'; } catch (e) {}</script>
   <title>Subspace radio · Engage</title>
   <meta name="description" content="Earth’s radio and television have been spreading through the stars since 1936. Tune to a year and see which real stars are hearing it tonight, follow the real messages people have sent to stars, and send a hail of your own.">
   <meta property="og:site_name" content="Engage">

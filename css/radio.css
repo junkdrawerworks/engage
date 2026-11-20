@@ -7,11 +7,11 @@
 @media (min-width: 900px) { .deck { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
 
 /* The map from above */
-.screen { position: relative; aspect-ratio: 1; border-radius: 20px; overflow: hidden; border: 1px solid var(--line-strong); background: #02040a;
+.screen { position: relative; aspect-ratio: 1; border-radius: 20px; overflow: hidden; border: var(--bw) solid var(--line-strong); background: #02040a;
   box-shadow: 0 0 0 4px rgba(134, 216, 255, 0.04), inset 0 0 40px rgba(0, 0, 0, 0.6); }
 .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; touch-action: manipulation; }
 .key { display: flex; align-items: center; gap: 8px; margin: 10px 2px 0; color: var(--muted); font-size: calc(13 * var(--px)); }
-.bubble-swatch { flex: none; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, rgba(134, 216, 255, 0.4), rgba(134, 216, 255, 0.18)); border: 1px solid rgba(134, 216, 255, 0.45); }
+.bubble-swatch { flex: none; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle, rgba(134, 216, 255, 0.4), rgba(134, 216, 255, 0.18)); border: var(--bw) solid rgba(134, 216, 255, 0.45); }
 
 /* The dial */
 .dial-label { display: block; font: 600 calc(13 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
@@ -22,25 +22,25 @@
 .year-line:empty { display: none; }
 .year-count { margin: 10px 0 6px; color: var(--muted); font-size: calc(14 * var(--px)); font-variant-numeric: tabular-nums; }
 .three { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.three li, .picked { padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.three li, .picked { padding: 10px 12px; border-radius: 14px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.02); }
 .three b { display: block; font: 600 calc(15 * var(--px))/1.25 var(--display); letter-spacing: 0.02em; }
 .three span { font-size: calc(13 * var(--px)); color: var(--muted); }
 .picked { margin-top: 10px; border-color: rgba(134, 216, 255, 0.4); }
 .picked p { margin: 0; }
 .links { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 8px 0 0 !important; }
-.links a { min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--text); text-decoration: none;
+.links a { min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 999px; border: var(--bw) solid var(--line-strong); color: var(--text); text-decoration: none;
   font: 600 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
 .links a:first-child { border-color: rgba(255, 181, 74, 0.55); color: var(--amber); }
 .links a:hover { border-color: var(--cyan); }
 
 /* Messages in flight, and your hails */
 .flights { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
-.flight { padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
+.flight { padding: 12px 14px; border-radius: 16px; border: var(--bw) solid var(--line); background: var(--panel); }
 .flight h3 { margin: 0; font: 600 calc(17 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
 .flight .from { margin: 2px 0 0; font-size: calc(13 * var(--px)); color: var(--muted); }
 .flight .what { margin: 6px 0 0; font-size: calc(14 * var(--px)); }
 .targets { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
-.targets > li + li { padding-top: 10px; border-top: 1px solid var(--line); }
+.targets > li + li { padding-top: 10px; border-top: var(--bw) solid var(--line); }
 .aim { margin: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; }
 .aim b { font: 600 calc(14 * var(--px))/1.3 var(--display); letter-spacing: 0.02em; }
 .aim b i { font-style: normal; color: var(--muted); font-weight: 500; }
@@ -57,12 +57,12 @@
 /* Hail a star */
 #hail .search { margin-top: 12px; width: 100%; }
 .hail-results { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-.hail-results button { width: 100%; min-height: 48px; text-align: left; display: grid; gap: 2px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.hail-results button { width: 100%; min-height: 48px; text-align: left; display: grid; gap: 2px; padding: 8px 12px; border-radius: 12px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.02); }
 .hail-results button b { font: 600 calc(14 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
 .hail-results button span { font-size: calc(12 * var(--px)); color: var(--muted); }
 .hail-results button[aria-pressed="true"] { border-color: rgba(255, 181, 74, 0.6); background: rgba(255, 181, 74, 0.08); }
 .hail-results .none { color: var(--muted); font-size: calc(14 * var(--px)); padding: 8px 2px; }
-.hail-chosen { margin-top: 12px; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(255, 181, 74, 0.4); background: rgba(255, 181, 74, 0.05); }
+.hail-chosen { margin-top: 12px; padding: 12px 14px; border-radius: 16px; border: var(--bw) solid rgba(255, 181, 74, 0.4); background: rgba(255, 181, 74, 0.05); }
 .hail-chosen p { margin: 0 0 10px; }
 .hail-chosen .primary { min-height: 48px; padding: 0 22px; }
 .hail-chosen .primary:disabled { opacity: 0.5; cursor: default; }

@@ -5,35 +5,35 @@
 @media (min-width: 900px) { .deck { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; } }
 
 /* The chart */
-.screen { position: relative; aspect-ratio: 1 / 0.85; border-radius: 20px; overflow: hidden; border: 1px solid var(--line-strong); background: #02040a;
+.screen { position: relative; aspect-ratio: 1 / 0.85; border-radius: 20px; overflow: hidden; border: var(--bw) solid var(--line-strong); background: #02040a;
   box-shadow: 0 0 0 4px rgba(134, 216, 255, 0.04), inset 0 0 40px rgba(0, 0, 0, 0.6); }
 @media (min-width: 900px) { .screen { aspect-ratio: 4 / 3.3; } }
 .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
-.chart-tag { position: absolute; left: 12px; top: 10px; margin: 0; padding: 4px 10px; border-radius: 999px; background: rgba(5, 7, 13, 0.7); border: 1px solid rgba(255, 210, 122, 0.45);
+.chart-tag { position: absolute; left: 12px; top: 10px; margin: 0; padding: 4px 10px; border-radius: 999px; background: rgba(5, 7, 13, 0.7); border: var(--bw) solid rgba(255, 210, 122, 0.45);
   font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--sun); pointer-events: none; }
 .chart-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
-.chart-tools button { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--text);
+.chart-tools button { min-height: 44px; padding: 0 14px; border-radius: 999px; border: var(--bw) solid var(--line-strong); background: var(--panel); color: var(--text);
   font: 600 calc(12 * var(--px))/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
 .ghosts { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 6px; color: var(--muted); font-size: calc(14 * var(--px)); cursor: pointer; }
 .ghosts input { width: 20px; height: 20px; accent-color: var(--amber); margin: 0; }
 
 /* The dial */
-.dial { margin-top: 10px; padding: 10px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
+.dial { margin-top: 10px; padding: 10px 14px; border-radius: 16px; border: var(--bw) solid var(--line); background: var(--panel); }
 .dial-label { display: block; font: 600 calc(13 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .dial-label output { display: inline-block; margin-left: 8px; font-size: calc(26 * var(--px)); vertical-align: -3px; letter-spacing: 0.02em; color: var(--amber); font-variant-numeric: tabular-nums; text-transform: none; }
 #dial { width: 100%; margin: 10px 0 0; accent-color: var(--amber); }
 .dial-ends { display: flex; justify-content: space-between; font: 500 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.06em; color: var(--dim); }
 .year-field { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--muted); font-size: calc(14 * var(--px)); }
-.year-field input { width: 8.5em; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.03); font-size: calc(16 * var(--px)); }
+.year-field input { width: 8.5em; min-height: 44px; padding: 0 12px; border-radius: 12px; border: var(--bw) solid var(--line-strong); background: rgba(255, 255, 255, 0.03); font-size: calc(16 * var(--px)); }
 .year-hint { margin: 6px 0 0; color: var(--dim); font-size: calc(12 * var(--px)); }
 
 .moments { display: flex; flex-wrap: wrap; gap: 6px; }
-.moments button { min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--text);
+.moments button { min-height: 40px; padding: 0 12px; border-radius: 999px; border: var(--bw) solid var(--line-strong); background: transparent; color: var(--text);
   font: 600 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
 .moments button[aria-pressed="true"] { border-color: rgba(255, 181, 74, 0.6); color: var(--amber); background: rgba(255, 181, 74, 0.1); }
 
 .era { margin: 12px 0 0; display: grid; gap: 8px; }
-.era div { padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.era div { padding: 10px 12px; border-radius: 14px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.02); }
 .era dt { font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .era dd { margin: 4px 0 0; font-size: calc(15 * var(--px)); }
 .moment-said { margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid var(--amber); background: rgba(255, 255, 255, 0.03); border-radius: 0 12px 12px 0; font-size: calc(15 * var(--px)); }

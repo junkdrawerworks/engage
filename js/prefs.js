@@ -1,5 +1,5 @@
 // What every room shares about how Engage sounds, feels and reads: sound on or off, vibration on or off (Android
-// only: iPhones have no way for a page to vibrate), and the text size. Kept under its own key, apart from the
+// only: iPhones have no way for a page to vibrate), the text size, and high contrast. Kept under its own key, apart from the
 // bridge's save, so the speaker in any room's header can change it and every other room, and the bridge, follow.
 // Pure, checked by test/bridge.test.mjs; js/room.js reads and writes it for a page.
 
@@ -12,7 +12,7 @@ export const SIZES = ['standard', 'large', 'largest'];
 export const SCALE = { standard: 1, large: 1.15, largest: 1.3 };
 export const SIZE_NAMES = { standard: 'Standard', large: 'Large', largest: 'Largest' };
 
-const DEFAULTS = { sound: true, buzz: true, text: 'standard' };
+const DEFAULTS = { sound: true, buzz: true, text: 'standard', contrast: false };
 
 // The settings as kept, given `get(key)` (the browser's storage: text or null). Anything missing or damaged is the
 // default. Sound was once the bridge's own setting ("Engine sound", in engage.v1's opts): a bridge that had it off
@@ -24,6 +24,7 @@ export function readPrefs(get) {
     if (typeof p.sound === 'boolean') out.sound = p.sound;
     if (typeof p.buzz === 'boolean') out.buzz = p.buzz;
     if (SIZES.includes(p.text)) out.text = p.text;
+    if (typeof p.contrast === 'boolean') out.contrast = p.contrast;
   }
   if (!p || typeof p.sound !== 'boolean') {
     const bridge = parse(get('engage.v1'));
@@ -36,7 +37,7 @@ export function readPrefs(get) {
 export function withPref(prefs, key, value) {
   const next = { ...DEFAULTS, ...prefs, [key]: value };
   if (!SIZES.includes(next.text)) next.text = DEFAULTS.text;
-  return { sound: !!next.sound, buzz: !!next.buzz, text: next.text };
+  return { sound: !!next.sound, buzz: !!next.buzz, text: next.text, contrast: !!next.contrast };
 }
 
 // How much bigger the words drawn into pictures (tonight's tags, the Maru's display, the missions map) are than

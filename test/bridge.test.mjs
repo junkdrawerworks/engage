@@ -87,22 +87,24 @@ test('a room added since the last visit is named, with a link to it, and nothing
   assert.equal(whatsNew([]), '');
 });
 
-// ---------- What every room shares: sound, vibration, the text size ----------
+// ---------- What every room shares: sound, vibration, the text size, high contrast ----------
 import { PREFS, SIZES, readPrefs, textScale, withPref } from '../js/prefs.js';
 
-test('sound, vibration and the text size are kept once for every room, and a damaged copy is the defaults', () => {
+test('sound, vibration, the text size and high contrast are kept once for every room, and a damaged copy is the defaults', () => {
   const from = kept => key => (key in kept ? kept[key] : null);
-  assert.deepEqual(readPrefs(from({})), { sound: true, buzz: true, text: 'standard' });
-  assert.deepEqual(readPrefs(from({ [PREFS]: '{"sound":false,"buzz":false,"text":"largest"}' })), { sound: false, buzz: false, text: 'largest' });
-  assert.deepEqual(readPrefs(from({ [PREFS]: 'not json' })), { sound: true, buzz: true, text: 'standard' });
-  assert.deepEqual(readPrefs(from({ [PREFS]: '{"sound":"no","text":"huge"}' })), { sound: true, buzz: true, text: 'standard' });
+  assert.deepEqual(readPrefs(from({})), { sound: true, buzz: true, text: 'standard', contrast: false });
+  assert.deepEqual(readPrefs(from({ [PREFS]: '{"sound":false,"buzz":false,"text":"largest","contrast":true}' })), { sound: false, buzz: false, text: 'largest', contrast: true });
+  assert.equal(readPrefs(from({ [PREFS]: '{"contrast":"yes"}' })).contrast, false);
+  assert.deepEqual(readPrefs(from({ [PREFS]: 'not json' })), { sound: true, buzz: true, text: 'standard', contrast: false });
+  assert.deepEqual(readPrefs(from({ [PREFS]: '{"sound":"no","text":"huge"}' })), { sound: true, buzz: true, text: 'standard', contrast: false });
   // Sound was the bridge's own setting: a bridge that had it off keeps it off, until the new setting is changed.
   assert.equal(readPrefs(from({ 'engage.v1': '{"opts":{"sound":false}}' })).sound, false);
   assert.equal(readPrefs(from({ 'engage.v1': '{"opts":{"sound":false}}', [PREFS]: '{"sound":true}' })).sound, true);
   assert.equal(readPrefs(from({ 'engage.v1': '{"opts":{"sound":true}}' })).sound, true);
   // One changed, the rest kept.
-  assert.deepEqual(withPref({ sound: false, buzz: true, text: 'large' }, 'buzz', false), { sound: false, buzz: false, text: 'large' });
-  assert.deepEqual(withPref({}, 'text', 'enormous'), { sound: true, buzz: true, text: 'standard' });
+  assert.deepEqual(withPref({ sound: false, buzz: true, text: 'large' }, 'buzz', false), { sound: false, buzz: false, text: 'large', contrast: false });
+  assert.deepEqual(withPref({ sound: false, buzz: true, text: 'large', contrast: false }, 'contrast', true), { sound: false, buzz: true, text: 'large', contrast: true });
+  assert.deepEqual(withPref({}, 'text', 'enormous'), { sound: true, buzz: true, text: 'standard', contrast: false });
   assert.ok(PREFS.startsWith('engage.'));
   assert.deepEqual(SIZES, ['standard', 'large', 'largest']);
 });

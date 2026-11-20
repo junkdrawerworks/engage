@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
-  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
+  <!-- The text size and contrast from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var e = JSON.parse(localStorage.getItem('engage.prefs') || '{}'); if (e.text === 'large' || e.text === 'largest') document.documentElement.dataset.text = e.text; if (e.contrast === true) document.documentElement.dataset.contrast = 'high'; } catch (e) {}</script>
   <title>Engage</title>
   <meta name="description" content="Take the helm of a starship and warp to real stars. The sky on the viewscreen is drawn from a real star catalogue, so constellations shift as you travel, and the captain’s log tells you what you’d find when you arrive.">
   <meta property="og:site_name" content="Engage">
@@ -170,6 +170,7 @@
           <button type="button" data-text="largest" aria-pressed="false">Largest</button>
         </div>
       </div>
+      <label class="toggle"><input type="checkbox" id="opt-contrast"> <span>High contrast<small>In every room: solid panels, brighter secondary text and thicker outlines.</small></span></label>
       <label class="toggle"><input type="checkbox" id="opt-night"> <span>Night vision</span></label>
       <label class="toggle"><input type="checkbox" id="opt-clock"> <span>Five-year mission clock<small>Each trip’s time at warp counts toward five years.</small></span></label>
       <div class="autopilot-row">

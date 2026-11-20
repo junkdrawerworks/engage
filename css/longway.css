@@ -6,14 +6,14 @@
 @media (min-width: 900px) { .deck { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
 
 /* The map */
-.screen { position: relative; aspect-ratio: 1; max-height: 40vh; margin: 0 auto; border-radius: 20px; overflow: hidden; border: 1px solid var(--line-strong); background: #02040a;
+.screen { position: relative; aspect-ratio: 1; max-height: 40vh; margin: 0 auto; border-radius: 20px; overflow: hidden; border: var(--bw) solid var(--line-strong); background: #02040a;
   box-shadow: 0 0 0 4px rgba(134, 216, 255, 0.04), inset 0 0 40px rgba(0, 0, 0, 0.6); }
 .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .map-key { margin: 8px 2px 0; color: var(--dim); font-size: calc(13 * var(--px)); }
 
 /* Where she is */
 .status { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.status div { padding: 6px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); }
+.status div { padding: 6px 12px; border-radius: 14px; border: var(--bw) solid var(--line); background: var(--panel); }
 .status dt { font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .status dd { margin: 2px 0 0; font: 600 calc(16 * var(--px))/1.2 var(--display); font-variant-numeric: tabular-nums; }
 .meter { display: block; height: 6px; margin-top: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
@@ -21,12 +21,12 @@
 .meter.low i { background: linear-gradient(90deg, #ff6b5a, var(--amber)); }
 
 /* The helm */
-.lw-helm { margin-top: 12px; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(255, 181, 74, 0.35); background: var(--panel); }
+.lw-helm { margin-top: 12px; padding: 12px 14px; border-radius: 16px; border: var(--bw) solid rgba(255, 181, 74, 0.35); background: var(--panel); }
 .ahead { margin: 0; font-size: calc(15 * var(--px)); }
 .ahead b { color: var(--sun); font-weight: 600; }
 .stops { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
 .stops:empty { display: none; }
-.stops button { flex: 1 1 160px; min-height: 44px; border-radius: 14px; border: 1px solid rgba(134, 216, 255, 0.5); background: rgba(134, 216, 255, 0.08); color: var(--cyan);
+.stops button { flex: 1 1 160px; min-height: 44px; border-radius: 14px; border: var(--bw) solid rgba(134, 216, 255, 0.5); background: rgba(134, 216, 255, 0.08); color: var(--cyan);
   font: 600 calc(12 * var(--px))/1.2 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
 .warp-label { display: block; margin-top: 12px; font: 600 calc(13 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .warp-label output { margin-left: 6px; font-size: calc(24 * var(--px)); letter-spacing: 0.02em; color: var(--amber); font-variant-numeric: tabular-nums; vertical-align: -2px; }
@@ -36,7 +36,7 @@
 .fly-row button { flex: 1; }
 .cruise-said { margin: 8px 0 0; color: var(--dim); font-size: calc(12 * var(--px)); }
 
-.debrief { margin-top: 12px; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(255, 181, 74, 0.5); background: var(--panel); }
+.debrief { margin-top: 12px; padding: 12px 14px; border-radius: 16px; border: var(--bw) solid rgba(255, 181, 74, 0.5); background: var(--panel); }
 .debrief p { margin: 0 0 8px; }
 .debrief .best { color: var(--sun); }
 .debrief .primary { width: 100%; }

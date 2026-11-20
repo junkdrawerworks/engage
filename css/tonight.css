@@ -6,7 +6,7 @@
 /* Header: back to the bridge, where and when, and the two buttons */
 .tonight .hud { align-items: center; }
 .tonight .title { flex: 1; min-width: 0; pointer-events: auto; }
-.back { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--panel);
+.back { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px; border: var(--bw) solid var(--line-strong); background: var(--panel);
   color: var(--text); text-decoration: none; font: 600 calc(13 * var(--px))/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; pointer-events: auto;
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .back:hover { border-color: var(--cyan); }
@@ -22,7 +22,7 @@
 
 /* Daylight notice */
 .daylight { position: absolute; left: 50%; top: calc(84px + var(--safe-t)); transform: translateX(-50%); width: min(420px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px;
-  padding: 10px 10px 10px 14px; border-radius: 16px; border: 1px solid var(--line-strong); background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  padding: 10px 10px 10px 14px; border-radius: 16px; border: var(--bw) solid var(--line-strong); background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .daylight p { margin: 0; flex: 1; font-size: calc(13 * var(--px)); line-height: 1.4; color: #cdd5e3; }
 .daylight .secondary { flex: none; height: 38px; padding: 0 12px; font-size: calc(12 * var(--px)); white-space: nowrap; }
 
@@ -40,7 +40,7 @@
 /* The arrow at the edge toward something off screen */
 .pointer { position: absolute; left: 0; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: -16px 0 0 -16px; pointer-events: none;
   color: var(--amber); font: 600 calc(12 * var(--px))/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 1px 6px #000; }
-.pointer svg { width: 32px; height: 32px; padding: 6px; border-radius: 50%; background: rgba(5, 7, 13, 0.75); border: 1px solid rgba(255, 181, 74, 0.6); flex: none; }
+.pointer svg { width: 32px; height: 32px; padding: 6px; border-radius: 50%; background: rgba(5, 7, 13, 0.75); border: var(--bw) solid rgba(255, 181, 74, 0.6); flex: none; }
 .pointer span { position: absolute; top: 38px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
 
 /* The card for whatever you tapped */
@@ -73,7 +73,7 @@ body.carded .controls { visibility: hidden; }
 .plan .text-button { padding: 4px 0; margin-left: 4px; font-size: calc(14 * var(--px)); white-space: nowrap; }
 .list-note { margin: 0 0 8px; color: var(--muted); font-size: calc(14 * var(--px)); flex: none; }
 .systems { overflow-y: auto; margin: 0 -16px; padding: 0 16px; overscroll-behavior: contain; }
-.system { display: grid; grid-template-columns: 14px 1fr; gap: 0 10px; width: 100%; padding: 10px 2px; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; align-items: center; }
+.system { display: grid; grid-template-columns: 14px 1fr; gap: 0 10px; width: 100%; padding: 10px 2px; border: 0; border-bottom: var(--bw) solid var(--line); background: none; text-align: left; align-items: center; }
 .system i { grid-row: span 2; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--amber); }
 .system.trek i { border-color: var(--cyan); }
 .system.s0 i { background: currentColor; color: var(--amber); }
@@ -88,7 +88,7 @@ body.carded .controls { visibility: hidden; }
 .system.sight.s0 i { color: #c9a2ff; }
 .system.sight .s-name { color: #e2d2ff; }
 body.red .system.sight .s-name, body.red .systems-head { color: var(--text); }
-.s-been { margin-left: 8px; padding: 1px 7px; border: 1px solid currentColor; border-radius: 999px; font-size: calc(11 * var(--px)); letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber); vertical-align: 1px; }
+.s-been { margin-left: 8px; padding: 1px 7px; border: var(--bw) solid currentColor; border-radius: 999px; font-size: calc(11 * var(--px)); letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber); vertical-align: 1px; }
 .s-sub { font-size: calc(13 * var(--px)); color: var(--muted); }
 .system:hover .s-name { text-decoration: underline; text-underline-offset: 3px; }
 
@@ -98,12 +98,12 @@ body.red .system.sight .s-name, body.red .systems-head { color: var(--text); }
 .place-note { margin: 8px 0 0; font-size: calc(13 * var(--px)); color: var(--muted); }
 #places h3 { margin: 18px 0 8px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .skies { display: grid; gap: 6px; }
-.sky-opt { display: grid; gap: 2px; padding: 10px 12px; text-align: left; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.sky-opt { display: grid; gap: 2px; padding: 10px 12px; text-align: left; border-radius: 12px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.03); }
 .sky-opt b { font: 600 calc(15 * var(--px))/1.2 var(--display); letter-spacing: 0.04em; }
 .sky-opt span { font-size: calc(13 * var(--px)); color: var(--muted); }
 .sky-opt[aria-checked="true"] { border-color: var(--amber); background: rgba(255, 181, 74, 0.08); }
 .cities { display: flex; flex-wrap: wrap; gap: 6px; }
-.city { height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); font-size: calc(14 * var(--px)); }
+.city { height: 40px; padding: 0 12px; border-radius: 999px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.03); font-size: calc(14 * var(--px)); }
 .city[aria-pressed="true"] { border-color: var(--amber); color: var(--amber); }
 
 /* Night vision (the red light itself is in css/app.css: the bridge wears it too). Under it, what stands out is

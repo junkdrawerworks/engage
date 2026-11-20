@@ -1,14 +1,14 @@
 /* Astrometrics. Builds on css/app.css and the survey's header from css/survey.css. */
 
 .lab-intro { margin: 2px 0 0; color: var(--muted); font-size: calc(14 * var(--px)); }
-.filters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; margin-top: 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.filters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; margin-top: 12px; border-radius: 14px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.03); }
 .filters button { min-height: 44px; padding: 4px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 calc(12 * var(--px))/1.15 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
 .filters button[aria-pressed="true"] { background: rgba(255, 181, 74, 0.14); color: var(--amber); box-shadow: 0 0 0 1px rgba(255, 181, 74, 0.35) inset; }
 .deck { display: grid; gap: 14px; margin-top: 12px; }
 @media (min-width: 900px) { .deck { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; } }
 
 /* The wall */
-.screen { position: relative; aspect-ratio: 1 / 1.1; border-radius: 20px; overflow: hidden; border: 1px solid var(--line-strong); background: #02040a;
+.screen { position: relative; aspect-ratio: 1 / 1.1; border-radius: 20px; overflow: hidden; border: var(--bw) solid var(--line-strong); background: #02040a;
   box-shadow: 0 0 0 4px rgba(134, 216, 255, 0.04), inset 0 0 40px rgba(0, 0, 0, 0.6); }
 @media (min-width: 900px) { .screen { aspect-ratio: 4 / 3.4; } }
 .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; touch-action: manipulation; }
@@ -16,20 +16,20 @@
 .left-out { margin: 8px 2px 0; color: var(--dim); font-size: calc(13 * var(--px)); }
 
 /* The card */
-.card { padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(134, 216, 255, 0.35); background: var(--panel); }
+.card { padding: 12px 14px; border-radius: 16px; border: var(--bw) solid rgba(134, 216, 255, 0.35); background: var(--panel); }
 .card .hint { margin: 0; color: var(--muted); font-size: calc(14 * var(--px)); }
 .card h2 { margin: 0; font: 600 calc(20 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
 .card h2 .tag { font: 600 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); vertical-align: 3px; }
 .card .kind { margin: 4px 0 0; color: var(--muted); font-size: calc(14 * var(--px)); }
 .card .where { margin: 8px 0 0; font-size: calc(15 * var(--px)); }
 .links { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 10px 0 0; }
-.links a { min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--text); text-decoration: none;
+.links a { min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 999px; border: var(--bw) solid var(--line-strong); color: var(--text); text-decoration: none;
   font: 600 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
 .links a:first-child { border-color: rgba(255, 181, 74, 0.55); color: var(--amber); }
 .links a:hover { border-color: var(--cyan); }
 
 /* The Sun's life */
-.life { margin-top: 14px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.life { margin-top: 14px; padding: 12px 14px; border-radius: 16px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.02); }
 .life-label { display: block; font: 600 calc(13 * var(--px))/1.3 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .life-label output { color: var(--amber); letter-spacing: 0.06em; }
 #life { width: 100%; margin: 10px 0 0; accent-color: var(--amber); }

@@ -1,5 +1,5 @@
 // What every room shares, whatever else it does: the speaker in its header, which turns Engage's sound on and off
-// everywhere at once; vibration, on the phones that can; and the text size chosen in Bridge settings. The settings
+// everywhere at once; vibration, on the phones that can; and the text size and contrast chosen in Bridge settings. The settings
 // themselves are js/prefs.js's.
 import { PREFS, readPrefs, textScale as scaleFor, withPref } from './prefs.js';
 import { keep, watch } from './store.js';
@@ -29,6 +29,7 @@ function applyPrefs() {
   const p = current();
   scale = null;
   applyText(p.text);
+  applyContrast(p.contrast);
   for (const fn of followers) fn(p);
 }
 
@@ -38,6 +39,13 @@ export function applyText(text = current().text) {
   const root = document.documentElement;
   if (text === 'standard') delete root.dataset.text;
   else root.dataset.text = text;
+}
+
+// High contrast goes on the page the same way: solid panels, brighter secondary text, thicker outlines (css/app.css).
+export function applyContrast(on = current().contrast) {
+  const root = document.documentElement;
+  if (on) root.dataset.contrast = 'high';
+  else delete root.dataset.contrast;
 }
 
 // How much bigger to draw words into a picture than its standard size (see js/prefs.js). Worked out once for each
@@ -137,10 +145,11 @@ export function keysCard(rows, sound) {
   }, true);
 }
 
-// Every room calls this once: the text size, the speaker, its Keys card, and the settings followed when another tab
+// Every room calls this once: the text size and contrast, the speaker, its Keys card, and the settings followed when another tab
 // changes them.
 export function setUpRoom({ sound = null, keys = [] } = {}) {
   applyText();
+  applyContrast();
   speaker(sound);
   keysCard(keys, sound);
   watch(PREFS, () => { held = null; applyPrefs(); });

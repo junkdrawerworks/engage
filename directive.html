@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
-  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
+  <!-- The text size and contrast from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var e = JSON.parse(localStorage.getItem('engage.prefs') || '{}'); if (e.text === 'large' || e.text === 'largest') document.documentElement.dataset.text = e.text; if (e.contrast === true) document.documentElement.dataset.contrast = 'high'; } catch (e) {}</script>
   <title>The Prime Directive · Engage</title>
   <meta name="description" content="A board of inquiry at Starfleet Academy. A people who haven’t reached warp, a call for help, and General Order 1, which says you may not answer it. Give your orders, and the board grades your compassion, restraint, judgment and candour.">
   <meta property="og:site_name" content="Engage">

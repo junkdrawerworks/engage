@@ -1,5 +1,6 @@
 // What every room shares, used in Chromium through the real pages:  node test/everywhere.mjs  (needs Playwright)
-// The speaker in each room's header and the one Sound setting behind it, vibration, the Keys card, the text size,
+// The speaker in each room's header and the one Sound setting behind it, vibration, the Keys card, the text size and
+// high contrast,
 // and the bridge's report on what is on the viewscreen. (Each room's own walk-through is in test/e2e.mjs.)
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -74,7 +75,7 @@ try {
     await p.locator('#speaker').tap();
     assert.equal(await p.locator('#speaker').getAttribute('aria-pressed'), 'false');
     assert.equal(await p.locator('#speaker').getAttribute('title'), 'Sound off');
-    assert.deepEqual(await prefs(p), { sound: false, buzz: true, text: 'standard' });
+    assert.deepEqual(await prefs(p), { sound: false, buzz: true, text: 'standard', contrast: false });
     for (const room of ['maru.html', 'tonight.html', 'contact.html']) {
       await p.goto(base + room);
       await ready(p, room);
@@ -252,7 +253,7 @@ try {
     assert.equal(await sizes.nth(0).getAttribute('aria-pressed'), 'false');
     assert.equal(await p.evaluate(() => document.documentElement.dataset.text), 'largest');
     assert.equal(await bodyPx(), 19.5, 'Largest did not make the words larger');
-    assert.deepEqual(await prefs(p), { sound: true, buzz: true, text: 'largest' });
+    assert.deepEqual(await prefs(p), { sound: true, buzz: true, text: 'largest', contrast: false });
     await p.keyboard.press('Escape');
     await p.click('#settings .close').catch(() => {});
     await p.waitForTimeout(500);
@@ -317,6 +318,49 @@ try {
       assert.ok(fit.right <= 360 - 8, `${room} at Largest: the speaker runs off the screen`);
       assert.equal(fit.clash, false, `${room} at Largest: the speaker sits on the room's name`);
     }
+    await c.close();
+  }
+
+  // ---------- High contrast ----------
+  // A switch in Bridge settings, for every room: solid panels, brighter secondary text and lines, and outlines twice
+  // as thick, without anything moving. Off, every room is as it was.
+  {
+    const c = await phone();
+    const p = watch(await c.newPage());
+    await p.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+    const look = sel => p.evaluate(s => {
+      const el = document.querySelector(s), st = getComputedStyle(el), b = el.getBoundingClientRect();
+      return { border: st.borderTopWidth, muted: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(), bg: st.backgroundColor, w: Math.round(b.width), h: Math.round(b.height) };
+    }, sel);
+    await p.goto(base);
+    await bridgeReady(p);
+    const before = await look('#open-settings');
+    assert.deepEqual([before.border, before.muted], ['1px', '#93a0b8'], 'Engage is not as it was with high contrast off');
+    await p.click('#open-settings');
+    assert.equal(await p.locator('#opt-contrast').isChecked(), false);
+    await p.locator('#opt-contrast').check();
+    assert.equal(await p.evaluate(() => document.documentElement.dataset.contrast), 'high');
+    assert.equal((await prefs(p)).contrast, true);
+    const after = await look('#open-settings');
+    assert.equal(after.border, '2px', 'the round buttons\' outlines are no thicker');
+    assert.notEqual(after.muted, before.muted, 'the secondary text is no brighter');
+    assert.deepEqual([after.w, after.h], [before.w, before.h], 'a thicker outline moved the buttons');
+    // Kept, and in every other room before anything is drawn: the survey's file card is solid.
+    await p.goto(base + 'survey.html');
+    await ready(p, 'survey.html');
+    const back = await look('.back');
+    assert.equal(back.border, '2px');
+    assert.match(back.bg, /^rgb\(/, `the survey's panels are not solid: ${back.bg}`);
+    assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    // Off again, from another room's point of view.
+    await p.goto(base);
+    await bridgeReady(p);
+    await p.click('#open-settings');
+    await p.locator('#opt-contrast').uncheck();
+    await p.goto(base + 'survey.html');
+    await ready(p, 'survey.html');
+    assert.equal((await look('.back')).border, '1px');
+    assert.equal(await p.evaluate(() => document.documentElement.dataset.contrast), undefined);
     await c.close();
   }
 

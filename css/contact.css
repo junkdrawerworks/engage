@@ -7,13 +7,13 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 
 /* Header, as on the survey */
 .top { max-width: 1120px; margin: 0 auto; padding: calc(14px + var(--safe-t)) max(16px, var(--safe-r)) 10px max(16px, var(--safe-l)); display: grid; grid-template-columns: auto 1fr auto; gap: 10px 14px; align-items: center; }
-.back { display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--panel);
+.back { display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px; border: var(--bw) solid var(--line-strong); background: var(--panel);
   color: var(--text); text-decoration: none; font: 600 calc(13 * var(--px))/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
 .back:hover { border-color: var(--cyan); }
 .back svg { width: 20px; height: 20px; }
 .title h1 { margin: 2px 0 0; font: 600 calc(22 * var(--px))/1.15 var(--display); letter-spacing: 0.04em; }
 
-.card { padding: 20px 18px 16px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
+.card { padding: 20px 18px 16px; border-radius: 20px; border: var(--bw) solid var(--line); background: var(--panel); }
 .card h2 { margin: 4px 0 10px; font: 600 calc(28 * var(--px))/1.1 var(--display); letter-spacing: 0.03em; }
 .card p { margin: 0 0 10px; color: #cdd5e3; }
 .card .unsaved { margin: 0 0 12px; color: var(--amber); }
@@ -41,7 +41,7 @@ body.contact { min-height: 100%; background: radial-gradient(ellipse at 50% -10%
 /* The linguist's challenges: five named hails, each with how it went, Answer and Send. */
 .challenges .how { font-size: calc(14 * var(--px)); color: var(--muted); }
 ol.challenges { list-style: none; margin: 4px 0 0; padding: 0; }
-ol.challenges li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+ol.challenges li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 2px 12px; padding: 8px 0; border-top: var(--bw) solid var(--line); }
 ol.challenges li b { font: 600 calc(16 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
 ol.challenges li .state { grid-column: 1; font-size: calc(13 * var(--px)); color: var(--muted); }
 ol.challenges li.done .state { color: var(--green); }
@@ -53,17 +53,17 @@ ol.challenges li .text-button { grid-row: 1 / 3; grid-column: 3; color: var(--cy
 .friend .secondary { width: 100%; margin-top: 6px; border-color: var(--alien); color: var(--text); }
 .friend .friend-more { margin: 10px 0 0; font-size: calc(13 * var(--px)); color: var(--muted); }
 .record .tally { margin: 10px 0 12px; display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 6px; }
-.tally span { display: grid; justify-items: center; align-content: start; gap: 4px; padding: 9px 4px; border: 1px solid var(--line); border-radius: 12px; font: 600 calc(10 * var(--px))/1.25 var(--display); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: center; min-width: 0; }
+.tally span { display: grid; justify-items: center; align-content: start; gap: 4px; padding: 9px 4px; border: var(--bw) solid var(--line); border-radius: 12px; font: 600 calc(10 * var(--px))/1.25 var(--display); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); text-align: center; min-width: 0; }
 .tally i { font-style: normal; color: var(--text); }
 .tally b { font: 600 calc(24 * var(--px))/1 var(--display); letter-spacing: 0.02em; color: var(--cyan); font-variant-numeric: tabular-nums; }
 .record ol { list-style: none; margin: 6px 0 0; padding: 0; }
-.record li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.record li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 0; border-top: var(--bw) solid var(--line); }
 .record li b { font: 600 calc(16 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
 .record li .when { font-size: calc(12 * var(--px)); color: var(--dim); text-align: right; }
 .record li .what { grid-column: 1 / -1; font-size: calc(13 * var(--px)); color: var(--muted); }
 
 /* The viewscreen */
-.screen-wrap { position: relative; margin: 4px -16px 0; border-block: 1px solid rgba(201, 162, 255, 0.2); background: #04060b; overflow: hidden; }
+.screen-wrap { position: relative; margin: 4px -16px 0; border-block: var(--bw) solid rgba(201, 162, 255, 0.2); background: #04060b; overflow: hidden; }
 #screen { display: block; width: 100%; aspect-ratio: 4 / 3; }
 .who-tag { position: absolute; left: 12px; top: 8px; margin: 0; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--alien); text-shadow: 0 1px 6px #000; }
 .patience { position: absolute; right: 12px; top: 9px; display: flex; gap: 4px; align-items: center; }
@@ -76,15 +76,15 @@ ol.challenges li .text-button { grid-row: 1 / 3; grid-column: 3; color: var(--cy
 .subtitle .act { margin: 4px 0 0; font-size: calc(13 * var(--px)); line-height: 1.4; color: var(--muted); font-style: italic; }
 
 .side { display: grid; gap: 10px; margin-top: 10px; }
-.card-ish { padding: 12px 14px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
+.card-ish { padding: 12px 14px 14px; border-radius: 16px; border: var(--bw) solid var(--line); background: var(--panel); }
 .reply-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .reply-head .eyebrow { margin: 0; }
 .reply-head .text-button { padding: 0; font-size: calc(13 * var(--px)); }
 .reply-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
-.reply-list li { display: flex; align-items: center; gap: 8px; padding: 8px 6px 8px 12px; border-radius: 12px; border: 1px solid rgba(201, 162, 255, 0.45); background: rgba(201, 162, 255, 0.08); }
+.reply-list li { display: flex; align-items: center; gap: 8px; padding: 8px 6px 8px 12px; border-radius: 12px; border: var(--bw) solid rgba(201, 162, 255, 0.45); background: rgba(201, 162, 255, 0.08); }
 .reply-list .t { flex: 1; min-width: 0; font: 500 calc(15 * var(--px))/1.3 var(--display); }
 .reply-list .t small { display: block; font: calc(12 * var(--px))/1.3 var(--body); color: var(--muted); }
-.reply-list button { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line-strong); background: transparent; padding: 0; display: grid; place-items: center; }
+.reply-list button { flex: none; width: 30px; height: 30px; border-radius: 50%; border: var(--bw) solid var(--line-strong); background: transparent; padding: 0; display: grid; place-items: center; }
 .reply-list button svg { width: 14px; height: 14px; }
 .reply-empty { margin: 8px 0 0; font-size: calc(14 * var(--px)); color: var(--muted); }
 .reply #send { width: 100%; margin-top: 10px; }
@@ -102,7 +102,7 @@ ol.challenges li .text-button { grid-row: 1 / 3; grid-column: 3; color: var(--cy
 .book-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 /* The phrase is the button a reply is built with: its row is 44 px tall for a thumb, and takes the place of the card's
    own space above and below it, so a row is hardly taller than it was. */
-.book-list li { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; align-items: center; padding: 0 8px 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.book-list li { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; align-items: center; padding: 0 8px 8px 10px; border-radius: 12px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.02); }
 .book-list li.new { animation: glow 1.6s ease-out; }
 .ph-add { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; width: 100%; min-height: 44px; padding: 11px 0; border: 0; background: none; text-align: left; }
 .ph-add .t { flex: 1; font: 500 calc(15 * var(--px))/1.3 var(--display); letter-spacing: 0.01em; }
@@ -112,12 +112,12 @@ ol.challenges li .text-button { grid-row: 1 / 3; grid-column: 3; color: var(--cy
 .ph-add[aria-disabled="true"] .plus { color: var(--dim); }
 .ph-n { font-size: calc(12 * var(--px)); color: var(--dim); white-space: nowrap; }
 /* 16 px: Safari on an iPhone zooms the whole page in on a focused control whose text is smaller, and stays zoomed. */
-.book-list select { width: 100%; min-width: 0; height: 40px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--panel-solid); color: var(--text); font: calc(16 * var(--px)) var(--body); }
+.book-list select { width: 100%; min-width: 0; height: 40px; padding: 0 8px; border-radius: 10px; border: var(--bw) solid var(--line-strong); background: var(--panel-solid); color: var(--text); font: calc(16 * var(--px)) var(--body); }
 .book-list select.tagged { border-color: rgba(201, 162, 255, 0.55); color: var(--alien); }
 @keyframes glow { from { border-color: var(--alien); background: rgba(201, 162, 255, 0.14); } }
 
 /* An encounter someone shared, played back: what they did each turn, in place of the reply and the buttons. */
-.watching { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; padding: 10px 14px; border-radius: 16px; border: 1px dashed rgba(201, 162, 255, 0.55); background: rgba(201, 162, 255, 0.06); }
+.watching { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; padding: 10px 14px; border-radius: 16px; border: var(--bw) dashed rgba(201, 162, 255, 0.55); background: rgba(201, 162, 255, 0.06); }
 .watching[hidden] { display: none; }
 .watching p { margin: 0; font-size: calc(14 * var(--px)); color: var(--text); }
 .watching p b { display: block; font: 600 calc(10 * var(--px))/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--alien); }
@@ -125,8 +125,8 @@ ol.challenges li .text-button { grid-row: 1 / 3; grid-column: 3; color: var(--cy
 body.contact.replaying .reply { display: none; }
 body.contact.replaying .book-list .ph-add, body.contact.replaying .book-list select { pointer-events: none; }
 body.contact.replaying .ph-add .plus { visibility: hidden; }
-.comms { position: relative; margin-top: 10px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 14px; border-radius: 16px; border: 1px solid var(--line); background: rgba(5, 8, 15, 0.7); }
-.line { margin: 0; padding: 8px 0; border-top: 1px solid var(--line); font-size: calc(14 * var(--px)); color: #cdd5e3; }
+.comms { position: relative; margin-top: 10px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 14px; border-radius: 16px; border: var(--bw) solid var(--line); background: rgba(5, 8, 15, 0.7); }
+.line { margin: 0; padding: 8px 0; border-top: var(--bw) solid var(--line); font-size: calc(14 * var(--px)); color: #cdd5e3; }
 .line.fresh { animation: in .3s ease-out; }
 .line:first-child { border-top: 0; }
 .line .who { display: block; font: 600 calc(10 * var(--px))/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
@@ -147,7 +147,7 @@ body.contact.replaying .ph-add .plus { visibility: hidden; }
 /* What this encounter added to the record, under the title. */
 .evaluation .firsts { margin: -4px 0 10px; font: 600 calc(12 * var(--px))/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--green); }
 .evaluation .story small { display: block; margin-top: 4px; font: calc(13 * var(--px))/1.4 var(--body); color: var(--muted); }
-.score { display: grid; grid-template-columns: auto 1fr; gap: 0 14px; align-items: center; margin: 14px 0 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
+.score { display: grid; grid-template-columns: auto 1fr; gap: 0 14px; align-items: center; margin: 14px 0 4px; padding: 12px 14px; border-radius: 14px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.02); }
 .score .n { grid-row: span 2; font: 600 calc(40 * var(--px))/1 var(--display); color: var(--alien); font-variant-numeric: tabular-nums; }
 .score b { font: 600 calc(16 * var(--px))/1.2 var(--display); letter-spacing: 0.04em; }
 .score span { font-size: calc(13 * var(--px)); color: var(--muted); }
@@ -156,7 +156,7 @@ body.contact.replaying .ph-add .plus { visibility: hidden; }
 .evaluation .archive b { display: block; font: 600 calc(10 * var(--px))/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 .evaluation h3 { margin: 18px 0 6px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .dict { list-style: none; margin: 0; padding: 0; }
-.dict li { display: grid; grid-template-columns: 22px 1fr; gap: 0 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.dict li { display: grid; grid-template-columns: 22px 1fr; gap: 0 8px; padding: 8px 0; border-top: var(--bw) solid var(--line); }
 .dict .mark { grid-row: span 2; font: 600 calc(16 * var(--px))/1.3 var(--display); text-align: center; }
 .dict li.right .mark { color: var(--green); }
 .dict li.wrong .mark { color: var(--red); }
@@ -167,7 +167,7 @@ body.contact.replaying .ph-add .plus { visibility: hidden; }
 .transcript { margin-top: 14px; }
 .transcript summary { cursor: pointer; padding: 8px 0; font: 600 calc(13 * var(--px))/1.2 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .transcript ol { list-style: none; margin: 0; padding: 0; }
-.transcript li { padding: 7px 0; border-top: 1px solid var(--line); font-size: calc(14 * var(--px)); }
+.transcript li { padding: 7px 0; border-top: var(--bw) solid var(--line); font-size: calc(14 * var(--px)); }
 .transcript .who { display: block; font: 600 calc(10 * var(--px))/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--alien); }
 .transcript li.you .who { color: var(--amber); }
 .transcript .said { color: var(--muted); }
@@ -189,7 +189,7 @@ body.contact.replaying .ph-add .plus { visibility: hidden; }
   /* A phrase brought into view by the keyboard stops above the bar, not under it. */
   html:has(body.contact.talking) { scroll-padding-bottom: calc(var(--dock-h, 150px) + 8px); }
   body.contact.talking .dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px;
-    padding: 8px max(16px, var(--safe-r)) calc(10px + var(--safe-b)) max(16px, var(--safe-l)); border-top: 1px solid rgba(201, 162, 255, 0.35); background: var(--panel-solid); box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.45); }
+    padding: 8px max(16px, var(--safe-r)) calc(10px + var(--safe-b)) max(16px, var(--safe-l)); border-top: var(--bw) solid rgba(201, 162, 255, 0.35); background: var(--panel-solid); box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.45); }
   body.contact.talking .dock-said { display: block; grid-column: 1 / -1; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 500 calc(14 * var(--px))/1.3 var(--display); color: #f1ebff; }
   body.contact.talking .dock-said:empty { display: none; }
   body.contact.talking .dock .reply-head { display: none; }
@@ -209,7 +209,7 @@ body.contact.replaying .ph-add .plus { visibility: hidden; }
   .contact main { padding: 0 max(24px, var(--safe-r)) 0 max(24px, var(--safe-l)); }
   #sim:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); grid-template-rows: auto 1fr; grid-template-areas: 'screen side' 'comms side'; gap: 12px 20px; align-items: start; }
   #screen { aspect-ratio: 16 / 11; }
-  .screen-wrap { grid-area: screen; margin: 4px 0 0; border: 1px solid rgba(201, 162, 255, 0.2); border-radius: 18px; }
+  .screen-wrap { grid-area: screen; margin: 4px 0 0; border: var(--bw) solid rgba(201, 162, 255, 0.2); border-radius: 18px; }
   .side { grid-area: side; margin-top: 4px; }
   .comms { grid-area: comms; margin-top: 0; max-height: 320px; }
   .subtitle .said { font-size: calc(19 * var(--px)); }
