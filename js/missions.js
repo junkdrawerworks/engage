@@ -11,7 +11,7 @@ import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { LIVE, share } from './share.js';
 import { sound } from './audio.js';
-import { setUpRoom, textScale } from './room.js';
+import { follow, setUpRoom, textScale } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -350,13 +350,23 @@ function showNews(all, nowMs) {
 
 // ---------- Numbers on the file ----------
 
+// The stardate (or the timeline's date) stands at the top right of the map, beside the two tabs. Where they don't both
+// fit across (a narrow phone, or a larger text size) it stands under the tabs instead of over them.
+function placeClock() {
+  const c = $('clock'), v = document.querySelector('.views');
+  c.classList.remove('under');
+  if (!c.textContent) return;
+  if (v.getBoundingClientRect().right + 8 > c.getBoundingClientRect().left) c.classList.add('under');
+}
+
 function tick(force = false) {
   const nowMs = Date.now();
   if (!force && nowMs - lastText < 100) return;
   lastText = nowMs;
   // Everything on the file is for the timeline's moment (now, unless it has been moved); a hail always goes now.
   const tMs = at ?? nowMs, jd = jdOf(tMs), live = at === null;
-  $('clock').textContent = live ? `Stardate ${stardate(new Date(nowMs))}` : fmtDate(new Date(tMs), { timeZone: 'UTC' });
+  const clock = live ? `Stardate ${stardate(new Date(nowMs))}` : fmtDate(new Date(tMs), { timeZone: 'UTC' });
+  if ($('clock').textContent !== clock) { $('clock').textContent = clock; placeClock(); }
   const ship = byId(sel);
   const status = statusAt(ship, tMs);
   if ($('ship-agency').dataset.for !== `${sel}:${status}:${live}`) {
@@ -841,6 +851,9 @@ function bind() {
     document.querySelector('.map-wrap').scrollIntoView({ block: 'nearest', behavior: still.matches ? 'auto' : 'smooth' });
   });
   addEventListener('resize', resize);
+  addEventListener('resize', placeClock);
+  follow(placeClock); // the text size, changed here or in another tab
+  document.fonts?.ready.then(placeClock);
   addEventListener('hashchange', () => { const id = location.hash.slice(1); if (byId(id) && id !== sel) choose(id); });
 }
 

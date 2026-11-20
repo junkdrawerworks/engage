@@ -13,6 +13,8 @@ body.missions { min-height: 100%; background: radial-gradient(ellipse at 50% -10
 .title { min-width: 0; }
 .title h1 { margin: 2px 0 0; font: 600 calc(22 * var(--px))/1.15 var(--display); letter-spacing: 0.04em; }
 .clock { position: absolute; right: 12px; top: 20px; margin: 0; pointer-events: none; font: 500 calc(12 * var(--px))/1.2 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); font-variant-numeric: tabular-nums; text-align: right; }
+/* Under the tabs, where the two don't fit across (js/missions.js placeClock): the tabs are 40 px buttons in 3 px of padding. */
+.clock.under { top: calc(10px + 46px + 2 * var(--bw) + 8px); }
 
 /* The map */
 .map-wrap { position: relative; margin: 4px -16px 0; border-block: var(--bw) solid var(--line); background: radial-gradient(circle at 50% 50%, #0a1426 0%, #04060b 70%); }

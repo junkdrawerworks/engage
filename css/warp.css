@@ -44,6 +44,12 @@
 .tick span { position: absolute; top: 14px; left: 0; transform: translateX(-50%); font: 500 calc(10 * var(--px))/1 var(--display); letter-spacing: 0.04em; color: var(--dim); white-space: nowrap; }
 .tick:first-child span { transform: none; left: -2px; }
 .tick:last-child span { transform: translateX(-80%); }
+/* At the larger text sizes on a phone, the names of the ticks close together (a second and a minute, an hour and a day)
+   would run into each other: every other one drops to a second row. */
+@media (max-width: 599px) {
+  :root[data-text] .scale-bar { height: calc(37px + 10 * var(--px)); }
+  :root[data-text] .tick:nth-child(even) span { top: calc(17px + 10 * var(--px)); }
+}
 .mark { position: absolute; top: 3px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 12px var(--c); border: 2px solid #02040a; }
 
 .times { width: 100%; border-collapse: collapse; margin: 6px 0 0; font-size: calc(14 * var(--px)); }

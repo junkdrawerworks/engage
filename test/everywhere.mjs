@@ -318,6 +318,22 @@ try {
       assert.ok(fit.right <= 360 - 8, `${room} at Largest: the speaker runs off the screen`);
       assert.equal(fit.clash, false, `${room} at Largest: the speaker sits on the room's name`);
     }
+    // And words laid over a picture don't run into each other: long missions' stardate and its two tabs, the warp
+    // scale's names for a light-second, a light-minute, a light-hour and a light-day.
+    const clash = (a, b) => a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
+    for (const text of ['large', 'largest']) {
+      await p.evaluate(t => localStorage.setItem('engage.prefs', JSON.stringify({ text: t })), text);
+      await p.goto(base + 'missions.html');
+      await ready(p, 'missions.html');
+      await p.waitForFunction(() => document.getElementById('clock').textContent);
+      const [views, clock] = await p.evaluate(() => ['.views', '#clock'].map(s => document.querySelector(s).getBoundingClientRect().toJSON()));
+      assert.equal(clash(views, clock), false, `long missions at ${text}: the stardate is over the tabs`);
+      await p.goto(base + 'warp.html');
+      await ready(p, 'warp.html');
+      const ticks = await p.evaluate(() => [...document.querySelectorAll('.tick span')].map(s => s.getBoundingClientRect().toJSON()));
+      assert.ok(ticks.length >= 4);
+      for (let i = 1; i < ticks.length; i++) assert.equal(clash(ticks[i - 1], ticks[i]), false, `the warp scale at ${text}: tick ${i} runs into tick ${i + 1}`);
+    }
     await c.close();
   }
 
