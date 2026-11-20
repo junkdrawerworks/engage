@@ -1947,7 +1947,8 @@ await page.evaluate(() => { missions.hails.v1 = Date.now() - 60 * 3600e3; });
 await page.waitForFunction(() => document.getElementById('hail').textContent === 'Hail her again');
 // Sent two and a half days ago: every moment in the card is a day and a month (it used to name a weekday for some,
 // a date for others, with the hour in capitals).
-assert.match(await text('#hail-note'), new RegExp(`^Your hail, sent \\d{1,2} [A-Z][a-z]{2} at \\d{1,2}:\\d\\d\\u202f[ap]m, reached her ${WHEN}, and her answer came back ${WHEN}\\.`));
+// (and the dish site that picked it up: Voyager 1 is always in sight of one)
+assert.match(await text('#hail-note'), new RegExp(`^Your hail, sent \\d{1,2} [A-Z][a-z]{2} at \\d{1,2}:\\d\\d\\u202f[ap]m, reached her ${WHEN}, and her answer came back ${WHEN}, picked up at (Goldstone|Madrid|Canberra)\\.`));
 assert.doesNotMatch(await text('#hail-note'), /[A-Z][a-z]+day at|[AP]M/);
 await page.click('#hail');
 assert.ok(await page.evaluate(() => Date.now() - JSON.parse(localStorage.getItem('engage.missions.v1')).hails.v1) < 5000, 'a new hail could not be sent after the answer was due');
