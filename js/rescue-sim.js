@@ -75,8 +75,11 @@ function setUp(throwSeed, seed) {
 const copy = t => ({ seed: t.seed, apart: t.apart, minute: t.minute, at: t.at, rate: t.rate, quantum: t.quantum,
   shuttles: t.shuttles && { ...t.shuttles }, ships: t.ships.map(s => ({ ...s })), over: t.over, most: t.most, total: t.total, plan: t.plan });
 const where = t => (t.at === 'a' ? 0 : t.at === 'b' ? 1 : -1);
-// How many minutes to close on ship i from where the ship is.
-export const travel = (t, i) => (where(t) === i ? 0 : where(t) === -1 ? 1 : t.apart);
+// How many minutes to close on ship i from where the ship is. The test starts between the two, as far from one as
+// the other: half the way across, to the minute above, so the way through the start is never shorter than the way
+// straight across (two minutes apart is a minute from each; three apart is two from each, off the line between them).
+export const fromStart = t => Math.ceil(t.apart / 2);
+export const travel = (t, i) => (where(t) === i ? 0 : where(t) === -1 ? fromStart(t) : t.apart);
 const live = s => !s.lost && s.aboard > 0;
 // How far apart the two ships are, in km, for the briefing.
 export const apartKm = t => t.apart * KM_PER_MINUTE;
@@ -238,8 +241,10 @@ export function evaluate(t, given = []) {
   const plan = Array.isArray(t.plan) ? t.plan : [];
   const used = test => plan.some(test) && !given.some(test);
   const firstMove = given.findIndex(id => id.startsWith('go-'));
+  const planMove = plan.findIndex(id => id.startsWith('go-'));
   if (firstMove === 0) note.push(`You chose in the first minute: the ${t.ships[Number(given[0].slice(3))].name}.`);
-  else if (firstMove > 0) note.push(`You gave ${firstMove === 1 ? 'one order' : `${firstMove} orders`} before you closed on either ship.${rescued < t.most ? ' Choosing sooner would have bought time at the pads.' : ''}`);
+  // Choosing sooner is advice only when the best run itself closed on a ship sooner: in some tests it gives orders first.
+  else if (firstMove > 0) note.push(`You gave ${firstMove === 1 ? 'one order' : `${firstMove} orders`} before you closed on either ship.${rescued < t.most && planMove >= 0 && planMove < firstMove ? ' Choosing sooner would have bought time at the pads.' : ''}`);
   if (used(id => id === 'quantum')) note.push('You never set the cargo transporters to carry people. Every minute at the pads after that would have brought more off.');
   if (used(id => id.startsWith('shuttle-'))) note.push('The shuttles never left the bay. They could have brought people off a ship the transporter couldn’t reach in time.');
   else if (t.shuttles && !t.ships[t.shuttles.to].shuttled) note.push(`The shuttles reached the ${t.ships[t.shuttles.to].name} too late.`);

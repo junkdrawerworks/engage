@@ -2,7 +2,7 @@
 // briefing opens it, with today's rescue beside it; it has its own screen (the two ships, your ship and its
 // transporter range on the tactical display, the minutes each ship has, the orders and the channel) and its own
 // verdict, and keeps its record beside the Maru's, as `rescue`.
-import { newRescue, orders, act, settle, evaluate, shareLine, dailySeed, moral, apartKm, RANGE_KM, BUY } from './rescue-sim.js';
+import { newRescue, orders, act, settle, evaluate, shareLine, dailySeed, moral, apartKm, fromStart, RANGE_KM, BUY } from './rescue-sim.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -51,7 +51,7 @@ export function rescueTest({ saved, save, show, back, today, share, live, sound 
     const ship = s => `The ${s.name}, a ${s.what} with ${s.aboard} aboard: ${trouble(s)}, ${s.left} minutes.`;
     log([
       { who: 'Computer', text: `Simulation begins. Two distress calls at once. ${ship(a)} ${ship(b)}`, tone: 'bad' },
-      { who: 'Helm', text: `They are ${mkm.toLocaleString('en-US')} million kilometres apart, ${t.apart} minutes at full impulse. The transporter reaches ${RANGE_KM.toLocaleString('en-US')}. We are between them, a minute from each.` },
+      { who: 'Helm', text: `They are ${mkm.toLocaleString('en-US')} million kilometres apart, ${t.apart} minutes at full impulse. The transporter reaches ${RANGE_KM.toLocaleString('en-US')}. We are between them, ${fromStart(t) === 1 ? 'a minute' : `${fromStart(t)} minutes`} from each.` },
       { who: 'The examiner', text: 'There is time to save one of them.' },
     ]);
     $('rescue-eyebrow').textContent = day ? 'Today’s rescue · The board’s verdict' : 'Starfleet Academy · Rescue test';

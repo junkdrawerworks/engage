@@ -1,7 +1,7 @@
 // The rescue test's rules, checked without a browser:  node --test test/rescue.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newRescue, orders, act, run, best, evaluate, settle, hopeless, travel, dailySeed, shareLine, RATE, QUANTUM, SHUTTLE_SEATS, BUY, RANGE_KM, apartKm } from '../js/rescue-sim.js';
+import { newRescue, orders, act, run, best, evaluate, settle, hopeless, travel, fromStart, dailySeed, shareLine, RATE, QUANTUM, SHUTTLE_SEATS, BUY, RANGE_KM, apartKm } from '../js/rescue-sim.js';
 
 const saved = t => t.ships.reduce((n, s) => n + s.saved, 0);
 const play = (t0, list) => { const t = structuredClone(t0); for (const id of list) { act(t, id); settle(t); } return t; };
@@ -55,9 +55,9 @@ test('no run brings home more than the most the board says is possible', () => {
 test('the transporter reaches only the ship alongside, and closing on the other takes the trip’s minutes', () => {
   const t = newRescue(7);
   assert.equal(orders(t).find(o => o.id === 'beam').off, true, 'energize works between the ships');
-  assert.equal(travel(t, 0), 1);
+  assert.equal(travel(t, 0), fromStart(t));
   act(t, 'go-0');
-  assert.equal(t.minute, 1);
+  assert.equal(t.minute, fromStart(t));
   assert.equal(t.at, 'a');
   const before = t.ships[0].aboard;
   act(t, 'beam');
@@ -127,4 +127,26 @@ test('the search finds the best: no other order from the plan’s states does be
     for (const o of orders(t).filter(x => !x.off)) assert.ok(best(run(t, [o.id])).rescued <= here);
     act(t, id);
   }
+});
+
+test('the start is between the ships: the way through it is never shorter than the way straight across', () => {
+  for (const seed of SEEDS) {
+    const t = newRescue(seed);
+    assert.ok(travel(t, 0) + travel(t, 1) >= t.apart, `seed ${seed}: ${t.apart} minutes apart, but ${travel(t, 0)} and ${travel(t, 1)} from the start`);
+    assert.equal(travel(t, 0), travel(t, 1), 'the start is as far from one as the other');
+  }
+});
+
+test('the board says to choose sooner only when the best run closed on a ship sooner', () => {
+  // A test whose best run gives orders before it closes on either ship (found by search, so the seed stays put).
+  const seed = SEEDS.concat(Array.from({ length: 200 }, (_, k) => 5000 + k)).find(s => newRescue(s).plan.findIndex(id => id.startsWith('go-')) > 0);
+  const t0 = newRescue(seed);
+  const planMove = t0.plan.findIndex(id => id.startsWith('go-'));
+  // Copy the best run's opening orders, then beam from the ship it chose and nothing else.
+  const given = [], t = structuredClone(t0);
+  for (const id of t0.plan.slice(0, planMove + 1)) { act(t, id); given.push(id); settle(t); }
+  while (!t.over) { const o = orders(t).find(x => x.id === 'beam' && !x.off) || orders(t).find(x => !x.off); act(t, o.id); given.push(o.id); settle(t); }
+  const e = evaluate(t, given);
+  assert.ok(e.rescued < t0.most);
+  assert.ok(!e.note.some(n => /Choosing sooner/.test(n)), `told to choose sooner, but the best run gave ${planMove} orders first`);
 });
