@@ -475,7 +475,8 @@ if (!only || only === 'radio') {
   await ogCard(shot, 1, 'Engage · Communications', 'Subspace radio', 'Which real stars are hearing 1966, the year Star Trek went out, tonight?', 'And the real messages in flight', 'og-radio.png');
 }
 
-// Astrometrics: every star on the wall, Arcturus picked, and the Sun's life at its red giant.
+// Astrometrics: every star on the wall, Arcturus picked, and the Sun's life at its red giant; and the neighbourhood,
+// with a log of six stars flown and Vulcan's sun picked.
 if (!only || only === 'astrometrics') {
   const page = await open({ width: 390, height: 844 }, 2);
   await page.goto(base + 'astrometrics.html#star=Arcturus');
@@ -483,6 +484,16 @@ if (!only || only === 'astrometrics') {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
   await save(await page.screenshot(), 'docs/phone-astrometrics.png');
+  await page.goto(base);
+  await page.waitForFunction(() => typeof window.engage?.jump === 'function');
+  const log = await page.evaluate(() => ['Proxima Centauri', 'Wolf 359', 'Keid', 'Altair', 'Vega', '61 Cygni'].map(n => ({ star: engage.cat().byName.get(n) })));
+  await page.addInitScript(log => { if (location.pathname.endsWith('astrometrics.html')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, log })); }, log);
+  await page.goto(base + 'astrometrics.html#view=neighbourhood&star=Keid');
+  await page.waitForFunction(() => window.astrometrics?.ready && astrometrics.hood.dots().length > 2000);
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => { astrometrics.hood.turn(0.35, 0.12); astrometrics.hood.zoom(2.25); window.scrollTo(0, document.querySelector('.views').getBoundingClientRect().top + scrollY - 8); });
+  await page.waitForTimeout(400);
+  await save(await page.screenshot(), 'docs/phone-neighbourhood.png');
   await page.context().close();
   const wide = await open({ width: 1000, height: 900 }, 1);
   await wide.goto(base + 'astrometrics.html#sun=4');

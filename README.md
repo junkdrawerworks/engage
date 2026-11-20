@@ -23,6 +23,8 @@
   &nbsp;
   <img src="docs/phone-astrometrics.png" alt="Astrometrics: seventeen thousand stars plotted hot to cool across and dim to bright up, each in its own colour, the main sequence curving down from the bright blue stars to the faint red ones, the giants in an orange branch above it and the white dwarfs below, with Arcturus ringed among the giants and the Sun marked on the main sequence" width="250">
   &nbsp;
+  <img src="docs/phone-neighbourhood.png" alt="Astrometrics' neighbourhood: the stars within 80 light years round the Sun, seen at a slant above the galaxy's disc with its rings at 20, 40, 60 and 80 light years, lines dropping from the named stars to the disc, the log's flights in amber from Vega and Tellar to Wolf 359 and Vulcan, and Vulcan ringed" width="250">
+  &nbsp;
   <img src="docs/phone-distress.png" alt="A distress call: three of the survivors' clues made out (their sun is yellow-white, our Sun is a small star in Aquila, magnitude 2.6) and two still garbled, over Earth's winter sky with Orion, Gemini and Canis Minor, and Procyon picked" width="250">
   &nbsp;
   <img src="docs/phone-temporal.png" alt="The temporal observatory at AD 52,026: Earth's sky round the Big Dipper with its stars drifted from the dashed amber lines of today's shape, the north pole of the sky marked, and under it the dial of years" width="250">
