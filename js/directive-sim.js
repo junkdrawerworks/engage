@@ -66,7 +66,7 @@ export const CASES = [
         ],
       },
       valley: {
-        text: 'The shaking is easing, but not soon enough: the slope above Teshi’s street is going to give way. Oduya asks to beam down and bring her out.',
+        text: 'Teshi calls again. The slope above her street is about to give way, and she is still in the house. Oduya asks to beam down and bring her out.',
         choices: [
           { id: 'refuse', label: 'Refuse: that is as far as we go', next: null,
             said: 'The slope comes down at dawn. Her neighbours dig her out alive, with a broken arm. She never calls again.',

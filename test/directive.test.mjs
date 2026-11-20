@@ -48,6 +48,11 @@ test('the voice on the radio: Picard’s orders in Pen Pals, and what the board 
   // A grade nothing touched says so.
   const quiet = verdict('voice', ['listen', 'settle', 'refuse']);
   assert.equal(quiet.grades[3].why, 'Nothing you ordered tested it either way.');
+  // The slope above her street is reached by settling the faults and by only warning her, so it says nothing that
+  // holds for one of them alone (the faults settling).
+  const valley = CASES[0].steps.quake.choices.filter(ch => ch.next === 'valley').map(ch => ch.id);
+  assert.deepEqual(valley, ['settle', 'warn']);
+  assert.doesNotMatch(CASES[0].steps.valley.text, /easing|slows|settled/i);
   assert.equal(letter(85), 'A');
   assert.equal(letter(84), 'B');
 });
