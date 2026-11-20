@@ -25,6 +25,7 @@ import { carried, contents, fileName, fromRaw, jarsLeft, pack, plan, rawOf, unpa
 import { hold as wakeHold, release as wakeRelease } from './wake.js';
 import { VOYAGES, arrivedAt, autopilotNext, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from './voyages.js';
 import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, starHails, story, supplementals } from './voyage.js';
+import { linkable, namedHere, neighbourhood, progress as hoodProgress, recordLine as hoodLine, recordNone as hoodNone } from './neighbourhood.js';
 import { answersDue, carriedOut, dayOf, orderOf, reportOf, roomsOnRecord, tidyDuty, todayItems, update as updateDuty } from './duty.js';
 import { jdOf, readings } from './ephemeris.js';
 import { heardAt } from './astro.js';
@@ -2004,7 +2005,7 @@ async function saveChart(button) {
 // The service record: the career in one card, read from every room's record, each row leading to its room. It is
 // there once anything is on record anywhere, and a room with nothing yet says so.
 function serviceHtml() {
-  const rows = serviceRecord(records, Date.now(), { lyOf: starLy });
+  const rows = [...serviceRecord(records, Date.now(), { lyOf: starLy }), hoodRow()];
   if (!state.log.length && rows.every(r => !r.line)) return '';
   const chev = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   // With the five-year mission's clock on, it heads the card: which mission, how far into it, and how many are done.
@@ -2018,6 +2019,14 @@ function serviceHtml() {
     + `${m.next ? `<span class="next">Next, ${esc(m.next.name)}: ${esc(m.next.what)} (${esc(progressSaid(m.next))}).</span>` : ''}</p>` : '';
   return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record${named}</h3>${rank}${clock}<ul>${rows.map(r =>
     `<li><a href="${ROOM_BASE}${r.href}"${AWAY} data-room="${r.room}"><b>${esc(r.name)}</b><span${r.line ? '' : ' class="none"'}>${esc(r.line || r.none)}</span>${chev}</a></li>`).join('')}</ul>${medals}</section>`;
+}
+// Astrometrics' neighbourhood as a row of its own: how many of the stars within 80 light years the log has been to,
+// and of the ones Starfleet's charts name, leading to the map. Its stars are worked out once.
+let hood = null;
+function hoodRow() {
+  if (!hood) { const near = neighbourhood(cat); hood = { near, named: namedHere(cat, near) }; }
+  const p = hoodProgress(hood.near, hood.named, new Set(state.log.map(e => e.star)), linkable(cat));
+  return { room: 'astrometrics', name: 'The neighbourhood', href: 'astrometrics.html#view=neighbourhood', none: hoodNone(p), line: hoodLine(p) };
 }
 const progressSaid = c => (c.need === 1 ? 'not yet' : `${c.have.toLocaleString('en-US')} of ${c.need.toLocaleString('en-US')}`);
 

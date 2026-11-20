@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   FIRST_VIEW, PITCH_MAX, REACH, ZOOM_MAX, ZOOM_MIN, cardSaid, dotRadius, heightSaid, namedHere, neighbourhood, placeOf, placeSaid,
-  linkable, progress, progressLine, project, turned,
+  linkable, progress, progressLine, project, recordLine, recordNone, turned,
 } from '../js/neighbourhood.js';
 import { LY_PER_PC } from '../js/physics.js';
 
@@ -113,6 +113,13 @@ test('what is still to visit: the count, Starfleet’s stars, and the nearest no
   const all = progress(near, named, new Set(near.map(s => s.star)));
   assert.equal(all.nearest, null);
   assert.equal(progressLine(all), '2,956 catalogued stars within 80 light years, and you have been to every one.');
+  // The service record's row says the same in a line.
+  assert.equal(recordLine(none), '');
+  assert.equal(recordNone(none), 'None of the 2,956 stars within 80 light years yet');
+  assert.equal(recordLine(some), '3 of 2,956 stars within 80 light years · 2 of Starfleet’s 16');
+  assert.equal(recordLine({ ...some, starfleetBeen: 0 }), '3 of 2,956 stars within 80 light years');
+  assert.equal(recordLine({ ...some, starfleetBeen: 16 }), '3 of 2,956 stars within 80 light years · all 16 of Starfleet’s');
+  assert.equal(recordLine(all), 'All 2,956 stars within 80 light years · all 16 of Starfleet’s');
 });
 
 test('the nearest star offered is one a Set course link can reach, so following it never sends you back to the same star', () => {

@@ -116,3 +116,14 @@ export function progressLine(p) {
   if (p.been === p.total) return `${n} catalogued stars within 80 light years, and you have been to every one.`;
   return `${n} catalogued stars within 80 light years. You have been to ${p.been.toLocaleString('en-US')} of them${sf}.`;
 }
+
+// The service record's row for the neighbourhood, at the head of the captain's log: "6 of 2,956 stars within 80 light
+// years · 5 of Starfleet’s 16". Nothing yet, it says how many there are to visit.
+export function recordLine(p) {
+  const n = p.total.toLocaleString('en-US');
+  if (!p.been) return '';
+  const stars = p.been === p.total ? `All ${n} stars within 80 light years` : `${p.been.toLocaleString('en-US')} of ${n} stars within 80 light years`;
+  const sf = !p.starfleetBeen ? '' : p.starfleetBeen === p.starfleet ? ` · all ${p.starfleet} of Starfleet’s` : ` · ${p.starfleetBeen} of Starfleet’s ${p.starfleet}`;
+  return stars + sf;
+}
+export const recordNone = p => `None of the ${p.total.toLocaleString('en-US')} stars within 80 light years yet`;

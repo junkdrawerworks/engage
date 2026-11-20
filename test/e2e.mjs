@@ -6323,6 +6323,8 @@ await page.emulateMedia({ reducedMotion: null });
     ['Hails to stars', 'No stars hailed yet', 'radio.html#hail'], ['Distress calls', 'No calls answered yet', 'distress.html'],
     ['The long way home', 'Not home yet', 'longway.html'], ['Main engineering', 'No shifts stood yet', 'engineering.html'],
     ['The Prime Directive', 'No hearings yet', 'directive.html'], ['The shipyard', 'No ships designed yet', 'shipyard.html'],
+    // Astrometrics' neighbourhood: Vega is 25 light years out, and on Starfleet's charts (the Vega colony).
+    ['The neighbourhood', '1 of 2,956 stars within 80 light years · 1 of Starfleet’s 16', 'astrometrics.html#view=neighbourhood'],
   ]);
   await p.evaluate(() => engage.closeSheets());
   const before = await p.evaluate(() => Object.keys(localStorage).sort());
@@ -6334,7 +6336,7 @@ await page.emulateMedia({ reducedMotion: null });
     localStorage.setItem('engage.longway.v1', JSON.stringify({ trip: null, best: 58.25, homes: 1, arrivals: [{ at: new Date(Date.now() - 20000).toISOString(), years: 58.25, nebula: 3, world: 2 }] }));
   });
   await p.tap('#open-log');
-  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed', 'No stars hailed yet', 'Rescued 1 of 1 call', 'Home once · best 58 years 3 months', 'No shifts stood yet', 'No hearings yet', 'No ships designed yet']);
+  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed', 'No stars hailed yet', 'Rescued 1 of 1 call', 'Home once · best 58 years 3 months', 'No shifts stood yet', 'No hearings yet', 'No ships designed yet', '1 of 2,956 stars within 80 light years · 1 of Starfleet’s 16']);
   // A rescue and a trip home each have their line in the log, leading to their room.
   assert.deepEqual(await p.locator('#entries .supp a').evaluateAll(as => as.filter(a => /^(longway|distress)/.test(a.getAttribute('href'))).map(a => [a.textContent, a.getAttribute('href')])), [
     ['Supplemental: home from the Delta Quadrant in 58 years 3 months.', 'longway.html'],
