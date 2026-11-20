@@ -419,7 +419,7 @@ try {
     const c = await phone();
     const p = watch(await c.newPage());
     const own = new Set(['index.html#labels', 'tonight.html#view', 'missions.html#map', 'maru.html#plot', 'shipyard.html#drawing']);
-    const canvases = { 'index.html': ['labels'], 'warp.html': ['race'], 'radio.html': ['radio-map'], 'astrometrics.html': ['wall'], 'away.html#world=TRAPPIST-1%20e': ['sky'],
+    const canvases = { 'index.html': ['labels'], 'warp.html': ['race'], 'radio.html': ['radio-map'], 'astrometrics.html': ['wall'], 'astrometrics.html#view=neighbourhood': ['hood'], 'away.html#world=TRAPPIST-1%20e': ['sky'],
       'distress.html': ['chart'], 'temporal.html': ['chart'], 'longway.html': ['map'], 'system.html': ['orrery'], 'engineering.html': ['core'], 'contact.html': ['screen'],
       'xeno.html': ['tank'], 'tonight.html': ['view'], 'missions.html': ['map'], 'maru.html': ['plot'], 'shipyard.html': ['drawing'] };
     const probe = id => p.evaluate(id => {

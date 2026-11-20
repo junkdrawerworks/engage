@@ -37,3 +37,36 @@
 
 .sources { margin: 16px 0 0; font-size: calc(12 * var(--px)); color: var(--dim); }
 .astro-page .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }
+
+/* The two views: the wall and the neighbourhood */
+.views { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-top: 10px; border-radius: 14px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.views button { min-height: 44px; padding: 4px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 600 calc(13 * var(--px))/1.15 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+.views button[aria-pressed="true"] { background: rgba(134, 216, 255, 0.12); color: var(--cyan); box-shadow: 0 0 0 1px rgba(134, 216, 255, 0.35) inset; }
+.lab-intro { margin-top: 10px; }
+
+/* The neighbourhood */
+.hood-screen { aspect-ratio: 1 / 1.05; }
+@media (min-width: 900px) { .hood-screen { aspect-ratio: 4 / 3.4; } }
+.hood-screen canvas { touch-action: none; cursor: grab; }
+.hood-screen canvas:active { cursor: grabbing; }
+.hood-tools { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+.hood-tools button { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border-radius: 12px; border: var(--bw) solid var(--line-strong); background: rgba(5, 7, 13, 0.78); color: var(--text); }
+.hood-tools svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hood-tools button:hover { border-color: var(--cyan); }
+.card .place { margin: 8px 0 0; font-size: calc(15 * var(--px)); color: var(--cyan); }
+.hood-side { padding: 12px 14px; border-radius: 16px; border: var(--bw) solid var(--line); background: rgba(255, 255, 255, 0.02); margin-top: 14px; }
+.hood-head { margin: 0; font: 600 calc(13 * var(--px))/1.3 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.hood-next { margin: 6px 0 0; font-size: calc(14 * var(--px)); color: var(--muted); }
+.hood-next .next { display: block; margin-top: 8px; }
+.hood-next a { min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 999px; border: var(--bw) solid rgba(255, 181, 74, 0.55); color: var(--amber); text-decoration: none;
+  font: 600 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
+.hood-next .why { display: block; margin-top: 4px; }
+.named { margin-top: 12px; border-top: var(--bw) solid var(--line); padding-top: 4px; }
+.named summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font: 600 calc(13 * var(--px))/1.3 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.named ul { list-style: none; margin: 0; padding: 0; }
+.named li + li { border-top: var(--bw) solid var(--line); }
+.named button { width: 100%; min-height: 44px; padding: 8px 2px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; border: 0; background: transparent; color: var(--text); text-align: left; font-size: calc(14 * var(--px)); }
+.named button b { font: 600 calc(14 * var(--px))/1.3 var(--display); letter-spacing: 0.02em; }
+.named button span { color: var(--muted); }
+.named button .far { flex-basis: 100%; color: var(--dim); font-size: calc(13 * var(--px)); }
+.named button .been { color: var(--amber); font: 600 calc(10 * var(--px))/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; }

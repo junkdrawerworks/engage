@@ -6936,6 +6936,82 @@ await page.emulateMedia({ reducedMotion: null });
   await ac.close();
 }
 
+// Astrometrics' neighbourhood: every star within 80 light years in 3D. The log's chart leads to it; it counts what
+// the log has been to and offers the nearest star not yet visited; a drag turns it without picking anything, a tap
+// picks a star, whose card says how far above or below the galaxy's disc it sits; the named stars can be picked from
+// a list; and the wall is a button away, keeping the star.
+{
+  const nc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await nc.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await nc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => { for (const name of ['Keid', 'Deneb', 'Proxima Centauri']) { engage.jump(name); engage.closeSheets(); } });
+  await p.tap('#open-log');
+  await p.tap('#log-chart');
+  assert.equal(await p.locator('#chart-3d').getAttribute('href'), 'astrometrics.html#view=neighbourhood');
+  await p.tap('#chart-3d');
+  await p.waitForFunction(() => window.astrometrics?.ready && astrometrics.view === 'neighbourhood');
+  await p.waitForFunction(() => astrometrics.hood.dots().length > 2000);
+  assert.deepEqual([await p.locator('#hood-screen').isVisible(), await p.locator('#wall-screen').isHidden(), await p.locator('#filters').isHidden(), await p.locator('#life-box').isHidden()], [true, true, true, true]);
+  assert.equal(await p.locator('[data-view="neighbourhood"]').getAttribute('aria-pressed'), 'true');
+  // Deneb is far outside: the count is 40 Eridani and Proxima, one of them Starfleet's (Vulcan).
+  assert.equal(await p.locator('#lesson').innerText(), '2,956 catalogued stars within 80 light years. You have been to 2 of them, and to 1 of the 16 that Starfleet’s charts name.');
+  assert.match(await p.locator('#left-out').innerText(), /^Every star the catalogue places within 80 light years is here, 687 of them grey/);
+  // The nearest star not visited (Toliman, Alpha Centauri B, a hair nearer than A in the catalogue), and the nearest of
+  // Starfleet's (Alpha Centauri, Cochrane's home).
+  assert.deepEqual(await p.locator('#hood-next a').evaluateAll(as => as.map(a => [a.textContent, a.getAttribute('href')])), [['Set course for Toliman', './?course=Toliman'], ['Set course for Alpha Centauri', './?course=Rigil%20Kentaurus']]);
+  assert.match(await p.locator('#hood-next').innerText(), /The nearest star on Starfleet’s charts you haven’t been to \(Cochrane’s home\), 4\.\d light years from Sol\./);
+  // A drag turns the map and picks nothing.
+  const box = await p.locator('#hood').boundingBox();
+  const before = await p.evaluate(() => astrometrics.hood.view);
+  await p.mouse.move(box.x + 100, box.y + 200);
+  await p.mouse.down();
+  for (let k = 1; k <= 8; k++) await p.mouse.move(box.x + 100 + k * 12, box.y + 200 + k * 4);
+  await p.mouse.up();
+  const after = await p.evaluate(() => astrometrics.hood.view);
+  assert.ok(Math.abs(after.yaw - before.yaw) > 0.5 && after.pitch < before.pitch, `the drag turned it from ${JSON.stringify(before)} to ${JSON.stringify(after)}`);
+  assert.equal(await p.evaluate(() => astrometrics.pick), null);
+  // The keys turn it too, and 0 puts it back.
+  await p.keyboard.press('ArrowRight');
+  assert.ok(Math.abs((await p.evaluate(() => astrometrics.hood.view)).yaw - after.yaw - Math.PI / 18) < 1e-9);
+  await p.keyboard.press('0');
+  assert.deepEqual(await p.evaluate(() => astrometrics.hood.view), { yaw: 0, pitch: Math.PI / 3, zoom: 1 });
+  await p.tap('#hood-in');
+  assert.equal((await p.evaluate(() => astrometrics.hood.view)).zoom, 1.5);
+  await p.tap('#hood-reset');
+  // A tap on a star picks it: Vulcan's sun, below the disc.
+  await p.waitForFunction(() => astrometrics.hood.view.zoom === 1);
+  await p.evaluate(() => astrometrics.hood.draw());
+  const keid = (await p.evaluate(() => astrometrics.hood.dots())).find(d => d.name === 'Keid');
+  await p.touchscreen.tap(box.x + keid.x, box.y + keid.y);
+  await p.waitForFunction(() => astrometrics.pick !== null);
+  assert.equal(await p.evaluate(() => astrometrics.pick), 'Keid');
+  assert.match(await p.locator('#card .place').innerText(), /^10 light years below the disc\.$/);
+  // The named stars, from the list: Vulcan, visited.
+  await p.locator('#named summary').tap();
+  const vulcan = p.locator('#named-list button', { hasText: 'Vulcan' });
+  assert.match(await vulcan.innerText(), /^Vulcan\s+40 Eridani\n16 light years from Sol, 10 light years below the disc\s*VISITED$/);
+  assert.equal(await p.locator('#named-list .been:visible').count(), 2, 'Vulcan and Proxima are the named stars visited');
+  await vulcan.tap();
+  assert.equal(await p.evaluate(() => astrometrics.pick), 'Keid');
+  assert.equal(await p.evaluate(() => location.hash), '#view=neighbourhood&star=Keid');
+  assert.equal(await p.title(), '40 Eridani · Astrometrics · Engage');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the neighbourhood is wider than the phone');
+  // The wall, a button away, keeps the star.
+  await p.tap('[data-view="wall"]');
+  assert.equal(await p.evaluate(() => astrometrics.view), 'wall');
+  assert.equal(await p.evaluate(() => location.hash), '#star=Keid');
+  assert.deepEqual([await p.locator('#filters').isVisible(), await p.locator('#hood-screen').isHidden(), await p.locator('#card .place').count()], [true, true, 0]);
+  assert.match(await p.locator('#left-out').innerText(), /^16,955 stars on the wall\./);
+  // A link straight to a star in the neighbourhood, and one past its edge.
+  await p.goto(base + 'astrometrics.html#view=neighbourhood&star=Deneb');
+  await p.waitForFunction(() => window.astrometrics?.ready && astrometrics.pick === 'Deneb');
+  assert.match(await p.locator('#card .place').innerText(), /above the disc, far beyond the neighbourhood’s 80 light years\.$/);
+  await nc.close();
+}
+
 // The distress call: two clues open, cleaning the signal opens another for air, a wrong lock says which clue rules
 // the star out and costs air, the right one ends in the debrief in their own sky, and the record keeps the day's call.
 // Air running out ends a call too.

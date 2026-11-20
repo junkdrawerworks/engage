@@ -1,28 +1,33 @@
 // Astrometrics: every star on one wall, hot to cool across and dim to bright up (the Hertzsprung-Russell diagram),
-// with filters that each teach something, a card for any star tapped, and the Sun's life along the wall. The rules
-// are in js/hr.js; this draws them.
+// with filters that each teach something, a card for any star tapped, and the Sun's life along the wall; and its
+// second view, the neighbourhood: every star within 80 light years in 3D, turned with a finger. The rules are in
+// js/hr.js and js/neighbourhood.js; this draws the wall, and js/neighbourhood-view.js the neighbourhood.
 import { loadCatalog } from './catalog.js';
 import { describeKind, titleFor } from './log.js';
 import { chartFor } from './charts.js';
 import { DESTINATIONS } from './destinations.js';
 import { LY_PER_PC, roughLy } from './physics.js';
-import { dotAt } from './cartography.js';
+import { chartOf, dotAt } from './cartography.js';
+import { cardSaid, namedHere, neighbourhood, placeOf, placeSaid, progress, progressLine } from './neighbourhood.js';
+import { makeHood } from './neighbourhood-view.js';
 import {
   FAMILY_NAMES, FILTERS, SUN_LIFE, census, family, hrX, hrXClamped, hrY, lesson, passes, wall,
 } from './hr.js';
 import { sound } from './audio.js';
-import { picture, setUpRoom } from './room.js';
+import { picture, setUpRoom, typing, cardOpen } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
-setUpRoom({ sound });
+setUpRoom({ sound, keys: [['← → ↑ ↓', 'Turn the neighbourhood'], ['+ or -', 'Zoom the neighbourhood in or out'], ['0', 'The neighbourhood back to its first view']] });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const plain = s => String(s ?? '').toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
 const BRIDGE = './';
 
-let cat = null, onWall = null, visited = new Set();
-const view = { filter: 'all', pick: null, life: 1, lifeShown: false };
+let cat = null, onWall = null, visited = new Set(), log = [];
+const view = { mode: 'wall', filter: 'all', pick: null, life: 1, lifeShown: false };
+let near = null, named = null, hood = null;
+const MODES = ['wall', 'neighbourhood'];
 let dots = [];
 
 const lyOf = i => Math.hypot(cat.pos[i * 3], cat.pos[i * 3 + 1], cat.pos[i * 3 + 2]) * LY_PER_PC;
@@ -44,12 +49,13 @@ function fromHash() {
   }
   return out;
 }
-// The stars in the bridge's log, read from its save.
-function readVisited() {
-  let log = [];
-  try { log = JSON.parse(localStorage.getItem('engage.v1') || 'null')?.log || []; } catch { /* nothing kept */ }
-  return new Set((Array.isArray(log) ? log : []).map(e => e?.star).filter(i => Number.isInteger(i) && i >= 0 && i < cat.count));
+// The bridge's log, newest first, read from its save; and the stars in it.
+function readLog() {
+  let got = [];
+  try { got = JSON.parse(localStorage.getItem('engage.v1') || 'null')?.log || []; } catch { /* nothing kept */ }
+  return Array.isArray(got) ? got : [];
 }
+const starsIn = entries => new Set(entries.map(e => e?.star).filter(i => Number.isInteger(i) && i >= 0 && i < cat.count));
 
 // ---------- The wall ----------
 
@@ -150,7 +156,7 @@ function renderLesson() {
 const FAMILY_SAID = { dwarf: 'On the main sequence', giant: 'Among the giants', supergiant: 'Among the supergiants', 'white dwarf': 'Among the white dwarfs' };
 function renderCard() {
   const i = view.pick;
-  if (i == null) { $('card').innerHTML = '<p class="hint">Tap a star on the wall for its card.</p>'; return; }
+  if (i == null) { $('card').innerHTML = `<p class="hint">${view.mode === 'wall' ? 'Tap a star on the wall for its card.' : 'Tap a star in the neighbourhood for its card, or drag to turn it.'}</p>`; return; }
   const title = titleFor(cat, i), tag = chartFor(cat.names[i])?.tag;
   let where;
   if (cat.nocolour[i]) where = 'The catalogue has no colour for it, so it isn’t on the wall.';
@@ -163,6 +169,7 @@ function renderCard() {
     + `<a href="${BRIDGE}tonight.html#star=${encodeURIComponent(cat.names[i])}">In your sky tonight</a>`;
   $('card').innerHTML = `<h2>${esc(title)}${tag && tag !== title ? ` <span class="tag">${esc(tag)}</span>` : ''}</h2>`
     + `<p class="kind">${esc(kind)}${i === 0 ? '' : cat.unmeasured[i] ? ' · distance not measured' : ` · ${esc(roughLy(lyOf(i)))} away`}</p>`
+    + (view.mode === 'neighbourhood' && !cat.unmeasured[i] ? `<p class="place">${esc(cardSaid(i === 0 ? { ly: 0 } : placeOf(cat, i)))}</p>` : '')
     + `<p class="where">${esc(where)}</p><p class="links">${links}</p>`;
 }
 const lumSaid = l => (l >= 0.995 && l < 1.05 ? 'as bright as the Sun' : l >= 1
@@ -181,21 +188,86 @@ function renderLife() {
 function pick(i) {
   view.pick = i;
   renderCard();
-  draw();
+  paint();
+}
+const paint = () => (view.mode === 'wall' ? draw() : hood?.redraw());
+
+// ---------- The neighbourhood ----------
+
+const INTRO = {
+  wall: 'Every star Engage knows, on one wall: hot on the left, cool on the right, bright at the top, dim at the bottom. Astronomers call it the Hertzsprung-Russell diagram, and on it stars fall into families.',
+  neighbourhood: 'Every catalogued star within 80 light years, in its real place round the Sun. Drag to turn it. The disc is the galaxy’s own, drawn through the Sun, with the galactic centre beyond it, and a line drops from each named star to the disc, so you can see how far above or below us it sits.',
+};
+function setUpHood() {
+  if (hood) return;
+  near = neighbourhood(cat);
+  named = namedHere(cat, near);
+  hood = makeHood($('hood'), {
+    cat, near, named, titleOf: i => titleFor(cat, i),
+    onPick: i => { sound.blip?.(880); pickHere(i); },
+    data: () => ({ visited, chart: chartOf(log, cat), pick: view.pick }),
+  });
+  const here = new Map(near.map(s => [s.star, s]));
+  $('named-list').innerHTML = named.map(n => {
+    const s = here.get(n.star), title = titleFor(cat, n.star);
+    return `<li><button type="button" data-star="${n.star}"><b>${esc(n.label)}</b>${title !== n.label ? ` <span>${esc(title)}</span>` : ''}`
+      + `<span class="far">${esc(placeSaid(s))}</span><span class="been" hidden>Visited</span></button></li>`;
+  }).join('');
+  $('named-head').textContent = `Named stars here (${named.length})`;
+}
+function renderHood() {
+  const p = progress(near, named, visited);
+  $('lesson').textContent = progressLine(p);
+  const grey = near.filter(s => cat.nocolour[s.star]).length;
+  $('left-out').textContent = `Every star the catalogue places within 80 light years is here, ${grey.toLocaleString('en-US')} of them grey because it has no colour for them. It is still missing red dwarfs too faint to have been found.`;
+  const go = (s, why) => `<a href="${BRIDGE}?course=${encodeURIComponent(cat.names[s])}">Set course for ${esc(titleFor(cat, s))}</a> <span class="why">${esc(why)}</span>`;
+  const next = [];
+  if (p.nearest) next.push(go(p.nearest.star, `The nearest star you haven’t been to, ${roughLy(p.nearest.ly)} from Sol.`));
+  if (p.nearestStarfleet && p.nearestStarfleet.star !== p.nearest?.star) {
+    const sf = p.nearestStarfleet, said = sf.label === titleFor(cat, sf.star) ? '' : ` (${sf.label})`;
+    next.push(go(sf.star, `The nearest star on Starfleet’s charts you haven’t been to${said}, ${roughLy(near.find(s => s.star === sf.star).ly)} from Sol.`));
+  }
+  $('hood-next').innerHTML = next.length ? next.map(x => `<span class="next">${x}</span>`).join('') : 'You have been to every star here.';
+  document.querySelectorAll('#named-list [data-star]').forEach(b => { b.querySelector('.been').hidden = !visited.has(Number(b.dataset.star)); });
+}
+function pickHere(i) {
+  pick(i);
+  document.title = `${titleFor(cat, i)} · Astrometrics · Engage`;
+  history.replaceState(null, '', `#${view.mode === 'neighbourhood' ? 'view=neighbourhood&' : ''}star=${encodeURIComponent(cat.names[i])}`);
+}
+function setMode(mode) {
+  view.mode = mode;
+  const wallOn = mode === 'wall';
+  $('wall-screen').hidden = !wallOn;
+  $('filters').hidden = !wallOn;
+  $('life-box').hidden = !wallOn;
+  $('hood-screen').hidden = wallOn;
+  $('hood-side').hidden = wallOn;
+  $('intro').textContent = INTRO[mode];
+  document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === mode)));
+  if (!wallOn) { setUpHood(); renderHood(); } else renderLesson();
+  if (wallOn) {
+    const left = [];
+    left.push(`${onWall.noColour.toLocaleString('en-US')} stars the catalogue has no colour for`);
+    left.push(`${onWall.tooRed.toLocaleString('en-US')} too red for its colours to give a temperature`);
+    left.push(`${onWall.noDistance.toLocaleString('en-US')} with no measured distance`);
+    $('left-out').textContent = `${onWall.stars.length.toLocaleString('en-US')} stars on the wall. Left off: ${left.slice(0, -1).join(', ')} and ${left[left.length - 1]}, which would draw as false stripes or at a made-up brightness${onWall.off ? `, and ${onWall.off === 1 ? 'one star' : `${onWall.off} stars`} hotter than its edge (the Ring Nebula’s, at 135,000 K)` : ''}.`;
+  }
+  renderCard();
+  paint();
 }
 
 function open() {
   const h = fromHash();
+  const mode = MODES.includes(h.view) ? h.view : 'wall';
   if (FILTERS.some(f => f.id === h.filter)) view.filter = h.filter;
   const life = Number(h.sun);
   if ('sun' in h) { view.lifeShown = true; if (Number.isInteger(life) && life >= 0 && life < SUN_LIFE.length) view.life = life; }
   const i = starIndex(h.star);
   view.pick = i;
   if (i != null) document.title = `${titleFor(cat, i)} · Astrometrics · Engage`;
-  renderLesson();
-  renderCard();
   renderLife();
-  draw();
+  setMode(mode);
 }
 
 $('filters').innerHTML = FILTERS.map(f => `<button type="button" data-filter="${f.id}" aria-pressed="${f.id === view.filter}">${esc(f.name)}</button>`).join('');
@@ -207,20 +279,51 @@ $('filters').addEventListener('click', e => {
   renderLesson();
   draw();
 });
+$('views').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]');
+  if (!b || !cat || b.dataset.view === view.mode) return;
+  const star = view.pick == null ? '' : `star=${encodeURIComponent(cat.names[view.pick])}`;
+  const hash = b.dataset.view === 'neighbourhood' ? `#view=neighbourhood${star ? `&${star}` : ''}` : star ? `#${star}` : '';
+  history.replaceState(null, '', hash || location.pathname + location.search);
+  setMode(b.dataset.view);
+});
+$('named-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-star]');
+  if (b && cat) pickHere(Number(b.dataset.star));
+});
+$('hood-in').addEventListener('click', () => hood?.zoom(1.5));
+$('hood-out').addEventListener('click', () => hood?.zoom(1 / 1.5));
+$('hood-reset').addEventListener('click', () => hood?.reset());
+// At a keyboard, the arrows turn the neighbourhood, + and - zoom it and 0 puts it back.
+addEventListener('keydown', e => {
+  if (view.mode !== 'neighbourhood' || !hood || typing(e) || cardOpen()) return;
+  const step = Math.PI / 18;
+  const act = { ArrowLeft: () => hood.turn(-step, 0), ArrowRight: () => hood.turn(step, 0), ArrowUp: () => hood.turn(0, -step), ArrowDown: () => hood.turn(0, step),
+    '+': () => hood.zoom(1.5), '=': () => hood.zoom(1.5), '-': () => hood.zoom(1 / 1.5), 0: () => hood.reset() }[e.key];
+  if (!act) return;
+  e.preventDefault();
+  act();
+});
 $('wall').addEventListener('click', e => {
   const r = e.currentTarget.getBoundingClientRect();
   const d = dotAt(dots, e.clientX - r.left, e.clientY - r.top, 14);
   if (!d) return;
-  pick(d.star);
-  document.title = `${titleFor(cat, d.star)} · Astrometrics · Engage`;
-  history.replaceState(null, '', `#star=${encodeURIComponent(cat.names[d.star])}`);
+  pickHere(d.star);
 });
 $('life').addEventListener('input', e => { view.life = Number(e.target.value); view.lifeShown = true; renderLife(); draw(); });
 window.addEventListener('hashchange', () => cat && open());
-window.addEventListener('resize', () => cat && draw());
+window.addEventListener('resize', () => cat && paint());
 
 window.astrometrics = {
+  get view() { return view.mode; },
   get filter() { return view.filter; },
+  // The neighbourhood: its dots as drawn, how it is turned, and turning it.
+  hood: {
+    dots: () => (hood ? hood.dots().map(d => ({ x: d.x, y: d.y, name: cat.names[d.star] })) : []),
+    get view() { return hood?.view; },
+    turn: (yaw, pitch) => hood?.turn(yaw, pitch),
+    draw: () => hood?.draw(),
+  },
   get pick() { return view.pick == null ? null : cat.names[view.pick]; },
   dots: () => dots.map(d => ({ x: d.x, y: d.y, name: cat.names[d.star] })),
   ready: false,
@@ -229,12 +332,8 @@ window.astrometrics = {
 loadCatalog().then(c => {
   cat = c;
   onWall = wall(cat);
-  visited = readVisited();
-  const left = [];
-  left.push(`${onWall.noColour.toLocaleString('en-US')} stars the catalogue has no colour for`);
-  left.push(`${onWall.tooRed.toLocaleString('en-US')} too red for its colours to give a temperature`);
-  left.push(`${onWall.noDistance.toLocaleString('en-US')} with no measured distance`);
-  $('left-out').textContent = `${onWall.stars.length.toLocaleString('en-US')} stars on the wall. Left off: ${left.slice(0, -1).join(', ')} and ${left[left.length - 1]}, which would draw as false stripes or at a made-up brightness${onWall.off ? `, and ${onWall.off === 1 ? 'one star' : `${onWall.off} stars`} hotter than its edge (the Ring Nebula’s, at 135,000 K)` : ''}.`;
+  log = readLog();
+  visited = starsIn(log);
   open();
   window.astrometrics.ready = true;
 });

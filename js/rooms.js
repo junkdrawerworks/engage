@@ -2,7 +2,7 @@
 // here: both lists are drawn from this table. `href` is the room's page beside the bridge; `button` is the id of the
 // link to it on the bridge (the round buttons, and the warp scale under the warp slider), or null for a room the
 // bridge reaches from the captain's log instead (the system view and the away team, from a star's planets; subspace
-// radio, from a star's line about Earth's broadcasts, and from Set course; astrometrics, from a star's own line; the
+// radio, from a star's line about Earth's broadcasts, and from Set course; astrometrics, from a star's own line and the log's chart; the
 // distress call, the temporal observatory, the long way home, main engineering and the shipyard (and from the warp
 // scale), from this list alone until the
 // bridge's round buttons are settled; the Prime Directive, from this list and the Kobayashi Maru's briefing); `icon`
@@ -52,7 +52,7 @@ export const ROOMS = [
   },
   {
     id: 'astrometrics', href: 'astrometrics.html', button: null, name: 'Astrometrics',
-    line: 'Every star on one wall, by colour and true brightness, and the Sun’s whole life.',
+    line: 'Every star on one wall by colour and true brightness, the Sun’s whole life, and the neighbourhood in 3D.',
     icon: '<path d="M4 3.5v16.5h16.5"/><circle cx="8" cy="7" r="1"/><circle cx="10.5" cy="10" r="1"/><circle cx="13.5" cy="13" r="1"/><circle cx="17" cy="16.5" r="1"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="8.5" cy="16.5" r=".8"/>',
   },
   {

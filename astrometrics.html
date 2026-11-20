@@ -6,7 +6,7 @@
   <!-- The text size and contrast from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
   <script>try { var e = JSON.parse(localStorage.getItem('engage.prefs') || '{}'); if (e.text === 'large' || e.text === 'largest') document.documentElement.dataset.text = e.text; if (e.contrast === true) document.documentElement.dataset.contrast = 'high'; } catch (e) {}</script>
   <title>Astrometrics · Engage</title>
-  <meta name="description" content="Every star Engage knows on one wall, hot to cool and dim to bright: the Hertzsprung-Russell diagram, where stars fall into families. See what the naked eye picks out, what the neighbourhood is really made of, and the Sun’s whole life.">
+  <meta name="description" content="Every star Engage knows on one wall, hot to cool and dim to bright: the Hertzsprung-Russell diagram, where stars fall into families. See what the naked eye picks out, what the neighbourhood is really made of, and the Sun’s whole life; then turn the neighbourhood itself in 3D, every star within 80 light years in its real place.">
   <meta property="og:site_name" content="Engage">
   <meta property="og:title" content="Astrometrics">
   <meta property="og:description" content="17,000 real stars by colour and true brightness, and the Sun’s life from now to white dwarf.">
@@ -43,24 +43,44 @@
   </header>
 
   <main>
-    <p class="lab-intro">Every star Engage knows, on one wall: hot on the left, cool on the right, bright at the top, dim at the bottom. Astronomers call it the Hertzsprung-Russell diagram, and on it stars fall into families.</p>
+    <div class="views" id="views" role="group" aria-label="View">
+      <button type="button" data-view="wall" aria-pressed="true">The wall</button>
+      <button type="button" data-view="neighbourhood" aria-pressed="false">Neighbourhood</button>
+    </div>
+    <p class="lab-intro" id="intro">Every star Engage knows, on one wall: hot on the left, cool on the right, bright at the top, dim at the bottom. Astronomers call it the Hertzsprung-Russell diagram, and on it stars fall into families.</p>
     <div class="filters" id="filters" role="group" aria-label="Which stars"></div>
     <div class="deck">
       <div class="wall-side">
-        <div class="screen"><canvas id="wall" aria-hidden="true"></canvas></div>
+        <div class="screen" id="wall-screen"><canvas id="wall" aria-hidden="true"></canvas></div>
+        <div class="screen hood-screen" id="hood-screen" hidden>
+          <canvas id="hood" aria-hidden="true"></canvas>
+          <div class="hood-tools" role="group" aria-label="Turn and zoom">
+            <button type="button" id="hood-out" aria-label="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+            <button type="button" id="hood-in" aria-label="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg></button>
+            <button type="button" id="hood-reset" aria-label="Back to the first view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.1-5"/><path d="M5 4.5V9h4.5"/></svg></button>
+          </div>
+        </div>
         <p class="lesson" id="lesson" aria-live="polite"></p>
         <p class="left-out" id="left-out"></p>
       </div>
       <div class="side">
         <article class="card" id="card" aria-live="polite"><p class="hint">Tap a star on the wall for its card.</p></article>
-        <section class="life" aria-labelledby="life-label">
+        <section class="hood-side" id="hood-side" aria-labelledby="hood-head" hidden>
+          <h2 class="hood-head" id="hood-head">Not yet visited</h2>
+          <p class="hood-next" id="hood-next"></p>
+          <details class="named" id="named">
+            <summary id="named-head">Named stars here</summary>
+            <ul id="named-list"></ul>
+          </details>
+        </section>
+        <section class="life" id="life-box" aria-labelledby="life-label">
           <label class="life-label" id="life-label" for="life">The Sun’s life <output id="life-out" for="life"></output></label>
           <input type="range" id="life" min="0" max="8" step="1" value="1">
           <p class="life-said" id="life-said"></p>
         </section>
       </div>
     </div>
-    <p class="sources">Stars: the HYG catalogue; temperatures and true brightness are worked out from each star’s colour and distance, or measured, for the stars with notes. The main sequence: Pecaut and Mamajek 2013, <i>Astrophysical Journal Supplement</i> 208, 9, as kept up to date by Mamajek. The Sun’s life: Sackmann, Boothroyd and Kraemer 1993, <i>Astrophysical Journal</i> 418, 457.</p>
+    <p class="sources">Stars: the HYG catalogue; temperatures and true brightness are worked out from each star’s colour and distance, or measured, for the stars with notes. The main sequence: Pecaut and Mamajek 2013, <i>Astrophysical Journal Supplement</i> 208, 9, as kept up to date by Mamajek. The Sun’s life: Sackmann, Boothroyd and Kraemer 1993, <i>Astrophysical Journal</i> 418, 457. The neighbourhood: the HYG catalogue’s positions, turned to the galaxy’s own axes by the Hipparcos catalogue’s rotation (ESA 1997). Its disc is drawn level with the galaxy’s, through the Sun; the Sun itself sits about 68 light years (20.8 parsecs) above the middle of the galaxy’s disc (Bennett and Bovy 2019, <i>Monthly Notices of the Royal Astronomical Society</i> 482, 1417).</p>
   </main>
 
   <footer class="jd-foot">

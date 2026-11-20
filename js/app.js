@@ -1935,7 +1935,7 @@ function chartHtml() {
     <p class="chart-line" id="chart-line">${esc(chartLine(c, i => titleFor(cat, i), roughLy))}</p>
     <p class="chart-pick" id="chart-pick" aria-live="polite"></p>
     <p class="chart-key">Seen from above the galaxy, its centre up. Each ring is ten times as far from the Sun as the one inside it, so the near stars aren’t lost in the middle.</p>
-    <p class="entry-actions"><button type="button" id="chart-save">Save chart</button></p>
+    <p class="entry-actions"><button type="button" id="chart-save">Save chart</button><a id="chart-3d" href="${ASTROMETRICS}#view=neighbourhood"${AWAY}>The neighbourhood in 3D</a></p>
   </section>`;
 }
 function paintChart() {
