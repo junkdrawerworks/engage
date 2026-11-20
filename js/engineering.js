@@ -5,7 +5,7 @@ import {
   yardsticks,
 } from './core.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { picture, setUpRoom } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -32,7 +32,7 @@ function drawCore() {
   const cv = $('core'), dpr = Math.min(devicePixelRatio || 1, 2);
   const W = Math.round((cv.clientWidth || 160) * dpr), H = Math.round((cv.clientHeight || 320) * dpr);
   if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
-  const g = cv.getContext('2d'), r = reading(shift);
+  const g = picture(cv.getContext('2d')), r = reading(shift);
   g.fillStyle = '#02040a'; g.fillRect(0, 0, W, H);
   const cx = W / 2, cw = Math.min(W * 0.34, 70 * dpr), top = 18 * dpr, bot = H - 18 * dpr;
   // The housing.

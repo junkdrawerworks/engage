@@ -10,7 +10,7 @@ import { onScreen } from './onscreen.js';
 import { readShipPlace, whereWords } from './contacts.js';
 import { readShip, shortName } from './myship.js';
 import { stardate } from './physics.js';
-import { setUpRoom, typing } from './room.js';
+import { picture, setUpRoom, typing } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound, keys: [['1 to 9', 'Add the phrase with that number in your notebook to your reply'], ['Enter', 'Send your reply'], ['L', 'Listen again']] });
@@ -605,7 +605,7 @@ function shareRun(button) {
 // ---------- The viewscreen ----------
 
 const canvas = $('screen');
-const cx = canvas.getContext('2d');
+const cx = picture(canvas.getContext('2d'));
 const screenSeen = onScreen(canvas); // the viewscreen isn't drawn while it is scrolled out of sight
 let draws = 0;                       // how many times it has been drawn, for tests
 let W = 0, H = 0;

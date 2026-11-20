@@ -22,7 +22,7 @@ import { linesForStar, readContacts } from './contacts.js';
 import { nowLine, variableFor } from './variables.js';
 import { DEEP_SKY, KINDS, sightById, sightDir, sightSize, sightWidthLy, seenIn } from './deepsky.js';
 import { sound } from './audio.js';
-import { follow, setUpRoom, textScale } from './room.js';
+import { follow, picture, setUpRoom, textScale } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound, keys: [['← → ↑ ↓', 'Look around']] });
@@ -110,7 +110,7 @@ async function start() {
   cat = await loadCatalog();
   Object.assign(saved, load()); // as it stands now: another tab may have saved while the stars were being fetched
   canvas = $('view');
-  ctx = canvas.getContext('2d');
+  ctx = picture(canvas.getContext('2d'), { text: false });
   // A guess is saved along with everything else, but it's still only a guess: make it afresh from today's time zone.
   if (!saved.place || saved.place.how === 'guess') saved.place = guessPlace();
   prepareStars();

@@ -15,7 +15,7 @@ import { encodeDesign } from './shipyard-sim.js';
 import { loadCatalog } from './catalog.js';
 import { aberrate, doppler, gamma, greenSeenAs, halfSkyDeg, hourOnEarth, speedSaid, FULL_IMPULSE } from './impulse.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { picture, setUpRoom } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -42,7 +42,7 @@ let trip = null; // the lanes' speeds and times for the place
 let race = null; // { start, clock } while the race runs; { done: true } once everyone is there
 let lastNote = '';
 const cv = $('race');
-const g = cv.getContext('2d');
+const g = picture(cv.getContext('2d'));
 const field = Array.from({ length: 140 }, () => [Math.random(), Math.random(), Math.random()]);
 
 function load() {
@@ -469,7 +469,7 @@ function renderLadder() {
 // another 45 degrees from dead ahead. At speed each star is moved, recoloured and brightened or dimmed as special
 // relativity says (js/impulse.js). The stars are the bridge's own catalogue, loaded when the section comes near.
 const sv = $('impulse-sky');
-const sg = sv.getContext('2d');
+const sg = picture(sv.getContext('2d'));
 let sky = null; // { stars: [[x, y, z, mag, temp]], names: [[index in stars, name]], cat } once the catalogue is in
 let beta = 0;
 let heading = null; // { name, dir, u, v }

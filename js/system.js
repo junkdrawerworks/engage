@@ -14,7 +14,7 @@ import {
   auText, yearText, starDegrees, SUN_DEGREES, placedKey, HELD,
 } from './worlds.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { picture, setUpRoom } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -124,7 +124,7 @@ function drawMap() {
   const W = canvas.clientWidth, H = canvas.clientHeight;
   if (!W || !H) return;
   if (canvas.width !== Math.round(W * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
-  const g = canvas.getContext('2d');
+  const g = picture(canvas.getContext('2d'));
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, W, H);
   const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 22;
@@ -261,7 +261,7 @@ function drawClose(k, now = 0) {
   const W = canvas.clientWidth, H = canvas.clientHeight;
   if (!W || !H) return;
   if (canvas.width !== Math.round(W * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
-  const g = canvas.getContext('2d');
+  const g = picture(canvas.getContext('2d'));
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.fillStyle = '#02040a'; g.fillRect(0, 0, W, H);
   // A few faint stars behind, the same ones each time for this planet.
@@ -287,7 +287,7 @@ function drawStarSize(p) {
   const canvas = $('star-size');
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = 96 * dpr; canvas.height = 48 * dpr;
-  const g = canvas.getContext('2d');
+  const g = picture(canvas.getContext('2d'));
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const star = starDegrees(view.star.radius, p.au);
   const big = Math.max(star, SUN_DEGREES);

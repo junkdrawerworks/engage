@@ -8,7 +8,7 @@ import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { fullName, readShip } from './myship.js';
-import { buzz, setUpRoom, textScale, typing } from './room.js';
+import { buzz, picture, setUpRoom, textScale, typing } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound, keys: [['1 to 9', 'Give the order with that number, counting down the list']] });
@@ -366,7 +366,7 @@ function showEval() {
 // The frame is 1000 units wide on a big screen and narrower on a phone, so ships and labels stay readable.
 let W = 1000;
 const canvas = $('plot');
-const cx = canvas.getContext('2d');
+const cx = picture(canvas.getContext('2d'), { text: false });
 const plotSeen = onScreen(canvas); // the tactical display isn't drawn while it is scrolled out of sight
 let draws = 0;                     // how many times it has been drawn, for tests
 let H = 800, dpr = 1;

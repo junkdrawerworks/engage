@@ -49,6 +49,24 @@ export function textScale(text, rootPx = 16, basePx = 16) {
   return browser * (SCALE[text] ?? 1);
 }
 
+// ---------- Pictures ----------
+// Words and lines drawn into a room's pictures follow the settings too (picture() in js/room.js puts these on a
+// canvas): each font's size in px times the text scale, and under High contrast, labels and lines drawn brighter and a
+// little heavier in the same colours. A colour with any see-through (rgba or hsla) is made 1.6 times as opaque, up
+// to solid; a solid colour or a gradient is left as it is. Lines are 1.4 times as wide.
+export const CONTRAST_ALPHA = 1.6, CONTRAST_LINE = 1.4;
+export function scaledFont(font, k) {
+  if (typeof font !== 'string' || !(k > 0) || k === 1) return font;
+  return font.replace(/(\d+(?:\.\d+)?)px/, (_, n) => `${+(Number(n) * k).toFixed(2)}px`);
+}
+export function brighter(color) {
+  if (typeof color !== 'string') return color;
+  const m = color.match(/^(rgba|hsla)\((.*),\s*([\d.]+)\s*\)$/i);
+  if (!m) return color;
+  const a = Number(m[3]);
+  return Number.isFinite(a) && a < 1 ? `${m[1]}(${m[2]}, ${+Math.min(1, a * CONTRAST_ALPHA).toFixed(3)})` : color;
+}
+
 function parse(raw) {
   if (typeof raw !== 'string') return null;
   try {

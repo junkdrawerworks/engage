@@ -1,7 +1,7 @@
 // What every room shares, whatever else it does: the speaker in its header, which turns Engage's sound on and off
 // everywhere at once; vibration, on the phones that can; and the text size and contrast chosen in Bridge settings. The settings
 // themselves are js/prefs.js's.
-import { PREFS, readPrefs, textScale as scaleFor, withPref } from './prefs.js';
+import { CONTRAST_LINE, PREFS, brighter, readPrefs, scaledFont, textScale as scaleFor, withPref } from './prefs.js';
 import { keep, watch } from './store.js';
 
 const get = key => { try { return localStorage.getItem(key); } catch { return null; } };
@@ -57,6 +57,43 @@ export function textScale() {
     scale = scaleFor(current().text, parseFloat(root.fontSize), parseFloat(root.getPropertyValue('--base')));
   }
   return scale;
+}
+
+// A canvas's words and lines follow the settings: every font set on it is scaled by textScale() (unless `text` is
+// false, for a picture that scales its own words), and under High contrast its labels (fillText, strokeText) and lines
+// (strokeStyle, lineWidth) are drawn brighter and heavier (brighter() and CONTRAST_LINE in js/prefs.js). The canvas's
+// code reads back what it set, so nothing compounds. Pictures made to save or share are never put through this: they
+// keep one size. Returns the context; a second call on the same one changes nothing.
+const PROTO = typeof CanvasRenderingContext2D !== 'undefined' ? CanvasRenderingContext2D.prototype : null;
+const native = name => Object.getOwnPropertyDescriptor(PROTO, name);
+const contrastOn = () => document.documentElement.dataset.contrast === 'high';
+export function picture(g, { text = true } = {}) {
+  if (!g || !PROTO || g.engagePicture) return g;
+  g.engagePicture = true;
+  const font = native('font'), width = native('lineWidth'), stroke = native('strokeStyle'), fill = native('fillStyle');
+  let base = { font: font.get.call(g), width: width.get.call(g), stroke: stroke.get.call(g), fill: fill.get.call(g) };
+  const stack = [];
+  Object.defineProperty(g, 'font', { configurable: true, get: () => base.font, set(v) { base.font = v; font.set.call(g, text ? scaledFont(v, textScale()) : v); } });
+  Object.defineProperty(g, 'lineWidth', { configurable: true, get: () => base.width, set(v) { base.width = v; width.set.call(g, contrastOn() ? v * CONTRAST_LINE : v); } });
+  Object.defineProperty(g, 'strokeStyle', { configurable: true, get: () => base.stroke, set(v) { base.stroke = v; stroke.set.call(g, contrastOn() ? brighter(v) : v); } });
+  Object.defineProperty(g, 'fillStyle', { configurable: true, get: () => base.fill, set(v) { base.fill = v; fill.set.call(g, v); } });
+  for (const name of ['fillText', 'strokeText']) {
+    g[name] = function (...args) {
+      if (!contrastOn()) return PROTO[name].apply(g, args);
+      const was = fill.get.call(g);
+      fill.set.call(g, brighter(base.fill));
+      try { return PROTO[name].apply(g, args); } finally { fill.set.call(g, was); }
+    };
+  }
+  g.save = function () { stack.push({ ...base }); return PROTO.save.call(g); };
+  g.restore = function () { if (stack.length) base = stack.pop(); return PROTO.restore.call(g); };
+  // A canvas resized clears its state, font and all, back to the defaults.
+  const cv = g.canvas;
+  if (cv) for (const dim of ['width', 'height']) {
+    const d = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, dim);
+    Object.defineProperty(cv, dim, { configurable: true, get: () => d.get.call(cv), set(v) { d.set.call(cv, v); stack.length = 0; base = { font: font.get.call(g), width: width.get.call(g), stroke: stroke.get.call(g), fill: fill.get.call(g) }; } });
+  }
+  return g;
 }
 
 // A short vibration, where the phone has one and it is wanted: engaging, dropping out of warp, a hit on the hull.

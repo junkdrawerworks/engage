@@ -10,7 +10,7 @@ import { growFor } from './xeno-gen.js';
 import { drawCreature } from './xeno-art.js';
 import { SYSTEMS, planetByName, standable, groundSky, groundReadings, altitude, gravity, yearText } from './worlds.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { picture, setUpRoom } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound, keys: [['← →', 'Turn round where you stand']] });
@@ -168,7 +168,7 @@ function draw(time = performance.now()) {
   W = canvas.clientWidth; H = canvas.clientHeight;
   if (!W || !H) return;
   if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
-  const g = canvas.getContext('2d');
+  const g = picture(canvas.getContext('2d'));
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   // Frame the view so the ground is in it, 12° of it, and the sun by day or the Sun by night, 10° clear of the top:
   // as wide as 75° across where the screen allows, and wider on a wide screen to take in the height.

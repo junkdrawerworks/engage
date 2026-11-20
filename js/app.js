@@ -2,7 +2,7 @@
 import { loadCatalog } from './catalog.js';
 import { Sky } from './sky.js';
 import { sound } from './audio.js';
-import { buzz, canBuzz, follow, setPref, setUpRoom, textScale } from './room.js';
+import { buzz, canBuzz, follow, picture, setPref, setUpRoom, textScale } from './room.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, starKinds, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
@@ -438,7 +438,7 @@ function drawLabels(now) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = c.clientWidth, h = c.clientHeight;
   if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
-  const g = c.getContext('2d');
+  const g = picture(c.getContext('2d'), { text: false });
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
   const cam = viewCam();
@@ -1944,7 +1944,7 @@ function paintChart() {
   const size = Math.min(cv.parentElement.clientWidth || 340, 560), dpr = Math.min(devicePixelRatio || 1, 3);
   cv.style.width = cv.style.height = `${size}px`;
   cv.width = cv.height = Math.round(size * dpr);
-  const g = cv.getContext('2d');
+  const g = picture(cv.getContext('2d'));
   g.scale(dpr, dpr);
   chartDots = drawChart(g, c, { size, edge: chartEdge(c.reach), colorOf: chartColor, titleOf: i => titleFor(cat, i), selected: chartPick, labels: size < 400 ? 8 : 12 });
   const s = c.stars.find(x => x.star === chartPick);

@@ -7,7 +7,7 @@ import { tripYears } from './physics.js';
 import { sound } from './audio.js';
 import { LIVE, share } from './share.js';
 import { keep, unkept, watch } from './store.js';
-import { setUpRoom, textScale } from './room.js';
+import { picture, setUpRoom, textScale } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -190,7 +190,7 @@ function draw(st = stats(bench)) {
   if (!r.width) return;
   const dpr = Math.min(2, devicePixelRatio || 1);
   canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
-  const c = canvas.getContext('2d'), W = 1000, H = W * r.height / r.width;
+  const c = picture(canvas.getContext('2d'), { text: false }), W = 1000, H = W * r.height / r.width;
   c.setTransform(canvas.width / W, 0, 0, canvas.width / W, 0, 0);
   c.fillStyle = '#03050a'; c.fillRect(0, 0, W, H);
   // The drydock's frame.

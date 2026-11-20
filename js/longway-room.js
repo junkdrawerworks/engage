@@ -5,7 +5,7 @@ import {
   whenSaid, yearsSaid,
 } from './longway.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { picture, setUpRoom } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -35,7 +35,7 @@ let backdrop = null, backdropFor = '';
 function paintGalaxy(size) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
-  const g = c.getContext('2d'), k = size / (RADIUS * 2.2), o = size / 2;
+  const g = picture(c.getContext('2d')), k = size / (RADIUS * 2.2), o = size / 2;
   // The core's glow and its bar.
   const core = g.createRadialGradient(o, o, 0, o, o, 14000 * k);
   core.addColorStop(0, 'rgba(255, 226, 170, 0.75)'); core.addColorStop(0.4, 'rgba(255, 196, 120, 0.25)'); core.addColorStop(1, 'rgba(255, 180, 110, 0)');
@@ -58,7 +58,7 @@ function drawMap() {
   const cv = $('map'), dpr = Math.min(devicePixelRatio || 1, 2);
   const S = Math.round((cv.clientWidth || 340) * dpr);
   if (cv.width !== S || cv.height !== S) { cv.width = S; cv.height = S; }
-  const g = cv.getContext('2d');
+  const g = picture(cv.getContext('2d'));
   if (backdropFor !== String(S)) { backdrop = paintGalaxy(S); backdropFor = String(S); }
   g.fillStyle = '#02040a'; g.fillRect(0, 0, S, S);
   g.drawImage(backdrop, 0, 0);

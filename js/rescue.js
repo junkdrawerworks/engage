@@ -3,6 +3,7 @@
 // transporter range on the tactical display, the minutes each ship has, the orders and the channel) and its own
 // verdict, and keeps its record beside the Maru's, as `rescue`.
 import { newRescue, orders, act, settle, evaluate, shareLine, dailySeed, moral, apartKm, fromStart, RANGE_KM, BUY } from './rescue-sim.js';
+import { picture } from './room.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -157,7 +158,7 @@ export function rescueTest({ saved, save, show, back, today, share, live, sound 
     if (!r.width || !t) return;
     const dpr = Math.min(2, devicePixelRatio || 1);
     canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
-    const c = canvas.getContext('2d'), W = 1000, H = W * r.height / r.width;
+    const c = picture(canvas.getContext('2d')), W = 1000, H = W * r.height / r.width;
     c.setTransform(canvas.width / W, 0, 0, canvas.width / W, 0, 0);
     c.fillStyle = '#04060b'; c.fillRect(0, 0, W, H);
     c.strokeStyle = 'rgba(134, 216, 255, 0.07)'; c.lineWidth = 1;

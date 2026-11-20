@@ -11,7 +11,7 @@ import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { LIVE, share } from './share.js';
 import { sound } from './audio.js';
-import { follow, setUpRoom, textScale } from './room.js';
+import { follow, picture, setUpRoom, textScale } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -568,7 +568,7 @@ function showEvent(ship, ms) {
 // ---------- The map ----------
 
 const canvas = $('map');
-const ctx = canvas.getContext('2d');
+const ctx = picture(canvas.getContext('2d'), { text: false });
 const mapSeen = onScreen(canvas); // the map isn't drawn while it is scrolled out of sight; the numbers go on ticking
 let draws = 0;                    // how many times it has been drawn, for tests
 let W = 0, H = 0, DPR = 1;

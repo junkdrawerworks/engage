@@ -13,7 +13,7 @@ import {
   yearLine, yearNow, yearSaid,
 } from './radio.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { picture, setUpRoom } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -69,7 +69,7 @@ function drawMap() {
   const cv = $('radio-map'), box = cv.parentElement.getBoundingClientRect();
   const size = Math.round(box.width) || 340, dpr = Math.min(devicePixelRatio || 1, 3);
   cv.width = cv.height = Math.round(size * dpr);
-  const g = cv.getContext('2d');
+  const g = picture(cv.getContext('2d'));
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, size, size);
   const mid = size / 2, R = mid - 14, k = R / MAP_LY;

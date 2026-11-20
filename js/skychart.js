@@ -4,6 +4,7 @@
 // survivors' own) and the temporal observatory (Earth's sky in another century). Directions are unit vectors in
 // the catalogue's axes (x toward the March equinox, z toward the north celestial pole). `projector` is pure, and
 // checked by test/distress.test.mjs; the class draws.
+import { picture } from './room.js';
 
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -55,7 +56,7 @@ export class SkyChart {
   // the person caused.
   constructor(canvas, opts = {}) {
     this.cv = canvas;
-    this.g = canvas.getContext('2d');
+    this.g = picture(canvas.getContext('2d'));
     this.opts = opts;
     this.centre = opts.centre || [1, 0, 0];
     this.fov = opts.fov || 90 * Math.PI / 180;

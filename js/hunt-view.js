@@ -6,6 +6,7 @@ import { byId, label } from './classes.js';
 import { fourWith } from './quiz.js';
 import { Globe, paint } from './planet-art.js';
 import { LIVE, share } from './share.js';
+import { picture } from './room.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -60,7 +61,7 @@ function fit(canvas, cssH) {
   const w = canvas.getBoundingClientRect().width || 340, dpr = Math.min(devicePixelRatio || 1, 2);
   canvas.style.height = `${cssH}px`;
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(cssH * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(cssH * dpr); }
-  const g = canvas.getContext('2d');
+  const g = picture(canvas.getContext('2d'));
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, cssH);
   return { g, w, h: cssH };

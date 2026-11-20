@@ -410,6 +410,45 @@ try {
     await c.close();
   }
 
+  // ---------- The pictures follow both ----------
+  // Every room's pictures: the words drawn into them grow with Text size (the bridge's viewscreen, tonight's sky, the
+  // Kobayashi Maru's display, the missions map and the shipyard's drawing already scaled their own), and under High
+  // contrast their labels and lines are drawn brighter (1.6 times as opaque) and 1.4 times as heavy, in the same
+  // colours. Each canvas is asked what a 10 px font, a 1 px line and a half see-through red become.
+  {
+    const c = await phone();
+    const p = watch(await c.newPage());
+    const own = new Set(['index.html#labels', 'tonight.html#view', 'missions.html#map', 'maru.html#plot', 'shipyard.html#drawing']);
+    const canvases = { 'index.html': ['labels'], 'warp.html': ['race'], 'radio.html': ['radio-map'], 'astrometrics.html': ['wall'], 'away.html#world=TRAPPIST-1%20e': ['sky'],
+      'distress.html': ['chart'], 'temporal.html': ['chart'], 'longway.html': ['map'], 'system.html': ['orrery'], 'engineering.html': ['core'], 'contact.html': ['screen'],
+      'xeno.html': ['tank'], 'tonight.html': ['view'], 'missions.html': ['map'], 'maru.html': ['plot'], 'shipyard.html': ['drawing'] };
+    const probe = id => p.evaluate(id => {
+      const g = document.getElementById(id).getContext('2d'), P = CanvasRenderingContext2D.prototype, real = n => Object.getOwnPropertyDescriptor(P, n).get.call(g);
+      g.save();
+      g.font = '600 10px "Chakra Petch", sans-serif'; g.lineWidth = 1; g.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+      const out = { wrapped: !!g.engagePicture, font: real('font').match(/([\d.]+)px/)[1], line: +real('lineWidth').toFixed(3), stroke: real('strokeStyle'), reads: g.font };
+      g.restore();
+      return out;
+    }, id);
+    for (const [prefsNow, k, line, stroke] of [[{ text: 'largest', contrast: true }, 1.3, 1.4, 'rgba(255, 0, 0, 0.8)'], [{ text: 'standard', contrast: false }, 1, 1, 'rgba(255, 0, 0, 0.5)']]) {
+      await p.evaluate(v => localStorage.setItem('engage.prefs', JSON.stringify({ sound: true, buzz: true, ...v })), prefsNow).catch(() => {});
+      for (const [room, ids] of Object.entries(canvases)) {
+        await p.goto(base + room);
+        await p.evaluate(v => { localStorage.setItem('engage.prefs', JSON.stringify({ sound: true, buzz: true, ...v })); const s = JSON.parse(localStorage.getItem('engage.v1') || '{}'); localStorage.setItem('engage.v1', JSON.stringify({ ...s, seenIntro: true })); }, prefsNow);
+        await p.reload();
+        if (room === 'index.html') await bridgeReady(p); else await ready(p, room.split('#')[0]);
+        await p.waitForTimeout(300);
+        for (const id of ids) {
+          const got = await probe(id), scaled = own.has(`${room}#${id}`) ? 1 : k;
+          assert.equal(got.wrapped, true, `${room} #${id} doesn't follow the settings`);
+          assert.equal(Number(got.font), +(10 * scaled).toFixed(2), `${room} #${id}: a 10 px font at ${prefsNow.text} is ${got.font} px`);
+          assert.deepEqual([got.line, got.stroke, got.reads], [line, stroke, '600 10px "Chakra Petch", sans-serif'], `${room} #${id} under contrast ${prefsNow.contrast}`);
+        }
+      }
+    }
+    await c.close();
+  }
+
   // ---------- Small delights ----------
   // Hidden touches, each of which stays quiet until its moment.
   {

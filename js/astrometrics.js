@@ -11,7 +11,7 @@ import {
   FAMILY_NAMES, FILTERS, SUN_LIFE, census, family, hrX, hrXClamped, hrY, lesson, passes, wall,
 } from './hr.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { picture, setUpRoom } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -59,7 +59,7 @@ function draw() {
   const cv = $('wall'), box = cv.parentElement.getBoundingClientRect();
   const W = Math.round(box.width) || 340, H = Math.round(box.height) || 380, dpr = Math.min(devicePixelRatio || 1, 3);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-  const g = cv.getContext('2d');
+  const g = picture(cv.getContext('2d'));
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, W, H);
   const w = W - PAD.l - PAD.r, h = H - PAD.t - PAD.b;
@@ -70,13 +70,18 @@ function draw() {
   for (const l of [1e6, 1e4, 1e2, 1, 1e-2, 1e-4]) {
     const y = Y(l);
     g.beginPath(); g.moveTo(PAD.l, y); g.lineTo(W - PAD.r, y); g.stroke();
-    g.fillText(l === 1 ? '1 Sun' : fmt(l), PAD.l - 4, y);
+    g.fillText(l === 1 ? '1 Sun' : fmt(l), PAD.l - 4, y, PAD.l - 14); // squeezed, at a larger text size, clear of the wall's rounded corner
   }
   g.textAlign = 'center'; g.textBaseline = 'top';
+  // A temperature whose label would run into the one before it (at a larger text size, on a narrow wall) keeps its
+  // line and loses its label.
+  let clear = -Infinity;
   for (const t of [40000, 20000, 10000, 6000, 3000]) {
-    const x = X(t);
+    const x = X(t), text = `${t.toLocaleString('en-US')} K`, half = g.measureText(text).width / 2;
     g.beginPath(); g.moveTo(x, PAD.t); g.lineTo(x, H - PAD.b); g.stroke();
-    g.fillText(`${t.toLocaleString('en-US')} K`, x, H - PAD.b + 4);
+    if (x - half < clear + 4) continue;
+    g.fillText(text, x, H - PAD.b + 4);
+    clear = x + half;
   }
   g.fillText('Hotter', PAD.l + 22, H - 12); g.fillText('Cooler', W - PAD.r - 22, H - 12);
   // The stars, the chosen filter's bright and the rest faint.

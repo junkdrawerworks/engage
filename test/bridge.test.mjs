@@ -88,7 +88,7 @@ test('a room added since the last visit is named, with a link to it, and nothing
 });
 
 // ---------- What every room shares: sound, vibration, the text size, high contrast ----------
-import { PREFS, SIZES, readPrefs, textScale, withPref } from '../js/prefs.js';
+import { PREFS, SIZES, brighter, readPrefs, scaledFont, textScale, withPref } from '../js/prefs.js';
 
 test('sound, vibration, the text size and high contrast are kept once for every room, and a damaged copy is the defaults', () => {
   const from = kept => key => (key in kept ? kept[key] : null);
@@ -119,6 +119,21 @@ test('words drawn into pictures grow with the text size and with the browser’s
   assert.equal(textScale('standard', 17, 17), 1);
   assert.ok(Math.abs(textScale('large', 21, 17) - 1.15 * 21 / 17) < 1e-12);
   assert.equal(textScale('standard', 16, NaN), 1);
+  // A picture's fonts: the size in px times the scale, the rest as it was.
+  assert.equal(scaledFont('600 12px "Chakra Petch", sans-serif', 1.3), '600 15.6px "Chakra Petch", sans-serif');
+  assert.equal(scaledFont('500 10.5px "IBM Plex Sans"', 1.15), '500 12.07px "IBM Plex Sans"');
+  assert.equal(scaledFont('10px system-ui', 1), '10px system-ui');
+  assert.equal(scaledFont(undefined, 1.3), undefined);
+});
+
+test('high contrast draws a picture’s labels and lines brighter, in the same colours', () => {
+  assert.equal(brighter('rgba(134, 216, 255, 0.5)'), 'rgba(134, 216, 255, 0.8)');
+  assert.equal(brighter('rgba(255,181,74,0.85)'), 'rgba(255,181,74, 1)');
+  assert.equal(brighter('hsla(200, 90%, 60%, 0.25)'), 'hsla(200, 90%, 60%, 0.4)');
+  assert.equal(brighter('rgba(0, 0, 0, 0)'), 'rgba(0, 0, 0, 0)', 'what can’t be seen stays unseen');
+  for (const solid of ['#ffb54a', 'rgba(1, 2, 3, 1)', 'white']) assert.equal(brighter(solid), solid);
+  const gradient = {};
+  assert.equal(brighter(gradient), gradient);
 });
 
 test('the bridge falls quiet on arrival at Wolf 359, and only there', () => {

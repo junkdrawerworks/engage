@@ -9,7 +9,7 @@ import { LIVE, share } from './share.js';
 import { askToKeep, keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { picture, setUpRoom } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound, keys: [['← →', 'Between Grow and the bench, on their tabs']] });
@@ -29,7 +29,7 @@ const saved = load();
 let current = null; // the creature in the tank
 let born = 0; // when it started growing
 const tank = $('tank');
-const tg = tank.getContext('2d');
+const tg = picture(tank.getContext('2d'));
 const tankSeen = onScreen(tank); // the creature isn't drawn while the tank is scrolled out of sight
 let draws = 0;                   // how many times it has been drawn, for tests
 
@@ -373,7 +373,7 @@ function showPair(p, scroll) {
   $('pair-pics').innerHTML = [a, b].map((c, k) => `<button class="pair-pic" type="button" data-pair="${k}" aria-label="Grow the ${esc(c.name.common)} in the tank">
     <canvas width="480" height="360" aria-hidden="true"></canvas>
     ${nameOf(c) ? `<span class="jar-own">${esc(nameOf(c))}</span>` : ''}<span class="jar-name">${esc(c.name.common)}</span><span class="jar-cls">${esc(c.world ? c.world.name : label(c.cls))}</span></button>`).join('');
-  $('pair-pics').querySelectorAll('canvas').forEach((cv, k) => drawScene(cv.getContext('2d'), [a, b][k], cv.width, cv.height, 0, 1));
+  $('pair-pics').querySelectorAll('canvas').forEach((cv, k) => drawScene(picture(cv.getContext('2d')), [a, b][k], cv.width, cv.height, 0, 1));
   $('pair-table').innerHTML = `<caption class="sr">The ${esc(a.name.common)} and the ${esc(b.name.common)}, reading by reading</caption>`
     + rows.map(r => `<tr${r.alike ? ' class="alike"' : ''}><th scope="row">${r.label}${r.alike ? ' <span class="alike-tag">Alike</span>' : ''}</th><td>${esc(r.a)}</td><td>${esc(r.b)}</td></tr>`).join('');
   $('pair-why').textContent = sentence;
@@ -420,7 +420,7 @@ function renderJars() {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></li>`;
   }).join('');
   $('jars').querySelectorAll('.jar-open canvas').forEach((cv, k) => {
-    const g = cv.getContext('2d');
+    const g = picture(cv.getContext('2d'));
     drawScene(g, growJar(list[k]), cv.width, cv.height, 0, 1);
   });
 }
