@@ -9,6 +9,8 @@
 // as the plain text, for the two keys that keep text). A file of this format and version is always restored. A later
 // Engage that needs more adds keys, and a new version number only for a change an older Engage couldn't read.
 
+import { peoplesMet, peoplesMade } from './contact-sim.js';
+
 export const FORMAT = 'Engage ship’s records';
 export const VERSION = 1;
 
@@ -120,16 +122,19 @@ const MERGE = {
   },
   'engage.contact.v1'(here, theirs) {
     const u = union(list(here.runs), list(theirs.runs), RUN);
-    const firsts = rs => rs.filter(r => !r.second);
-    const made = rs => rs.filter(r => !r.second && r.outcome === 'contact');
+    // Each people counts once, by name: what one copy has met that the other hasn't adds to the other's count.
+    const mh = peoplesMet(here), mt = peoplesMet(theirs), ch = peoplesMade(here), ct = peoplesMade(theirs);
+    const minus = (a, b) => [...a].filter(x => !b.has(x)).length;
+    const unnamed = rs => rs.filter(r => !r.second && typeof r.people !== 'string').length;
     const nh = notebook(here.best), nt = notebook(theirs.best);
     const best = !nh ? nt : !nt ? nh : nt.decoded * nh.of > nh.decoded * nt.of ? nt : nh;
     const friends = union(list(here.friends), list(theirs.friends), f => f.people).all;
     return {
       ...here,
       runs: u.all.sort((a, b) => when(a) - when(b)).slice(-30),
-      met: Math.max(count(here.met) + firsts(u.added).length, count(theirs.met) + firsts(u.only).length),
-      contacts: Math.max(count(here.contacts) + made(u.added).length, count(theirs.contacts) + made(u.only).length),
+      met: Math.max(count(here.met) + minus(mt, mh) + unnamed(u.added), count(theirs.met) + minus(mh, mt) + unnamed(u.only)),
+      contacts: Math.max(count(here.contacts) + minus(ct, ch), count(theirs.contacts) + minus(ch, ct)),
+      peoples: [...new Set([...mh, ...mt])],
       ...(best ? { best } : {}),
       ...(friends.length ? { friends } : {}),
       ...(obj(here.challenges) || obj(theirs.challenges) ? { challenges: { ...obj(theirs.challenges), ...obj(here.challenges) } } : {}),

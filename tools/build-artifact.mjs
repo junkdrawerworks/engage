@@ -53,7 +53,7 @@ async function bundle(order, patch = (name, src) => src) {
 }
 const pageBody = page => page.slice(page.indexOf('<body') , page.indexOf('</body>')).replace(/^<body[^>]*>/, '').replace(/<script type="module" src="[^"]+"><\/script>/, '');
 
-const ORDER = ['physics', 'destinations', 'charts', 'moons', 'classes', 'ephemeris', 'astro', 'worlds', 'audio', 'ships', 'lives', 'variables', 'log', 'search', 'computer', 'share', 'store', 'prefs', 'room', 'deepsky', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'logbook', 'voyage', 'myship', 'records', 'voyages', 'wake', 'cartography', 'chart-view', 'app'];
+const ORDER = ['physics', 'destinations', 'charts', 'moons', 'classes', 'ephemeris', 'astro', 'worlds', 'audio', 'ships', 'lives', 'variables', 'log', 'search', 'computer', 'share', 'store', 'prefs', 'room', 'deepsky', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'logbook', 'archive', 'contact-sim', 'voyage', 'myship', 'records', 'voyages', 'wake', 'cartography', 'chart-view', 'app'];
 const js = await bundle(ORDER, async (name, src) => {
   if (name !== 'app') return src;
   for (const [from, to] of [

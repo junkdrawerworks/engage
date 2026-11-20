@@ -7,6 +7,7 @@ import { tripYears } from './physics.js';
 import { byId as shipById, hailSent } from './ships.js';
 import { byId as classById, label as classLabel } from './classes.js';
 import { DAY, entryTime } from './logbook.js';
+import { standing as contactStanding } from './contact-sim.js';
 
 // The rooms that keep a record of what was done in them, and where each keeps it.
 export const RECORDS = { maru: 'engage.maru.v1', contact: 'engage.contact.v1', xeno: 'engage.xeno.v1', survey: 'engage.survey.v1', missions: 'engage.missions.v1' };
@@ -54,11 +55,14 @@ export function supplementals({ maru, contact, xeno, survey, missions } = {}, no
   }
   const officer = obj(m.officer);
   if (text(officer.passed, 40)) add(officer.passed, 'maru', 'passed', 'passed the Bridge Officer’s Test.', 'maru.html');
+  const met = new Set(); // a people answered again is a line in the log, but not a new species met
   for (const r of list(obj(contact).runs)) {
     const people = text(r.people, 30), title = text(r.title, 40);
     if (!people || !title) continue;
     const notebook = Number.isInteger(r.decoded) && Number.isInteger(r.of) && r.of > 0 ? `, ${r.decoded} of ${r.of} phrases decoded` : '';
-    add(r.at, 'contact', r.second ? 'second' : 'met', `${r.second ? `the ${people} hailed again` : `answered a hail from the ${people}`}. ${title}${notebook}.`, 'contact.html');
+    const again = !r.second && met.has(people);
+    if (!r.second) met.add(people);
+    add(r.at, 'contact', r.second ? 'second' : again ? 'again' : 'met', `${r.second ? `the ${people} hailed again` : `answered a hail from the ${people}`}. ${title}${notebook}.`, 'contact.html');
   }
   for (const j of list(obj(xeno).jars)) {
     const world = text(j.world, 40), cls = classById.get(j.id);
@@ -105,7 +109,7 @@ export function tally(rec, log = [], now = Date.now()) {
   const contact = obj(rec.contact);
   return {
     stars: new Set(log.filter(e => e && e.star !== 0).map(e => e.star)).size,
-    met: Math.max(count(contact.met), list(contact.runs).filter(r => !r.second).length),
+    met: contactStanding(contact).met, // each people once
     failed: taken - rewritten,
     rewritten,
     jars: list(obj(rec.xeno).jars).length,
@@ -154,7 +158,7 @@ export function serviceRecord(rec, now = Date.now()) {
   const grades = ['Compassion', 'Judgment', 'Restraint', 'Nerve'].map(g => (LETTERS.test(best[g]) ? best[g] : '–'));
   const passed = !!text(obj(maru.officer).passed, 40);
   const contact = obj(rec.contact);
-  const made = Math.max(count(contact.contacts), list(contact.runs).filter(r => r.outcome === 'contact' && !r.second).length);
+  const made = contactStanding(contact).contacts;
   const survey = obj(rec.survey);
   const n = tally(rec, [], now);
   const taken = n.failed + n.rewritten;

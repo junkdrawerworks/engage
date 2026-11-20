@@ -126,6 +126,10 @@ test('the log in one sentence: how long since it began, and what every room has 
   };
   // The first entry is home's, fourteen months before: home isn't a star visited, but it starts the voyage.
   assert.equal(story(rec, { log, now }), 'Fourteen months out: two stars, one new species, two failed exams, one exam rewritten, one creature in a jar, two ships hailed.');
+  // A people answered again is no new species.
+  const again = { contact: { runs: [{ title: 'First contact', outcome: 'contact', people: 'Mipen' }, { title: 'First contact', outcome: 'contact', people: 'Mipen' }], met: 1, contacts: 1 } };
+  assert.equal(story(again, { log: [], supps: [{ t: now - 3 * 86400000 }], now }), 'Three days out: one new species.');
+  assert.equal((await import('../js/voyage.js')).serviceRecord(again)[1].line, 'One people met · one contact made');
   assert.equal(story({ maru: { runs: [{ title: 'The lifeboat', outcome: 'escaped' }], taken: 1 } }, { log: [], supps: [{ t: now - 3 * 86400000 }], now }), 'Three days out: one failed exam.');
   assert.equal(story({}, { log: [], now }), null, 'nothing done, nothing said');
   assert.equal(story({}, { log: [entry('2027-01-20T11:00:00Z', 0, 'Earth orbit')], now }), null, 'a trip home is no star visited');
@@ -290,6 +294,10 @@ test('ship’s records: everything Engage keeps in one file, read back, and adde
   const contact = plan({ keys: { 'engage.contact.v1': { runs: [{ id: 'x', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-18T10:00:00.000Z' }], met: 1, contacts: 1, best: { decoded: 9, of: 10 }, friends: [{ people: 'Mipen', seed: 4 }] } } },
     { 'engage.contact.v1': { runs: [{ id: 'y', title: 'Ships passing', outcome: 'alone', people: 'Qaethuk', at: '2026-11-17T10:00:00.000Z' }], met: 1, contacts: 0, best: { decoded: 3, of: 10 } } }, 'add').write['engage.contact.v1'];
   assert.deepEqual([contact.runs.map(r => r.id), contact.met, contact.contacts, contact.best, contact.friends.map(f => f.people)], [['y', 'x'], 2, 1, { decoded: 9, of: 10 }, ['Mipen']]);
+  // The same people on both copies is one people met: the Mipen answered here and on the copy count once.
+  const bothMet = plan({ keys: { 'engage.contact.v1': { runs: [{ id: 'z', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-19T10:00:00.000Z' }], met: 1, contacts: 1, friends: [{ people: 'Mipen', seed: 4 }] } } },
+    { 'engage.contact.v1': { runs: [{ id: 'x', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-18T10:00:00.000Z' }], met: 1, contacts: 1, friends: [{ people: 'Mipen', seed: 4 }] } }, 'add').write['engage.contact.v1'];
+  assert.deepEqual([bothMet.runs.length, bothMet.met, bothMet.contacts, bothMet.peoples], [2, 1, 1, ['Mipen']]);
   // The lab's shelf holds 40: what is here stays, and the copy fills what room is left.
   const full = { jars: Array.from({ length: 39 }, (_, n) => ({ id: 'M', seed: n + 1 })) };
   const more = { jars: [{ id: 'H', seed: 1 }, { id: 'H', seed: 2 }, { id: 'M', seed: 1 }] };

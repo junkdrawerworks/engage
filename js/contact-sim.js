@@ -651,14 +651,33 @@ export function fluencyOf(decoded, of) {
   return share === 1 ? 'Fluent' : share >= 0.75 ? 'Conversational' : share >= 0.4 ? 'Halting' : 'Lost in translation';
 }
 
-// A communications officer's standing record, from what the page has saved: how many species have hailed (every
-// first encounter is a new one), how many of those ended in first contact, and the best notebook (the largest share of
-// phrases decoded, and of two as good, the one with more phrases). Second contacts are none of these: the species
-// was met before, and the notebook came in half written. The page lists only its last 30 encounters, so
-// `met`, `contacts` and `best` are kept beside them; a save from before they were kept is filled in from its runs.
-// Anything in the save that doesn't make sense is ignored.
+// The peoples on record, by name: those met (every first encounter, and the names the page keeps beside its last 30
+// encounters in `peoples`) and those first contact was made with (the friends kept for good, and contacts in the runs
+// listed). A people is counted once however often they are answered: a linguist's challenge tried again, a hail a
+// friend sends, today's hail opened twice. The name is what the officer sees, so it is what makes them the same.
+const nameOf = x => (x && typeof x === 'object' && typeof x.people === 'string' && x.people ? x.people : null);
+const firstRuns = saved => (Array.isArray(saved?.runs) ? saved.runs.filter(r => r && typeof r === 'object' && !r.second) : []);
+export function peoplesMet(saved = {}) {
+  const kept = Array.isArray(saved?.peoples) ? saved.peoples.filter(p => typeof p === 'string' && p) : [];
+  const friends = Array.isArray(saved?.friends) ? saved.friends.map(nameOf) : [];
+  return new Set([...kept, ...firstRuns(saved).map(nameOf), ...friends].filter(Boolean));
+}
+export function peoplesMade(saved = {}) {
+  const friends = Array.isArray(saved?.friends) ? saved.friends.map(nameOf) : [];
+  return new Set([...friends, ...firstRuns(saved).filter(r => r.outcome === 'contact').map(nameOf)].filter(Boolean));
+}
+// How many different peoples a list of runs holds: each name once, and a run with no name (an old or damaged save) as
+// one of its own.
+const distinct = runs => new Set(runs.map(nameOf).filter(Boolean)).size + runs.filter(r => !nameOf(r)).length;
+
+// A communications officer's standing record, from what the page has saved: how many species have hailed (each
+// people once, however often they are answered), how many of those first contact was made with (once each too), and
+// the best notebook (the largest share of phrases decoded, and of two as good, the one with more phrases). Second
+// contacts are none of these: the species was met before, and the notebook came in half written. The page lists only
+// its last 30 encounters, so `met`, `contacts` and `best` are kept beside them; a save from before they were kept is
+// filled in from its runs. Anything in the save that doesn't make sense is ignored.
 export function standing(saved = {}) {
-  const runs = Array.isArray(saved.runs) ? saved.runs.filter(r => r && typeof r === 'object' && !r.second) : [];
+  const runs = firstRuns(saved);
   const count = x => (Number.isInteger(x) && x > 0 ? x : 0);
   const notebook = x => (x && Number.isInteger(x.decoded) && Number.isInteger(x.of) && x.of > 0 && x.decoded >= 0 && x.decoded <= x.of ? { decoded: x.decoded, of: x.of } : null);
   let best = notebook(saved.best);
@@ -667,22 +686,23 @@ export function standing(saved = {}) {
     if (n && (!best || n.decoded * best.of > best.decoded * n.of || (n.decoded * best.of === best.decoded * n.of && n.of > best.of))) best = n;
   }
   return {
-    met: Math.max(count(saved.met), runs.length),
-    contacts: Math.max(count(saved.contacts), runs.filter(r => r.outcome === 'contact').length),
+    met: Math.max(count(saved.met), distinct(runs)),
+    contacts: Math.max(count(saved.contacts), distinct(runs.filter(r => r.outcome === 'contact'))),
     best,
   };
 }
 
 // What an encounter added to the record: `before` is the record as it stood (standing() of the save before this
 // encounter went on it) and `d` its debrief. `best` is a notebook that beat the best on record, by standing()'s own
-// rule (a first encounter has no record to beat); `contacts` is how many first contacts that makes, when this was one.
+// rule (a first encounter has no record to beat); `contacts` is how many first contacts that makes, when this was a
+// first contact with a people not made contact with before (a people already a friend adds none).
 // A notebook with nothing right in it is never a best: by standing()'s rule none right of eleven phrases beats none
 // right of two, and the debrief said "Your best notebook yet" over "0/11, you didn't write any right guesses".
 export function encounterFirsts(before = {}, d) {
   const was = standing(before);
   const now = standing({ ...was, runs: [{ decoded: d.decoded, of: d.of }] }).best;
   const best = was.met > 0 && d.decoded > 0 && !!now && (!was.best || now.decoded !== was.best.decoded || now.of !== was.best.of);
-  return { best, contacts: d.outcome === 'contact' ? was.contacts + 1 : 0 };
+  return { best, contacts: d.outcome === 'contact' && !peoplesMade(before).has(d.people) ? was.contacts + 1 : 0 };
 }
 // The same in words, for the debrief: "Your best notebook yet · First contact made: 1". A second contact made
 // says "Second contact made: 1" (`seconds`, counted by the page).

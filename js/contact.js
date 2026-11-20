@@ -2,7 +2,7 @@
 // this plays each exchange out, keeps the notebook and the reply, and writes the debrief and the record.
 import { LIVE, share } from './share.js';
 import { oneSwitch } from './switch.js';
-import { newGame, act, debrief, fluencyOf, hint, answer, phrase, replay, standing, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, dailySeed, today, shareLine, makeLanguage, CHALLENGES, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, answer, phrase, replay, standing, peoplesMet, peoplesMade, encounterFirsts, firstsLine, briefingLine, archiveLine, encodeRun, decodeRun, dailySeed, today, shareLine, makeLanguage, CHALLENGES, DANGERS, MEANINGS, MEANING, MAX_REPLY, PATIENCE } from './contact-sim.js';
 import { species, drawScreen } from './contact-art.js';
 import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
@@ -473,6 +473,8 @@ function record() {
   if (!saved.runs.some(r => r.id === gameId) && g.second) recordSecond();
   else if (!saved.runs.some(r => r.id === gameId)) {
     firsts = encounterFirsts(saved, lastEval); // against the record as it stood
+    // Each people counts once on the record, the first time they are met and the first time contact is made with them.
+    const newPeople = !peoplesMet(saved).has(lastEval.people), newContact = lastEval.outcome === 'contact' && !peoplesMade(saved).has(lastEval.people);
     // Where it happened goes with it: the bridge's log and tonight's sky read it back for that star.
     const where = here ? { star: here.star, place: here.place, ...(here.visit != null ? { visit: here.visit } : {}), sd: stardate() } : {};
     saved.runs.push({ title: lastEval.title, outcome: lastEval.outcome, people: lastEval.people, decoded: lastEval.decoded, of: lastEval.of, at: new Date().toISOString(), id: gameId, seed: g.seed, ...where });
@@ -490,7 +492,8 @@ function record() {
       saved.challenges = { ...(saved.challenges && typeof saved.challenges === 'object' ? saved.challenges : {}),
         [g.seed]: { ...(better ? { decoded: e.decoded, of: e.of } : { decoded: was.decoded, of: was.of }), contact: !!was?.contact || e.outcome === 'contact' } };
     }
-    Object.assign(saved, standing({ ...saved, met: saved.met + 1, contacts: saved.contacts + (lastEval.outcome === 'contact' ? 1 : 0) })); // before the list is cut to its last 30
+    saved.peoples = [...peoplesMet(saved)]; // the names met, kept beyond the 30 encounters listed
+    Object.assign(saved, standing({ ...saved, met: saved.met + (newPeople ? 1 : 0), contacts: saved.contacts + (newContact ? 1 : 0) })); // before the list is cut to its last 30
     saved.runs = saved.runs.slice(-30);
   }
   save();

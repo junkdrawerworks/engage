@@ -1,7 +1,7 @@
 // First contact's language and rules, checked without a browser:  node --test test/contact.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, encounterFirsts, firstsLine, briefingLine, MEANINGS, PATIENCE, BEAT_IDS, replay, encodeRun, decodeRun } from '../js/contact-sim.js';
+import { newGame, act, debrief, fluencyOf, hint, makeLanguage, rng, standing, peoplesMet, peoplesMade, encounterFirsts, firstsLine, briefingLine, MEANINGS, PATIENCE, BEAT_IDS, replay, encodeRun, decodeRun } from '../js/contact-sim.js';
 
 // Plays the right answer each turn, from what has been heard so far.
 function win(g) {
@@ -262,7 +262,8 @@ test('the debrief marks your guesses against what they meant', () => {
 test('the record counts species met, contacts made and the best notebook, and outlives the list of encounters', () => {
   assert.deepEqual(standing(), { met: 0, contacts: 0, best: null });
   // A save from before the record was kept: only its runs. It is filled in from them.
-  const run = (outcome, decoded, of) => ({ title: 'x', outcome, people: 'Thaejy', decoded, of, at: '2026-11-18T00:00:00Z' });
+  let n = 0;
+  const run = (outcome, decoded, of) => ({ title: 'x', outcome, people: `People ${++n}`, decoded, of, at: '2026-11-18T00:00:00Z' });
   const old = { runs: [run('contact', 1, 11), run('silence', 7, 8), run('contact', 9, 12), run('fled', 0, 2)] };
   const s = standing(old);
   assert.deepEqual(s, { met: 4, contacts: 2, best: { decoded: 7, of: 8 } }, 'the best notebook is the largest share decoded, win or lose');
@@ -285,6 +286,26 @@ test('the record counts species met, contacts made and the best notebook, and ou
   assert.equal(d.fluency, 'Fluent');
   assert.equal(fluencyOf(d.decoded, d.of), d.fluency);
   assert.deepEqual([fluencyOf(0, 11), fluencyOf(5, 11), fluencyOf(9, 11), fluencyOf(0, 0)], ['Lost in translation', 'Halting', 'Conversational', 'Lost in translation']);
+});
+
+test('each people counts once on the record, however often they are answered', () => {
+  const run = (people, outcome, more = {}) => ({ title: 'x', outcome, people, decoded: 3, of: 9, at: '2026-11-18T00:00:00Z', ...more });
+  // The Mipen challenge answered twice, contact made both times: one species met, one contact made.
+  assert.deepEqual(standing({ runs: [run('Mipen', 'contact'), run('Mipen', 'contact')] }), { met: 1, contacts: 1, best: { decoded: 3, of: 9 } });
+  // Met once without contact, then again with it: one species, one contact.
+  assert.deepEqual(standing({ runs: [run('Mipen', 'fled'), run('Mipen', 'contact')] }).met, 1);
+  assert.deepEqual(standing({ runs: [run('Mipen', 'fled'), run('Mipen', 'contact')] }).contacts, 1);
+  // Runs from a save with no names are each a people of their own, as they always were.
+  assert.equal(standing({ runs: [{ title: 'x' }, { title: 'y' }] }).met, 2);
+  // The peoples met and made contact with outlive the 30 encounters listed: the names kept, and the friends.
+  const saved = { peoples: ['Mipen', 'Orru'], friends: [{ seed: 4, people: 'Mipen' }], runs: [run('Beqen', 'contact')] };
+  assert.deepEqual([...peoplesMet(saved)].sort(), ['Beqen', 'Mipen', 'Orru']);
+  assert.deepEqual([...peoplesMade(saved)].sort(), ['Beqen', 'Mipen']);
+  // The debrief says a first contact made only with a people not made contact with before.
+  const d = (outcome, people) => ({ outcome, people, decoded: 2, of: 9 });
+  assert.equal(encounterFirsts({ met: 3, contacts: 2, ...saved }, d('contact', 'Mipen')).contacts, 0, 'contact with the Mipen again counted as a first contact');
+  assert.equal(encounterFirsts({ met: 3, contacts: 2, ...saved }, d('contact', 'Orru')).contacts, 3, 'met before without contact: this is the first contact with them');
+  assert.equal(encounterFirsts({ met: 3, contacts: 2, ...saved }, d('contact', 'Tal Vek')).contacts, 3);
 });
 
 test('an encounter picked up from its seed and what you did is the one that was left, word for word', () => {

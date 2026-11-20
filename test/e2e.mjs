@@ -3668,6 +3668,10 @@ await bridgeReady();
   await p.click('#send');
   await p.click('#again');
   assert.deepEqual(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')).friends.map(f => f.seed)), [CHALLENGES[1]], 'a challenge made twice was kept as two friends');
+  // Answered three times, contact made twice: on the record that is one species met and one contact made, though
+  // every attempt is in the list of encounters.
+  assert.match((await p.locator('#tally').innerText()).replace(/\s+/g, ' '), /^1 SPECIES MET 1 CONTACT MADE /);
+  assert.equal(await p.locator('#runs li').count(), 3);
   assert.equal(await p.locator('#friend-more').isHidden(), true);
   // Send: the hail as a link.
   await p.evaluate(() => { delete Navigator.prototype.share; });
