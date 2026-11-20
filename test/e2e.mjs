@@ -1219,6 +1219,16 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   await bridgeReady(p);
   await p.tap('#intro-go');
   await p.evaluate(() => engage.speed(30));
+  // Each stop's caption as it comes up: at thirty times speed a hold lasts two thirds of a second, which a busy machine
+  // can miss between two looks, and then the next stop's caption was read as the first.
+  await p.evaluate(() => {
+    window.captions = [];
+    const cap = document.getElementById('caption');
+    new MutationObserver(() => {
+      const said = [document.getElementById('cap-title').textContent, document.getElementById('cap-sub').textContent];
+      if (!cap.hidden && said[0] && captions.at(-1)?.join() !== said.join()) captions.push(said);
+    }).observe(cap, { attributes: true, childList: true, subtree: true, characterData: true });
+  });
   await p.tap('#open-settings');
   await p.tap('#autopilot');
   assert.ok(await p.evaluate(() => engage.auto));
@@ -1227,12 +1237,13 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   assert.equal(await p.locator('.hud-buttons').evaluate(el => getComputedStyle(el).visibility), 'hidden');
   const stop = async n => p.waitForFunction(n => engage.state.log.length >= n && !engage.trip && !document.getElementById('caption').hidden, n, { timeout: 30000 });
   await stop(1);
-  assert.equal(await p.locator('#cap-title').innerText(), 'Proxima Centauri', 'the first stop is not the nearest destination');
-  assert.match(await p.locator('#cap-sub').innerText(), /4\.2\d ly from Sol$/);
+  const first = await p.evaluate(() => captions[0]);
+  assert.equal(first[0], 'Proxima Centauri', 'the first stop is not the nearest destination');
+  assert.match(first[1], /4\.2\d ly from Sol$/);
   assert.ok(await p.locator('#arrival').evaluate(el => el.hidden), 'the arrival’s log came up under autopilot');
   // On by itself, after the hold: Alpha Centauri, next door.
   await stop(2);
-  assert.equal(await p.locator('#cap-title').innerText(), 'Alpha Centauri');
+  assert.equal(await p.evaluate(() => captions.map(c => c[0]).find(t => t !== 'Proxima Centauri')), 'Alpha Centauri');
   assert.deepEqual(await p.evaluate(() => engage.state.log.map(e => e.title)), ['Alpha Centauri', 'Proxima Centauri']);
   // A touch on the viewscreen takes the helm back, and picks no star.
   await p.waitForFunction(() => engage.trip?.phase === 'cruise', null, { timeout: 30000 });
