@@ -452,7 +452,7 @@ function tick(force = false) {
       const con = constellationOf(sel, jd);
       $('sky-con').textContent = con || '';
       const tense = live ? 'she’s in' : tMs > nowMs ? 'she’ll be in then' : 'she was in then';
-      $('sky-note').textContent = `${con ? `the constellation ${tense}. ` : ''}${ship.near ? 'Too faint to see by eye.' : 'Far too faint for any telescope to see.'}`;
+      $('sky-note').textContent = `${con ? `the constellation ${tense}${pastFuel(ship, tMs) ? ', if she is still at L2' : ''}. ` : ''}${ship.near ? 'Too faint to see by eye.' : 'Far too faint for any telescope to see.'}`;
       $('sky-link').hidden = !live;
       const href = `${BRIDGE}tonight.html#ship=${sel}`;
       if ($('sky-link').getAttribute('href') !== href) $('sky-link').href = href;

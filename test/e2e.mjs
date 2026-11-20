@@ -2108,6 +2108,8 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   assert.equal(await p.locator('#ship-agency').innerText(), 'NASA, ESA AND CSA · PAST HER PLANNED FUEL');
   assert.equal(await p.locator('#earth-au').innerText(), 'if she is still at the L2 point. Her fuel was planned to last about 20 years from her launch, so where she is by then isn’t known');
   assert.equal(await p.locator('.ship-tab[data-id="jwst"] .t-sub').innerText(), 'where, not known');
+  assert.match(await p.locator('#sky-note').innerText(), /^the constellation she’ll be in then, if she is still at L2\. Too faint to see by eye\.$/);
+  await p.waitForFunction(() => /drawn faded/.test(document.getElementById('scale').textContent)); // written as the map is next drawn
   assert.match(await p.locator('#scale').innerText(), /so where she is by then isn’t known: she is drawn faded at L2, where she was last known\./);
   await p.waitForFunction(() => missions.nearLabels.webbFaded === true);
   await p.locator('.ship-tab[data-id="v1"]').click();
