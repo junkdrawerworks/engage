@@ -41,7 +41,10 @@ async function open(viewport, deviceScaleFactor) {
   await page.addInitScript(seed => {
     let a = seed; // mulberry32
     Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-    localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true }));
+    // The bridge as a captain sees it who has closed today's line for the order of the day: the pictures don't change
+    // with the date's order.
+    const d = new Date(), today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, ordersSeen: today }));
   }, SEED);
   await page.goto(base);
   await page.waitForFunction(() => typeof window.engage?.jump === 'function'); // not just the Engage button, by its id

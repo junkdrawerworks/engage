@@ -121,6 +121,8 @@ body.auto #labels { cursor: none; }
 .whats-new { pointer-events: auto; display: flex; align-items: center; gap: 2px; width: max-content; max-width: calc(100vw - 2 * max(16px, var(--safe-l), var(--safe-r))); margin: 8px 0 0; padding: 4px 0 4px 12px; border-radius: 12px; border: var(--bw) solid rgba(255, 181, 74, 0.45); background: rgba(5, 7, 13, 0.72); color: var(--text); font-size: calc(13 * var(--px)); line-height: 1.35; }
 .whats-new[hidden] { display: none; }
 .whats-new a { color: var(--amber); }
+/* The order of the day's line: the whole sentence is the button, a 44 px tap, opening the log at Today on the bridge. */
+.orders-open { min-height: 44px; margin: -4px 0; padding: 4px 0; text-wrap: balance; border: 0; background: transparent; color: var(--amber); font: inherit; line-height: inherit; text-align: left; text-decoration: underline; text-decoration-color: rgba(255, 181, 74, 0.45); text-underline-offset: 3px; cursor: pointer; }
 .whats-new-close { flex: none; width: 44px; height: 44px; margin: -10px -2px -10px 0; padding: 0; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); }
 .whats-new-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .hud-buttons { display: flex; gap: 8px; pointer-events: auto; flex: none; }

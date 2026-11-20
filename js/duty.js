@@ -115,6 +115,28 @@ export function orderOf(day) {
   return { day, ...o, ...ORDERS[o.kind] };
 }
 
+// The bridge's own line for the order of the day, under where the ship is: "Orders from Starfleet: proceed to Vega.",
+// or once it is carried out, "Today’s orders are carried out." Tapped, it opens the captain's log at Today on the
+// bridge; closed, it stays away until the next day's order. It makes no sound.
+export const ORDER_LINES = {
+  maru: 'sit today’s Kobayashi Maru simulation',
+  contact: 'answer today’s hail in first contact',
+  distress: 'answer today’s distress call',
+  jar: 'keep a creature in a jar',
+  radio: 'hail a star on subspace radio',
+  missions: 'hail a long mission',
+  directive: 'sit a hearing before the board of inquiry',
+  new: 'visit a star you’ve never been to',
+  voyage: 'fly a leg of a voyage',
+  far: 'cover 100 light years today',
+};
+export function orderLine(order, done = false) {
+  if (done) return 'Today’s orders are carried out.';
+  return `Orders from Starfleet: ${order.kind === 'star' ? `proceed to ${lower(order.title)}` : ORDER_LINES[order.kind]}.`;
+}
+// Whether the line shows today: not once it has been closed (or followed) today. `closed` is the day it last was.
+export const orderLineDue = (closed, today) => closed !== today;
+
 // Whether the order for its day was carried out that day, from the records: { done, entry } where `entry` is the log
 // entry that answers a star order. `find(name)` is a star's catalogue index. `here` is the star the ship holds at now,
 // for today's order only: a ship already at the star it is sent to has proceeded there, and its latest entry reports.

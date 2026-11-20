@@ -6791,6 +6791,58 @@ await page.emulateMedia({ reducedMotion: null });
   await dc.close();
 }
 
+// The order of the day on the bridge itself: one line under where the ship is, once a day, so it is seen without
+// opening the log. Tapped, it opens the log at Today on the bridge; closed, or followed, it stays away until the next
+// day. Carried out, it says so. A first visit, with the welcome card to read, has none.
+{
+  const { orderOf, orderLine, dayOf, addDays } = await import('../js/duty.js');
+  const day = dayOf(Date.now()), order = orderOf(day);
+  const oc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await oc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const kept = () => p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).ordersSeen ?? null);
+  const edit = f => p.evaluate(`(() => { const s = JSON.parse(localStorage.getItem('engage.v1')); (${f})(s); localStorage.setItem('engage.v1', JSON.stringify(s)); })()`);
+  await p.goto(base);
+  await bridgeReady(p);
+  assert.equal(await p.locator('#orders-line').isVisible(), false, 'a first visit had the order’s line under the welcome card');
+  await p.click('#intro-go');
+  assert.equal(await p.locator('#orders-line').isVisible(), false, 'a first visit had the order’s line once the card was closed');
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await p.locator('#orders-line').isVisible(), true, 'a second visit was not told of the order of the day');
+  assert.equal(await p.locator('#orders-open').innerText(), orderLine(order));
+  for (const id of ['#orders-open', '#orders-close']) {
+    const box = await p.locator(id).boundingBox();
+    assert.ok(box.height >= 44 && box.width >= 44, `${id} is too small to tap`);
+  }
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the order’s line pushes the bridge sideways');
+  // Tapped: the log opens at Today on the bridge, and the line is gone until tomorrow.
+  await p.locator('#orders-open').tap();
+  assert.equal(await p.locator('#log').isVisible(), true, 'the order’s line did not open the log');
+  const top = await p.evaluate(() => [document.getElementById('today').getBoundingClientRect().top, document.getElementById('entries').getBoundingClientRect().top]);
+  assert.ok(top[0] >= top[1] - 1 && top[0] < top[1] + 40, `Today on the bridge is not at the top of the log (${top})`);
+  assert.equal(await p.locator('#order .says').innerText(), order.says);
+  assert.equal(await p.locator('#orders-line').isVisible(), false);
+  assert.equal(await kept(), day);
+  await p.evaluate(() => engage.closeSheets());
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await p.locator('#orders-line').isVisible(), false, 'the order’s line came back the same day');
+  // The next day it is back, with the next day's order; carried out, it says so. Closed, it stays away.
+  await edit(`s => { s.ordersSeen = '${addDays(day, -1)}'; s.duty = { days: ['${day}'], orders: ['${day}'], rank: 0, medals: {} }; }`);
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await p.locator('#orders-open').innerText(), 'Today’s orders are carried out.');
+  await p.locator('#orders-close').tap();
+  assert.equal(await p.locator('#orders-line').isVisible(), false);
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'choose');
+  assert.equal(await kept(), day);
+  await p.reload();
+  await bridgeReady(p);
+  assert.equal(await p.locator('#orders-line').isVisible(), false, 'a closed line came back the same day');
+  await oc.close();
+}
+
 // Subspace radio: the dial lights the shell of stars hearing a year tonight and names three; a star from the log opens
 // with the dial at its year; the messages in flight have their bars; a hail to a star is kept, once, and shows on its
 // way. The log's broadcast line and Set course both lead here.

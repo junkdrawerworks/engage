@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ASKS, COMMENDATIONS, ORDERS, ORDER_PLACES, RANKS, activeDays, addDays, answersDue, carriedOut, commendations, dayOf, mergeDuty,
-  orderOf, rankOf, reportOf, roomsOnRecord, served, tidyDuty, todayItems, update,
+  orderLine, orderLineDue, orderOf, rankOf, reportOf, roomsOnRecord, served, tidyDuty, todayItems, update,
 } from '../js/duty.js';
 import { requisition } from '../js/shipyard-sim.js';
 import { DESTINATIONS } from '../js/destinations.js';
@@ -234,4 +234,19 @@ test('today on the bridge: a long mission’s answer due today, or come in, and 
     ['Voyager 1’s answer is due today', 'At 18:00, at the speed of light', false, 'missions.html#v1'],
     ['New Horizons answered your hail', 'Her answer came in at 10:00', true, 'missions.html#nh'],
   ]);
+});
+
+test('the bridge’s line for the order of the day says it short, and says when it is carried out', () => {
+  for (const kind of Object.keys(ORDERS)) {
+    const line = orderLine({ kind });
+    assert.match(line, /^Orders from Starfleet: [a-z].{10,60}\.$/, `${kind}: ${line}`);
+  }
+  assert.equal(orderLine({ kind: 'star', star: 'Vega', title: 'Vega' }), 'Orders from Starfleet: proceed to Vega.');
+  assert.equal(orderLine({ kind: 'star', star: 'θ¹ Tauri', title: 'The Hyades' }), 'Orders from Starfleet: proceed to the Hyades.');
+  for (let k = 0; k < 60; k++) assert.doesNotMatch(orderLine(orderOf(addDays('2026-11-20', k))), /undefined/);
+  assert.equal(orderLine(orderOf('2026-11-20'), true), 'Today’s orders are carried out.');
+  // Closed (or followed) today, it stays away until tomorrow.
+  assert.equal(orderLineDue(null, '2026-11-20'), true);
+  assert.equal(orderLineDue('2026-11-20', '2026-11-20'), false);
+  assert.equal(orderLineDue('2026-11-19', '2026-11-20'), true);
 });

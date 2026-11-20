@@ -26,7 +26,7 @@ import { hold as wakeHold, release as wakeRelease } from './wake.js';
 import { VOYAGES, arrivedAt, autopilotNext, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from './voyages.js';
 import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, starHails, story, supplementals } from './voyage.js';
 import { linkable, namedHere, neighbourhood, progress as hoodProgress, recordLine as hoodLine, recordNone as hoodNone } from './neighbourhood.js';
-import { answersDue, carriedOut, dayOf, orderOf, reportOf, roomsOnRecord, tidyDuty, todayItems, update as updateDuty } from './duty.js';
+import { answersDue, carriedOut, dayOf, orderLine, orderLineDue, orderOf, reportOf, roomsOnRecord, tidyDuty, todayItems, update as updateDuty } from './duty.js';
 import { jdOf, readings } from './ephemeris.js';
 import { heardAt } from './astro.js';
 import { byId as shipById } from './ships.js';
@@ -78,6 +78,7 @@ function defaults() {
     greeted: null, // the year First Contact Day's line was last closed (see greeting)
     sunHello: false, // whether the Sun has said hello, once, from far out (see lookHome)
     duty: null, // days served, orders carried out, rank and commendations, as js/duty.js keeps them (see dutyNow)
+    ordersSeen: null, // the day the bridge's line for the order of the day was last closed or followed (see ordersNews)
   };
 }
 
@@ -122,6 +123,7 @@ function tidy() {
   if (!Number.isInteger(state.greeted)) state.greeted = null;
   state.sunHello = state.sunHello === true;
   state.duty = state.duty ? tidyDuty(state.duty) : null;
+  if (!(typeof state.ordersSeen === 'string' && /^\d{4}-\d\d-\d\d$/.test(state.ordersSeen))) state.ordersSeen = null;
 }
 
 // Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
@@ -131,8 +133,8 @@ function tidy() {
 let unsaved = null;
 function save() {
   viewMoved = false;
-  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms, greeted, sunHello, duty } = state;
-  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}), ...(greeted ? { greeted } : {}), ...(sunHello ? { sunHello } : {}), ...(duty ? { duty } : {}) }) || null;
+  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms, greeted, sunHello, duty, ordersSeen } = state;
+  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}), ...(greeted ? { greeted } : {}), ...(sunHello ? { sunHello } : {}), ...(duty ? { duty } : {}), ...(ordersSeen ? { ordersSeen } : {}) }) || null;
   return !unsaved;
 }
 
@@ -292,6 +294,7 @@ async function start() {
   }
   roomsNews();
   greeting();
+  ordersNews();
   bind();
   restored();
   dock(); // the captain's log, if it was pinned open
@@ -334,6 +337,27 @@ function greeting() {
   const seen = () => { state.greeted = year; save(); $('greeting').hidden = true; };
   $('greeting-close').addEventListener('click', () => { seen(); $('choose').focus({ preventScroll: true }); });
   $('greeting-text').addEventListener('click', e => { if (e.target.closest('a')) seen(); });
+}
+
+// The order of the day gets a line of its own under where the ship is, once a day: "Orders from Starfleet: proceed to
+// Vega." (js/duty.js), or once it is carried out, "Today’s orders are carried out." Tapped, it opens the captain's log
+// at Today on the bridge; closed, or followed, it stays away until the next day's order. It makes no sound. A first
+// visit, which has the welcome card to read, gets none.
+function ordersNews() {
+  const today = dayOf(Date.now());
+  const on = state.seenIntro && orderLineDue(state.ordersSeen, today);
+  $('orders-line').hidden = !on;
+  if (!on) return;
+  const order = orderOf(today);
+  const done = !!state.duty?.orders.includes(today) || carriedOut(order, readRecords(), state.log, findStar, state.at).done;
+  $('orders-open').textContent = orderLine(order, done);
+}
+function ordersSeen() { state.ordersSeen = dayOf(Date.now()); save(); $('orders-line').hidden = true; }
+function openToday() {
+  ordersSeen();
+  renderLog();
+  if (!(isDocked() && !$('log').hidden)) openSheet('log', $('open-log'));
+  $('entries').scrollTop = 0;
 }
 
 // A link like ?course=Proxima%20Centauri, from the planetary survey or someone's shared course, sets course for that
@@ -1014,6 +1038,7 @@ function arrive() {
   say(T.i === 0 ? 'Dropped out of warp in Earth orbit.' : `Dropped out of warp at ${inTextFor(cat, T.i)}.`);
   if (auto) holdHere(entry); else showArrival(entry);
   if (isDocked() && !$('log').hidden) { renderLog(); showNewest(); } // a pinned log takes the new entry at its head, in sight
+  if (!$('orders-line').hidden) ordersNews(); // an arrival can carry out the order
   dirty = true;
 }
 
@@ -2408,6 +2433,8 @@ function bind() {
     if (isDocked() && !$('log').hidden) { $('log').querySelector('h2').tabIndex = -1; $('log').querySelector('h2').focus(); return; } // pinned open already
     renderLog(); openSheet('log', e.currentTarget);
   });
+  $('orders-open').addEventListener('click', openToday);
+  $('orders-close').addEventListener('click', () => { ordersSeen(); $('choose').focus({ preventScroll: true }); });
   $('log-pin').addEventListener('click', () => pinLog(!state.opts.pinLog));
   $('log-pin').setAttribute('aria-pressed', String(!!state.opts.pinLog));
   $('log-pin').textContent = state.opts.pinLog ? 'Pinned' : 'Pin open';
@@ -2591,6 +2618,7 @@ function bind() {
     try { sessionStorage.removeItem(RETURN); } catch { /* no storage */ }
     // Left for a room from the welcome card: the card was read, and isn't up on the way back.
     if (state.seenIntro && !$('intro').hidden) { $('intro').hidden = true; behind(); }
+    if (!$('orders-line').hidden) ordersNews(); // the order may have been carried out in the room
   });
   still.addEventListener?.('change', () => { dirty = true; updateHud(); });
 
