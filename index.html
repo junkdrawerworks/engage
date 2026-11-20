@@ -88,6 +88,8 @@
       <span id="readout-time"></span>
     </div>
 
+    <p class="report-line" id="report-line" role="status" hidden></p>
+
     <section class="console" id="console" aria-label="Helm">
       <button class="target" id="choose" type="button">
         <span class="eyebrow">Destination</span>
@@ -100,7 +102,7 @@
         <div class="warp">
           <label class="warp-label" for="warp">Warp <output id="warp-out" for="warp">9</output></label>
           <input type="range" id="warp" min="1" max="9.9" step="0.1" value="9" aria-describedby="warp-speed">
-          <p class="warp-speed"><span id="warp-speed">1,516 × light</span> <a id="open-scale" href="warp.html" title="Warp scale: how far each warp factor gets you">Warp scale <span aria-hidden="true">›</span></a></p>
+          <p class="warp-speed"><span id="warp-speed">1,516 × light</span> <a id="open-scale" href="warp.html" title="Warp scale: how far each warp factor gets you">Warp scale <span aria-hidden="true">›</span></a> <button class="report" id="report" type="button" aria-pressed="false" title="Computer, report: say what is on the viewscreen, and tell each flight as it goes">Report</button></p>
         </div>
         <button class="engage" id="engage" type="button" disabled>Engage</button>
       </div>

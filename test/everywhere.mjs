@@ -226,6 +226,63 @@ try {
     assert.deepEqual(await heard(), []);
     await c.close();
   }
+
+  // ---------- Computer, report ----------
+  // Report, on the helm, says what is on the viewscreen in a line above the helm, and says it again once the view is
+  // still after moving; in flight it tells the trip in timed lines. It stays on, through a reload, until turned off.
+  {
+    const c = await phone();
+    await c.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+    const p = watch(await c.newPage());
+    await p.goto(base);
+    await bridgeReady(p);
+    assert.equal(await p.locator('#report-line').isVisible(), false, 'the report is up before it is asked for');
+    assert.equal(await p.locator('#report').getAttribute('aria-pressed'), 'false');
+    await p.locator('#report').tap();
+    assert.equal(await p.locator('#report').getAttribute('aria-pressed'), 'true');
+    assert.equal(await p.locator('#report-line').getAttribute('role'), 'status', 'a screen reader is not told the report');
+    assert.match(await p.locator('#report-line').innerText(), /^Looking toward Orion\. Brightest in view: .+\. The Sun is behind you, magnitude −26\.7\.$/);
+    // It sits above the helm, clear of it, and inside the screen.
+    const line = await p.locator('#report-line').boundingBox(), helm = await p.locator('#console').boundingBox();
+    assert.ok(line.y + line.height <= helm.y && line.x >= 0 && line.x + line.width <= 390, 'the report is not above the helm');
+    // Turned toward Cygnus, it says so once the view settles.
+    await p.evaluate(() => engage.look(310, 40));
+    await p.waitForFunction(() => /^Looking toward Cygnus\./.test(document.getElementById('report-line').textContent), null, { timeout: 5000 });
+    // A sheet has the bottom of the screen: the report steps aside while it is up.
+    await p.locator('#open-settings').tap();
+    assert.equal(await p.locator('#report-line').isVisible(), false, 'the report stays over a sheet');
+    await p.evaluate(() => engage.closeSheets());
+    await p.waitForFunction(() => !document.getElementById('report-line').hidden);
+    // A flight, told as it goes.
+    const told = [];
+    await p.exposeFunction('told', t => told.push(t));
+    await p.evaluate(() => new MutationObserver(() => window.told(document.getElementById('report-line').textContent)).observe(document.getElementById('report-line'), { childList: true, characterData: true, subtree: true }));
+    await p.evaluate(() => { engage.speed(3); engage.target('Sirius'); });
+    await p.locator('#engage').tap();
+    await p.waitForFunction(() => !engage.trip && !document.getElementById('arrival').hidden, null, { timeout: 30000 });
+    const flight = told.filter((t, k) => t && t !== told[k - 1]);
+    assert.deepEqual(flight.map(t => t.split(':')[0].split(' ')[0]), ['Leaving', 'Halfway', 'Closing', 'Dropping'], `the flight was told as ${JSON.stringify(flight)}`);
+    assert.equal(flight[0], 'Leaving Sol at warp 9 for Sirius, 8.6 light years away.');
+    assert.match(flight[1], /^Halfway: 4\.\d light years to go/);
+    assert.equal(flight[3], 'Dropping out of warp at Sirius.');
+    assert.equal(await p.locator('#report-line').isVisible(), false, 'the report stays over the log entry');
+    // Kept on through a reload.
+    await p.reload();
+    await bridgeReady(p);
+    assert.equal(await p.locator('#report').getAttribute('aria-pressed'), 'true');
+    await p.waitForFunction(() => /Brightest in view/.test(document.getElementById('report-line').textContent) && !document.getElementById('report-line').hidden, null, { timeout: 5000 });
+    // The ship's computer answers "report" in Set course, in the same words.
+    const said = await p.locator('#report-line').innerText();
+    await p.locator('#choose').tap();
+    await p.locator('#search').fill('Computer, report');
+    await p.waitForFunction(t => document.getElementById('list').textContent.includes(t), said, { timeout: 5000 });
+    await p.evaluate(() => engage.closeSheets());
+    // And off.
+    await p.locator('#report').tap();
+    assert.equal(await p.locator('#report-line').isVisible(), false);
+    assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).opts.report), false);
+    await c.close();
+  }
 } finally {
   await browser.close();
   server.close();

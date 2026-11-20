@@ -108,6 +108,12 @@ export function ask(cat, query, ship) {
     return { line: `Of the ${all.length} destinations with notes, ${said(left.length)} ${left.length === 1 ? 'is' : 'are'} still unvisited${guessed ? '' : ', nearest us first'}.`, stars: left };
   }
 
+  // "Computer, report": what is on the viewscreen, when the bridge has given its view (see report below).
+  if (ship.view && /^((status )?report|what('?s| is) (on (the )?(view ?)?screen|in view|ahead)|what am i looking at|describe (the )?(view|viewscreen|sky))$/.test(q)) {
+    const r = report(cat, ship.view);
+    return { line: r.line, stars: r.brightest };
+  }
+
   if ((m = /^(how far (is|to|away is)|distance to|how long to|how long to get to) (.+?)( from here)?$/.exec(q))) {
     const i = ship.find(m[3]);
     if (i === undefined) return { line: `No star called ${m[3]} on the charts.`, stars: [] };
@@ -135,4 +141,101 @@ function kindAsked(q) {
   const colour = m[1] ? m[1].replace(' ', '-') : null;
   const one = `${colour ? `${colour} ` : ''}${m[2]}`;
   return { colour, size: m[2], words: `${one}s`, one };
+}
+
+// ---------- Computer, report ----------
+
+// What is on the viewscreen, in a line, in the same voice: "Looking toward Orion. Brightest in view: Betelgeuse,
+// Rigel and Bellatrix. The Sun is behind you and to the left, magnitude −26.7." For someone who can't see the screen,
+// and for anyone who wants it said. `view` is how the viewscreen is pointed: { cam (where the ship is, in parsecs),
+// f, r, u (ahead, right and up, as unit vectors), tanX, tanY (how far the screen reaches left-right and up-down from
+// its middle, as tangents), at (the star the ship is holding at, or null in flight), target (the destination, or
+// null), covered (optional: parts of the screen something stands over, such as the helm, as { left, right, top,
+// bottom } in the same tangents, up positive) }. Returns { line, brightest (the stars named, brightest first) }.
+const SEEN = 6.5; // the faintest star an eye can see
+
+// Where a direction is from the ship's point of view: in view, or "behind you and to the left".
+function whereIs(d, view) {
+  const len = Math.hypot(...d) || 1;
+  const z = dot(d, view.f) / len, x = dot(d, view.r) / len, y = dot(d, view.u) / len;
+  if (z > 0.01 && Math.abs(x / z) < view.tanX && Math.abs(y / z) < view.tanY) return 'in view';
+  const parts = [z > 0.5 ? 'ahead' : z < -0.5 ? 'behind you' : '', x > 0.35 ? 'to the right' : x < -0.35 ? 'to the left' : '', y > 0.5 ? 'above' : y < -0.5 ? 'below' : ''].filter(Boolean);
+  if (!parts.length) parts.push(z >= 0 ? 'ahead' : 'behind you');
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const listed = names => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
+
+// The brightest stars in view from `cam`, brightest first: { star, mag }. The star the ship holds at, and its
+// companions, are left to the line about them; stars with no measured distance are left out (where they are drawn
+// is only the charts' guess).
+export function brightestInView(cat, view, n = 3, skip = []) {
+  const best = [];
+  const p = cat.pos, c = view.cam;
+  for (let j = 1; j < cat.count; j++) {
+    if (cat.unmeasured[j] || skip.includes(j)) continue;
+    if (view.at != null && view.at !== 0 && (j === view.at || companions(cat, view.at, j))) continue;
+    const d = [p[j * 3] - c[0], p[j * 3 + 1] - c[1], p[j * 3 + 2] - c[2]];
+    const len = Math.hypot(...d);
+    const mag = apparentMag(cat.absmag[j], len);
+    if (mag > SEEN || (best.length === n && mag >= best[n - 1].mag)) continue;
+    const z = dot(d, view.f) / len;
+    if (z <= 0.01) continue;
+    const x = dot(d, view.r) / len / z, y = dot(d, view.u) / len / z;
+    if (Math.abs(x) >= view.tanX || Math.abs(y) >= view.tanY) continue;
+    if (view.covered?.some(c => x > c.left && x < c.right && y < c.top && y > c.bottom)) continue; // under the helm
+    best.push({ star: j, mag });
+    best.sort((a, b) => a.mag - b.mag);
+    if (best.length > n) best.pop();
+  }
+  return best;
+}
+
+const seenSaid = mag => `${magSaid(mag)}${mag > SEEN ? ', too faint to see without help' : ''}`;
+
+export function report(cat, view) {
+  const toward = cat.constellationToward?.(view.f);
+  const parts = [toward ? `Looking toward ${toward}.` : 'Looking out.'];
+  const c = view.cam;
+  // The star the ship is holding at, when it is in front of you.
+  if (view.at != null && view.at !== 0) {
+    const i = view.at, d = [cat.pos[i * 3] - c[0], cat.pos[i * 3 + 1] - c[1], cat.pos[i * 3 + 2] - c[2]];
+    if (whereIs(d, view) === 'in view') parts.push(`${cap(name(cat, i))}, where we are holding, fills the view at ${magSaid(apparentMag(cat.absmag[i], Math.hypot(...d)))}.`);
+  }
+  const best = brightestInView(cat, view);
+  parts.push(best.length ? `Brightest in view: ${listed(best.map(b => name(cat, b.star)))}.` : 'No star bright enough to see is in view.');
+  // The Sun, wherever it is (unless the ship is holding off it, in Earth orbit, where it is behind you anyway).
+  const sun = [-c[0], -c[1], -c[2]];
+  if (Math.hypot(...sun) > 1e-7) parts.push(`The Sun is ${whereIs(sun, view)}, ${seenSaid(apparentMag(cat.absmag[0], Math.hypot(...sun)))}.`);
+  // And the destination, if one is chosen.
+  const t = view.target;
+  if (t != null && t !== view.at) {
+    const d = [cat.pos[t * 3] - c[0], cat.pos[t * 3 + 1] - c[1], cat.pos[t * 3 + 2] - c[2]];
+    const where = whereIs(d, view);
+    parts.push(`Your destination, ${name(cat, t)}, is ${where}.`);
+  }
+  return { line: parts.join(' '), brightest: best.map(b => b.star) };
+}
+
+// The few lines a flight is told in, when Report is on: setting out, halfway, closing in, and dropping out of
+// warp. `trip` is { from (where it left, as the log names it), to (the star), warp, ly (the whole way), left (light
+// years still to go), nominal (the distance is only the charts' guess), view (as for report, from where the ship is
+// now) }.
+export function flightLine(cat, stage, trip) {
+  const to = name(cat, trip.to);
+  const w = Number(trip.warp).toFixed(1).replace(/\.0$/, '');
+  if (stage === 'out') return trip.nominal ? `Leaving ${trip.from} at warp ${w} for ${to}. Its distance has never been measured.` : `Leaving ${trip.from} at warp ${w} for ${to}, ${roughLy(trip.ly)} away.`;
+  if (stage === 'drop') return `Dropping out of warp at ${to}.`;
+  const left = trip.nominal ? 'the rest unmeasured' : `${leftSaid(trip.left)} to go`;
+  // Closing in, the destination is the brightest thing ahead by far: the line is only how far is left.
+  if (stage === 'near') return `Closing on ${to}: ${left}.`;
+  const ahead = brightestInView(cat, { ...trip.view, at: null }, 1)[0];
+  return `Halfway: ${left}${ahead ? `, ${name(cat, ahead.star)} now the brightest star ahead` : ''}.`;
+}
+// What is left of a flight: light years, or near the end (the ship covers most of the way in the middle of the
+// flight, and the last of it slowly) astronomical units, as the readout counts it.
+function leftSaid(ly) {
+  if (ly >= 0.1) return roughLy(ly);
+  const au = ly * 63241.1;
+  return `${au < 10 ? au.toFixed(1) : Math.round(au).toLocaleString('en-US')} AU`;
 }

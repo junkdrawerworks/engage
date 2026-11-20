@@ -283,3 +283,57 @@ test('anything else is a name for the search, and a guessed position is said', (
   const nowhere = { ...shipAt('Sol'), at: lost };
   for (const q of ['nearest', 'within 20 ly']) assert.match(ask(cat, q, nowhere).line, /only the charts’ guess/, q);
 });
+
+// ---------- Computer, report ----------
+import { report, flightLine } from '../js/computer.js';
+
+// How the bridge points the viewscreen: yaw round the pole and pitch above the equator (js/sky.js's basis), on a
+// phone's screen, 390 by 844, with a 60° field.
+function viewOf(yawDeg, pitchDeg, cam, at, target = null, covered = []) {
+  const yaw = yawDeg * Math.PI / 180, pitch = pitchDeg * Math.PI / 180, cp = Math.cos(pitch);
+  const f = [cp * Math.cos(yaw), cp * Math.sin(yaw), Math.sin(pitch)];
+  const rl = Math.hypot(f[1], f[0]), r = [f[1] / rl, -f[0] / rl, 0];
+  const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+  const k = Math.tan(Math.PI / 6) / Math.sqrt(390 * 844);
+  return { cam, f, r, u, tanX: 390 * k, tanY: 844 * k, at, target, covered };
+}
+const earthOrbit = viewOf(83, 3, [0, 0, 0], 0).f.map(v => v / 206265); // one AU out, on the night side
+
+test('the computer reports what is on the viewscreen: where it looks, the brightest stars, the Sun and the destination', () => {
+  const home = report(cat, viewOf(83, 3, earthOrbit, 0));
+  assert.equal(home.line, 'Looking toward Orion. Brightest in view: Sirius, Rigel and Betelgeuse. The Sun is behind you, magnitude −26.7.');
+  assert.deepEqual(home.brightest.map(i => cat.names[i]), ['Sirius', 'Rigel', 'Betelgeuse']);
+  // A destination is said wherever it is: Proxima, far in the south, is below the view of Orion.
+  assert.match(report(cat, viewOf(83, 3, earthOrbit, 0, cat.byName.get('Proxima Centauri'))).line, / Your destination, Proxima Centauri, is below\.$/);
+  // A star under the helm isn't in view: with the bottom third of the screen covered, Sirius drops out.
+  const k = viewOf(83, 3, earthOrbit, 0).tanY;
+  assert.ok(!report(cat, viewOf(83, 3, earthOrbit, 0, null, [{ left: -9, right: 9, top: -k / 3, bottom: -9 }])).line.includes('Sirius'));
+  // From Vega, 25 light years out, looking back home: the Sun is in view, at magnitude 4.3.
+  const v = cat.byName.get('Vega'), vp = [cat.pos[v * 3], cat.pos[v * 3 + 1], cat.pos[v * 3 + 2]];
+  const yaw = Math.atan2(-vp[1], -vp[0]) * 180 / Math.PI, pitch = Math.asin(-vp[2] / Math.hypot(...vp)) * 180 / Math.PI;
+  const back = report(cat, viewOf(yaw, pitch, vp.map(x => x * (1 - 1e-6)), v));
+  assert.match(back.line, /The Sun is in view, magnitude 4\.3\./);
+  assert.ok(!back.brightest.includes(v), 'the star the ship holds at is among the brightest in view');
+  // Far out, the Sun is too faint to see, and the report says so.
+  const d = cat.byName.get('Deneb'), dp = [cat.pos[d * 3], cat.pos[d * 3 + 1], cat.pos[d * 3 + 2]];
+  assert.match(report(cat, viewOf(0, 0, dp, d)).line, /The Sun is [a-z ,]+, magnitude \d+\.\d, too faint to see without help\./);
+  // Facing the star it holds at, it says so.
+  const facing = report(cat, viewOf(Math.atan2(vp[1], vp[0]) * 180 / Math.PI, Math.asin(vp[2] / Math.hypot(...vp)) * 180 / Math.PI, vp.map(x => x * (1 - 1e-6)), v));
+  assert.match(facing.line, /^Looking toward Lyra\. Vega, where we are holding, fills the view at magnitude −\d/);
+  // And the computer in Set course answers "report" with the same line, when the bridge gives it the view.
+  assert.equal(ask(cat, 'Computer, report', shipAt('Sol', { view: viewOf(83, 3, earthOrbit, 0) })).line, home.line);
+  assert.equal(ask(cat, 'what am I looking at?', shipAt('Sol', { view: viewOf(83, 3, earthOrbit, 0) })).stars.length, 3);
+  assert.equal(ask(cat, 'report', shipAt('Sol')), null, 'without the view it is a name to search for');
+});
+
+test('a flight is told in a few lines: setting out, halfway, closing in, and dropping out of warp', () => {
+  const s = cat.byName.get('Sirius');
+  const trip = { from: 'Sol', to: s, warp: 9, ly: 8.6, left: 4.3, nominal: false, view: viewOf(101, -16.7, [0, 0, 0], null) };
+  assert.equal(flightLine(cat, 'out', trip), 'Leaving Sol at warp 9 for Sirius, 8.6 light years away.');
+  assert.equal(flightLine(cat, 'half', trip), 'Halfway: 4.3 light years to go, Sirius now the brightest star ahead.');
+  assert.equal(flightLine(cat, 'near', { ...trip, left: 1.2 }), 'Closing on Sirius: 1.2 light years to go.');
+  assert.equal(flightLine(cat, 'near', { ...trip, left: 0.0037 }), 'Closing on Sirius: 234 AU to go.');
+  assert.equal(flightLine(cat, 'drop', trip), 'Dropping out of warp at Sirius.');
+  assert.equal(flightLine(cat, 'out', { ...trip, nominal: true }), 'Leaving Sol at warp 9 for Sirius. Its distance has never been measured.');
+  assert.match(flightLine(cat, 'half', { ...trip, nominal: true }), /^Halfway: the rest unmeasured/);
+});

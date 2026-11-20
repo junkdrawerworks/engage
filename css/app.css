@@ -143,6 +143,16 @@ a.round { color: var(--text); text-decoration: none; }
 /* 44 px tall under a thumb. The room is added below the words and to their left, never above: that is the slider's. */
 #open-scale { color: #c9a2ff; text-decoration: none; white-space: nowrap; padding: 4px 0 22px 14px; margin: -4px 0 -22px -14px; }
 #open-scale:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* Computer, report: a switch on the helm, and the line it says over the viewscreen, just above the helm (or above the
+   readout in flight). */
+.report { margin: -4px -6px -22px auto; padding: 4px 6px 22px 14px; border: 0; background: none; color: var(--cyan); font: inherit; white-space: nowrap; }
+.report[aria-pressed="true"] { color: var(--amber); }
+.report[aria-pressed="true"]::before { content: '● '; font-size: 0.8em; }
+.report:hover { text-decoration: underline; text-underline-offset: 3px; }
+.report-line { position: absolute; left: max(16px, var(--safe-l)); right: max(16px, var(--safe-r)); bottom: calc(24px + var(--safe-b) + var(--console-h, 210px)); margin: 0 auto; width: fit-content; max-width: 560px;
+  padding: 8px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(5, 7, 13, 0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  font-size: 13px; line-height: 1.45; color: var(--text); pointer-events: none; text-wrap: pretty; }
+.report-line.flying { bottom: calc(80px + var(--safe-b)); }
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 32px; background: transparent; margin: 0; }
 input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--amber-deep), var(--amber) var(--fill, 85%), rgba(255, 255, 255, 0.12) var(--fill, 85%)); }
 input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); }
@@ -454,6 +464,7 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
 
 @media (min-width: 760px) {
   .console { left: max(20px, var(--safe-l)); right: auto; bottom: calc(20px + var(--safe-b)); width: 430px; }
+  .report-line:not(.flying) { left: max(20px, var(--safe-l)); right: auto; margin: 0; max-width: 430px; bottom: calc(32px + var(--safe-b) + var(--console-h, 210px)); }
   .hud { padding: calc(20px + var(--safe-t)) max(24px, var(--safe-r)) 30px max(24px, var(--safe-l)); }
   .where h1 { font-size: 26px; }
   .sheet { left: auto; right: max(20px, var(--safe-r)); top: calc(84px + var(--safe-t)); bottom: 20px; width: 440px; max-height: none; border-radius: 22px; border-bottom: 1px solid var(--line); padding: 6px 16px 14px; animation-name: slide; }

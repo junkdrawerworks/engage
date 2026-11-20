@@ -8,7 +8,7 @@ import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inT
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { systemFor } from './worlds.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
-import { ask } from './computer.js';
+import { ask, flightLine, report } from './computer.js';
 import { SHOWN_IN, onScreen, onScreenParts, variableFor } from './variables.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, current, keep, watch } from './store.js';
@@ -65,7 +65,7 @@ const state = defaults();
 function defaults() {
   return {
     at: 0, offset: homeOffset(), yaw: START_YAW, pitch: START_PITCH, fov: 60 * DEG,
-    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, clock: false }, seenIntro: false, ship: null,
+    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, clock: false, report: false }, seenIntro: false, ship: null,
     voyage: null, // the voyage under way, if one is (see js/voyages.js)
     rooms: null, // the rooms the bridge has told of, by id (js/rooms.js), for the line that says what's new
   };
@@ -153,6 +153,7 @@ function showSettings() {
   if (document.activeElement !== $('ship-name')) $('ship-name').value = state.ship?.name ?? '';
   if (document.activeElement !== $('ship-registry')) $('ship-registry').value = state.ship?.registry ?? '';
   shipSaid();
+  if (reporting !== state.opts.report) setReporting(state.opts.report, false);
   $('warp').value = state.warp;
   updateWarp();
 }
@@ -248,6 +249,8 @@ async function start() {
   // Before anything can open a sheet (a link that names no star opens Set course; coming back from a room, the log).
   steps = backCloses({ close: closeSheets, isOpen: () => SHEETS.some(id => !$(id).hidden) });
   for (const id of SHEETS) swipeDown($(id), closeSheets);
+  // The report's line stands just above the helm, however tall the helm is.
+  if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty('--console-h', `${$('console').offsetHeight}px`)).observe($('console'));
   watchGraphics();
   $('loading').remove();
   for (const id of ['intro-rooms', 'settings-rooms']) $(id).innerHTML = roomList(ROOM_BASE, AWAY);
@@ -346,6 +349,7 @@ function frame(now) {
     drawLabels(now);
     dirty = false;
   }
+  if (reporting) reportTick(now);
   requestAnimationFrame(frame);
 }
 
@@ -629,6 +633,74 @@ function say(text) {
   el.textContent = el.textContent === text ? `${text}\u00a0` : text; // the same line twice is still said twice
 }
 const lySaid = ly => formatLy(ly).replace(/ ly$/, ' light years');
+
+// ---------- Computer, report ----------
+
+// Report, on the helm, says in a line what is on the viewscreen: where you are looking, the brightest stars in view,
+// where the Sun is and how bright, and where the destination is. It stays up, and says it again once the view has
+// been still for a moment after it moves; a flight is told in a few timed lines, setting out, halfway, most of the
+// in, and dropping out. The words are the ship's computer's (js/computer.js), which also answers "report" in Set
+// course. On until it is turned off, and kept with the bridge's settings.
+let reporting = false;
+let reportSig = '', reportSince = 0, reportedSig = '';
+
+// How the viewscreen is pointed, for the computer: see report() in js/computer.js.
+function viewFor() {
+  const { f, r, u } = Sky.basis(state.yaw, state.pitch);
+  const W = $('sky').clientWidth || innerWidth, H = $('sky').clientHeight || innerHeight;
+  const k = Math.tan(state.fov / 2) / Math.sqrt(W * H);
+  // The helm stands over the bottom of the screen: a star under it isn't in view.
+  const c = $('console'), b = !trip && c.getBoundingClientRect(), s = $('sky').getBoundingClientRect();
+  const tx = px => (px - s.left - W / 2) * 2 * k, ty = py => (H / 2 - (py - s.top)) * 2 * k;
+  const covered = b && b.width ? [{ left: tx(b.left), right: tx(b.right), top: ty(b.top), bottom: ty(b.bottom) }] : [];
+  return { cam: trip ? trip.cam : viewCam(), f, r, u, tanX: W * k, tanY: H * k, covered, at: trip ? null : earthHeld ? 0 : state.at, target: trip ? null : state.target };
+}
+
+function setReporting(on, keep = true) {
+  reporting = on;
+  $('report').setAttribute('aria-pressed', String(on));
+  reportedSig = reportSig = '';
+  if (on && !trip && cat) showReport(report(cat, viewFor()).line);
+  if (!on) $('report-line').textContent = '';
+  placeReport();
+  if (keep && state.opts.report !== on) { state.opts.report = on; save(); }
+}
+
+function showReport(text) {
+  const el = $('report-line');
+  if (el.textContent !== text) el.textContent = text;
+  el.classList.toggle('flying', !!trip);
+  placeReport();
+}
+
+// Out of the way of a sheet or the welcome card, which have the bottom of the screen; back when they go.
+function placeReport() {
+  const el = $('report-line');
+  const off = !reporting || !el.textContent || SHEETS.some(id => !$(id).hidden) || !$('intro').hidden;
+  if (el.hidden !== off) el.hidden = off;
+}
+
+// Each frame while it is on: once the view has been still for 0.6 s after changing, the line is said again.
+function reportTick(now) {
+  placeReport();
+  if (trip) return;
+  const sig = `${[state.yaw, state.pitch, state.fov].map(v => v.toFixed(3)).join()}|${state.at}|${state.target}|${earthHeld}|${innerWidth}x${innerHeight}`;
+  if (sig !== reportSig) { reportSig = sig; reportSince = now; return; }
+  if (sig === reportedSig || now - reportSince < 600) return;
+  reportedSig = sig;
+  showReport(report(cat, viewFor()).line);
+}
+
+// A line of the flight, once each: 'out', 'half', 'near', 'drop'.
+function tell(stage, dist = 0) {
+  const T = trip;
+  if (!reporting || !T || T.told?.includes(stage)) return;
+  (T.told ||= []).push(stage);
+  showReport(flightLine(cat, stage, {
+    from: T.fromTitle, to: T.i, warp: T.warpFactor, ly: T.ly, nominal: T.nominal, view: viewFor(),
+    left: Math.max(T.D + T.hold - dist, T.hold) * LY_PER_PC,
+  }));
+}
 const warpSaid = w => w.toFixed(1).replace(/\.0$/, '');
 
 // ---------- Flight ----------
@@ -698,7 +770,7 @@ function fly(now) {
     T.phase = 'align';
   } else if (s < T.align + T.spool) {
     const k = (s - T.align) / T.spool;
-    if (T.phase !== 'spool') { T.phase = 'spool'; sound.engage(T.spool + T.cruise); buzz([20, 40, 40, 40, 90]); updateHud(); }
+    if (T.phase !== 'spool') { T.phase = 'spool'; sound.engage(T.spool + T.cruise); buzz([20, 40, 40, 40, 90]); tell('out'); updateHud(); }
     state.yaw = T.yaw1; state.pitch = T.pitch1; state.fov = 60 * DEG;
     if (calm) lit = 1 - (1 - DIM) * ease(k);
     else {
@@ -716,6 +788,9 @@ function fly(now) {
     }
     if (t >= 0.5 && !T.rebased) { T.rebased = true; sky.setOrigin(T.S); }
     readout(dist);
+    // Told as of the moment itself (a slow frame can land well past it, and the ship covers most of the way there).
+    if (t >= 0.5) tell('half', along(0.5, T));
+    if (t >= 0.8) tell('near', along(0.8, T));
     if (calm) {
       // Dark at the midpoint, which is where the sky is swapped for the one at the far end.
       lit = DIM * Math.abs(1 - 2 * t);
@@ -730,6 +805,7 @@ function fly(now) {
       flash(0.7);
       sound.arrive();
       buzz(90);
+      tell('drop');
       updateHud();
     }
     dist = T.D;
@@ -1036,6 +1112,7 @@ function openSheet(id, from = null) {
   opener = from;
   if (from) (id === 'picker' && !touchy ? $('search') : $(id).querySelector('.close')).focus({ preventScroll: true });
   behind();
+  placeReport();
 }
 
 function closeSheets() {
@@ -1047,6 +1124,7 @@ function closeSheets() {
   behind(); // before focus goes back: nothing behind a sheet can take it while the sheet is up
   if (open && opener?.isConnected && !opener.disabled && opener.getClientRects().length) opener.focus({ preventScroll: true });
   opener = null;
+  placeReport();
 }
 
 // What is behind a sheet that is up, or behind the welcome card, is out of reach of a keyboard and a screen reader
@@ -1801,6 +1879,7 @@ function askComputer(q) {
     at: state.at, warp: state.warp, visited: new Set(state.log.map(e => e.star)),
     charted: recordOpts().charted, worlds: i => !!notesFor(cat, i)?.worlds,
     find: name => search(starIndex(), name, magFromEarth, 1)[0],
+    view: viewFor(), // for "computer, report"
   });
 }
 
@@ -1956,6 +2035,7 @@ function bind() {
   $('opt-night').addEventListener('change', e => setNight(e.target.checked));
   // Sound is every room's setting, not only the bridge's: the speaker in any room's header changes it too.
   $('opt-sound').addEventListener('change', e => setPref('sound', e.target.checked));
+  $('report').addEventListener('click', () => setReporting(!reporting));
   $('opt-buzz').addEventListener('change', e => setPref('buzz', e.target.checked));
   $('records-save').addEventListener('click', saveCopy);
   $('records-restore').addEventListener('click', () => $('records-file').click());
