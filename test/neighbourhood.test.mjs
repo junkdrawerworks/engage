@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   FIRST_VIEW, PITCH_MAX, REACH, ZOOM_MAX, ZOOM_MIN, cardSaid, dotRadius, heightSaid, namedHere, neighbourhood, placeOf, placeSaid,
-  progress, progressLine, project, turned,
+  linkable, progress, progressLine, project, turned,
 } from '../js/neighbourhood.js';
 import { LY_PER_PC } from '../js/physics.js';
 
@@ -113,4 +113,23 @@ test('what is still to visit: the count, Starfleet’s stars, and the nearest no
   const all = progress(near, named, new Set(near.map(s => s.star)));
   assert.equal(all.nearest, null);
   assert.equal(progressLine(all), '2,956 catalogued stars within 80 light years, and you have been to every one.');
+});
+
+test('the nearest star offered is one a Set course link can reach, so following it never sends you back to the same star', () => {
+  // The two of 61 Cygni share a name, and ?course=61%20Cygni sets course for one of them only. With every star nearer
+  // than the other one visited, and the one the link reaches, the other is the nearest not yet visited, but a link
+  // to it would land on the star already visited, time after time.
+  const reach = linkable(cat);
+  const pair = near.filter(s => cat.names[s.star] === '61 Cygni');
+  assert.equal(pair.length, 2);
+  const [one, other] = reach(pair[0].star) ? pair : [pair[1], pair[0]];
+  assert.ok(reach(one.star) && !reach(other.star) && cat.byName.get('61 Cygni') === one.star);
+  const visited = new Set(near.filter(s => s.ly < other.ly && s.star !== other.star).map(s => s.star).concat(one.star));
+  assert.equal(progress(near, named, visited).nearest.star, other.star, 'without reach, the other of the pair is offered');
+  const p = progress(near, named, visited, reach);
+  assert.notEqual(p.nearest.star, other.star);
+  assert.ok(reach(p.nearest.star) && !visited.has(p.nearest.star) && p.nearest.ly >= other.ly);
+  assert.equal(p.been, visited.size, 'the other still counts as not yet visited');
+  // Every star in the neighbourhood but a handful of such pairs can be reached by a link.
+  assert.ok(near.filter(s => !reach(s.star)).length <= 6);
 });

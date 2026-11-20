@@ -88,20 +88,26 @@ export const placeSaid = p => (p.ly ? `${roughLy(p.ly)} from Sol, ${heightSaid(p
 export const cardSaid = p => (p.ly ? `${heightSaid(p)[0].toUpperCase()}${heightSaid(p).slice(1)}${p.ly > REACH ? ', far beyond the neighbourhood’s 80 light years' : ''}.` : 'Home: the disc is drawn through it.');
 
 // What there is still to do here: of `near`, how many the log has been to (`visited`, a Set of stars), of the named
-// ones Starfleet's, how many; and the nearest star not yet visited, and the nearest of Starfleet's.
-export function progress(near, named, visited) {
+// ones Starfleet's, how many; and the nearest star not yet visited, and the nearest of Starfleet's, of those a Set
+// course link can reach (`reach(i)`). Of two stars that share a name (the two of 61 Cygni), a link by that name sets
+// course for only one, so offering the other would send you back to the same star every time. It still counts, flown
+// to from Set course's list, where the pair are told apart by a letter.
+export function progress(near, named, visited, reach = () => true) {
   const sf = named.filter(n => n.starfleet);
   return {
     total: near.length,
     been: near.filter(s => visited.has(s.star)).length,
     starfleet: sf.length,
     starfleetBeen: sf.filter(n => visited.has(n.star)).length,
-    nearest: near.find(s => !visited.has(s.star)) || null,
-    nearestStarfleet: sf.find(n => !visited.has(n.star)) || null,
+    nearest: near.find(s => !visited.has(s.star) && reach(s.star)) || null,
+    nearestStarfleet: sf.find(n => !visited.has(n.star) && reach(n.star)) || null,
   };
 }
 
-// The line under the map: "2,957 catalogued stars within 80 light years. You have been to 3 of them, and to 2 of
+// A Set course link (?course=name) reaches star `i` only if its name is its own and no other star's comes first.
+export const linkable = cat => i => cat.byName.get(cat.names[i]) === i;
+
+// The line under the map: "2,956 catalogued stars within 80 light years. You have been to 3 of them, and to 2 of
 // the 16 that Starfleet's charts name."
 export function progressLine(p) {
   const n = p.total.toLocaleString('en-US');

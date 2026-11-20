@@ -8,7 +8,7 @@ import { chartFor } from './charts.js';
 import { DESTINATIONS } from './destinations.js';
 import { LY_PER_PC, roughLy } from './physics.js';
 import { chartOf, dotAt } from './cartography.js';
-import { cardSaid, namedHere, neighbourhood, placeOf, placeSaid, progress, progressLine } from './neighbourhood.js';
+import { cardSaid, linkable, namedHere, neighbourhood, placeOf, placeSaid, progress, progressLine } from './neighbourhood.js';
 import { makeHood } from './neighbourhood-view.js';
 import {
   FAMILY_NAMES, FILTERS, SUN_LIFE, census, family, hrX, hrXClamped, hrY, lesson, passes, wall,
@@ -216,7 +216,7 @@ function setUpHood() {
   $('named-head').textContent = `Named stars here (${named.length})`;
 }
 function renderHood() {
-  const p = progress(near, named, visited);
+  const p = progress(near, named, visited, linkable(cat));
   $('lesson').textContent = progressLine(p);
   const grey = near.filter(s => cat.nocolour[s.star]).length;
   $('left-out').textContent = `Every star the catalogue places within 80 light years is here, ${grey.toLocaleString('en-US')} of them grey because it has no colour for them. It is still missing red dwarfs too faint to have been found.`;
@@ -227,7 +227,8 @@ function renderHood() {
     const sf = p.nearestStarfleet, said = sf.label === titleFor(cat, sf.star) ? '' : ` (${sf.label})`;
     next.push(go(sf.star, `The nearest star on Starfleet’s charts you haven’t been to${said}, ${roughLy(near.find(s => s.star === sf.star).ly)} from Sol.`));
   }
-  $('hood-next').innerHTML = next.length ? next.map(x => `<span class="next">${x}</span>`).join('') : 'You have been to every star here.';
+  $('hood-next').innerHTML = next.length ? next.map(x => `<span class="next">${x}</span>`).join('')
+    : p.been === p.total ? 'You have been to every star here.' : 'The ones left share a name with another star: find them in Set course’s list, told apart by a letter.';
   document.querySelectorAll('#named-list [data-star]').forEach(b => { b.querySelector('.been').hidden = !visited.has(Number(b.dataset.star)); });
 }
 function pickHere(i) {
