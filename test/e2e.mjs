@@ -3839,6 +3839,9 @@ await bridgeReady();
   assert.equal(await p.locator('#to-lab').isVisible(), true);
   const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.contact.v1')));
   assert.deepEqual([kept.met, kept.contacts, kept.runs.length, kept.runs[1].second, kept.runs[1].title, kept.friends[0].again.outcome], [1, 1, 2, true, 'Second contact', 'friends']);
+  // The story on the debrief is kept with it, for the captain's log to drink to again.
+  assert.match(kept.runs[1].toast, / and the stranger at /);
+  assert.ok((await p.locator('#eval-story').innerText()).includes(kept.runs[1].toast), 'the toast kept is not the phrase on the debrief');
   // Shared: "2." and what was carried in, played back for a friend, who is offered the same people's first hail.
   await p.evaluate(() => { delete Navigator.prototype.share; });
   await twice.grantPermissions(['clipboard-read', 'clipboard-write']);

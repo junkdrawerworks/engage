@@ -506,7 +506,9 @@ function record() {
 function recordSecond() {
   const e = lastEval;
   const where = here ? { star: here.star, place: here.place, ...(here.visit != null ? { visit: here.visit } : {}), sd: stardate() } : {};
-  saved.runs.push({ title: e.title, outcome: e.outcome, people: e.people, decoded: e.decoded, of: e.of, at: new Date().toISOString(), id: gameId, seed: g.seed, second: true, ...where });
+  // Gone home with them, the story of the day you met goes with it: the captain's log quotes it as their toast again.
+  const toast = e.outcome === 'friends' && e.story ? { toast: e.story } : {};
+  saved.runs.push({ title: e.title, outcome: e.outcome, people: e.people, decoded: e.decoded, of: e.of, at: new Date().toISOString(), id: gameId, seed: g.seed, second: true, ...where, ...toast });
   saved.runs = saved.runs.slice(-30);
   const f = friendsOf(saved).find(x => x.seed === g.seed && !x.again);
   if (f) f.again = { outcome: e.outcome, title: e.title, decoded: e.decoded, of: e.of, at: new Date().toISOString(), ...where };

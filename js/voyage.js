@@ -77,9 +77,11 @@ export function supplementals({ maru, contact, xeno, survey, missions, radio, di
     const notebook = Number.isInteger(r.decoded) && Number.isInteger(r.of) && r.of > 0 ? `, ${r.decoded} of ${r.of} phrases decoded` : '';
     const again = !r.second && met.has(people);
     if (!r.second) met.add(people);
-    // After first contact made, their toast: their new phrase for the day you met.
-    const toast = !r.second && r.outcome === 'contact' ? text(r.toast, 80) : '';
-    add(r.at, 'contact', r.second ? 'second' : again ? 'again' : 'met', `${r.second ? `the ${people} hailed again` : `answered a hail from the ${people}`}. ${title}${notebook}.${toast ? ` The ${people} raised a toast: “${toast}.”` : ''}`, 'contact.html');
+    // After first contact made, their toast: their new phrase for the day you met. After second contact made, the
+    // same phrase, drunk to again.
+    const toast = r.outcome === (r.second ? 'friends' : 'contact') ? text(r.toast, 80) : '';
+    const raised = toast ? (r.second ? ` The ${people} drank to it again: “${toast}.”` : ` The ${people} raised a toast: “${toast}.”`) : '';
+    add(r.at, 'contact', r.second ? 'second' : again ? 'again' : 'met', `${r.second ? `the ${people} hailed again` : `answered a hail from the ${people}`}. ${title}${notebook}.${raised}`, 'contact.html');
   }
   for (const j of list(obj(xeno).jars)) {
     // (A planet placed in the system view is kept by its key, and named by where it was placed.)
