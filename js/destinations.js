@@ -204,7 +204,7 @@ export const DESTINATIONS = [
   {
     star: 'Helvetios', worlds: true, title: '51 Pegasi', aka: 'Helvetios', group: 'famous',
     kind: 'Yellow dwarf, spectral type G5', temp: 5790, lum: 1.36, radius: 1.15,
-    planets: 'Dimidium, a giant half Jupiter’s mass that circles in just over four days.',
+    planets: 'Dimidium, a giant about three fifths of Jupiter’s mass that circles in just over four days.',
     notes: [
       'Dimidium was the first planet ever found around a Sun-like star, in 1995. It won Michel Mayor and Didier Queloz the 2019 Nobel Prize.',
       'Nobody expected a giant planet so close to its star. It changed where astronomers looked.',

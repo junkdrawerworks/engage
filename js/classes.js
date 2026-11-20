@@ -224,7 +224,7 @@ export const CLASSES = [
     tell: 'Jupiter-sized but with a year of only a few days, glowing hot: a hot Jupiter.',
     home: 'None.',
     worlds: [
-      { name: 'Dimidium', star: 'Helvetios', ly: 50.9, note: 'Half Jupiter’s mass, circling 51 Pegasi in four days. The first planet ever found around a Sun-like star, in 1995.' },
+      { name: 'Dimidium', star: 'Helvetios', ly: 50.9, note: 'About three fifths of Jupiter’s mass, circling 51 Pegasi in four days. The first planet ever found around a Sun-like star, in 1995.' },
       { name: 'Tau Boötis b', star: 'τ Boötis', ly: 50.9, note: 'Six times Jupiter’s mass with a year of three days.' },
     ],
   },
