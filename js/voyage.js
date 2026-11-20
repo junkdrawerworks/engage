@@ -9,9 +9,11 @@ import { byId as classById, label as classLabel } from './classes.js';
 import { DAY, entryTime } from './logbook.js';
 import { standing as contactStanding } from './contact-sim.js';
 import { hailProgress, spanSaid } from './radio.js';
+import { yearsSaid } from './longway.js';
 
 // The rooms that keep a record of what was done in them, and where each keeps it.
-export const RECORDS = { maru: 'engage.maru.v1', contact: 'engage.contact.v1', xeno: 'engage.xeno.v1', survey: 'engage.survey.v1', missions: 'engage.missions.v1', radio: 'engage.radio.v1' };
+export const RECORDS = { maru: 'engage.maru.v1', contact: 'engage.contact.v1', xeno: 'engage.xeno.v1', survey: 'engage.survey.v1', missions: 'engage.missions.v1', radio: 'engage.radio.v1',
+  distress: 'engage.distress.v1', longway: 'engage.longway.v1' };
 export function readRecords() {
   const out = {};
   for (const [room, key] of Object.entries(RECORDS)) {
@@ -42,8 +44,10 @@ const LETTERS = /^[ABCDF]$/;
 //   survey:   the latest best streak in Cover your tracks
 //   missions: the latest hail sent to each ship
 //   radio:    the latest hail sent to each star, and the day it lands
+//   distress: each distress call answered (the latest 50), rescued or lost
+//   longway:  each trip home from the Delta Quadrant (the latest 50)
 // `lyOf(name)` is how far a star is, for a hail kept before the room kept that with it.
-export function supplementals({ maru, contact, xeno, survey, missions, radio } = {}, now = Date.now(), { lyOf } = {}) {
+export function supplementals({ maru, contact, xeno, survey, missions, radio, distress, longway } = {}, now = Date.now(), { lyOf } = {}) {
   const out = [];
   // `kind` says what happened, for the counts a mission's summary makes of them.
   const add = (at, room, kind, line, href) => { const t = momentOf(at); if (t && t <= now + 60000) out.push({ t, room, kind, text: `Supplemental: ${line}`, href }); };
@@ -83,6 +87,18 @@ export function supplementals({ maru, contact, xeno, survey, missions, radio } =
     const href = `radio.html#hail=${encodeURIComponent(h.star)}`;
     add(h.sent, 'radio', 'starhail', `hailed ${h.title} on subspace radio${h.lands ? `. It gets there in ${yearOf(h.lands)}` : ''}.`, href);
     if (h.landed) add(h.lands, 'radio', 'landed', `your hail reached ${h.title}, ${spanSaid(h.lands - h.sent)} after it left Earth.`, href);
+  }
+  for (const c of list(obj(distress).calls)) {
+    const star = text(c.star, 60);
+    if (!star) continue;
+    const air = Number.isInteger(c.air) && c.air >= 0 && c.air <= 100 ? c.air : null;
+    add(c.at, 'distress', c.found ? 'rescue' : 'lostcall', c.found
+      ? `answered a distress call. Found at ${star}${air != null ? ` with ${air}% of their air left` : ''}.`
+      : c.left ? `answered a distress call and left it partway. They were at ${star}.` : `answered a distress call. Their air ran out; they were at ${star}.`, 'distress.html');
+  }
+  for (const a of list(obj(longway).arrivals)) {
+    if (!(a.years > 0)) continue;
+    add(a.at, 'longway', 'home', `home from the Delta Quadrant in ${yearsSaid(a.years)}.`, 'longway.html');
   }
   return out.sort((a, b) => b.t - a.t);
 }
@@ -186,6 +202,7 @@ export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
   const n = tally(rec, [], now);
   const taken = n.failed + n.rewritten;
   const stars = starHails(rec.radio, now, lyOf), landed = stars.filter(h => h.landed).length;
+  const distress = obj(rec.distress), longway = obj(rec.longway);
   return [
     { room: 'maru', name: 'Kobayashi Maru', href: 'maru.html', none: 'Not sat yet',
       line: taken ? `${Math.min(seen.size, 9)} of 9 endings · best ${grades.join(' ')}${passed ? ' · Officer’s Test passed' : ''}` : '' },
@@ -199,6 +216,10 @@ export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
       line: n.hails ? `${capital(some(n.hails, 'ship'))} hailed` : '' },
     { room: 'radio', name: 'Hails to stars', href: 'radio.html#hail', none: 'No stars hailed yet',
       line: stars.length ? `${stars.length.toLocaleString('en-US')} sent · ${landed ? `${landed.toLocaleString('en-US')} landed` : 'none landed yet'}` : '' },
+    { room: 'distress', name: 'Distress calls', href: 'distress.html', none: 'No calls answered yet',
+      line: count(distress.answered) ? `Rescued ${count(distress.rescued)} of ${count(distress.answered)} call${count(distress.answered) === 1 ? '' : 's'}` : '' },
+    { room: 'longway', name: 'The long way home', href: 'longway.html', none: obj(longway.trip).seed != null ? 'A trip home under way' : 'Not home yet',
+      line: count(longway.homes) ? `Home ${count(longway.homes) === 1 ? 'once' : count(longway.homes) === 2 ? 'twice' : `${words(count(longway.homes))} times`}${longway.best > 0 ? ` · best ${yearsSaid(longway.best)}` : ''}` : '' },
   ];
 }
 

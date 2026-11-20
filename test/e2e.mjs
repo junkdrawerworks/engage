@@ -6056,7 +6056,8 @@ await page.emulateMedia({ reducedMotion: null });
   assert.deepEqual(await rows(), [
     ['Kobayashi Maru', 'Not sat yet', 'maru.html'], ['First contact', 'No one met yet', 'contact.html'], ['Cover your tracks', 'Not played yet', 'survey.html#drill'],
     ['Xenobiology lab', 'No creatures kept yet', 'xeno.html'], ['Long missions', 'No ships hailed yet', 'missions.html'],
-    ['Hails to stars', 'No stars hailed yet', 'radio.html#hail'],
+    ['Hails to stars', 'No stars hailed yet', 'radio.html#hail'], ['Distress calls', 'No calls answered yet', 'distress.html'],
+    ['The long way home', 'Not home yet', 'longway.html'],
   ]);
   await p.evaluate(() => engage.closeSheets());
   const before = await p.evaluate(() => Object.keys(localStorage).sort());
@@ -6064,13 +6065,20 @@ await page.emulateMedia({ reducedMotion: null });
     localStorage.setItem('engage.maru.v1', JSON.stringify({ runs: [{ title: 'The lifeboat', outcome: 'escaped', grades: [], at: new Date().toISOString(), id: 'a' }], taken: 1, seen: ['The lifeboat'], best: { Compassion: 'C', Judgment: 'B', Restraint: 'B', Nerve: 'A' } }));
     localStorage.setItem('engage.survey.v1', JSON.stringify({ best: 4, streak: 1, seen: 9 }));
     localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { v1: Date.now() - 60000, nh: Date.now() - 120000 } }));
+    localStorage.setItem('engage.distress.v1', JSON.stringify({ answered: 1, rescued: 1, calls: [{ day: null, star: 'Procyon', found: true, air: 42, open: 3, wrong: 0, at: new Date(Date.now() - 30000).toISOString() }] }));
+    localStorage.setItem('engage.longway.v1', JSON.stringify({ trip: null, best: 58.25, homes: 1, arrivals: [{ at: new Date(Date.now() - 20000).toISOString(), years: 58.25, nebula: 3, world: 2 }] }));
   });
   await p.tap('#open-log');
-  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed', 'No stars hailed yet']);
+  assert.deepEqual((await rows()).map(r => r[1]), ['1 of 9 endings · best C B B A', 'No one met yet', 'Best streak 4', 'No creatures kept yet', 'Two ships hailed', 'No stars hailed yet', 'Rescued 1 of 1 call', 'Home once · best 58 years 3 months']);
+  // A rescue and a trip home each have their line in the log, leading to their room.
+  assert.deepEqual(await p.locator('#entries .supp a').evaluateAll(as => as.filter(a => /^(longway|distress)/.test(a.getAttribute('href'))).map(a => [a.textContent, a.getAttribute('href')])), [
+    ['Supplemental: home from the Delta Quadrant in 58 years 3 months.', 'longway.html'],
+    ['Supplemental: answered a distress call. Found at Procyon with 42% of their air left.', 'distress.html'],
+  ]);
   // It sits under the voyage's sentence and over the log's own records, and every row is a 44 px tap.
   assert.deepEqual(await p.locator('#entries > *').evaluateAll(els => els.slice(0, 3).map(el => el.id)), ['story', 'service', 'records']);
   assert.ok((await p.locator('#service li a').evaluateAll(as => as.map(a => a.getBoundingClientRect().height))).every(h => h >= 44));
-  assert.deepEqual(await p.evaluate(() => Object.keys(localStorage).sort()), [...before, 'engage.maru.v1', 'engage.missions.v1', 'engage.survey.v1'].sort(), 'the service record saved something of its own');
+  assert.deepEqual(await p.evaluate(() => Object.keys(localStorage).sort()), [...before, 'engage.maru.v1', 'engage.missions.v1', 'engage.survey.v1', 'engage.distress.v1', 'engage.longway.v1'].sort(), 'the service record saved something of its own');
   await Promise.all([p.waitForNavigation(), p.locator('#service a[data-room="survey"]').tap()]);
   assert.match(p.url(), /survey\.html#drill$/);
   await career.close();
@@ -6720,7 +6728,7 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.locator('#debrief').isVisible(), true);
   assert.match(await p.locator('#debrief-1').innerText(), /^Home in \d+ years( \d+ months?)?, with \d+ stops? for fuel and \d+ for shore leave\.$/);
   const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.longway.v1')));
-  assert.deepEqual([kept.trip, kept.homes], [null, 1]);
+  assert.deepEqual([kept.trip, kept.homes, kept.arrivals.length, kept.arrivals[0].years], [null, 1, 1, kept.best]);
   assert.ok(kept.best > 40 && kept.best < 75, `${kept.best}`);
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the room is wider than the phone');
   await p.tap('#again');

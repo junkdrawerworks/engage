@@ -114,6 +114,28 @@ test('each room adds a line to the log when something in it finishes, read from 
   assert.deepEqual(supplementals({ maru: [], contact: 'x', xeno: { jars: 'x' }, survey: null, missions: { hails: [] } }), []);
 });
 
+test('rescues and trips home go in the log, and on the service record', async () => {
+  const { supplementals, serviceRecord } = await import('../js/voyage.js');
+  const now = at('2026-11-20T12:00:00Z');
+  const distress = { answered: 3, rescued: 1, calls: [
+    { day: '2026-11-18', star: 'Procyon', found: true, air: 42, open: 3, wrong: 1, at: '2026-11-18T10:00:00.000Z' },
+    { day: null, star: 'Altair', found: false, air: 0, open: 5, wrong: 2, at: '2026-11-19T10:00:00.000Z' },
+    { day: '2026-11-20', star: 'Vega', found: false, air: 0, open: 2, wrong: 0, at: '2026-11-20T10:00:00.000Z', left: true },
+  ] };
+  const longway = { trip: null, best: 58.25, homes: 2, arrivals: [{ at: '2026-11-19T11:00:00.000Z', years: 61, nebula: 2, world: 1 }, { at: '2026-11-19T12:00:00.000Z', years: 58.25, nebula: 3, world: 2 }] };
+  assert.deepEqual(supplementals({ distress, longway }, now).map(l => [l.room, l.text, l.href]), [
+    ['distress', 'Supplemental: answered a distress call and left it partway. They were at Vega.', 'distress.html'],
+    ['longway', 'Supplemental: home from the Delta Quadrant in 58 years 3 months.', 'longway.html'],
+    ['longway', 'Supplemental: home from the Delta Quadrant in 61 years.', 'longway.html'],
+    ['distress', 'Supplemental: answered a distress call. Their air ran out; they were at Altair.', 'distress.html'],
+    ['distress', 'Supplemental: answered a distress call. Found at Procyon with 42% of their air left.', 'distress.html'],
+  ]);
+  const rows = serviceRecord({ distress, longway });
+  assert.deepEqual(rows.slice(-2).map(r => [r.name, r.line]), [['Distress calls', 'Rescued 1 of 3 calls'], ['The long way home', 'Home twice · best 58 years 3 months']]);
+  assert.equal(serviceRecord({ longway: { trip: { seed: 4 } } }).at(-1).none, 'A trip home under way');
+  assert.equal(serviceRecord({ longway: { homes: 1, best: 75 } }).at(-1).line, 'Home once · best 75 years');
+});
+
 test('a hail to a star goes in the log the day it is sent and the day it lands, and on the service record', async () => {
   const { supplementals, serviceRecord } = await import('../js/voyage.js');
   const { hailProgress } = await import('../js/radio.js');
@@ -177,6 +199,8 @@ test('the service record: a row for each room’s record, saying what is on it o
     ['Xenobiology lab', '', 'No creatures kept yet', 'xeno.html'],
     ['Long missions', '', 'No ships hailed yet', 'missions.html'],
     ['Hails to stars', '', 'No stars hailed yet', 'radio.html#hail'],
+    ['Distress calls', '', 'No calls answered yet', 'distress.html'],
+    ['The long way home', '', 'Not home yet', 'longway.html'],
   ]);
   const now = at('2026-11-19T12:00:00Z');
   const rows = serviceRecord({
@@ -192,7 +216,7 @@ test('the service record: a row for each room’s record, saying what is on it o
     'Best streak 7',
     'Two creatures in jars',
     'One ship hailed',
-    '',
+    '', '', '',
   ]);
   // Played but never right: a streak of nought is still a record.
   assert.equal(serviceRecord({ survey: { best: 0, seen: 3 } })[2].line, 'Best streak 0');

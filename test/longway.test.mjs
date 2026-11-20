@@ -118,8 +118,13 @@ test('the words, the debrief and the record', () => {
   assert.match(why, /^Cruising at warp 7\.8, .* the 75 years Voyager’s crew were told in “Caretaker”\. Flat out at warp 9\.975 it would be 10 years \d+ months?, if the fuel lasted; full tanks last about \d weeks at that\.$/);
   let saved = recordHome({ trip: { seed: 1 } }, t);
   assert.deepEqual([saved.trip, saved.homes, saved.best], [null, 1, t.home]);
-  saved = recordHome(saved, { home: t.home + 10 });
+  saved = recordHome(saved, { home: t.home + 10 }, new Date('2026-11-20T10:00:00Z'));
   assert.deepEqual([saved.homes, saved.best], [2, t.home]);
+  // Each trip home is kept with when it ended, for the captain's log: the latest 50.
+  assert.deepEqual(saved.arrivals.map(a => [a.years, a.nebula, a.world]), [[t.home, t.stops.nebula, t.stops.world], [t.home + 10, 0, 0]]);
+  assert.equal(saved.arrivals[1].at, '2026-11-20T10:00:00.000Z');
+  for (let k = 0; k < 60; k++) saved = recordHome(saved, { home: 80 + k });
+  assert.deepEqual([saved.homes, saved.arrivals.length, saved.arrivals.at(-1).years], [62, 50, 139]);
   // A trip under way comes back from the record; anything else doesn't.
   const u = newTrip(9); step(u, { warp: 8 });
   assert.deepEqual(readTrip(JSON.parse(JSON.stringify({ trip: u }))), u);

@@ -115,11 +115,15 @@ export function debrief(trip) {
   ];
 }
 
-// The record kept under engage.longway.v1: { trip (the one under way, or null), best (years), homes }.
-export function recordHome(saved, trip) {
+// The record kept under engage.longway.v1: { trip (the one under way, or null), best (years), homes, arrivals }, where
+// arrivals are the latest 50 trips home, newest last: { at (ISO time), years, nebula, world }, for the captain's log.
+export const ARRIVALS_KEPT = 50;
+export function recordHome(saved, trip, now = new Date()) {
   const was = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
   const best = Number.isFinite(was.best) && was.best > 0 ? Math.min(was.best, trip.home) : trip.home;
-  return { ...was, trip: null, best, homes: (Number.isInteger(was.homes) && was.homes > 0 ? was.homes : 0) + 1 };
+  const arrivals = [...(Array.isArray(was.arrivals) ? was.arrivals.filter(a => a && typeof a === 'object') : []),
+    { at: now.toISOString(), years: trip.home, nebula: trip.stops?.nebula | 0, world: trip.stops?.world | 0 }].slice(-ARRIVALS_KEPT);
+  return { ...was, trip: null, best, homes: (Number.isInteger(was.homes) && was.homes > 0 ? was.homes : 0) + 1, arrivals };
 }
 // A trip read back from the record, or null for anything that isn't one.
 export function readTrip(saved) {
