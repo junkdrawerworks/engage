@@ -194,7 +194,7 @@ console.log(`tonight.html: ${(tonightOut.length / 1024 / 1024).toFixed(2)} MB`);
 
 // The xenobiology lab, as its own single file. Links to the bridge and the survey go to the live site.
 const xenoHtml = await read('xeno.html');
-const xenoJs = await bundle(['audio', 'physics', 'moons', 'classes', 'planet-art', 'xeno-gen', 'xeno-art', 'species', 'share', 'store', 'prefs', 'room', 'onscreen', 'xeno'], liveBridge('xeno'));
+const xenoJs = await bundle(['audio', 'physics', 'moons', 'classes', 'ephemeris', 'astro', 'worlds', 'planet-art', 'xeno-gen', 'xeno-art', 'species', 'share', 'store', 'prefs', 'room', 'onscreen', 'xeno'], liveBridge('xeno'));
 const xenoOut = `<title>Xenobiology lab</title>
 <meta name="theme-color" content="#05070d">
 <style>

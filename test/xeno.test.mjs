@@ -601,3 +601,46 @@ test('a kept tribble multiplies every twelve hours to Spock’s 1,771,561 after 
   assert.equal(tribbles(new Date(kept).toISOString(), kept - 5 * h).n, 1);
   assert.equal(tribbles('not a date', kept).n, 1);
 });
+
+// ---------- A planet placed in the system view ----------
+import { placedKey, placedWorld, placed as placedReading, warmedTo, SIZES as PLACE_SIZES } from '../js/worlds.js';
+import { supplementals } from '../js/voyage.js';
+
+test('a placed planet grows from its own size, warmth and starlight, and its key reads back', () => {
+  const proxima = { star: 'Proxima Centauri', title: 'Proxima Centauri', temp: 3042, lum: 0.00155, ly: 4.2465 };
+  const key = placedKey({ ...proxima, au: 0.04848, size: 'earth' });
+  assert.equal(key, 'placed:Proxima Centauri|Proxima Centauri|0.0485|earth|3042|0.00155|4.25');
+  const { world, cls } = placedWorld(key);
+  // The file and the warmth are the system view's own reading of the same planet.
+  const r = placedReading(1, 0.0485, { lum: 0.00155, temp: 3042, radius: 0.15 });
+  assert.equal(cls.id, r.file.id);
+  assert.equal(world.teq, Math.round(r.warmed));
+  assert.equal(world.sun, 'red');
+  const c = growFor(key, 7);
+  assert.equal(c.classId, cls.id);
+  assert.equal(c.env.width, 1);
+  assert.equal(c.env.mass, 1);
+  assert.equal(c.env.star, 'red');
+  if (c.env.habitat !== 'under-ice') assert.equal(c.env.temp, world.teq);
+  assert.match(c.notes[0].text, /^Your planet at Proxima Centauri is Earth’s size, as you picked it/);
+  assert.match(c.notes.at(-1).text, /^Nothing yet: you placed it, 0\.049 AU from Proxima Centauri/);
+  // Same key and number, same creature; another orbit is another planet, and another creature.
+  assert.deepEqual(growFor(key, 7).name, c.name);
+  const further = placedKey({ ...proxima, au: 0.06, size: 'earth' });
+  assert.notDeepEqual(growFor(further, 7).name, c.name);
+  // Every size grows round a cool star, the Sun and a hot one, close in and far out.
+  for (const s of PLACE_SIZES) for (const [temp, lum] of [[3042, 0.00155], [5772, 1], [9602, 40.1]]) for (const au of [0.02, 0.3, 1, 5, 40]) {
+    const k = placedKey({ star: 'X', title: 'X', au, size: s.id, temp, lum, ly: 10 });
+    assert.ok(grows(placedWorld(k).world), k);
+    for (const seed of [1, 2, 3]) growFor(k, seed);
+    assert.equal(placedWorld(k).world.teq, Math.round(warmedTo(lum, Number(k.split('|')[2]))));
+  }
+  // A faint star's luminosity is written out in full: a hyphen and digits would read as a specimen number.
+  assert.doesNotMatch(placedKey({ star: 'X', au: 0.01, size: 'moon', temp: 2500, lum: 1.5e-7, ly: 12 }), /-/);
+  // A key that's been tampered with, or cut off, names nothing.
+  for (const bad of ['placed:Vega|Vega|1|earth|9602|40', 'placed:Vega|Vega|0|earth|9602|40.1|25', 'placed:Vega|Vega|1|planet|9602|40.1|25',
+    'placed:<b>|Vega|1|earth|9602|40.1|25', 'placed:Vega|Vega|1|earth|200|40.1|25', 'placed:Vega|Vega|1|earth|9602|40.1|25|x']) assert.equal(placedWorld(bad), null, bad);
+  // A jar of one has its own line in the captain's log.
+  const lines = supplementals({ xeno: { jars: [{ world: key, seed: 7, at: '2026-11-20T10:00:00Z' }] } }, Date.parse('2026-11-21T00:00:00Z'));
+  assert.equal(lines.find(l => l.room === 'xeno')?.text, 'Supplemental: kept a creature grown for the Earth-sized planet placed 0.049 AU from Proxima Centauri in a jar.');
+});

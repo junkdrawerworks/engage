@@ -1,7 +1,8 @@
 // The xenobiology lab's rules: from a planet class and a seed, the conditions where a creature lives there, the body
 // those conditions would push it toward, and the field notes that explain why. Pure, so test/xeno.test.mjs can run it.
 // The art is in js/xeno-art.js; this only decides what to draw.
-import { byId, label, grows, worldByName } from './classes.js';
+import { byId, label, grows } from './classes.js';
+import { worldFor } from './worlds.js';
 import { massFor, widthFor } from './physics.js';
 
 // Where life could live on each kind of world, and what the air is like there.
@@ -157,7 +158,7 @@ export function rarityFor(c, census = CENSUS) {
 export function oddsFor(c) {
   const line = c.body.plan === 'plant' ? ODDS[c.odds].replace('animals like it', 'plants like it') : ODDS[c.odds];
   if (!c.world || !c.cls.candidate) return line;
-  return line.replace('. ', `. That is if ${c.world.name} is the kind of place its file hopes for, which nobody knows yet. `);
+  return line.replace('. ', `. That is if ${c.world.inText || c.world.name} is the kind of place its file hopes for, which nobody knows yet. `);
 }
 
 export const STARS = {
@@ -225,7 +226,7 @@ export function grow(classId, seed) {
 // where on it life could be and how thick the air is, since nobody has measured those. growFor('Proxima b', 7) is
 // always the same animal too.
 export function growFor(world, seed) {
-  const found = worldByName(typeof world === 'string' ? world : world?.name);
+  const found = worldFor(typeof world === 'string' ? world : world?.key || world?.name);
   if (!found || !grows(found.world)) throw new Error(`No readings to grow for: ${typeof world === 'string' ? world : world?.name}`);
   return make(found.cls.id, seed, found.world);
 }
@@ -235,7 +236,7 @@ function make(classId, seed, world, rec) {
   const cls = byId.get(classId);
   const W = WORLDS[classId];
   if (!cls || !W) throw new Error(`No such class: ${classId}`);
-  const roll = dice(rng(hash(world ? `${classId}/${world.name}` : classId) ^ seed), rec, '');
+  const roll = dice(rng(hash(world ? `${classId}/${world.key || world.name}` : classId) ^ seed), rec, '');
   const t = cls.typical;
 
   // The world: width and mass rise together, so the gravity stays near what that kind of planet really has.
@@ -262,7 +263,7 @@ function make(classId, seed, world, rec) {
   if (world?.places) env.place = world.places[Math.floor(k * world.places.length)];
 
   const body = shape(env, classId, roll);
-  const name = names(env, body, classId, dice(rng(hash(`name/${world ? `${classId}/${world.name}` : classId}`) ^ seed), rec, 'name.'));
+  const name = names(env, body, classId, dice(rng(hash(`name/${world ? `${classId}/${world.key || world.name}` : classId}`) ^ seed), rec, 'name.'));
   const c = { cls, classId, seed, env, body, name, notes: notes(env, body, cls), odds: W.odds };
   if (world) { c.world = world; c.notes = worldNotes(c); }
   return c;
@@ -276,18 +277,20 @@ const fileOf = cls => (cls.letter ? label(cls) : cls.name.toLowerCase());
 function worldNotes(c) {
   const { world: w, env, cls } = c;
   const gs = gText(env.g);
+  const nm = w.inText || w.name; // in the middle of a sentence: "your planet at Vega"
   return [...c.notes.map(n => {
     if (n.k === 'gravity') {
+      if (w.placed) return { ...n, text: `${w.name} is ${w.placed.said}, as you picked it, which makes its pull ${gs}. ${n.text}` };
       return w.width
         ? { ...n, text: `${w.name} is ${fig(w.width)} times as wide as Earth and ${fig(w.mass)} times as heavy, which makes its pull ${gs}. ${n.text}` }
         : { ...n, label: `${n.label}, if it is rock`, text: `${w.name} is ${w.least ? 'at least ' : ''}${fig(w.mass)} times as heavy as Earth, and nobody has measured its width. If it is rock it is about ${fig(env.width)} times as wide, which makes its pull about ${gs}. ${n.text}` };
     }
     if (n.k === 'air' && /^(The air|There is no air)/.test(n.text)) {
-      return { ...n, text: `How much air ${w.name} has isn’t known, so the lab used the ${fileOf(cls)} file’s. ${n.text}` };
+      return { ...n, text: `How much air ${nm} has isn’t known, so the lab used the ${fileOf(cls)} file’s. ${n.text}` };
     }
     if (n.k === 'heat') {
-      const lead = env.habitat === 'under-ice' ? `${w.of ? 'The Sun’s' : 'Its star’s'} light alone would warm ${w.name} to ${tempText(w.teq)}, so the lab froze its sea over.`
-        : `The lab took the temperature its star’s light alone would give ${w.name}${env.pressure >= 0.1 ? '; air would add to that, as Earth’s adds more than 30 degrees' : ''}.`;
+      const lead = env.habitat === 'under-ice' ? `${w.of ? 'The Sun’s' : 'Its star’s'} light alone would warm ${nm} to ${tempText(w.teq)}, so the lab froze its sea over.`
+        : `The lab took the temperature its star’s light alone would give ${nm}${env.pressure >= 0.1 ? '; air would add to that, as Earth’s adds more than 30 degrees' : ''}.`;
       // A moon's sea is kept warm mostly by its planet's tides, not by a core of its own.
       const text = w.of ? n.text.replace('heat from the planet’s core', `heat from inside it, where ${w.of}’s tides knead it`) : n.text;
       return { ...n, text: `${lead} ${text}` };
@@ -665,7 +668,7 @@ export const readingsOf = c => ({ g: c.env.g, pressure: c.env.pressure, star: c.
 // `from` is a creature the lab grows ({ id, seed } or { world, seed }); `readings` is { g, pressure, star, temp }.
 export function bench(from, readings) {
   const rec = {};
-  const found = from.world ? worldByName(from.world) : null;
+  const found = from.world ? worldFor(from.world) : null;
   if (from.world && (!found || !grows(found.world))) throw new Error(`No readings to grow for: ${from.world}`);
   const start = make(found ? found.cls.id : from.id, from.seed, found?.world || null, rec);
   const { classId, seed, cls } = start, W = WORLDS[classId];
@@ -679,7 +682,7 @@ export function bench(from, readings) {
   const env = { width, mass: g === start.env.g ? start.env.mass : g * width * width, g, habitat, temp, pressure, density, star, dark, chem, place: start.env.place, gas: !!W.gas };
   const body = shape(env, classId, own);
   const name = names(env, body, classId, key => own(`name.${key}`));
-  return { cls, classId, seed, env, body, name, notes: notes(env, body, cls), odds: W.odds, bench: { from: start.world ? { world: start.world.name, seed } : { id: classId, seed }, start, readings: { g, pressure, star, temp } } };
+  return { cls, classId, seed, env, body, name, notes: notes(env, body, cls), odds: W.odds, bench: { from: start.world ? { world: start.world.key || start.world.name, seed } : { id: classId, seed }, start, readings: { g, pressure, star, temp } } };
 }
 
 // Which of the creature's parts differ between two bodies, for the bench to point at: what the art can light up.
@@ -724,7 +727,7 @@ export function fileFor({ g, pressure, star, temp }, habitat, own) {
 export function neighbours(c) {
   const { env, classId, seed, body: main } = c;
   if (main.plan === 'plant' || main.plan === 'crawler') return null;
-  const key = c.world ? `${classId}/${c.world.name}` : classId;
+  const key = c.world ? `${classId}/${c.world.key || c.world.name}` : classId;
   // Its name is grown as any creature's is, with a last word for what it does: a grazer, a stalker.
   const grown = (role, tune, words) => {
     const r = rng(hash(`${role}/${key}`) ^ seed), roll = () => r();
@@ -864,5 +867,5 @@ export function compare(a, b) {
 }
 
 export function summary(c) {
-  return `${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.world ? c.world.name : label(c.cls)}`;
+  return `${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.world ? c.world.inText || c.world.name : label(c.cls)}`;
 }

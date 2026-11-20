@@ -11,7 +11,7 @@ import { worldByName, grows, label } from './classes.js';
 import { paintSoon, Globe } from './planet-art.js';
 import {
   SYSTEMS, systemFor, planetByName, widthOf, standable, temperateZone, orbitAngle, readout, placed, SIZES, artFor,
-  auText, yearText, starDegrees, SUN_DEGREES,
+  auText, yearText, starDegrees, SUN_DEGREES, placedKey,
 } from './worlds.js';
 import { sound } from './audio.js';
 import { setUpRoom } from './room.js';
@@ -346,7 +346,8 @@ function renderPlace() {
   $('place-readings').innerHTML = r.rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
   $('place-filed').textContent = r.filed;
   $('place-links').innerHTML = `<a class="to-file" href="survey.html#${encodeURIComponent(r.file.id)}">Read the ${esc(label(r.file))} file <span aria-hidden="true">→</span></a>`
-    + `<a class="to-file" href="xeno.html#${encodeURIComponent(r.file.id)}">Grow a creature for it <span aria-hidden="true">→</span></a>`;
+    // The lab grows it from its own size, warmth and starlight (placedKey in js/worlds.js), not its file's usual.
+    + `<a class="to-file" href="xeno.html#world=${encodeURIComponent(placedKey({ star: view.name, title: view.title, au, size: size.id, temp: view.star.temp, lum: view.star.lum, ly: view.i === 0 ? 0 : dist() }))}">Grow a creature for it <span aria-hidden="true">→</span></a>`;
 }
 
 // ---------- Hands on ----------

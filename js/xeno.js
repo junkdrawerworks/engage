@@ -1,5 +1,6 @@
 // The xenobiology lab: pick a planet class, grow a creature for it, read how the world shaped it, and keep the ones you like.
-import { CLASSES, byId, label, grows, worldByName } from './classes.js';
+import { CLASSES, byId, label, grows } from './classes.js';
+import { worldFor, auText } from './worlds.js';
 import { Globe, paint } from './planet-art.js';
 import { grow, growFor, oddsFor, rarityFor, RECORDS, SEEDS as LAB_SEEDS, sizeText, gText, tempText, STARS, bench, BENCH, STEPS, benchPos, benchValue, four, readingsOf, changedParts, fileFor, compare, neighbours } from './xeno-gen.js';
 import { drawScene, drawCard, CARD_W, CARD_H } from './xeno-art.js';
@@ -35,8 +36,9 @@ let draws = 0;                   // how many times it has been drawn, for tests
 function load() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { /* start again */ }
-  // A jar holds a class and a specimen number, or a real planet's name and a number: { id, seed } or { world, seed }.
-  const known = j => (typeof j.world === 'string' ? grows(worldByName(j.world)?.world) : byId.has(j.id));
+  // A jar holds a class and a specimen number, or a real planet's name (or a placed planet's key, see placedKey in
+  // js/worlds.js) and a number: { id, seed } or { world, seed }.
+  const known = j => (typeof j.world === 'string' ? grows(worldFor(j.world)?.world) : byId.has(j.id));
   // A jar may carry a name of yours: a short line of text, or none.
   const named = j => (typeof j.name === 'string' && j.name.trim() ? { ...j, name: j.name.trim().slice(0, 24) } : (({ name, ...rest }) => rest)(j));
   const jars = Array.isArray(s.jars) ? s.jars.filter(j => j && Number.isInteger(j.seed) && known(j)).map(named) : [];
@@ -63,9 +65,11 @@ function show(id, seed = newSeed(), animate = true) { put(grow(id, seed), animat
 function showWorld(name, seed = newSeed(), animate = true) { put(growFor(name, seed), animate); }
 
 // What names a creature: in its link (after the #), and in its jar.
-const linkOf = c => (c.world ? `world=${encodeURIComponent(c.world.name)}-${c.seed}` : `${encodeURIComponent(c.classId)}-${c.seed}`);
-const jarOf = c => (c.world ? { world: c.world.name, seed: c.seed } : { id: c.classId, seed: c.seed });
-const inJar = (j, c) => j.seed === c.seed && (c.world ? j.world === c.world.name : !j.world && j.id === c.classId);
+// (A placed planet goes by its key, which says where it is; its name is only "Your planet at Vega".)
+const keyOf = w => w.key || w.name;
+const linkOf = c => (c.world ? `world=${encodeURIComponent(keyOf(c.world))}-${c.seed}` : `${encodeURIComponent(c.classId)}-${c.seed}`);
+const jarOf = c => (c.world ? { world: keyOf(c.world), seed: c.seed } : { id: c.classId, seed: c.seed });
+const inJar = (j, c) => j.seed === c.seed && (c.world ? j.world === keyOf(c.world) : !j.world && j.id === c.classId);
 const growJar = j => (j.world ? growFor(j.world, j.seed) : grow(j.id, j.seed));
 const lyText = ly => (ly >= 100 ? Math.round(ly).toLocaleString('en-US') : String(ly));
 
@@ -96,7 +100,7 @@ function cardHtml(c) {
   // How rare it is among its class's 9,999 specimens, when it is; and its record, if it holds one.
   const rarity = rarityFor(c);
   return `
-    <p class="eyebrow">${c.world ? `Grown for ${esc(c.world.name)}, ${esc(lyText(c.world.ly))} light years away` : `Specimen grown for ${esc(label(c.cls))}${c.cls.letter ? ` · ${esc(c.cls.name)}` : ''}`}</p>
+    <p class="eyebrow">${c.world ? `Grown for ${esc(grownFor(c.world))}` : `Specimen grown for ${esc(label(c.cls))}${c.cls.letter ? ` · ${esc(c.cls.name)}` : ''}`}</p>
     ${nameOf(c) ? `<p class="own-name">${esc(nameOf(c))}</p>` : ''}
     <h2>${esc(c.name.common)}</h2>
     <p class="latin">${esc(c.name.genus)} ${esc(c.name.species)}</p>
@@ -108,8 +112,14 @@ function cardHtml(c) {
     ${c.kin ? `<ul class="notes kin">${[['What it eats', c.kin.eats], ['What eats it', c.kin.eaten]].map(([head, n]) => `<li><h3>${head} · ${esc(n.name.common)}</h3><p>${esc(n.note)}</p></li>`).join('')}</ul>` : ''}
     ${real.length ? `<p class="for-real">Or grow one for ${c.world ? 'another' : 'a'} real planet on this file: ${real.map(w => `<a href="#world=${encodeURIComponent(w.name)}">${esc(w.name)}</a>`).join(', ')}.</p>` : ''}
     <a class="to-file" href="${BRIDGE}survey.html#${esc(c.classId)}"${AWAY}>Read the ${esc(label(c.cls))} survey file <span aria-hidden="true">→</span></a>
-    ${c.world?.star ? `<a class="to-file" href="${BRIDGE}?course=${encodeURIComponent(c.world.star)}"${AWAY}>Set course for its star <span aria-hidden="true">→</span></a>` : ''}
+    ${c.world?.placed ? `<a class="to-file" href="${BRIDGE}system.html#star=${encodeURIComponent(c.world.star)}&amp;place"${AWAY}>Place another round ${esc(c.world.placed.title)} <span aria-hidden="true">→</span></a>` : ''}
+    ${c.world?.star && c.world.ly > 0 ? `<a class="to-file" href="${BRIDGE}?course=${encodeURIComponent(c.world.star)}"${AWAY}>Set course for its star <span aria-hidden="true">→</span></a>` : ''}
   `;
+}
+// "Proxima b, 4.2 light years away"; "the Earth-sized planet you placed 1 AU from Vega, 25 light years away".
+function grownFor(w) {
+  const far = w.ly > 0 ? `, ${lyText(w.ly)} light years away` : w.of ? `, a moon of ${w.of}` : '';
+  return w.placed ? `the ${w.placed.sized} you placed ${auText(w.placed.au)} from ${w.placed.title}${far}` : `${w.name}${far}`;
 }
 
 // ---------- The bench ----------
@@ -480,8 +490,8 @@ function creatureFrom(text) {
   if (!m) return null;
   const seed = Number(m[2]) || newSeed();
   if (/^world=/i.test(m[1])) {
-    const w = worldByName(m[1].slice(6))?.world;
-    return grows(w) ? { world: w.name, seed } : null;
+    const w = worldFor(m[1].slice(6))?.world;
+    return grows(w) ? { world: keyOf(w), seed } : null;
   }
   const cls = CLASSES.find(c => c.id.toLowerCase() === m[1].toLowerCase());
   return cls ? { id: cls.id, seed } : null;
@@ -530,7 +540,7 @@ renderTribble();
 renderRecords();
 // A record's link grows it in the tank, which may be a long way up the page.
 $('records').addEventListener('click', e => { if (e.target.closest('a')) $('tank').scrollIntoView({ block: 'center', behavior: still.matches ? 'auto' : 'smooth' }); });
-$('again').addEventListener('click', () => (current.world ? showWorld(current.world.name) : show(current.classId)));
+$('again').addEventListener('click', () => (current.world ? showWorld(keyOf(current.world)) : show(current.classId)));
 $('keep').addEventListener('click', toggleKeep);
 // A link that grows the same creature again: its class and its number, as the address bar has them.
 $('send').addEventListener('click', e => {
@@ -538,7 +548,7 @@ $('send').addEventListener('click', e => {
   if (!c) return;
   share(e.currentTarget, {
     title: `${c.name.common}, from Engage’s xenobiology lab`,
-    text: `Meet the ${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.world ? c.world.name : c.cls.letter ? label(c.cls) : c.cls.inText || label(c.cls)} in Engage’s xenobiology lab.`,
+    text: `Meet the ${c.name.common} (${c.name.genus} ${c.name.species}), grown for ${c.world ? (c.world.placed ? grownFor(c.world).replace(/, [^,]+ light years away$/, '') : c.world.name) : c.cls.letter ? label(c.cls) : c.cls.inText || label(c.cls)} in Engage’s xenobiology lab.`,
     url: `${LIVE}xeno.html#${linkOf(c)}`,
   });
 });
@@ -615,7 +625,8 @@ async function savePicture(button) {
     await Promise.all(['600 64px "Chakra Petch"', 'italic 34px "IBM Plex Sans"', '28px "IBM Plex Sans"'].map(f => document.fonts.load(f))).catch(() => {});
     const cv = document.createElement('canvas');
     cv.width = CARD_W; cv.height = CARD_H;
-    const where = c.world ? `${c.world.name}, ${lyText(c.world.ly)} light years away` : `${label(c.cls)}${c.cls.letter ? ` · ${c.cls.name}` : ''}`;
+    const far = c.world?.ly > 0 ? `, ${lyText(c.world.ly)} light years away` : c.world?.of ? `, a moon of ${c.world.of}` : '';
+    const where = c.world ? `${c.world.name}${c.world.placed ? `, ${auText(c.world.placed.au)} out` : ''}${far}` : `${label(c.cls)}${c.cls.letter ? ` · ${c.cls.name}` : ''}`;
     drawCard(cv.getContext('2d'), c, { own: nameOf(c), grownFor: `${where} · Specimen ${String(c.seed).padStart(4, '0')}` });
     const blob = await new Promise(done => cv.toBlob(done, 'image/png'));
     if (!blob) return;
@@ -719,7 +730,7 @@ window.addEventListener('hashchange', () => {
   const h = fromHash();
   if (!h && location.hash.length > 1) $('link-note').hidden = false; // a link that names nothing the lab knows: say so, and leave the tank as it is
   if (h?.bench || h?.pair) open(h);
-  else if (h && (mode === 'bench' || !current || h.seed !== current.seed || (h.world ? h.world !== current.world?.name : !!current.world || h.id !== current.classId))) open(h);
+  else if (h && (mode === 'bench' || !current || h.seed !== current.seed || (h.world ? h.world !== (current.world && keyOf(current.world)) : !!current.world || h.id !== current.classId))) open(h);
 });
 window.addEventListener('resize', () => { if (still.matches) frame(performance.now()); });
 still.addEventListener?.('change', () => frame(performance.now()));

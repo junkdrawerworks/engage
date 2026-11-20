@@ -12,6 +12,7 @@ import { hailProgress, spanSaid } from './radio.js';
 import { yearsSaid } from './longway.js';
 import { tidyYard } from './shipyard-sim.js';
 import { fullName } from './myship.js';
+import { auText, placedWorld } from './worlds.js';
 
 // The rooms that keep a record of what was done in them, and where each keeps it.
 export const RECORDS = { maru: 'engage.maru.v1', contact: 'engage.contact.v1', xeno: 'engage.xeno.v1', survey: 'engage.survey.v1', missions: 'engage.missions.v1', radio: 'engage.radio.v1',
@@ -79,9 +80,11 @@ export function supplementals({ maru, contact, xeno, survey, missions, radio, di
     add(r.at, 'contact', r.second ? 'second' : again ? 'again' : 'met', `${r.second ? `the ${people} hailed again` : `answered a hail from the ${people}`}. ${title}${notebook}.`, 'contact.html');
   }
   for (const j of list(obj(xeno).jars)) {
-    const world = text(j.world, 40), cls = classById.get(j.id);
+    // (A planet placed in the system view is kept by its key, and named by where it was placed.)
+    const placed = placedWorld(j.world)?.world;
+    const world = placed ? placed.key : text(j.world, 40), cls = classById.get(j.id);
     if ((!world && !cls) || !Number.isInteger(j.seed)) continue;
-    add(j.at, 'xeno', 'jar', world ? `kept a creature grown for ${world} in a jar.` : `kept a creature from a ${classLabel(cls)} world in a jar.`,
+    add(j.at, 'xeno', 'jar', placed ? `kept a creature grown for the ${placed.placed.sized} placed ${auText(placed.placed.au)} from ${placed.placed.title} in a jar.` : world ? `kept a creature grown for ${world} in a jar.` : `kept a creature from a ${classLabel(cls)} world in a jar.`,
       `xeno.html#${world ? `world=${encodeURIComponent(world)}` : encodeURIComponent(j.id)}-${j.seed}`);
   }
   const s = obj(survey);

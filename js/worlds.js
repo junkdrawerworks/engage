@@ -394,3 +394,43 @@ export function filedLine(cls) {
   const what = cls.short.toLowerCase();
   return cls.letter ? `It would go on the ${label(cls)} file: ${what}.` : `It would be ${cls.inText}: ${what}.`;
 }
+
+// ---------- A placed planet in the lab ----------
+
+// The lab grows a creature for a placed planet from its own readings, as it does for a real one: the size picked,
+// the warmth its star's light alone would give it at that orbit, and its star's colour. The planet travels as a key
+// the lab can read back with nothing else to hand (it has no star catalogue): "placed:" and then, split by "|", the
+// star's catalogue name, the name it goes by, the orbit in AU, the size's id, the star's surface temperature in K,
+// its luminosity in Suns and its distance in light years. Rounded as the system view shows them, never with an
+// exponent (a hyphen and digits at the end would read as a specimen number in the lab's links).
+const plainNum = (x, sig = 3) => { const s = String(Number(x.toPrecision(sig))); return /e/.test(s) ? x.toFixed(12).replace(/\.?0+$/, '') : s; };
+export function placedKey({ star, title = star, au, size, temp, lum, ly }) {
+  return `placed:${star}|${title}|${plainNum(au)}|${size}|${Math.round(temp)}|${plainNum(lum)}|${plainNum(ly)}`;
+}
+// The lab's colours of starlight, from the star's surface temperature: red below about 3,900 K (an M dwarf), orange
+// to about 5,300 K (a K star), and yellow for anything hotter, the Sun's kind and up (the lab has no white or blue).
+export const sunOf = temp => (temp < 3900 ? 'red' : temp < 5300 ? 'orange' : 'yellow');
+// The masses that go with each size: the Moon's, Mars's, Neptune's and Jupiter's from NASA's planetary fact sheet,
+// Earth's own, and for the super-Earth what rock 1.4 times Earth's width would weigh (massFor in js/physics.js).
+const SIZE_MASS = { moon: 0.0123, mars: 0.107, earth: 1, super: 3.34, neptune: 17.1, jupiter: 317.8 };
+const SIZE_SAID = { moon: 'the Moon’s size', mars: 'Mars’s size', earth: 'Earth’s size', super: 'a super-Earth’s size, 1.4 times Earth’s width', neptune: 'Neptune’s size', jupiter: 'Jupiter’s size' };
+const okName = s => typeof s === 'string' && s.length > 0 && s.length <= 40 && !/[<>|]/.test(s);
+// A placed planet's key read back: { world, cls } the way classes.js's worldByName gives a real one, or null.
+export function placedWorld(key) {
+  const m = /^placed:(.*)$/i.exec(String(key ?? ''));
+  if (!m) return null;
+  const [star, title, auT, size, tempT, lumT, lyT, ...more] = m[1].split('|');
+  const au = Number(auT), temp = Number(tempT), lum = Number(lumT), ly = Number(lyT);
+  const s = SIZES.find(x => x.id === size);
+  if (more.length || !okName(star) || !okName(title) || !s || !(au > 0 && au <= 1e5) || !(temp >= 1000 && temp <= 60000) || !(lum > 0 && lum <= 1e7) || !(ly >= 0 && ly <= 1e6)) return null;
+  const cls = fileOf(s.width, au, lum, temp);
+  const teq = Math.round(warmedTo(lum, au));
+  const world = {
+    name: `Your planet at ${title}`, inText: `your planet at ${title}`, key: placedKey({ star, title, au, size, temp, lum, ly }), star, ly, width: s.width, mass: SIZE_MASS[size], teq, sun: sunOf(temp),
+    placed: { title, au, size, sized: s.name === 'Super-Earth' ? 'super-Earth' : `${s.name}-sized planet`, said: SIZE_SAID[size] },
+    note: `Nothing yet: you placed it, ${auText(au)} from ${title}, in the system view. By its size and the light it gets it would go on the ${cls.letter ? `${label(cls)} file` : `survey’s ${cls.name.toLowerCase()} file`}; how much air it has, and whether there is water, nobody could know.`,
+  };
+  return { world, cls };
+}
+// A world the lab can grow for, by its name or key: one of the survey's real worlds, or a placed planet.
+export const worldFor = name => fileWorld(name) || placedWorld(name);

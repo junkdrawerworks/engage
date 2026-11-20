@@ -6393,6 +6393,23 @@ await page.emulateMedia({ reducedMotion: null });
   assert.equal(await p.locator('#place-links a').first().getAttribute('href'), 'survey.html#P');
   // The slider's lit track ends at its thumb, as the warp slider's does, not at the stylesheet's default.
   assert.equal(await p.locator('#place-au').evaluate(el => el.style.getPropertyValue('--fill')), `${Number(await p.locator('#place-au').inputValue()) / 10}%`);
+  // Its creature is grown from its own readings: the lab says where it was placed, keeps it in a jar like any other,
+  // and the jar is still there on the next visit.
+  await p.evaluate(() => systemView.place(1, 'earth'));
+  const grow = await p.locator('#place-links a', { hasText: 'Grow a creature' }).getAttribute('href');
+  assert.equal(grow, `xeno.html#world=${encodeURIComponent('placed:Sol|Sol|1|earth|5772|1|0')}`);
+  await p.goto(base + grow);
+  await p.waitForFunction(() => document.querySelector('#specimen h2')?.textContent);
+  assert.equal(await p.locator('#specimen .eyebrow').innerText(), 'GROWN FOR THE EARTH-SIZED PLANET YOU PLACED 1 AU FROM SOL');
+  assert.match(await p.locator('#tank-tag').innerText(), /^Your planet at Sol · Specimen \d{4}$/i);
+  assert.match(await p.locator('#specimen').innerText(), /Your planet at Sol is Earth’s size, as you picked it, which makes its pull 1 g/);
+  assert.match(await p.locator('#specimen').innerText(), /it would go on the Class M file/);
+  assert.match(p.url(), /#world=placed%3ASol%7CSol%7C1%7Cearth%7C5772%7C1%7C0-\d+$/);
+  const placedName = await p.locator('#specimen h2').innerText();
+  await p.tap('#keep');
+  await p.reload();
+  await p.waitForFunction(() => document.querySelector('#jars .jar'));
+  assert.match(await p.locator('#jars .jar').first().innerText(), new RegExp(`${placedName}[\\s\\S]*Your planet at Sol`));
   // A star with no known planets still takes a placed one, from the log's link.
   await p.goto(base + 'system.html#star=Vega&place');
   await p.waitForFunction(() => window.systemView?.ready && systemView.star === 'Vega');
