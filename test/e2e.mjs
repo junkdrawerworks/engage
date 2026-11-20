@@ -117,6 +117,17 @@ assert.ok(await page.locator('#engage').isDisabled(), 'engage works with no dest
   const want = LISTED.map(r => [r.href, r.name, r.line]);
   assert.deepEqual(await listed('#intro'), want, 'the welcome card does not list the rooms');
   assert.equal(await p.locator('#intro .intro-card > p:not([class])').count(), 2, 'the welcome card still has its long paragraph about the buttons');
+  // On a phone on its side the fourteen rooms are listed by picture and name alone, so the card is about a screen
+  // tall and Take the helm is in reach; held upright, each keeps its line.
+  assert.ok(await p.locator('#intro .room-text > span').first().isVisible(), 'a phone held upright lost the rooms’ lines');
+  for (const [w, h] of [[844, 390], [667, 375]]) {
+    await p.setViewportSize({ width: w, height: h });
+    assert.equal(await p.locator('#intro .room-text > span').first().isVisible(), false, `a phone on its side (${w} × ${h}) still shows each room’s line`);
+    const tall = await p.locator('#intro .intro-card').evaluate(c => c.getBoundingClientRect().height / innerHeight);
+    assert.ok(tall < 1.25, `on its side (${w} × ${h}) the welcome card is ${tall.toFixed(2)} screens tall`);
+    assert.ok(await p.locator('#intro .rooms a').evaluateAll(as => as.every(a => a.getBoundingClientRect().height >= 44)), 'a room’s link is too small to tap');
+  }
+  await p.setViewportSize({ width: 390, height: 844 });
   await p.tap('#intro-go');
   // Every round button, tapped 21 px left, right, above and below its middle, is that button.
   const misses = await p.evaluate(() => [...document.querySelectorAll('.hud-buttons .round')].flatMap(b => {
