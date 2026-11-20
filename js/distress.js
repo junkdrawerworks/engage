@@ -6,7 +6,7 @@ import { LY_PER_PC, roughLy } from './physics.js';
 import { SkyChart, unit } from './skychart.js';
 import {
   AIR, CLUE_ORDER, EYE_MAG, breathe, candidates, clean, clueText, colourOf, daySeed, debrief, earthMag, lockOn,
-  newCall, record, skyFromStar, standing, today,
+  begin, newCall, record, skyFromStar, standing, today,
 } from './distress-sim.js';
 import { sound } from './audio.js';
 import { setUpRoom } from './room.js';
@@ -137,6 +137,7 @@ function start(daily, from = list) {
   const day = today();
   const seed = daily ? daySeed(day) : (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   call = newCall(cat, from, seed, daily ? day : null);
+  if (daily) write(begin(read(), call, titleFor(cat, call.star))); // today's call counts from now, even if it is left
   pick = null;
   $('briefing').hidden = true;
   $('call').hidden = false;
@@ -191,7 +192,9 @@ function renderBriefing() {
   const done = (saved.calls || []).find(c => c.day === day);
   $('today').hidden = !!done;
   $('today-said').hidden = !done;
-  $('today-said').textContent = done ? 'Today’s call is answered. A new one comes in tomorrow; every officer gets the same call that day.' : '';
+  $('today-said').textContent = !done ? '' : done.left
+    ? 'Today’s call was lost: it was left partway. Answer a new call to practise; a new one comes in tomorrow, the same for every officer.'
+    : 'Today’s call is answered. A new one comes in tomorrow; every officer gets the same call that day.';
   $('another').className = done ? 'primary' : 'secondary';
 }
 

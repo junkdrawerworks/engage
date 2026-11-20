@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   AIR, CLUE_ORDER, EYE_MAG, OPEN, REACH_LY, breathe, candidates, clean, clueText, colourOf, daySeed, debrief, earthMag,
-  lockOn, lyForSunMag, newCall, record, skyFromStar, skyOf, standing, sunMagFrom, whyNot,
+  begin, lockOn, lyForSunMag, newCall, record, skyFromStar, skyOf, standing, sunMagFrom, whyNot,
 } from '../js/distress-sim.js';
 import { angleBetween, basis, dragged, projector } from '../js/skychart.js';
 import { LY_PER_PC } from '../js/physics.js';
@@ -127,6 +127,24 @@ test('the record counts every call and keeps the latest 50', () => {
   assert.equal(standing(saved, '2026-11-20'), 'Rescued 1 of 61 calls.');
   assert.equal(standing({}, '2026-11-20'), '');
   assert.equal(standing({ calls: 'nonsense' }, '2026-11-20'), '');
+});
+
+test('today’s call counts from the moment it is begun, and goes down as it really ended', () => {
+  const procyon = at('Procyon');
+  // Begun and left partway: on the record as lost, with the day, and answered.
+  const c = newCall(cat, [procyon], 1, '2026-11-19');
+  let saved = begin({}, c, 'Procyon', new Date('2026-11-19T10:00:00Z'));
+  assert.deepEqual([saved.answered, saved.rescued | 0, saved.calls[0].day, saved.calls[0].found, saved.calls[0].left], [1, 0, '2026-11-19', false, true]);
+  assert.equal(standing(saved, '2026-11-19'), 'Rescued 0 of 1 call. Today’s call: lost when it was left partway; they were at Procyon.');
+  // Begun again the same day (another tab), nothing changes.
+  assert.deepEqual(begin(saved, c, 'Procyon'), saved);
+  // Finished after all: the same call, now found, in the same place, and still one call answered.
+  lockOn(cat, c, procyon);
+  const done = record(saved, c, 'Procyon', new Date('2026-11-19T10:05:00Z'));
+  assert.deepEqual([done.answered, done.rescued, done.calls.length, done.calls[0].found, done.calls[0].left, done.calls[0].at], [1, 1, 1, true, undefined, '2026-11-19T10:00:00.000Z']);
+  // A call you choose yourself isn't begun: it goes down only when it ends.
+  const practice = newCall(cat, [procyon], 2);
+  assert.deepEqual(begin(done, practice, 'Procyon'), done);
 });
 
 test('their sky: our Sun where the clue says, and their own companions left out', () => {

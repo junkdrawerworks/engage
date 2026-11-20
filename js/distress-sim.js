@@ -186,17 +186,37 @@ export function debrief(cat, call) {
   return [head, sky];
 }
 
-// The record kept under engage.distress.v1: { answered, rescued, calls: [{ day, star, found, air, open, wrong, at }] },
+// The record kept under engage.distress.v1: { answered, rescued, calls: [{ day, star, found, air, open, wrong, at, left }] },
 // the counts over every call, the calls themselves newest last and only the latest 50. A day's call has that day;
 // the rest have none.
 export const KEEP = 50;
 const count = x => (Number.isInteger(x) && x > 0 ? x : 0);
+// A call that ends goes on the record. Today's call that was begun (see begin) is put down as it really ended, in
+// the place it was given when it began.
 export function record(saved, call, name, now = new Date()) {
   const was = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
   const calls = Array.isArray(was.calls) ? was.calls.filter(c => c && typeof c === 'object') : [];
   const found = call.over === 'found';
-  calls.push({ day: call.day, star: name, found, air: Math.round(call.air), open: call.open, wrong: call.wrong.length, at: now.toISOString() });
+  const k = call.day ? calls.findIndex(c => c.day === call.day && c.left) : -1;
+  const done = { day: call.day, star: name, found, air: Math.round(call.air), open: call.open, wrong: call.wrong.length, at: k >= 0 ? calls[k].at : now.toISOString() };
+  if (k >= 0) {
+    calls[k] = done;
+    return { ...was, rescued: count(was.rescued) + (found ? 1 : 0), calls: calls.slice(-KEEP) };
+  }
+  calls.push(done);
   return { ...was, answered: count(was.answered) + 1, rescued: count(was.rescued) + (found ? 1 : 0), calls: calls.slice(-KEEP) };
+}
+// Today's call counts from the moment it is begun: it goes on the record as lost, left partway, until it ends. Left
+// and come back to (after a wrong guess has shown which star it isn't), it can't be answered again with full air and
+// every clue hidden. Today's call already on the record is left as it is. The calls you choose yourself aren't begun
+// this way: they are practice, and go down only when they end.
+export function begin(saved, call, name, now = new Date()) {
+  const was = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+  if (!call.day) return was;
+  const calls = Array.isArray(was.calls) ? was.calls.filter(c => c && typeof c === 'object') : [];
+  if (calls.some(c => c.day === call.day)) return was;
+  calls.push({ day: call.day, star: name, found: false, air: 0, open: call.open, wrong: 0, at: now.toISOString(), left: true });
+  return { ...was, answered: count(was.answered) + 1, calls: calls.slice(-KEEP) };
 }
 // The briefing's line on the record: "Rescued 3 of 4 calls. Today’s call: found at Procyon with 42% of their air
 // left."
@@ -205,6 +225,6 @@ export function standing(saved, day) {
   const answered = count(saved?.answered);
   if (!answered) return '';
   const t = calls.find(c => c.day === day);
-  const todays = t ? ` Today’s call: ${t.found ? `found at ${t.star} with ${t.air}% of their air left` : `lost, at ${t.star}`}.` : '';
+  const todays = t ? ` Today’s call: ${t.found ? `found at ${t.star} with ${t.air}% of their air left` : t.left ? `lost when it was left partway; they were at ${t.star}` : `lost, at ${t.star}`}.` : '';
   return `Rescued ${count(saved.rescued)} of ${answered} call${answered === 1 ? '' : 's'}.${todays}`;
 }

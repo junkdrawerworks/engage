@@ -6593,6 +6593,28 @@ await page.emulateMedia({ reducedMotion: null });
   assert.deepEqual(await p.evaluate(() => { const k = JSON.parse(localStorage.getItem('engage.distress.v1')); return [k.answered, k.rescued, k.calls[1].day]; }), [2, 1, null]);
   await dc.close();
 }
+// Today's call counts from the moment it is begun: left partway (here, by reloading after a wrong lock), it is lost,
+// and Answer today's call doesn't come back with the same star, full air and every clue hidden.
+{
+  const dc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await dc.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await dc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base + 'distress.html');
+  await p.waitForFunction(() => window.distress?.ready);
+  await p.tap('#today');
+  await p.evaluate(() => distress.hold(true));
+  const star = await p.evaluate(() => distress.call.star);
+  await p.evaluate(x => distress.choose(x), ['Vega', 'Altair'].find(n => n !== star));
+  await p.tap('#lock');
+  await p.reload();
+  await p.waitForFunction(() => window.distress?.ready);
+  assert.equal(await p.locator('#today').isVisible(), false, 'today’s call, left partway, could be answered again');
+  assert.match(await p.locator('#standing').innerText(), /^Rescued 0 of 1 call\. Today’s call: lost when it was left partway; they were at .+\.$/);
+  assert.match(await p.locator('#today-said').innerText(), /^Today’s call was lost: it was left partway\. Answer a new call to practise/);
+  assert.ok(await p.locator('#another').isVisible(), 'there was no new call to practise on');
+  await dc.close();
+}
 
 // The temporal observatory: the dial moves every star by its own motion and Earth's axis with them. Now has Polaris
 // and Proxima; the pyramids' year has Thuban; AD 14,000 has Vega; a typed year and a link both go to their year;
