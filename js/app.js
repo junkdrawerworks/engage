@@ -387,7 +387,7 @@ function frame(now) {
 const viewNow = dt => {
   sky.behave = behaving() ? { star: state.at, ...onScreen(variableFor(cat.names[state.at]), behaveClock ?? performance.now() / 1000) } : null;
   return {
-    cam: viewCam(), yaw: state.yaw, pitch: state.pitch, fov: state.fov, lines: state.opts.lines || earthHeld,
+    cam: viewCam(), yaw: look().yaw, pitch: look().pitch, fov: state.fov, lines: state.opts.lines || earthHeld,
     warp: trip?.warp || 0, warpSpeed: trip?.streak || 0, dt,
   };
 };
@@ -679,7 +679,7 @@ let reportSig = '', reportSince = 0, reportedSig = '';
 
 // How the viewscreen is pointed, for the computer: see report() in js/computer.js.
 function viewFor() {
-  const { f, r, u } = Sky.basis(state.yaw, state.pitch);
+  const { f, r, u } = Sky.basis(look().yaw, look().pitch);
   const W = $('sky').clientWidth || innerWidth, H = $('sky').clientHeight || innerHeight;
   const k = Math.tan(state.fov / 2) / Math.sqrt(W * H);
   // The helm stands over the bottom of the screen: a star under it isn't in view.
@@ -1039,6 +1039,46 @@ function bindAutopilot() {
 // let go (a fade, not a movement, so reduced motion keeps it). Nothing is saved.
 let earthHeld = false;
 const viewCam = () => (earthHeld ? [0, 0, 0] : camAbs());
+// Where the view points: the helm's yaw and pitch, unless Earth's sky has turned to find the star (see earthTurn).
+let earthLook = null;
+const look = () => earthLook || state;
+
+// Seen from home, the star the ship is at is usually somewhere else on the screen than the way the ship came in: after
+// a leg from one star to another, often off it, or under the log. Then Earth's sky faces it as seen from home, ringed
+// in the middle of what the log and the header leave clear, among the stars round it in Earth's sky. In sight
+// already, nothing turns. The clear part, in CSS pixels: below the header and the line Earth's sky shows, and beside
+// or above each open sheet (beside one that is a column down the side, above one across the bottom).
+function clearPart() {
+  const s = $('sky').getBoundingClientRect();
+  let l = 0, t = 0, r = s.width, b = s.height;
+  for (const el of [document.querySelector('.hud .where'), document.querySelector('.hud-buttons'), $('earth-note')]) {
+    const e = !el?.hidden && el?.getBoundingClientRect();
+    if (e?.height) t = Math.max(t, e.bottom - s.top);
+  }
+  for (const id of SHEETS) {
+    const el = $(id);
+    if (el.hidden) continue;
+    const e = el.getBoundingClientRect();
+    if (!e.width) continue;
+    if (e.width >= s.width * 0.6) b = Math.min(b, e.top - s.top);
+    else if (e.left + e.width / 2 > s.width / 2) r = Math.min(r, e.left - s.left);
+    else l = Math.max(l, e.right - s.left);
+  }
+  const m = 28; // a ring and its name want some room
+  return { l: l + m, t: t + m, r: r - m, b: b - m, w: s.width, h: s.height };
+}
+function earthTurn() {
+  const p = starPos(state.at), len = Math.hypot(...p);
+  if (!len) return null;
+  const dir = p.map(v => v / len), box = clearPart();
+  if (box.r - box.l < 40 || box.b - box.t < 40) return null; // no room anywhere: leave the view be
+  const F = Math.sqrt(box.w * box.h) / 2 / Math.tan(state.fov / 2); // CSS pixels per unit of tangent
+  const at = Sky.seen(dir, state.yaw, state.pitch);
+  const x = at && box.w / 2 + at.tx * F, y = at && box.h / 2 - at.ty * F;
+  if (at && x > box.l && x < box.r && y > box.t && y < box.b) return null;
+  const aim = Sky.aim(dir, ((box.l + box.r) / 2 - box.w / 2) / F, (box.h / 2 - (box.t + box.b) / 2) / F);
+  return { yaw: aim.yaw, pitch: aim.pitch, fov: state.fov };
+}
 
 function earthSky(on) {
   if (on && (trip || state.at === 0 || !sky)) on = false;
@@ -1053,14 +1093,16 @@ function earthSky(on) {
   g.drawImage($('sky'), 0, 0, w, h);
   g.drawImage($('labels'), 0, 0, w, h);
   earthHeld = on;
+  $('earth-note').hidden = !on;
+  earthLook = on ? earthTurn() : null;
+  $('earth-note').textContent = earthLook ? `Earth’s sky · ${titleFor(cat, state.at)} seen from home` : 'Earth’s sky · the same direction from home';
   fade.style.transition = 'none';
   fade.style.opacity = '1';
   void fade.offsetWidth; // the copy is up before it starts to fade
   fade.style.transition = 'opacity .45s ease-out';
   fade.style.opacity = '0';
   $('earth-sky').setAttribute('aria-pressed', String(on));
-  $('earth-note').hidden = !on;
-  if (on) say(`Earth’s sky: the same direction, seen from home. ${titleFor(cat, state.at)} is marked.`);
+  if (on) say(earthLook ? `Earth’s sky: turned to ${titleFor(cat, state.at)} as seen from home, where it is marked.` : `Earth’s sky: the same direction, seen from home. ${titleFor(cat, state.at)} is marked.`);
   dirty = true;
 }
 
@@ -2424,6 +2466,7 @@ function hooks() {
     closeSheets,
     earthSky,
     get earthHeld() { return earthHeld; },
+    get earthTurned() { return !!earthLook; },
     autopilot,
     get auto() { return !!auto; },
     // The stars autopilot chooses among once the voyages are done (catalogue indices), and those it has flown to this

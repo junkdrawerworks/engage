@@ -135,3 +135,22 @@ test('on 5 April, and only then, the bridge greets you with First Contact Day', 
   assert.match(line, /<a href="contact\.html">First\u00a0contact<\/a>$/);
   assert.match(firstContactDay('https://engage.junkdrawer.works/', ' target="_blank"'), /href="https:\/\/engage\.junkdrawer\.works\/contact\.html" target="_blank"/);
 });
+
+// ---------- Earth's sky, turned to find the star ----------
+import { Sky } from '../js/sky.js';
+
+test('the viewscreen can be pointed so a star lands where it is wanted on the screen', () => {
+  let r = 7;
+  const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+  for (let n = 0; n < 500; n++) {
+    const t = rand() * 2 * Math.PI, z = rand() * 1.6 - 0.8, q = Math.sqrt(1 - z * z);
+    const dir = [q * Math.cos(t), q * Math.sin(t), z];
+    const tx = (rand() - 0.5) * 1.2, ty = (rand() - 0.5) * 1.2;
+    const { yaw, pitch } = Sky.aim(dir, tx, ty);
+    const seen = Sky.seen(dir, yaw, pitch);
+    assert.ok(seen && Math.abs(seen.tx - tx) < 1e-9 && Math.abs(seen.ty - ty) < 1e-9, `aimed at ${tx}, ${ty}; seen at ${JSON.stringify(seen)}`);
+  }
+  // Behind the view is nowhere on the screen; and near a pole the view stops short of looking past straight up.
+  assert.equal(Sky.seen([-1, 0, 0], 0, 0), null);
+  assert.ok(Sky.aim([0, 0, 1], 0, -0.5).pitch <= 89 * Math.PI / 180);
+});

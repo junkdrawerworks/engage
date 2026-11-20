@@ -1014,6 +1014,9 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   assert.equal(await p.locator('#earth-sky').getAttribute('aria-pressed'), 'true');
   assert.ok((await p.evaluate(() => engage.labels())).some(l => l.text === 'Rigel'), 'the ship’s star is not marked in Earth’s sky');
   assert.equal(await p.locator('#fade').evaluate(el => getComputedStyle(el).transitionProperty), 'opacity');
+  // Out from Earth, Rigel is already in sight from home, so Earth's sky keeps the same direction.
+  assert.equal(await p.evaluate(() => engage.earthTurned), false);
+  assert.equal(await p.locator('#earth-note').textContent(), 'Earth’s sky · the same direction from home');
   await p.mouse.up();
   assert.equal(await p.evaluate(() => engage.earthHeld), false);
   const back = await where();
@@ -1030,6 +1033,26 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   // Putting the log away lets go of it.
   await p.tap('#arrival .close');
   assert.equal(await p.evaluate(() => engage.earthHeld), false);
+  // On a leg from one star to another the ship arrives facing along that leg, and seen from home the star is often
+  // somewhere else: from Sirius to Procyon, off the screen. Then Earth's sky faces Procyon as seen from home, ringed
+  // in the clear part of the screen above the log, and letting go brings the arrival's view back.
+  await p.evaluate(() => { engage.jump('Sirius'); engage.jump('Procyon'); });
+  await p.waitForTimeout(400);
+  const fromSirius = await where();
+  const away2 = await p.evaluate(() => engage.project('Procyon'));
+  await p.locator('#earth-sky').evaluate(el => el.click());
+  assert.ok(await p.evaluate(() => engage.earthHeld && engage.earthTurned), 'Earth’s sky did not turn to find Procyon');
+  await p.waitForTimeout(200);
+  const ring = (await p.evaluate(() => engage.labels())).find(l => l.text === 'Procyon');
+  const sheetTop = await p.locator('#arrival').evaluate(el => el.getBoundingClientRect().top);
+  const headBottom = await p.locator('#earth-note').evaluate(el => el.getBoundingClientRect().bottom);
+  assert.ok(ring && ring.y > headBottom && ring.y < sheetTop, `Procyon is not ringed in sight from home: ${JSON.stringify(ring)} between ${headBottom} and ${sheetTop}`);
+  assert.equal(await p.locator('#earth-note').textContent(), 'Earth’s sky · Procyon seen from home');
+  await p.locator('#earth-sky').evaluate(el => el.click());
+  assert.equal(await p.evaluate(() => engage.earthTurned), false);
+  await p.waitForTimeout(150);
+  const after = await p.evaluate(() => engage.project('Procyon'));
+  assert.ok(Math.abs(after.x - away2.x) < 1 && Math.abs(after.y - away2.y) < 1 && fromSirius, 'letting go did not bring back the arrival’s view');
   // Home: no button.
   await p.evaluate(() => engage.jump('Sol'));
   await p.waitForTimeout(300);

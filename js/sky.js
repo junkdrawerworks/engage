@@ -230,6 +230,28 @@ export class Sky {
     return { f, r, u };
   }
 
+  // Where a direction (a unit vector) is seen with the view pointed at yaw and pitch: { tx, ty } as the tangents of its
+  // angles right of and above the middle, or null when it is behind.
+  static seen(dir, yaw, pitch) {
+    const { f, r, u } = Sky.basis(yaw, pitch);
+    const z = dir[0] * f[0] + dir[1] * f[1] + dir[2] * f[2];
+    if (z <= 0.01) return null;
+    return { tx: (dir[0] * r[0] + dir[1] * r[1] + dir[2] * r[2]) / z, ty: (dir[0] * u[0] + dir[1] * u[1] + dir[2] * u[2]) / z };
+  }
+
+  // The other way round: the yaw and pitch (no roll, as every view here has) that put a direction at { tx, ty }.
+  // In the camera's frame the direction is (tx, ty, 1) over its length n: its height, sin(el) · n = ty cos p + sin p,
+  // fixes the pitch p, and its bearing is the yaw plus atan2(−tx, cos p − ty sin p).
+  static aim(dir, tx = 0, ty = 0) {
+    const n = Math.hypot(tx, ty, 1);
+    const el = Math.asin(Math.max(-1, Math.min(1, dir[2])));
+    const k = Math.sqrt(1 + ty * ty);
+    // (Near a pole there may be no such view short of looking past straight up: the pitch stops at 89°, as the helm's does.)
+    const pitch = Math.max(-89 * Math.PI / 180, Math.min(89 * Math.PI / 180, Math.asin(Math.max(-1, Math.min(1, Math.sin(el) * n / k))) - Math.atan2(ty, 1)));
+    const yaw = Math.atan2(dir[1], dir[0]) + Math.atan2(tx, Math.cos(pitch) - ty * Math.sin(pitch));
+    return { yaw, pitch };
+  }
+
   // Pixels (device) per unit of tan(angle): the field of view spans the geometric mean of width and height.
   focal(fov) {
     const { width, height } = this.canvas;
