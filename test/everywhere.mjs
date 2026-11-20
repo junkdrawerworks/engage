@@ -134,6 +134,12 @@ try {
     await p.evaluate(() => engage.closeSheets());
     await fly();
     assert.equal(await p.evaluate(() => window.buzzed.length), 2, 'it buzzed with Vibration off');
+    // Under autopilot nobody is at the helm (the phone may be on a nightstand all night): its flights don't buzz.
+    await p.evaluate(() => localStorage.setItem('engage.prefs', JSON.stringify({ sound: false, buzz: true, text: 'standard' })));
+    await p.evaluate(() => { engage.speed(6); engage.autopilot(true); });
+    await p.waitForFunction(() => document.getElementById('caption').hidden === false, null, { timeout: 60000 });
+    await p.evaluate(() => engage.autopilot(false));
+    assert.equal(await p.evaluate(() => window.buzzed.length), 2, 'a flight under autopilot buzzed');
     // The Maru: hits on your ship buzz, and nothing else does.
     await p.evaluate(() => localStorage.setItem('engage.prefs', JSON.stringify({ sound: false, buzz: true, text: 'standard' })));
     await p.goto(base + 'maru.html');

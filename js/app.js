@@ -797,7 +797,7 @@ function fly(now) {
     T.phase = 'align';
   } else if (s < T.align + T.spool) {
     const k = (s - T.align) / T.spool;
-    if (T.phase !== 'spool') { T.phase = 'spool'; sound.engage(T.spool + T.cruise); buzz([20, 40, 40, 40, 90]); tell('out'); updateHud(); }
+    if (T.phase !== 'spool') { T.phase = 'spool'; sound.engage(T.spool + T.cruise); if (!auto) buzz([20, 40, 40, 40, 90]); tell('out'); updateHud(); }
     state.yaw = T.yaw1; state.pitch = T.pitch1; state.fov = 60 * DEG;
     if (calm) lit = 1 - (1 - DIM) * ease(k);
     else {
@@ -832,7 +832,7 @@ function fly(now) {
       flash(0.7);
       if (DESTINATIONS.some(d => d.quiet && cat.byName.get(d.star) === T.i)) sound.hush(); // Wolf 359 falls quiet
       else sound.arrive();
-      buzz(90);
+      if (!auto) buzz(90); // a phone left on autopilot overnight isn't buzzing on the nightstand every few minutes
       tell('drop');
       updateHud();
     }
