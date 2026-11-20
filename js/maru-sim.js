@@ -425,6 +425,13 @@ export function briefingLine(record = {}) {
   return `${taken < ORDINALS.length ? `${ORDINALS[taken]} attempt` : `Attempt ${taken + 1}`}, cadet. The scenario has not changed.`;
 }
 
+// After a third run, the briefing shows someone was at the console before you: scratched beside the line that nobody
+// beats it, Kirk's words to Saavik in Star Trek II: The Wrath of Khan (1982), the cadet who did (as Wikiquote's page on
+// the film has them, read 20 November 2026). Nothing before then.
+export const GRAFFITI_AFTER = 3;
+export const GRAFFITI = 'I don’t believe in a no-win scenario.';
+export const graffiti = (record = {}) => (Number.isInteger(record.taken) && record.taken >= GRAFFITI_AFTER ? GRAFFITI : '');
+
 const letter = s => (s >= 85 ? 'A' : s >= 70 ? 'B' : s >= 55 ? 'C' : s >= 40 ? 'D' : 'F');
 const clamp = s => Math.max(0, Math.min(100, Math.round(s)));
 const people = n => `${n.toLocaleString('en-US')} ${n === 1 ? 'person' : 'people'}`;

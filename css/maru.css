@@ -31,6 +31,9 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 .brief .how { color: var(--muted); }
 /* The examiners' line for a cadet who has been here before. */
 .brief .returning { padding: 8px 12px; border-left: 3px solid var(--red); border-radius: 0 10px 10px 0; background: rgba(255, 107, 94, 0.07); color: var(--text); }
+/* After a third run: someone's words scratched into the console, set at a slant in amber, apart from the briefing. */
+.brief .graffiti { margin: -6px 0 0; padding-left: 18px; transform: rotate(-2.5deg); transform-origin: left center; font-style: italic; font-size: calc(14 * var(--px)); color: var(--amber); opacity: 0.85; letter-spacing: 0.02em; }
+.brief .graffiti .by { font-family: var(--display); font-style: normal; font-size: calc(12 * var(--px)); letter-spacing: 0.12em; }
 /* Where the film puts the Maru, and the real star of that name: small print, with the two links a log entry has. */
 .brief .where { margin: 0; font-size: calc(14 * var(--px)); color: var(--muted); }
 .brief .where-links { display: flex; flex-wrap: wrap; gap: 0 18px; }

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { newGame, act, orders, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, fork, dailySeed, today, shareLine, encodeRun, decodeRun, CREW, MARU, WARP_HULL, ENDINGS, GRADED, CEILING, POSITION } from '../js/maru-sim.js';
+import { newGame, act, orders, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, graffiti, GRAFFITI, fork, dailySeed, today, shareLine, encodeRun, decodeRun, CREW, MARU, WARP_HULL, ENDINGS, GRADED, CEILING, POSITION } from '../js/maru-sim.js';
 import { buildCatalog } from '../js/catalog.js';
 import { ARCHIVE } from '../js/archive.js';
 import { LY_PER_PC } from '../js/physics.js';
@@ -569,4 +569,11 @@ test('the briefing greets a returning cadet, and a first attempt reads as it alw
   }
   // A damaged record says nothing rather than something wrong.
   assert.equal(briefingLine({ taken: 'lots', seen: 'all' }), '');
+});
+
+test('after a third run, someone else’s words are scratched on the briefing, and not before', () => {
+  for (const taken of [undefined, 0, 1, 2, -3, 2.5, '3']) assert.equal(graffiti({ taken }), '', `taken ${taken}`);
+  assert.equal(graffiti(), '');
+  for (const taken of [3, 4, 30]) assert.equal(graffiti({ taken }), 'I don’t believe in a no-win scenario.');
+  assert.equal(graffiti(transcript({ taken: 3 })), GRAFFITI);
 });

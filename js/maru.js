@@ -1,5 +1,5 @@
 // The Kobayashi Maru: the page. The rules are in maru-sim.js; this draws the tactical display, plays each turn out and keeps the record.
-import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, archiveLine, dailySeed, today, shareLine, encodeRun, decodeRun, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
+import { newGame, orders, act, evaluate, replay, tactical, transcript, runFirsts, moral, briefingLine, graffiti, archiveLine, dailySeed, today, shareLine, encodeRun, decodeRun, CREW, MARU, ENDINGS, GRADED, POSITION } from './maru-sim.js';
 import { LIVE, share } from './share.js';
 import { oneSwitch } from './switch.js';
 import { officerTest } from './officer.js';
@@ -97,6 +97,10 @@ function renderRecord() {
   const again = briefingLine(saved);
   $('brief-line').hidden = !again;
   $('brief-line').textContent = again;
+  // After a third run, someone else's words scratched beside the line that nobody beats it.
+  const scrawl = graffiti(saved);
+  $('graffiti').hidden = !scrawl;
+  $('graffiti-text').textContent = scrawl ? `“${scrawl}”` : '';
   const left = keptGame()?.game;
   $('resume').hidden = $('resume-note').hidden = !left;
   if (left) $('resume-note').textContent = `You left a simulation on turn ${left.turn + 1}, ${left.where === 'zone' ? 'inside the Neutral Zone' : 'at the edge of the Neutral Zone'}. Taking command starts a new one.`;

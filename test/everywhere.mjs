@@ -571,6 +571,16 @@ try {
     assert.match(await p.locator('#race-note').innerText(), /Tom Paris crossed it in a shuttle in Voyager’s “Threshold”, and came back turning into a salamander/);
     await slide(9.2);
     assert.doesNotMatch(await p.locator('#race-note').innerText(), /Threshold/, 'the line stayed when the slider moved on');
+
+    // The Kobayashi Maru's briefing, after a third run: Kirk's words scratched beside the line that nobody beats it.
+    // Two runs, and the briefing is as it was.
+    for (const [taken, shown] of [[0, false], [2, false], [3, true]]) {
+      await p.evaluate(n => localStorage.setItem('engage.maru.v1', JSON.stringify(n ? { taken: n, seen: ['The lifeboat'], best: {}, runs: [] } : {})), taken);
+      await p.goto(base + 'maru.html');
+      await ready(p, 'maru.html');
+      assert.equal(await p.locator('#graffiti').isVisible(), shown, `after ${taken} runs the graffiti is ${shown ? 'missing' : 'there'}`);
+    }
+    assert.equal(await p.locator('#graffiti').textContent(), 'Scratched into the console beside it: “I don’t believe in a no-win scenario.” J.T.K.');
     await c.close();
   }
 
