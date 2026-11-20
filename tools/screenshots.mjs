@@ -1,5 +1,5 @@
-// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png, og-longway.png, og-engineering.png, og-directive.png):  node tools/screenshots.mjs
-// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress, temporal, longway, engineering or directive; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
+// Renders the README screenshots (docs/*.png) and the link previews (og.png, og-survey.png, og-maru.png, og-missions.png, og-tonight.png, og-xeno.png, og-contact.png, og-warp.png, og-system.png, og-away.png, og-radio.png, og-astrometrics.png, og-distress.png, og-temporal.png, og-longway.png, og-engineering.png, og-directive.png, og-shipyard.png):  node tools/screenshots.mjs
+// Only the planetary survey's, the Kobayashi Maru's or long missions':  node tools/screenshots.mjs survey  (or maru, missions, tonight, xeno, contact, warp, system, away, radio, astrometrics, distress, temporal, longway, engineering, directive or shipyard; bridge for the bridge's four phone pictures; courses for the shared courses' pictures, course/*.png)
 // Math.random is seeded, so the warp streaks come out the same each time. Needs Playwright, and upng-js from `npm install`.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
@@ -616,6 +616,35 @@ if (!only || only === 'directive') {
   const shot = await narrow.screenshot({ clip });
   await narrow.context().close();
   await ogCard('data:image/png;base64,' + shot.toString('base64'), clip.height / clip.width, 'Engage · Starfleet Academy', 'The Prime Directive', 'A child on a world without warp calls for help. You may not answer.', 'A board of inquiry grades what you do', 'og-directive.png');
+}
+
+// The shipyard: a long-range explorer on the bench, named, with what she comes to.
+if (!only || only === 'shipyard') {
+  const design = async page => {
+    await page.goto(base + 'shipyard.html');
+    await page.waitForFunction(() => window.shipyard?.ready);
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => {
+      shipyard.setHull('explorer'); shipyard.setShare('e', 50); shipyard.setShare('s', 30);
+      document.getElementById('name').value = 'Meridian'; document.getElementById('registry').value = 'NCC-80412';
+      document.getElementById('name').dispatchEvent(new Event('input'));
+    });
+    await page.waitForTimeout(300);
+  };
+  const page = await open({ width: 390, height: 844 }, 2);
+  await design(page);
+  await page.evaluate(() => document.querySelector('.dock').scrollIntoView({ block: 'start' }));
+  await page.waitForTimeout(200);
+  await save(await page.screenshot(), 'docs/phone-shipyard.png');
+  await page.context().close();
+  const wide = await open({ width: 420, height: 900 }, 2);
+  await design(wide);
+  // The drawing and what she comes to, at a phone's width, so the picture stands beside the card's words.
+  const dock = await wide.locator('.dock-screen').boundingBox(), specs = await wide.locator('#specs').boundingBox();
+  const clip = { x: dock.x, y: dock.y, width: dock.width, height: specs.y + specs.height - dock.y };
+  const shot = await wide.screenshot({ clip });
+  await wide.context().close();
+  await ogCard('data:image/png;base64,' + shot.toString('base64'), clip.height / clip.width, 'Engage · The shipyard', 'The shipyard', 'Design a starship: a hull, her mass split between engines, science and defence.', 'Fill Starfleet’s requisition of the day', 'og-shipyard.png');
 }
 
 if (!only || only === 'courses') {

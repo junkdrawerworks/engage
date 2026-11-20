@@ -27,7 +27,7 @@ const server = createServer(async (req, res) => {
 const base = `http://localhost:${server.address().port}/`;
 
 // Every room off the bridge, and the hook each leaves once its script has run.
-const ROOMS = { 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal', 'longway.html': 'longway', 'engineering.html': 'engineering', 'directive.html': 'directive' };
+const ROOMS = { 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal', 'longway.html': 'longway', 'engineering.html': 'engineering', 'directive.html': 'directive', 'shipyard.html': 'shipyard' };
 const ready = (p, room) => p.waitForFunction(h => !!window[h], ROOMS[room], { timeout: 30000 });
 const bridgeReady = p => p.waitForFunction(() => typeof window.engage?.jump === 'function', null, { timeout: 30000 });
 

@@ -3,6 +3,8 @@
 import { warpSpeed, plural, formatYear } from './physics.js';
 import { readings, planetAt, earthAt, moonAt, jdOf, dateOf, whenAbove, LIGHT_DAY_AU, C_KM_S } from './ephemeris.js';
 import { sightById } from './deepsky.js';
+import { decodeDesign, encodeDesign, hullById, stats as designStats } from './shipyard-sim.js';
+import { fullName } from './myship.js';
 
 // A cluster's, a nebula's or a galaxy's rung: its distance, its card's words and its Star Trek line from the deep
 // sky's list (js/deepsky.js, where each distance has its source), and `sight`, the card tonight's sky opens for it.
@@ -55,7 +57,20 @@ export const REAL_SHIPS = [
     line: 'An idea, not a design: a ship the size of a town at 1% of light speed, whose crew live and die aboard, and whose descendants, many generations on, arrive.',
   },
 ];
-export const realShip = id => REAL_SHIPS.find(r => r.id === id) || REAL_SHIPS[0];
+// A design from the shipyard can race in the same lane: its id is "yard:" and the design's link code (see
+// js/shipyard-sim.js), so a link carries the whole design and opens on anyone's warp scale. She races at her
+// cruising warp; her line says she is a design, not a real ship.
+export function designShip(id) {
+  if (typeof id !== 'string' || !id.startsWith('yard:')) return null;
+  const d = decodeDesign(id.slice(5));
+  if (!d) return null;
+  const st = designStats(d), name = fullName(d);
+  return {
+    id: `yard:${encodeDesign(d)}`, label: name, c: warpSpeed(st.cruise), design: true, note: `Your design, at warp ${st.cruise}`,
+    line: `The ${name}, a ${hullById(d.hull).name.toLowerCase()} from your shipyard, at her cruising warp ${st.cruise} (warp ${st.top} at most, for a few hours). A design of yours, not a real ship.`,
+  };
+}
+export const realShip = id => designShip(id) || REAL_SHIPS.find(r => r.id === id) || REAL_SHIPS[0];
 
 export const GROUPS = [
   ['home', 'The Solar System'],

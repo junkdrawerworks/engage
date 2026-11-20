@@ -271,3 +271,18 @@ test('Your warp pushed against its stop three times running says what happened a
   assert.match(THRESHOLD, /Threshold/);
   assert.match(THRESHOLD, /salamander/);
 });
+
+test('a design from the shipyard races in the real ship’s lane, at her cruising warp, and says she is a design', async () => {
+  const { designShip, realShip, laneSpeed, LANES } = await import('../js/warp-scale.js');
+  const { encodeDesign, stats } = await import('../js/shipyard-sim.js');
+  const { warpSpeed } = await import('../js/physics.js');
+  const d = { hull: 'explorer', e: 50, s: 30, registry: 'NCC-80412', name: 'Meridian' };
+  const id = `yard:${encodeDesign(d)}`;
+  const ship = realShip(id);
+  assert.equal(ship.id, id);
+  assert.equal(ship.label, 'USS Meridian');
+  assert.equal(laneSpeed(LANES.find(l => l.id === 'real'), 9, new Date(), id), warpSpeed(stats(d).cruise));
+  assert.match(ship.line, /not a real ship\.$/);
+  assert.equal(designShip('yard:1.warbird.50.30..X'), null);
+  assert.equal(realShip('yard:nonsense').id, 'voyager', 'a broken design races Voyager 1');
+});

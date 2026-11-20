@@ -1,0 +1,73 @@
+/* The shipyard. Builds on css/app.css and the survey's header from css/survey.css. */
+
+.lab-intro { margin: 2px 0 0; color: var(--muted); font-size: calc(14 * var(--px)); max-width: 760px; }
+.shipyard-page h2 { font: 600 calc(22 * var(--px))/1.15 var(--display); letter-spacing: 0.03em; margin: 0 0 6px; }
+
+/* Today's requisition */
+.req { margin-top: 12px; padding: 10px 14px; border-radius: 16px; border: var(--bw) solid rgba(255, 181, 74, 0.45); background: var(--panel); }
+.req.filled { border-color: rgba(79, 209, 165, 0.5); }
+.req-says { margin: 4px 0 0; font-size: calc(16 * var(--px)); line-height: 1.35; }
+.req-asks { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: calc(14 * var(--px)); }
+.req-state { margin: 6px 0 0; font-size: calc(14 * var(--px)); color: var(--muted); }
+.req-state.meets { color: var(--cyan); }
+.req-state.done { color: #4fd1a5; }
+
+/* The dock and the bench */
+.yard { display: grid; gap: 14px; margin-top: 12px; }
+@media (min-width: 900px) { .yard { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); align-items: start; } }
+.dock-screen { border-radius: 18px; overflow: hidden; border: var(--bw) solid var(--line-strong); background: #03050a; box-shadow: 0 0 0 4px rgba(134, 216, 255, 0.04), inset 0 0 40px rgba(0, 0, 0, 0.6); }
+.dock-screen canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
+.specs { margin: 10px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.specs div { padding: 5px 8px; border-radius: 14px; border: var(--bw) solid var(--line); background: var(--panel); min-width: 0; }
+.specs dt { font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.specs dd { margin: 2px 0 0; font: 600 calc(15 * var(--px))/1.25 var(--display); font-variant-numeric: tabular-nums; }
+.like, .trips { margin: 8px 0 0; font-size: calc(14 * var(--px)); color: var(--muted); }
+
+.bench { display: grid; gap: 12px; align-content: start; }
+.hulls { margin: 0; padding: 10px 14px 12px; border-radius: 16px; border: var(--bw) solid var(--line); background: var(--panel); min-width: 0; }
+.hulls legend { padding: 0 4px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
+.hull-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.hull { min-height: 44px; padding: 6px 10px; border-radius: 12px; border: var(--bw) solid var(--line-strong); background: transparent; color: var(--text); font: 600 calc(14 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; text-align: left; }
+.hull.on { border-color: var(--cyan); background: rgba(134, 216, 255, 0.1); color: var(--cyan); }
+
+.mass, .naming { padding: 10px 14px 12px; border-radius: 16px; border: var(--bw) solid var(--line); background: var(--panel); }
+.flow { display: block; margin-top: 8px; --flow: #ffb54a; }
+.flow.sci { --flow: var(--cyan); }
+.flow.def { --flow: #ff8f7a; }
+.flow span { display: flex; justify-content: space-between; align-items: baseline; font: 600 calc(13 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.flow output { font-size: calc(20 * var(--px)); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; color: var(--flow); }
+.flow input { width: 100%; margin: 6px 0 0; accent-color: var(--flow); }
+.flow input::-webkit-slider-runnable-track { background: linear-gradient(90deg, var(--flow) var(--fill, 0%), rgba(255, 255, 255, 0.12) var(--fill, 0%)); }
+.flow input::-moz-range-progress { background: var(--flow); }
+.flow input::-webkit-slider-thumb { border-color: var(--flow); }
+.flow input::-moz-range-thumb { border-color: var(--flow); }
+
+.name-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; margin-top: 6px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field span { font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.field input { min-width: 0; height: 44px; padding: 0 10px; border-radius: 12px; border: var(--bw) solid var(--line-strong); background: rgba(255, 255, 255, 0.04); color: var(--text); font: 500 calc(16 * var(--px)) var(--body, inherit); }
+.naming .text-button { min-height: 44px; }
+.keep-row { display: flex; gap: 10px; margin-top: 4px; }
+.keep-row button { flex: 1; }
+.keep-row button[hidden] { display: none; }
+.kept-note { margin: 8px 0 0; min-height: 1.4em; font-size: calc(14 * var(--px)); color: var(--cyan); }
+
+/* The ships kept */
+.fleet { margin-top: 16px; padding: 12px 14px; border-radius: 16px; border: var(--bw) solid var(--line); background: var(--panel); }
+.fleet-none { margin: 0; color: var(--muted); font-size: calc(14 * var(--px)); }
+.fleet-none[hidden] { display: none; }
+.ships { list-style: none; margin: 0; padding: 0; }
+.ships li { padding: 10px 0; border-top: var(--bw) solid var(--line); }
+.ships li:first-child { border-top: 0; }
+.ship-name { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.ship-name b { font: 600 calc(17 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
+.ship-name span { font: 600 calc(12 * var(--px))/1.2 var(--display); letter-spacing: 0.12em; color: var(--muted); }
+.ship-line { margin: 4px 0 0; font-size: calc(14 * var(--px)); color: var(--muted); }
+.filled-mark { color: #4fd1a5; }
+.ship-doors { margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: 0 16px; }
+.ship-doors .text-button { min-height: 44px; display: inline-flex; align-items: center; color: var(--cyan); font-size: calc(14 * var(--px)); }
+.ship-doors .scrap { color: var(--muted); }
+.unsaved { color: var(--amber); font-size: calc(14 * var(--px)); }
+
+.sources { margin: 16px 0 0; font-size: calc(12 * var(--px)); color: var(--dim); }
+.shipyard-page .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }

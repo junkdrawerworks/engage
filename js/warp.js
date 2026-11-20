@@ -4,13 +4,14 @@ import { apparentMag, starColor, warpSpeed } from './physics.js';
 import {
   LANES, GROUPS, PLACES, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock,
   formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt, customPlace, COURSE_GROUP,
-  REAL_SHIPS, realShip, kirkSpeed,
+  REAL_SHIPS, realShip, designShip, kirkSpeed,
   againstStop, THRESHOLD,
 } from './warp-scale.js';
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
 import { LIVE, share } from './share.js';
 import { fullName, readShip } from './myship.js';
+import { encodeDesign } from './shipyard-sim.js';
 import { loadCatalog } from './catalog.js';
 import { aberrate, doppler, gamma, greenSeenAs, halfSkyDeg, hourOnEarth, speedSaid } from './impulse.js';
 import { sound } from './audio.js';
@@ -68,7 +69,7 @@ const inText = p => p.name.replace(/^(The|Where) /, w => w.toLowerCase());
 // The address names the place and the warp factor now on the slider, so it can be copied, bookmarked or shared as it
 // stands (it used to repeat whatever "?warp=" the page was opened with, however far the slider had moved since).
 // The real ship goes in it too when it isn't Voyager 1, the one a link without it races.
-const query = () => `?warp=${custom}${real !== 'voyager' ? `&ship=${real}` : ''}${course ? `&to=${encodeURIComponent(course.name)}&ly=${course.ly}` : ''}`;
+const query = () => `?warp=${custom}${real !== 'voyager' ? `&ship=${encodeURIComponent(real)}` : ''}${course ? `&to=${encodeURIComponent(course.name)}&ly=${course.ly}` : ''}`;
 function address() {
   try { history.replaceState(null, '', `${query()}#${place.id}`); } catch { /* fine */ }
   document.title = `${place.name} · Warp scale · Engage`;
@@ -399,10 +400,28 @@ function kirkLine(ly) {
   return `Kirk’s ${w} was slower. ${how}: ${times(k)}, not ${times(warpSpeed(custom)).replace(' × light', '')}, so here in ${formatSpan(tripYears(ly, k))}.`;
 }
 
+// The picker under the race: the real ships, then the ships kept in the shipyard (and the one a link brought, if it
+// isn't one of them).
+function fillPicker() {
+  const box = $('real-ship');
+  let yard = [];
+  try { yard = (JSON.parse(localStorage.getItem('engage.shipyard.v1') || 'null')?.designs || []).map(d => designShip(`yard:${encodeDesign(d)}`)).filter(Boolean); } catch { /* no shipyard */ }
+  const mine = designShip(real);
+  if (mine && !yard.some(d => d.id === mine.id)) yard.push(mine);
+  box.replaceChildren(...REAL_SHIPS.map(r => new Option(r.label, r.id)));
+  if (yard.length) {
+    const g = document.createElement('optgroup');
+    g.label = 'Your shipyard';
+    g.append(...[...yard].reverse().map(d => new Option(d.label, d.id)));
+    box.append(g);
+  }
+  box.value = real;
+}
+
 // The real ship in the bottom lane, from the picker under the race.
 function setReal(id, quiet = false) {
   real = realShip(id).id;
-  $('real-ship').value = real;
+  fillPicker();
   race = null;
   plan();
   if (!quiet) save();
@@ -640,7 +659,8 @@ const fromLink = () => {
   const warp = Number(q.get('warp'));
   let id = '';
   try { id = decodeURIComponent(location.hash.slice(1)); } catch { /* not a place */ }
-  const ship = REAL_SHIPS.find(r => r.id === q.get('ship'))?.id ?? null;
+  const asked = q.get('ship');
+  const ship = asked ? (designShip(asked)?.id ?? REAL_SHIPS.find(r => r.id === asked)?.id ?? null) : null;
   return { id, warp: warp >= 1 && warp <= 9.99 ? warp : null, ship, to: q.has('to') ? customPlace(q.get('to'), Number(q.get('ly'))) : null };
 };
 
@@ -655,7 +675,7 @@ $('custom-warp').addEventListener('input', e => {
   stopHits = r.hits;
   if (r.said) note(THRESHOLD);
 });
-$('real-ship').append(...REAL_SHIPS.map(r => new Option(r.label, r.id)));
+fillPicker();
 $('real-ship').addEventListener('change', e => setReal(e.target.value));
 $('place').addEventListener('click', e => { const b = e.target.closest('[data-share]'); if (b) shareRace(b); });
 $('ladder').addEventListener('click', e => {
@@ -700,7 +720,7 @@ window.warpScale = {
   const link = fromLink();
   if (link.warp) custom = link.warp;
   if (link.ship) real = link.ship;
-  $('real-ship').value = real;
+  fillPicker();
   // The helm's course: a rung of its own, or the rung the ladder has for that star already. The race starts there,
   // unless the link names another place after its "#".
   if (link.to?.custom) course = link.to;

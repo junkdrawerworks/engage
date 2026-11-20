@@ -117,7 +117,7 @@ assert.ok(await page.locator('#engage').isDisabled(), 'engage works with no dest
   const want = LISTED.map(r => [r.href, r.name, r.line]);
   assert.deepEqual(await listed('#intro'), want, 'the welcome card does not list the rooms');
   assert.equal(await p.locator('#intro .intro-card > p:not([class])').count(), 2, 'the welcome card still has its long paragraph about the buttons');
-  // On a phone on its side the sixteen rooms are listed by picture and name alone, so the card is about a screen
+  // On a phone on its side the seventeen rooms are listed by picture and name alone, so the card is about a screen
   // tall and Take the helm is in reach; held upright, each keeps its line.
   assert.ok(await p.locator('#intro .room-text > span').first().isVisible(), 'a phone held upright lost the rooms’ lines');
   for (const [w, h] of [[844, 390], [667, 375]]) {
@@ -196,7 +196,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   assert.equal(await p.locator('#intro').evaluate(el => el.scrollTop), 0, `the welcome card opened scrolled down past its heading on a ${viewport.width}×${viewport.height} screen`);
   const touch = await small.newCDPSession(p);
   const x = viewport.width / 2, from = viewport.height - 40, to = 40;
-  // A swipe up, and another while Take the helm is still below the screen: with sixteen rooms on the list, a phone
+  // A swipe up, and another while Take the helm is still below the screen: with seventeen rooms on the list, a phone
   // on its side takes more than one. Four at most.
   let go;
   for (let swipe = 0; swipe < 4; swipe++) {
@@ -370,7 +370,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }
   await bridgeReady(p);
   await p.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 30000 });
   await p.tap('#open-settings');
-  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all seventeen rooms work with no signal.', null, { timeout: 20000 })
+  await p.waitForFunction(() => document.getElementById('phone-copy').textContent === 'Kept on this device: all eighteen rooms work with no signal.', null, { timeout: 20000 })
     .catch(async () => assert.fail(`On this phone said “${await p.locator('#phone-copy').innerText()}”`));
   assert.equal(await p.locator('#install').isHidden(), true, 'an Install button with nothing to install');
   assert.equal(await p.locator('#phone-ios').isHidden(), true, 'the iPhone’s way to install, on Android');
@@ -5152,7 +5152,7 @@ await page.emulateMedia({ reducedMotion: null });
   // And the pages fade into each other where the browser can do it, but not with reduced motion asked for. Every
   // page asks for it in its own head: asked for from the shared stylesheet, the fade failed with an error about
   // half the time once the service worker was handing the stylesheet over.
-  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html']) {
+  for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html', 'shipyard.html']) {
     assert.match(await readFile(join(root, f), 'utf8'), /<style>@media \(prefers-reduced-motion: no-preference\) \{ @view-transition \{ navigation: auto; \}/, f);
   }
   for (const [reducedMotion, fades] of [['no-preference', true], ['reduce', false]]) {
@@ -6972,9 +6972,80 @@ await page.emulateMedia({ reducedMotion: null });
   await dc.close();
 }
 
+// The shipyard: a design on the bench comes to its numbers, a name is needed to keep her, a kept ship is listed with a
+// link to race her on the warp scale, today's requisition is filled by a design that meets it, a design someone sent
+// opens on the bench, and a ship can be scrapped.
+{
+  const sy = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const p = await sy.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  const { requisition, stats, ALL, meets, encodeDesign } = await import('../js/shipyard-sim.js');
+  await p.goto(base + 'shipyard.html');
+  await p.waitForFunction(() => window.shipyard?.ready);
+  const day = await p.evaluate(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; });
+  const req = requisition(day);
+  assert.equal(await p.locator('#req-says').innerText(), req.says);
+  assert.equal(await p.locator('#fleet-none').isVisible(), true);
+  // The engines slider takes from the other two, and the numbers follow.
+  const before = await p.evaluate(() => shipyard.bench);
+  await p.locator('#share-e').fill('60');
+  const after = await p.evaluate(() => shipyard.bench);
+  assert.deepEqual([after.e, after.s + (100 - after.e - after.s)], [60, 40]);
+  assert.ok(stats(after).top > stats(before).top);
+  assert.equal(await p.locator('#specs div').first().innerText(), `TOP SPEED\nWarp ${stats(after).top}`);
+  // No name, no keeping.
+  await p.tap('#keep');
+  assert.match(await p.locator('#kept-note').innerText(), /needs a name/);
+  // A design that meets today's requisition, named and kept, fills it.
+  const fit = ALL.find(d => meets(stats(d), req.needs));
+  await p.evaluate(d => { shipyard.setHull(d.hull); shipyard.setShare('e', d.e); shipyard.setShare('s', d.s); shipyard.setShare('e', d.e); }, fit);
+  assert.ok(meets(stats(await p.evaluate(() => shipyard.bench)), req.needs), 'the bench did not take the design');
+  assert.match(await p.locator('#req-state').innerText(), /meets it/);
+  await p.fill('#name', 'Meridian');
+  await p.fill('#registry', 'ncc-80412');
+  await p.tap('#keep');
+  assert.match(await p.locator('#kept-note').innerText(), /^The USS Meridian is kept, and fills today’s requisition\.$/);
+  assert.match(await p.locator('#req-state').innerText(), /^Filled today with the USS Meridian\./);
+  assert.equal(await p.locator('#ships li').count(), 1);
+  assert.match(await p.locator('#ships li').innerText(), /Filled the requisition of/);
+  const race = await p.locator('#ships a').getAttribute('href');
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.shipyard.v1')));
+  assert.deepEqual([kept.designs.length, kept.designs[0].name, kept.designs[0].registry, kept.filled[day] === kept.designs[0].id], [1, 'Meridian', 'NCC-80412', true]);
+  // Changing her and saving keeps one ship, not two; New design starts another.
+  await p.evaluate(() => shipyard.setShare('d', 40));
+  assert.equal(await p.locator('#keep').innerText(), 'SAVE CHANGES');
+  await p.tap('#keep');
+  assert.equal(await p.locator('#ships li').count(), 1);
+  await p.tap('#fresh');
+  assert.equal(await p.inputValue('#name'), '');
+  // Her race on the warp scale: her name in the bottom lane, at her cruising warp.
+  await p.goto(base + race);
+  await p.waitForFunction(() => window.warpScale?.trip);
+  const lane = await p.evaluate(() => warpScale.trip.lanes.find(l => l.id === 'real'));
+  const ship = (await p.evaluate(() => JSON.parse(localStorage.getItem('engage.shipyard.v1')))).designs[0];
+  assert.equal(lane.label, 'USS Meridian');
+  assert.ok(Math.abs(lane.c - (await import('../js/physics.js')).warpSpeed(stats(ship).cruise)) < 1e-6);
+  assert.equal(await p.locator('#real-ship').inputValue(), `yard:${encodeDesign(ship)}`);
+  // A design someone sent: on the bench, ready to keep.
+  await p.goto(base + 'shipyard.html#ship=' + encodeDesign({ hull: 'escort', e: 50, s: 10, registry: 'NX-74205', name: 'Valiant' }));
+  await p.waitForFunction(() => window.shipyard?.ready);
+  assert.deepEqual(await p.evaluate(() => [shipyard.bench.hull, shipyard.bench.e, shipyard.bench.name]), ['escort', 50, 'Valiant']);
+  assert.match(await p.locator('#kept-note').innerText(), /as someone sent her/);
+  await p.tap('#keep');
+  assert.equal(await p.locator('#ships li').count(), 2);
+  assert.match(await p.locator('#ships li').first().innerText(), /USS Valiant/);
+  // Scrapped, she goes; the requisition stays filled.
+  p.once('dialog', d => d.accept());
+  await p.locator('#ships [data-scrap]').last().tap();
+  assert.equal(await p.locator('#ships li').count(), 1);
+  assert.equal(Object.keys((await p.evaluate(() => JSON.parse(localStorage.getItem('engage.shipyard.v1')))).filled).length, 1);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the shipyard is wider than the phone');
+  await sy.close();
+}
+
 // Works offline once it has been opened: every room, not only the bridge. The server goes down as well as the
 // browser: in some Chromium builds the browser's offline switch alone doesn't stop the service worker's own requests.
-const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html'];
+const ROOMS = ['', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html', 'shipyard.html'];
 const until = async (ok, ms, what) => {
   for (const end = Date.now() + ms; !(await ok());) { assert.ok(Date.now() < end, what); await new Promise(r => setTimeout(r, 100)); }
 };
@@ -6992,7 +7063,7 @@ for (const room of ROOMS) { await page.goto(base + room); titles[room] = (await 
 const roomTitle = async () => { const t = await page.title(); return ROOMS.map(r => titles[r]).find(name => name !== 'Engage' && t.endsWith(name)) || (/(^| · )Engage$/.test(t) ? 'Engage' : t); };
 assert.equal(new Set(Object.values(titles)).size, ROOMS.length, 'two rooms share a title, so the checks below could not tell them apart');
 // Each room has drawn once its own script has run and left its hook (the bridge's is checked by bridgeReady).
-const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal', 'longway.html': 'longway', 'engineering.html': 'engineering', 'directive.html': 'directive' };
+const HOOKS = { '': 'engage', 'survey.html': 'survey', 'maru.html': 'maru', 'missions.html': 'missions', 'tonight.html': 'tonight', 'xeno.html': 'xeno', 'contact.html': 'contact', 'warp.html': 'warpScale', 'system.html': 'systemView', 'away.html': 'awayTeam', 'radio.html': 'radio', 'astrometrics.html': 'astrometrics', 'distress.html': 'distress', 'temporal.html': 'temporal', 'longway.html': 'longway', 'engineering.html': 'engineering', 'directive.html': 'directive', 'shipyard.html': 'shipyard' };
 const drawn = room => page.waitForFunction(h => (h === 'engage' ? typeof window.engage?.jump === 'function' : !!window[h]), HOOKS[room], { timeout: 8000 });
 net = 'down';
 await ctx.setOffline(true);
@@ -7057,7 +7128,7 @@ server.close();
 // a fingerprint of every file in SHELL (sha1 of each, in the list's order, an address like './' read as its
 // index.html; the first 8 hex of the sha1 of those).
 // Everything the ten pages and their scripts load is on the list: a file left off opens online and not offline.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html', 'shipyard.html']) {
   const html = await readFile(join(root, f), 'utf8');
   for (const m of html.matchAll(/(?:src|href)="((?:css|js|fonts|img|data)\/[^"#?]+|icon[^"#?]*|manifest\.webmanifest)"/g)) assert.ok(shell.includes(m[1]), `${f} loads ${m[1]}, which sw.js does not keep for offline`);
 }
@@ -7067,7 +7138,7 @@ for (const f of shell.filter(f => f.startsWith('js/'))) {
   for (const m of js.matchAll(/^(?:import|\} from)[^'\n]*'\.\/([\w-]+\.js)';/gm)) assert.ok(shell.includes(`js/${m[1]}`), `${f} loads js/${m[1]}, which sw.js does not keep for offline`);
 }
 // A link to any page previews as Engage's: each names the site, and says in words what its picture shows.
-for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html']) {
+for (const f of ['index.html', 'survey.html', 'maru.html', 'missions.html', 'tonight.html', 'xeno.html', 'contact.html', 'warp.html', 'system.html', 'away.html', 'radio.html', 'astrometrics.html', 'distress.html', 'temporal.html', 'longway.html', 'engineering.html', 'directive.html', 'shipyard.html']) {
   const html = await readFile(join(root, f), 'utf8');
   assert.match(html, /<meta property="og:site_name" content="Engage">/, `${f} does not say which site it is part of`);
   const alt = html.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1] || '';

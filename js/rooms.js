@@ -3,7 +3,8 @@
 // link to it on the bridge (the round buttons, and the warp scale under the warp slider), or null for a room the
 // bridge reaches from the captain's log instead (the system view and the away team, from a star's planets; subspace
 // radio, from a star's line about Earth's broadcasts, and from Set course; astrometrics, from a star's own line; the
-// distress call, the temporal observatory, the long way home and main engineering, from this list alone until the
+// distress call, the temporal observatory, the long way home, main engineering and the shipyard (and from the warp
+// scale), from this list alone until the
 // bridge's round buttons are settled; the Prime Directive, from this list and the Kobayashi Maru's briefing); `icon`
 // is the inside of that button's 24 × 24 drawing, so the list shows the same picture as the button. Pure, checked by
 // test/bridge.test.mjs.
@@ -88,6 +89,11 @@ export const ROOMS = [
     id: 'warp', href: 'warp.html', button: 'open-scale', name: 'Warp scale',
     line: 'Race ships to the Moon, Vulcan, the galactic core and Andromeda.',
     icon: '<path d="M3 8h8M5 12h10M3 16h8"/><path d="M15 7l5 5-5 5"/>',
+  },
+  {
+    id: 'shipyard', href: 'shipyard.html', button: null, name: 'The shipyard',
+    line: 'Design starships of your own, fill Starfleet’s requisition of the day, and race them on the warp scale.',
+    icon: '<path d="M2.5 4v16M21.5 4v16M2.5 20h19"/><ellipse cx="8.5" cy="10.5" rx="4.5" ry="1.6"/><path d="M10.5 12l2 2.5h2.5"/><rect x="12.5" y="6.5" width="7" height="2" rx="1"/><path d="M14.5 8.5l-1.5 3.5"/>',
   },
 ];
 

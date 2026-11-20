@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The text size and contrast from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var e = JSON.parse(localStorage.getItem('engage.prefs') || '{}'); if (e.text === 'large' || e.text === 'largest') document.documentElement.dataset.text = e.text; if (e.contrast === true) document.documentElement.dataset.contrast = 'high'; } catch (e) {}</script>
+  <title>The shipyard · Engage</title>
+  <meta name="description" content="Design starships of your own: pick a hull, split her mass between engines, science and defence, and see her top warp, cruising warp, crew and sensors. Keep a fleet of them, fill Starfleet’s requisition of the day, and race them on the warp scale.">
+  <meta property="og:site_name" content="Engage">
+  <meta property="og:title" content="The shipyard">
+  <meta property="og:description" content="Design a starship: a hull, her mass split between engines, science and defence, and what she can do. Fill Starfleet’s requisition of the day.">
+  <meta property="og:image" content="https://engage.junkdrawer.works/og-shipyard.png">
+  <meta property="og:image:alt" content="Engage, the shipyard. A starship drawn side on in the drydock, with her name on the hull, beside her top warp, cruising warp, crew and sensors.">
+  <meta property="og:url" content="https://engage.junkdrawer.works/shipyard.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preload" href="fonts/chakra-petch-600.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <style>@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } ::view-transition-group(root) { animation-duration: .2s; } }</style>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/survey.css">
+  <link rel="stylesheet" href="css/shipyard.css">
+</head>
+<body class="survey shipyard-page">
+  <noscript><p class="noscript">The shipyard needs JavaScript to draw her.</p></noscript>
+
+  <header class="top">
+    <a class="back" href="./" aria-label="Back to the bridge">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span>Bridge</span>
+    </a>
+    <div class="title">
+      <p class="eyebrow">Engage · The shipyard</p>
+      <h1>Design a starship</h1>
+    </div>
+    <button class="speaker" id="speaker" type="button" aria-pressed="true" aria-label="Sound" title="Sound on">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="waves" d="M15.5 9.2a4 4 0 0 1 0 5.6M18 6.6a7.5 7.5 0 0 1 0 10.8"/><path class="mute" d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <p class="lab-intro">Lay down a ship of your own: pick a hull, split her mass between engines, science and defence, and see what she can do. She isn’t the ship you command (that one’s name is in Bridge settings, on the bridge): keep as many as you like, and race them on the warp scale.</p>
+
+    <section class="req" id="req" aria-labelledby="req-head">
+      <p class="eyebrow" id="req-head">Starfleet requisition</p>
+      <p class="req-says" id="req-says"></p>
+      <ul class="req-asks" id="req-asks"></ul>
+      <p class="req-state" id="req-state" aria-live="polite"></p>
+    </section>
+
+    <div class="yard">
+      <div class="dock">
+        <div class="dock-screen"><canvas id="drawing" role="img" aria-label="Your design, side on"></canvas></div>
+        <dl class="specs" id="specs"></dl>
+        <p class="like" id="like"></p>
+        <p class="trips" id="trips"></p>
+      </div>
+      <div class="bench">
+        <fieldset class="hulls">
+          <legend>Hull</legend>
+          <div class="hull-list" id="hulls"></div>
+        </fieldset>
+        <section class="mass" aria-labelledby="mass-head">
+          <p class="eyebrow" id="mass-head">Her mass</p>
+          <label class="flow" for="share-e"><span>Engines <output id="out-e" for="share-e"></output></span>
+            <input type="range" id="share-e" min="10" max="80" step="5" value="40"></label>
+          <label class="flow sci" for="share-s"><span>Science <output id="out-s" for="share-s"></output></span>
+            <input type="range" id="share-s" min="10" max="80" step="5" value="30"></label>
+          <label class="flow def" for="share-d"><span>Defence <output id="out-d" for="share-d"></output></span>
+            <input type="range" id="share-d" min="10" max="80" step="5" value="30"></label>
+        </section>
+        <section class="naming" aria-labelledby="name-head">
+          <p class="eyebrow" id="name-head">Her name</p>
+          <div class="name-row">
+            <label class="field"><span>Name</span><input id="name" type="text" maxlength="30" autocomplete="off" spellcheck="false"></label>
+            <label class="field reg"><span>Registry</span><input id="registry" type="text" maxlength="12" autocomplete="off" spellcheck="false"></label>
+          </div>
+          <button class="text-button" id="suggest" type="button">Suggest a name</button>
+          <div class="keep-row">
+            <button class="primary" id="keep" type="button">Keep her</button>
+            <button class="secondary" id="fresh" type="button" hidden>New design</button>
+          </div>
+          <p class="kept-note" id="kept-note" aria-live="polite"></p>
+        </section>
+      </div>
+    </div>
+
+    <section class="fleet" id="fleet" aria-labelledby="fleet-head">
+      <p class="eyebrow">Your shipyard</p>
+      <h2 id="fleet-head">Ships of your own</h2>
+      <p class="fleet-none" id="fleet-none">None kept yet. Each one you keep is listed here, with a link to race her on the warp scale.</p>
+      <p class="unsaved" id="unsaved" hidden></p>
+      <ol class="ships" id="ships"></ol>
+    </section>
+
+    <p class="sources">The hulls are this game’s own types. Each is said to be like a real Starfleet class for scale, from Memory Alpha’s pages on the Oberth, Defiant, Nova, Constitution, Intrepid and Galaxy classes. How a hull’s mass turns into speed, crew, sensors and defence is the game’s. Cruising warp is a third of her top speed, on the warp scale’s own curve, and no design goes past warp 9.975, Voyager’s top cruising speed. Starfleet designed and built its ships at the Utopia Planitia Fleet Yards, in drafting rooms on Mars and drydocks in orbit round it (Memory Alpha, “Utopia Planitia Fleet Yards”).</p>
+  </main>
+
+  <footer class="jd-foot">
+    <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+    <span aria-hidden="true">·</span>
+    <a href="./">Engage</a>
+  </footer>
+
+  <script type="module" src="js/shipyard.js"></script>
+</body>
+</html>

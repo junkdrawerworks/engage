@@ -582,7 +582,7 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
   .intro-card .rooms li + li { border-top: 0; }
   .intro-card .rooms li { border-bottom: var(--bw) solid var(--line); }
 }
-/* A phone on its side (under 500 px tall) has room for the sixteen rooms only by name: each one's picture and name,
+/* A phone on its side (under 500 px tall) has room for the seventeen rooms only by name: each one's picture and name,
    four to a row (three on the narrowest), so Take the helm is about a screen down rather than two swipes. The names
    are still links, and Bridge settings lists every room with its line. */
 @media (min-width: 640px) and (max-height: 500px) {
