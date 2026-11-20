@@ -671,7 +671,7 @@ try {
     const c = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     await c.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
     const p = watch(await c.newPage());
-    const OWN = { 'survey.html': 1, 'xeno.html': 1, 'tonight.html': 1, 'away.html': 1, 'maru.html': 1, 'contact.html': 3 };
+    const OWN = { 'survey.html': 1, 'xeno.html': 1, 'tonight.html': 1, 'away.html': 1, 'maru.html': 1, 'contact.html': 3, 'astrometrics.html': 3 };
     for (const room of Object.keys(ROOMS)) {
       await p.goto(base + room);
       await ready(p, room);
