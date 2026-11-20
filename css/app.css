@@ -583,7 +583,7 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
   .intro-card .rooms li { border-bottom: var(--bw) solid var(--line); }
 }
 /* A phone on its side (under 500 px tall) has room for the seventeen rooms only by name: each one's picture and name,
-   four to a row (three on the narrowest), so Take the helm is about a screen down rather than two swipes. The names
+   four or five to a row (three on the narrowest), so Take the helm is about a screen down rather than two swipes. The names
    are still links, and Bridge settings lists every room with its line. */
 @media (min-width: 640px) and (max-height: 500px) {
   .intro-card { padding: 14px 20px 8px; }
@@ -595,6 +595,12 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
   .intro-card .rooms .room-text b { font-size: calc(13 * var(--px)); }
 }
 @media (min-width: 660px) and (max-height: 500px) {
-  .intro-card { max-width: 820px; }
+  .intro-card { max-width: 860px; padding-top: 10px; }
+  .intro-card h2 { margin: 0 0 4px; font-size: calc(26 * var(--px)); }
+  .intro-card p { margin-bottom: 6px; line-height: 1.35; }
   .intro-card .rooms { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 800px) and (max-height: 500px) {
+  .intro-card .rooms { grid-template-columns: repeat(5, 1fr); column-gap: 12px; }
+  .intro-card .rooms a { gap: 8px; }
 }
