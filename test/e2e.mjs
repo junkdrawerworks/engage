@@ -117,7 +117,7 @@ assert.ok(await page.locator('#engage').isDisabled(), 'engage works with no dest
   const want = LISTED.map(r => [r.href, r.name, r.line]);
   assert.deepEqual(await listed('#intro'), want, 'the welcome card does not list the rooms');
   assert.equal(await p.locator('#intro .intro-card > p:not([class])').count(), 2, 'the welcome card still has its long paragraph about the buttons');
-  // On a phone on its side the fourteen rooms are listed by picture and name alone, so the card is about a screen
+  // On a phone on its side the sixteen rooms are listed by picture and name alone, so the card is about a screen
   // tall and Take the helm is in reach; held upright, each keeps its line.
   assert.ok(await p.locator('#intro .room-text > span').first().isVisible(), 'a phone held upright lost the rooms’ lines');
   for (const [w, h] of [[844, 390], [667, 375]]) {
