@@ -12,6 +12,11 @@ import {
   FIRST_TV, MAP_LY, arrivalSaid, flights, hailProgress, heardAt, hearing, pickThree, properName, readHails, spanSaid,
   yearLine, yearNow, yearSaid,
 } from './radio.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

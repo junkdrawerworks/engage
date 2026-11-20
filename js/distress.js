@@ -8,6 +8,11 @@ import {
   AIR, CLUE_ORDER, EYE_MAG, breathe, candidates, clean, clueText, colourOf, daySeed, debrief, earthMag, lockOn,
   newCall, record, skyFromStar, standing, today,
 } from './distress-sim.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

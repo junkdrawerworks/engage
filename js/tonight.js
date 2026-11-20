@@ -21,6 +21,11 @@ import { fileForHome, label as fileLabel } from './classes.js';
 import { linesForStar, readContacts } from './contacts.js';
 import { nowLine, variableFor } from './variables.js';
 import { DEEP_SKY, KINDS, sightById, sightDir, sightSize, sightWidthLy, seenIn } from './deepsky.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const KEY = 'engage.tonight.v1';
 // Where Engage itself is. The single-file copy points this at the live site.

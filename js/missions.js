@@ -10,6 +10,11 @@ import { shipDir, dishWatch, constellationIn } from './astro.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { LIVE, share } from './share.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const KEY = 'engage.missions.v1';
 // Where Engage itself is. The single-file copy points this at the live site.

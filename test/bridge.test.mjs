@@ -86,3 +86,31 @@ test('a room added since the last visit is named, with a link to it, and nothing
   assert.match(whatsNew(newRooms(['survey', 'maru'])), /<\/a>, <a .*<\/a> and <a [^,]*<\/a>\.$/);
   assert.equal(whatsNew([]), '');
 });
+
+// ---------- What every room shares: sound, vibration, the text size ----------
+import { PREFS, SIZES, readPrefs, textScale, withPref } from '../js/prefs.js';
+
+test('sound, vibration and the text size are kept once for every room, and a damaged copy is the defaults', () => {
+  const from = kept => key => (key in kept ? kept[key] : null);
+  assert.deepEqual(readPrefs(from({})), { sound: true, buzz: true, text: 'standard' });
+  assert.deepEqual(readPrefs(from({ [PREFS]: '{"sound":false,"buzz":false,"text":"largest"}' })), { sound: false, buzz: false, text: 'largest' });
+  assert.deepEqual(readPrefs(from({ [PREFS]: 'not json' })), { sound: true, buzz: true, text: 'standard' });
+  assert.deepEqual(readPrefs(from({ [PREFS]: '{"sound":"no","text":"huge"}' })), { sound: true, buzz: true, text: 'standard' });
+  // Sound was the bridge's own setting: a bridge that had it off keeps it off, until the new setting is changed.
+  assert.equal(readPrefs(from({ 'engage.v1': '{"opts":{"sound":false}}' })).sound, false);
+  assert.equal(readPrefs(from({ 'engage.v1': '{"opts":{"sound":false}}', [PREFS]: '{"sound":true}' })).sound, true);
+  assert.equal(readPrefs(from({ 'engage.v1': '{"opts":{"sound":true}}' })).sound, true);
+  // One changed, the rest kept.
+  assert.deepEqual(withPref({ sound: false, buzz: true, text: 'large' }, 'buzz', false), { sound: false, buzz: false, text: 'large' });
+  assert.deepEqual(withPref({}, 'text', 'enormous'), { sound: true, buzz: true, text: 'standard' });
+  assert.ok(PREFS.startsWith('engage.'));
+  assert.deepEqual(SIZES, ['standard', 'large', 'largest']);
+});
+
+test('words drawn into pictures grow with the text size and with the browser’s own', () => {
+  assert.equal(textScale('standard'), 1);
+  assert.equal(textScale('large'), 1.15);
+  assert.equal(textScale('largest', 20), 1.3 * 1.25);
+  assert.equal(textScale('standard', NaN), 1);
+  assert.equal(textScale('odd', 16), 1);
+});

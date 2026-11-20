@@ -9,6 +9,11 @@ import {
   DEG, MOMENTS, POLE_MAG, PRECESSION_YEARS, SPAN, closest, dialForYear, drift, loadMotion, nearestIn, placeAt, poleIn,
   poleStar, skyIn, yearForDial, yearSaid,
 } from './epoch.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

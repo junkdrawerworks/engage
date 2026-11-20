@@ -10,6 +10,10 @@ import { onScreen } from './onscreen.js';
 import { readShipPlace, whereWords } from './contacts.js';
 import { readShip, shortName } from './myship.js';
 import { stardate } from './physics.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const KEY = 'engage.contact.v1';
 const LAB = 'xeno.html'; // the xenobiology lab, for what might live on their world
@@ -37,7 +41,6 @@ function save() {
   $('record-unsaved').textContent = unkept(unsaved, 'first contact', 'your latest encounter');
   return !unsaved;
 }
-try { sound.on = JSON.parse(localStorage.getItem('engage.v1') || '{}')?.opts?.sound !== false; } catch { /* keep it on */ }
 
 let g = null; // the encounter
 let look = null; // how this species looks

@@ -7,6 +7,11 @@ import { SPECIMENS, specimensFor } from './species.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const KEY = 'engage.xeno.v1';
 // Where Engage itself is. The single-file copy points this at the live site.

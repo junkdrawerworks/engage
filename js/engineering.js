@@ -4,6 +4,11 @@ import {
   DEUT_TANK, HOT, LIMIT, ORDERS, ORDER_SECONDS, asked, costOf, flowsFor, grade, massSaid, newShift, reading, recordShift, run,
   yardsticks,
 } from './core.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

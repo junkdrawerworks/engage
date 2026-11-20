@@ -53,7 +53,7 @@ async function bundle(order, patch = (name, src) => src) {
 }
 const pageBody = page => page.slice(page.indexOf('<body') , page.indexOf('</body>')).replace(/^<body[^>]*>/, '').replace(/<script type="module" src="[^"]+"><\/script>/, '');
 
-const ORDER = ['physics', 'destinations', 'charts', 'moons', 'classes', 'ephemeris', 'astro', 'worlds', 'audio', 'ships', 'lives', 'variables', 'log', 'search', 'computer', 'share', 'store', 'deepsky', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'logbook', 'voyage', 'myship', 'records', 'voyages', 'wake', 'cartography', 'chart-view', 'app'];
+const ORDER = ['physics', 'destinations', 'charts', 'moons', 'classes', 'ephemeris', 'astro', 'worlds', 'audio', 'ships', 'lives', 'variables', 'log', 'search', 'computer', 'share', 'store', 'prefs', 'room', 'deepsky', 'catalog', 'sky', 'rooms', 'sheets', 'courses', 'contacts', 'logbook', 'voyage', 'myship', 'records', 'voyages', 'wake', 'cartography', 'chart-view', 'app'];
 const js = await bundle(ORDER, async (name, src) => {
   if (name !== 'app') return src;
   for (const [from, to] of [
@@ -104,7 +104,7 @@ console.log(`engage.html: ${(bridgeOut.length / 1024 / 1024).toFixed(2)} MB`);
 
 // The planetary survey, as its own single file. Links back to the bridge go to the live site.
 const surveyHtml = await read('survey.html');
-const surveyJs = await bundle(['physics', 'moons', 'classes', 'ephemeris', 'astro', 'worlds', 'planet-art', 'store', 'onscreen', 'share', 'pace', 'quiz', 'hunt', 'hunt-view', 'survey'], liveBridge('survey', 'hunt-view'));
+const surveyJs = await bundle(['audio', 'physics', 'moons', 'classes', 'ephemeris', 'astro', 'worlds', 'planet-art', 'store', 'prefs', 'room', 'onscreen', 'share', 'pace', 'quiz', 'hunt', 'hunt-view', 'survey'], liveBridge('survey', 'hunt-view'));
 const surveyCss = css + '\n' + await read('css/survey.css');
 const surveyOut = `<title>Planetary survey</title>
 <meta name="theme-color" content="#05070d">
@@ -125,7 +125,7 @@ console.log(`survey.html: ${(surveyOut.length / 1024).toFixed(0)} KB`);
 
 // The Kobayashi Maru, as its own single file. Links back to the bridge go to the live site.
 const maruHtml = await read('maru.html');
-const maruJs = await bundle(['audio', 'store', 'onscreen', 'share', 'switch', 'archive', 'maru-sim', 'officer-sim', 'officer', 'myship', 'maru'], liveBridge('maru'));
+const maruJs = await bundle(['audio', 'store', 'prefs', 'room', 'onscreen', 'share', 'switch', 'archive', 'maru-sim', 'officer-sim', 'officer', 'myship', 'maru'], liveBridge('maru'));
 const maruOut = `<title>Kobayashi Maru</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -152,7 +152,7 @@ const boundsShim = `window.fetch = async url => {
   throw new Error('not bundled: ' + url);
 };`;
 const missionsHtml = await read('missions.html');
-const missionsJs = await bundle(['physics', 'ships', 'ephemeris', 'astro', 'store', 'onscreen', 'share', 'missions'], liveBridge('missions'));
+const missionsJs = await bundle(['audio', 'physics', 'ships', 'ephemeris', 'astro', 'store', 'prefs', 'room', 'onscreen', 'share', 'missions'], liveBridge('missions'));
 const missionsOut = `<title>Long missions</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -174,7 +174,7 @@ console.log(`missions.html: ${(missionsOut.length / 1024).toFixed(0)} KB`);
 
 // Tonight's sky, as its own single file, with the stars inline. Links back to the bridge go to the live site.
 const tonightHtml = await read('tonight.html');
-const tonightJs = await bundle(['physics', 'destinations', 'ephemeris', 'astro', 'charts', 'ships', 'lives', 'variables', 'log', 'deepsky', 'catalog', 'wake', 'store', 'sheets', 'share', 'warp-scale', 'moons', 'classes', 'contacts', 'tonight'], liveBridge('tonight'));
+const tonightJs = await bundle(['audio', 'physics', 'destinations', 'ephemeris', 'astro', 'charts', 'ships', 'lives', 'variables', 'log', 'deepsky', 'catalog', 'wake', 'store', 'prefs', 'room', 'sheets', 'share', 'warp-scale', 'moons', 'classes', 'contacts', 'tonight'], liveBridge('tonight'));
 const tonightOut = `<title>Tonight’s sky</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -194,7 +194,7 @@ console.log(`tonight.html: ${(tonightOut.length / 1024 / 1024).toFixed(2)} MB`);
 
 // The xenobiology lab, as its own single file. Links to the bridge and the survey go to the live site.
 const xenoHtml = await read('xeno.html');
-const xenoJs = await bundle(['physics', 'moons', 'classes', 'planet-art', 'xeno-gen', 'xeno-art', 'species', 'share', 'store', 'onscreen', 'xeno'], liveBridge('xeno'));
+const xenoJs = await bundle(['audio', 'physics', 'moons', 'classes', 'planet-art', 'xeno-gen', 'xeno-art', 'species', 'share', 'store', 'prefs', 'room', 'onscreen', 'xeno'], liveBridge('xeno'));
 const xenoOut = `<title>Xenobiology lab</title>
 <meta name="theme-color" content="#05070d">
 <style>
@@ -215,7 +215,7 @@ console.log(`xeno.html: ${(xenoOut.length / 1024).toFixed(0)} KB`);
 // First contact, as its own single file. Links back to the bridge go to the live site.
 const contactHtml = await read('contact.html');
 // Its link to the lab goes to the live site too.
-const contactJs = await bundle(['physics', 'audio', 'store', 'onscreen', 'share', 'switch', 'archive', 'contacts', 'myship', 'contact-sim', 'contact-art', 'contact'],
+const contactJs = await bundle(['physics', 'audio', 'store', 'prefs', 'room', 'onscreen', 'share', 'switch', 'archive', 'contacts', 'myship', 'contact-sim', 'contact-art', 'contact'],
   (name, src) => (name === 'contact' ? swap(src, "const LAB = 'xeno.html';", `const LAB = '${LIVE}xeno.html';`, 'js/contact.js') : src));
 const contactOut = `<title>First contact</title>
 <meta name="theme-color" content="#05070d">
@@ -235,7 +235,7 @@ console.log(`contact.html: ${(contactOut.length / 1024).toFixed(0)} KB`);
 
 // The warp scale, as its own single file, with the stars inline for impulse power. Links back to the bridge go to the live site.
 const warpHtml = await read('warp.html');
-const warpJs = await bundle(['physics', 'destinations', 'deepsky', 'ephemeris', 'astro', 'catalog', 'impulse', 'warp-scale', 'wake', 'store', 'share', 'myship', 'warp'], liveBridge('warp'));
+const warpJs = await bundle(['audio', 'physics', 'destinations', 'deepsky', 'ephemeris', 'astro', 'catalog', 'impulse', 'warp-scale', 'wake', 'store', 'prefs', 'room', 'share', 'myship', 'warp'], liveBridge('warp'));
 const warpOut = `<title>Warp scale</title>
 <meta name="theme-color" content="#05070d">
 <style>

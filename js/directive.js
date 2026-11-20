@@ -1,5 +1,10 @@
 // The Prime Directive: the case, the hearing and the board's finding. The rules are in js/directive-sim.js.
 import { CASES, caseOf, choices, choose, heard, line, newHearing, recordHearing, verdict } from './directive-sim.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

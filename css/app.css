@@ -98,6 +98,15 @@ body.auto #labels { cursor: none; }
 .round:hover { border-color: var(--cyan); }
 .round svg { width: 20px; height: 20px; }
 a.round { color: var(--text); text-decoration: none; }
+/* The speaker in every room's header: Engage's sound, on or off everywhere at once (js/room.js). In the rooms with a
+   header bar it stands at the end of the first row, level with Bridge; tonight's sky has it among its round buttons. */
+.top > .speaker { grid-row: 1; grid-column: -2 / -1; justify-self: end; position: relative; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line-strong);
+  background: var(--panel); color: var(--text); display: grid; place-items: center; padding: 0; }
+.top > .speaker::after { content: ''; position: absolute; inset: -2px; }
+.top > .speaker:hover { border-color: var(--cyan); }
+.speaker svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.speaker[aria-pressed="true"] .mute, .speaker[aria-pressed="false"] .waves { display: none; }
+.speaker[aria-pressed="false"] { color: var(--muted); }
 #look-home svg circle:first-child { fill: var(--sun); stroke: none; }
 #open-maru svg { stroke: #ff8f84; }
 #open-missions svg { stroke: var(--cyan); }

@@ -12,6 +12,11 @@ import { LIVE, share } from './share.js';
 import { fullName, readShip } from './myship.js';
 import { loadCatalog } from './catalog.js';
 import { aberrate, doppler, gamma, greenSeenAs, halfSkyDeg, hourOnEarth, speedSaid } from './impulse.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const KEY = 'engage.warp.v1';
 // Where Engage itself is. The single-file copy points this at the live site.

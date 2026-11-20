@@ -2,6 +2,7 @@
 import { loadCatalog } from './catalog.js';
 import { Sky } from './sky.js';
 import { sound } from './audio.js';
+import { follow, setPref, setUpRoom } from './room.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, starKinds, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
@@ -64,7 +65,7 @@ const state = defaults();
 function defaults() {
   return {
     at: 0, offset: homeOffset(), yaw: START_YAW, pitch: START_PITCH, fov: 60 * DEG,
-    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, sound: true, clock: false }, seenIntro: false, ship: null,
+    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, clock: false }, seenIntro: false, ship: null,
     voyage: null, // the voyage under way, if one is (see js/voyages.js)
     rooms: null, // the rooms the bridge has told of, by id (js/rooms.js), for the line that says what's new
   };
@@ -135,8 +136,6 @@ function adopt() {
   load();
   Object.assign(state, { yaw, pitch, fov });
   if (state.at !== at) { turn = null; sky.setOrigin(starPos(state.at)); }
-  sound.on = state.opts.sound;
-  if (!sound.on) sound.stop();
   showSettings();
   showTarget();
   updateHud();
@@ -149,7 +148,6 @@ function adopt() {
 function showSettings() {
   $('opt-lines').checked = state.opts.lines;
   $('opt-labels').checked = state.opts.labels;
-  $('opt-sound').checked = state.opts.sound;
   $('opt-clock').checked = state.opts.clock;
   // Her name, unless it is being typed in this tab just now.
   if (document.activeElement !== $('ship-name')) $('ship-name').value = state.ship?.name ?? '';
@@ -227,6 +225,9 @@ function setNight(on) {
 async function start() {
   preview();
   showNight(); // before the stars are in: no bright moment on the way
+  // Sound and the text size are every room's settings (js/room.js), followed here and in Bridge settings.
+  setUpRoom({ sound });
+  follow(p => { $('opt-sound').checked = p.sound; });
   const img = new Image();
   img.src = 'img/milkyway.png';
   try {
@@ -236,7 +237,6 @@ async function start() {
     throw e;
   }
   load();
-  sound.on = state.opts.sound;
   try {
     sky = new Sky($('sky'), cat, img);
   } catch (e) {
@@ -1943,17 +1943,17 @@ function bind() {
     behind();
     $('intro-go').focus({ preventScroll: true });
   });
-  for (const [id, key] of [['opt-lines', 'lines'], ['opt-labels', 'labels'], ['opt-sound', 'sound'], ['opt-clock', 'clock']]) {
+  for (const [id, key] of [['opt-lines', 'lines'], ['opt-labels', 'labels'], ['opt-clock', 'clock']]) {
     $(id).addEventListener('change', e => {
       state.opts[key] = e.target.checked;
-      sound.on = state.opts.sound;
-      sound.stop();
       save();
       dirty = true;
       if (key === 'clock') { updateHud(); updateTrip(); }
     });
   }
   $('opt-night').addEventListener('change', e => setNight(e.target.checked));
+  // Sound is every room's setting, not only the bridge's: the speaker in any room's header changes it too.
+  $('opt-sound').addEventListener('change', e => setPref('sound', e.target.checked));
   $('records-save').addEventListener('click', saveCopy);
   $('records-restore').addEventListener('click', () => $('records-file').click());
   $('records-file').addEventListener('change', e => readCopy(e.target));

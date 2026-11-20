@@ -10,6 +10,11 @@ import { dotAt } from './cartography.js';
 import {
   FAMILY_NAMES, FILTERS, SUN_LIFE, census, family, hrX, hrXClamped, hrY, lesson, passes, wall,
 } from './hr.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

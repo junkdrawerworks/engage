@@ -4,6 +4,11 @@ import {
   COLLECT, QUARTER, START_LY, SUSTAIN_WARP, TANK, TOP_WARP, ahead, burn, cruise, debrief, newTrip, readTrip, recordHome, step,
   whenSaid, yearsSaid,
 } from './longway.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

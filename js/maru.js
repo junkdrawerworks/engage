@@ -7,6 +7,10 @@ import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { fullName, readShip } from './myship.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const KEY = 'engage.maru.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
@@ -36,7 +40,6 @@ function save() {
   $('record-unsaved').textContent = unkept(unsaved, 'the simulator', 'your latest run');
   return !unsaved;
 }
-try { sound.on = JSON.parse(localStorage.getItem('engage.v1') || '{}')?.opts?.sound !== false; } catch { /* keep it on */ }
 
 let g = null; // the game
 let busy = false;

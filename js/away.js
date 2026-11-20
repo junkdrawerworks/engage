@@ -9,6 +9,11 @@ import { worldByName, grows } from './classes.js';
 import { growFor } from './xeno-gen.js';
 import { drawCreature } from './xeno-art.js';
 import { SYSTEMS, planetByName, standable, groundSky, groundReadings, altitude, gravity, yearText } from './worlds.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

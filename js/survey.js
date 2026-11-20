@@ -9,6 +9,11 @@ import { Pace } from './pace.js';
 import { tallies, isFile, isSlip, record as onRecord, filesUsed, caughtOutLine, question, exam, EXAM, today, examLine, examSaved, ROUNDS } from './quiz.js';
 import { LIVE, share } from './share.js';
 import { planetByName, standable, systemFor } from './worlds.js';
+import { sound } from './audio.js';
+import { setUpRoom } from './room.js';
+
+// The speaker in the header, and the text size from Bridge settings.
+setUpRoom({ sound });
 
 const KEY = 'engage.survey.v1';
 // Where Engage itself is. The single-file copy points this at the live site.
