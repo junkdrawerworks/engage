@@ -701,7 +701,17 @@ $('jars').addEventListener('click', e => {
 // stays gone.
 const sameJar = (a, b) => a.seed === b.seed && a.id === b.id && a.world === b.world;
 watch(KEY, () => {
-  saved.jars = load().jars.filter(j => !(gone && sameJar(j, gone.jar)));
+  const fresh = load();
+  saved.jars = fresh.jars.filter(j => !(gone && sameJar(j, gone.jar)));
+  // The tribbles' jar too: kept or given away in another tab (or come back with the ship's records), it is so here,
+  // and this tab's next save keeps it that way rather than putting back what it last saw.
+  const tribble = fresh.tribble && Number.isFinite(Date.parse(fresh.tribble.at)) ? fresh.tribble : null;
+  if ((tribble?.at ?? null) !== (saved.tribble?.at ?? null)) {
+    if (tribble) saved.tribble = tribble; else delete saved.tribble;
+    renderTribble();
+    $('cabinet').innerHTML = SPECIMENS.map(refHtml).join('');
+    if (current) renderRefs(current.classId);
+  }
   renderJars();
   renderKeep();
 });

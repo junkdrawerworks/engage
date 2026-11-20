@@ -400,6 +400,28 @@ try {
     assert.equal((await lab()).tribble, undefined);
     assert.equal(await p.locator('#jars-wrap').isVisible(), false, 'an empty shelf is still shown');
     assert.equal(await p.locator('#cabinet [data-tribble]').count(), 1, 'no tribble to keep again');
+    // The lab open twice: a tribble kept in one is in the other, and the other keeping a jar afterwards doesn't
+    // write it out of the save; given away there, it is gone here too.
+    {
+      const q = watch(await c.newPage());
+      await q.goto(base + 'xeno.html');
+      await ready(q, 'xeno.html');
+      if (!(await p.locator('.cabinet').evaluate(d => d.open))) await p.locator('.cabinet summary').click();
+      await p.locator('#cabinet [data-tribble]').click();
+      await q.locator('#tribble').waitFor({ state: 'visible', timeout: 5000 });
+      assert.equal(await q.locator('#cabinet [data-tribble]').count(), 0, 'the other tab still offers a tribble to keep');
+      await q.click('#keep');
+      await q.waitForFunction(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars.length === 1);
+      assert.ok((await lab()).tribble, 'keeping a jar in the other tab lost the tribble');
+      await q.locator('#tribble-go').click();
+      await p.locator('#tribble').waitFor({ state: 'hidden', timeout: 5000 });
+      await p.evaluate(() => window.xeno.show('M', 7));
+      await p.click('#keep');
+      await p.waitForFunction(() => JSON.parse(localStorage.getItem('engage.xeno.v1')).jars.length === 2);
+      assert.equal((await lab()).tribble, undefined, 'a tribble given away in one tab came back from the other');
+      await q.close();
+      await p.evaluate(() => localStorage.removeItem('engage.xeno.v1'));
+    }
 
     // Wolf 359 falls quiet: dropping out of warp there, the engine's hum is cut off and there is no whoosh. Anywhere
     // else the ship arrives as it always has.
