@@ -26,7 +26,7 @@ import { hold as wakeHold, release as wakeRelease } from './wake.js';
 import { VOYAGES, arrivedAt, autopilotNext, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from './voyages.js';
 import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, starHails, story, supplementals } from './voyage.js';
 import { linkable, namedHere, neighbourhood, progress as hoodProgress, recordLine as hoodLine, recordNone as hoodNone } from './neighbourhood.js';
-import { answersDue, carriedOut, dayOf, orderLine, orderLineDue, orderOf, reportOf, roomsOnRecord, tidyDuty, todayItems, update as updateDuty } from './duty.js';
+import { answersDue, assignedStars, carriedOut, dayOf, weeklyLines, weeklySaid, orderLine, orderLineDue, orderOf, reportOf, roomsOnRecord, tidyDuty, todayItems, update as updateDuty } from './duty.js';
 import { jdOf, readings } from './ephemeris.js';
 import { heardAt } from './astro.js';
 import { byId as shipById } from './ships.js';
@@ -1920,6 +1920,7 @@ function drawLog() {
   records = readRecords();
   supps = supplementals(records, Date.now(), { lyOf: starLy });
   dutyNow();
+  supps = withWeeks(supps);
   unsavedNote('log-unsaved', 'The log is full: new entries and the ship’s position aren’t being kept. Clearing the log, in settings, makes room.',
     'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;
@@ -2042,14 +2043,20 @@ function serviceHtml() {
   const m = d?.medals;
   const medals = m && (m.earned.length || m.next) ? `<p class="medals" id="medals"><b>Commendations</b>${m.earned.length ? `<span class="earned">${m.earned.map(c => `<span title="${esc(c.what)}">${esc(c.name)}</span>`).join('')}</span>` : ''}`
     + `${m.next ? `<span class="next">Next, ${esc(m.next.name)}: ${esc(m.next.what)} (${esc(progressSaid(m.next))}).</span>` : ''}</p>` : '';
-  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record${named}</h3>${rank}${clock}<ul>${rows.map(r =>
+  const n = d ? Object.keys(d.duty.weeks).length : 0;
+  const weeks = d ? `<p class="weeks" id="weeks"><b>Weekly assignments:</b> <span>${n ? `${n.toLocaleString('en-US')} completed` : 'None completed yet'}</span></p>` : '';
+  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record${named}</h3>${rank}${weeks}${clock}<ul>${rows.map(r =>
     `<li><a href="${ROOM_BASE}${r.href}"${AWAY} data-room="${r.room}"><b>${esc(r.name)}</b><span${r.line ? '' : ' class="none"'}>${esc(r.line || r.none)}</span>${chev}</a></li>`).join('')}</ul>${medals}</section>`;
 }
 // Astrometrics' neighbourhood as a row of its own: how many of the stars within 80 light years the log has been to,
 // and of the ones Starfleet's charts name, leading to the map. Its stars are worked out once.
 let hood = null;
-function hoodRow() {
+function hoodStars() {
   if (!hood) { const near = neighbourhood(cat); hood = { near, named: namedHere(cat, near) }; }
+  return hood;
+}
+function hoodRow() {
+  hoodStars();
   const p = hoodProgress(hood.near, hood.named, new Set(state.log.map(e => e.star)), linkable(cat));
   return { room: 'astrometrics', name: 'The neighbourhood', href: 'astrometrics.html#view=neighbourhood', none: hoodNone(p), line: hoodLine(p) };
 }
@@ -2078,7 +2085,8 @@ function dutyNow() {
     jars: Array.isArray(records.xeno?.jars) ? records.xeno.jars.length : 0,
     homeEarly: records.longway?.best > 0 && records.longway.best < 60,
   };
-  const u = updateDuty(state.duty, { rec: records, log: state.log, supps, find: findStar, here: state.at, today, f });
+  const lyOf = i => (i > 0 && !cat.unmeasured[i] ? Math.hypot(...starPos(i)) * LY_PER_PC : undefined);
+  const u = updateDuty(state.duty, { rec: records, log: state.log, supps, find: findStar, lyOf, here: state.at, today, f });
   const order = orderOf(today), done = carriedOut(order, records, state.log, findStar, state.at);
   duty = { ...u, today, order, done: done.done || u.duty.orders.includes(today), report: reportOf(order, done.entry) };
   if (u.changed) { state.duty = u.duty; if (!stale) save(); }
@@ -2119,12 +2127,37 @@ function todayHtml() {
   const chev = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   return `<section class="today" id="today" aria-labelledby="today-head">
     <h3 id="today-head">Today on the bridge<span>${esc(new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }))}</span></h3>
-    ${promoted}${commended}
+    ${promoted}${commended}${weeklyHtml(d.weekly)}
     <div class="order${d.done ? ' is-done' : ''}" id="order"><p class="eyebrow">Orders from Starfleet</p><p class="says">${esc(o.says)}</p>${said}${go ? `<p class="go">${go}</p>` : ''}</div>
     <ul>${items.map(x => `<li${x.done ? ' class="done"' : ''}><a href="${ROOM_BASE}${x.href}"${AWAY} data-today="${esc(x.id)}"><b>${esc(x.name)}</b><span>${esc(x.line)}</span>${chev}</a></li>`).join('')}</ul>
     <p class="served" id="served"><b>${esc(d.rank.name)}</b> · ${esc(served)}</p>${serviceRecord(records).every(r => !r.line) && !state.log.length && d.rank.next
       ? `<p class="served next">Next, ${esc(d.rank.next)}: ${esc(d.rank.needs.join(', '))}.</p>` : ''}
   </section>`;
+}
+
+// The supplemental lines with a line for each week's assignment carried out, which the bridge's save keeps (js/duty.js).
+const withWeeks = lines => [...lines, ...weeklyLines(state.duty)].sort((a, b) => b.t - a.t);
+
+// This week's assignment, at the top of Today on the bridge: what it asks, how far along it is, and a way to get on
+// with it (a course for the nearest star it wants, or its room). A missed week costs nothing; Monday starts the next.
+function weeklyHtml(w) {
+  if (!w) return '';
+  const said = weeklySaid(w, w), go = w.done ? '' : weeklyGo(w);
+  const when = w.done && w.at ? ` on ${new Date(w.at).toLocaleDateString('en-GB', { weekday: 'long' })}` : '';
+  return `<div class="weekly${w.done ? ' is-done' : ''}" id="weekly"><p class="eyebrow">This week’s assignment<span> · until Sunday</span></p>`
+    + `<p class="says"><b>${esc(w.title)}.</b> ${esc(w.says)}</p>`
+    + `<div class="bar" role="progressbar" aria-label="${esc(w.title)}" aria-valuemin="0" aria-valuemax="${w.need}" aria-valuenow="${w.have}" aria-valuetext="${esc(said)}"><span style="width: ${Math.round(100 * w.have / w.need)}%"></span></div>`
+    + `<p class="count">${w.done ? `<b>Carried out${esc(when)}.</b> ` : ''}${esc(said)}</p>${go ? `<p class="go">${go}</p>` : ''}</div>`;
+}
+// The nearest star to the ship that the assignment still wants this week, or the room it is done in.
+function weeklyGo(w) {
+  let pool = assignedStars(w, findStar);
+  if (w.kind === 'near') pool = hoodStars().near.filter(s => s.ly <= w.near).map(s => s.star);
+  if (w.kind === 'new') { const been = new Set(state.log.map(e => e.star)); pool = hoodStars().near.map(s => s.star).filter(i => !been.has(i)); }
+  if (!pool) return w.href ? `<a href="${ROOM_BASE}${w.href}"${AWAY}>${esc(w.go)}</a>` : '';
+  const from = starPos(state.at), far = i => Math.hypot(...starPos(i).map((v, k) => v - from[k]));
+  const best = pool.filter(i => i !== 0 && i !== state.at && !w.seen.has(i)).sort((a, b) => far(a) - far(b))[0];
+  return best === undefined ? '' : `<button class="text-button" type="button" data-course="${best}">Set course for ${esc(titleFor(cat, best))}</button>`;
 }
 
 // The whole voyage in one sentence, at the head of the log: "Fourteen months out: nine stars, one new species, one
@@ -2177,7 +2210,7 @@ function starsHtml(q) {
 // from the browser's own menu, and let go afterwards.
 function printLog() {
   records = readRecords();
-  supps = supplementals(records, Date.now(), { lyOf: starLy });
+  supps = withWeeks(supplementals(records, Date.now(), { lyOf: starLy }));
   const days = byDay(timeline(state.log, supps, missionItems()).reverse());
   const n = new Set(state.log.map(e => e.star)).size;
   const printed = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -2236,7 +2269,7 @@ function missionHtml({ mission: m, n }) {
 function itemHtml(x) {
   const { entry: e, k, t, supp } = x;
   if (x.mission) return missionHtml(x);
-  if (supp) return `<p class="supp"><a href="${ROOM_BASE}${supp.href}"${AWAY}>${esc(supp.text)}</a></p>`;
+  if (supp) return supp.href ? `<p class="supp"><a href="${ROOM_BASE}${supp.href}"${AWAY}>${esc(supp.text)}</a></p>` : `<p class="supp">${esc(supp.text)}</p>`;
   return `
     <details class="past" data-k="${k}">
       <summary><b>${esc(e.title)}</b><span class="sd">${t ? esc(clockTime(t)) : ''}<small>${esc(e.stardate)}</small></span><span>${esc(e.intro)}</span></summary>

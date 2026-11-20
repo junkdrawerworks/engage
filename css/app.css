@@ -344,6 +344,8 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 /* The rank, under the service record's heading, with what the next one needs; and the commendations at its foot. */
 .service .rank { margin: 4px 0 6px; display: grid; gap: 2px; }
 .service .rank b { font: 600 calc(17 * var(--px))/1.2 var(--display); letter-spacing: 0.04em; color: var(--sun); }
+.service .weeks { margin: 0 0 6px; font-size: calc(13 * var(--px)); color: var(--muted); font-variant-numeric: tabular-nums; }
+.service .weeks b { color: var(--text); font-weight: 600; }
 .service .rank span, .service .medals .next { font-size: calc(13 * var(--px)); color: var(--muted); }
 .service .medals { margin: 0; padding: 8px 0 10px; border-top: var(--bw) solid var(--line); display: grid; gap: 6px; }
 .service .medals > b { font: 600 calc(10 * var(--px))/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
@@ -354,6 +356,18 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .today h3 { margin: 0 0 6px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; font: 600 calc(10 * var(--px))/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
 .today h3 span { color: var(--dim); letter-spacing: 0.08em; }
 .today .news { margin: 0 0 6px; font: 600 calc(14 * var(--px))/1.3 var(--display); color: var(--sun); }
+.today .weekly { margin: 0 0 10px; padding: 0 0 8px; border-bottom: var(--bw) solid var(--line); }
+.today .weekly .eyebrow { margin: 0 0 2px; }
+.today .weekly .eyebrow span { color: var(--dim); }
+.today .weekly .says { margin: 0; font-size: calc(14 * var(--px)); line-height: 1.4; color: var(--muted); }
+.today .weekly .says b { font: 600 calc(16 * var(--px))/1.35 var(--display); letter-spacing: 0.01em; color: var(--text); }
+.today .weekly .bar { height: 6px; margin: 8px 0 4px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.today .weekly .bar span { display: block; height: 100%; border-radius: 3px; background: var(--amber); }
+.today .weekly.is-done .bar span { background: var(--green, #6fe3a4); }
+.today .weekly .count { margin: 0; font-size: calc(13 * var(--px)); color: var(--muted); font-variant-numeric: tabular-nums; }
+.today .weekly .count b { color: var(--green, #6fe3a4); font-weight: 600; }
+.today .weekly .go { margin: 2px 0 0; }
+.today .weekly .go a, .today .weekly .go button { display: inline-flex; align-items: center; min-height: 44px; color: var(--cyan); }
 .today .order { margin: 0 0 4px; }
 .today .order .eyebrow { margin: 0 0 2px; }
 .today .order .says { margin: 0; font: 500 calc(16 * var(--px))/1.35 var(--display); letter-spacing: 0.01em; color: var(--text); }
@@ -373,7 +387,8 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .today .served { margin: 4px 0 4px; padding-top: 6px; border-top: var(--bw) solid var(--line); font-size: calc(13 * var(--px)); color: var(--muted); font-variant-numeric: tabular-nums; }
 .today .served b { color: var(--sun); font-weight: 600; }
 .today .served.next { margin-top: 0; padding-top: 0; border-top: 0; }
-body.red .today .order .done b, body.red .today li.done a b::before { color: var(--text); }
+body.red .today .order .done b, body.red .today li.done a b::before, body.red .today .weekly .count b { color: var(--text); }
+body.red .today .weekly.is-done .bar span { background: var(--text); }
 /* With the mission clock on: a summary over the arrival that closed each five-year mission. */
 .mission-end { margin: 10px 0; border: var(--bw) solid rgba(255, 210, 122, 0.45); border-radius: 14px; background: rgba(255, 210, 122, 0.05); }
 .mission-end summary { list-style: none; cursor: pointer; padding: 12px 14px; display: grid; gap: 2px; }

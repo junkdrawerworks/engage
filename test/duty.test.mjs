@@ -3,11 +3,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ASKS, COMMENDATIONS, ORDERS, ORDER_PLACES, RANKS, activeDays, addDays, answersDue, carriedOut, commendations, dayOf, mergeDuty,
+  ASKS, COMMENDATIONS, WEEKLY, assignedStars, assignmentOf, weekOf, weeklyLines, weeklyProgress, weeklySaid, ORDERS, ORDER_PLACES, RANKS, activeDays, addDays, answersDue, carriedOut, commendations, dayOf, mergeDuty,
   orderLine, orderLineDue, orderOf, rankOf, reportOf, roomsOnRecord, served, tidyDuty, todayItems, update,
 } from '../js/duty.js';
 import { requisition } from '../js/shipyard-sim.js';
 import { DESTINATIONS } from '../js/destinations.js';
+import { CHARTS } from '../js/charts.js';
+import { readFileSync } from 'node:fs';
 
 const noon = day => new Date(`${day}T12:00:00`).getTime();
 const entry = (day, star, more = {}) => ({ id: noon(day), star, title: `Star ${star}`, stardate: '2026.880', intro: `At star ${star}.`, sections: [], ly: 1, ...more });
@@ -208,10 +210,10 @@ test('what is kept: days served, orders carried out, the rank and the commendati
   assert.deepEqual([after.rank.name, after.duty.days.length >= 3, after.duty.orders.includes(order.day), after.duty.promoted], ['Ensign', true, true, today]);
   // Read back from a save: junk is left out.
   assert.deepEqual(tidyDuty({ days: ['2026-11-20', 'x', 3, '2026-11-20'], orders: 'no', rank: 'Captain', medals: { charted: '2026-11-01', made_up: '2026-11-01', jars: 4 } }),
-    { days: ['2026-11-20'], orders: [], rank: 0, promoted: null, medals: { charted: '2026-11-01' } });
+    { days: ['2026-11-20'], orders: [], rank: 0, promoted: null, medals: { charted: '2026-11-01' }, weeks: {} });
   // Two copies put together keep everything earned on either.
   const m = mergeDuty({ days: ['2026-11-01'], orders: ['2026-11-01'], rank: 2, promoted: '2026-11-01', medals: { jars: '2026-11-05' } }, { days: ['2026-11-02'], rank: 1, medals: { jars: '2026-11-03', rescue: '2026-11-04' } });
-  assert.deepEqual(m, { days: ['2026-11-01', '2026-11-02'], orders: ['2026-11-01'], rank: 2, promoted: '2026-11-01', medals: { jars: '2026-11-03', rescue: '2026-11-04' } });
+  assert.deepEqual(m, { days: ['2026-11-01', '2026-11-02'], orders: ['2026-11-01'], rank: 2, promoted: '2026-11-01', medals: { jars: '2026-11-03', rescue: '2026-11-04' }, weeks: {} });
 });
 
 test('today on the bridge: a long mission’s answer due today, or come in, and none from a silent ship', () => {
@@ -249,4 +251,136 @@ test('the bridge’s line for the order of the day says it short, and says when 
   assert.equal(orderLineDue(null, '2026-11-20'), true);
   assert.equal(orderLineDue('2026-11-20', '2026-11-20'), false);
   assert.equal(orderLineDue('2026-11-19', '2026-11-20'), true);
+});
+
+// ---------- The weekly assignment ----------
+
+const at = (day, h = 12) => new Date(`${day}T${String(h).padStart(2, '0')}:00:00`).getTime();
+
+test('a week runs Monday to Sunday, and has one assignment, the same for everyone, each once a round and none twice in five weeks', () => {
+  assert.equal(weekOf('2026-11-16'), '2026-11-16'); // a Monday
+  assert.equal(weekOf('2026-11-20'), '2026-11-16');
+  assert.equal(weekOf('2026-11-22'), '2026-11-16'); // a Sunday
+  assert.equal(weekOf('2026-11-23'), '2026-11-23');
+  assert.equal(weekOf('2027-01-01'), '2026-12-28'); // across a year
+  const a = assignmentOf('2026-11-20');
+  for (let k = 0; k < 7; k++) assert.equal(assignmentOf(addDays('2026-11-16', k)).id, a.id, 'the assignment changed inside its week');
+  assert.deepEqual([a.week, a.ends], ['2026-11-16', '2026-11-22']);
+  const seen = new Map(), last = new Map();
+  for (let k = -300; k < 1000; k++) {
+    const w = assignmentOf(addDays('2026-11-16', 7 * k));
+    seen.set(w.id, (seen.get(w.id) || 0) + 1);
+    if (last.has(w.id)) assert.ok(k - last.get(w.id) >= 5, `${w.week}: ${w.id} again after ${k - last.get(w.id)} weeks`);
+    last.set(w.id, k);
+  }
+  assert.equal(seen.size, WEEKLY.length, 'an assignment never comes up');
+  assert.ok(Math.max(...seen.values()) - Math.min(...seen.values()) <= 1, 'some assignments come up more often than others');
+  // A round is every assignment once: the 23 weeks from 5 January 2026.
+  assert.equal(new Set(Array.from({ length: WEEKLY.length }, (_, k) => assignmentOf(addDays('2026-01-05', 7 * k)).id)).size, WEEKLY.length);
+  assert.equal(new Set(WEEKLY.map(w => w.id)).size, WEEKLY.length);
+  assert.ok(WEEKLY.length >= 20);
+  for (const w of WEEKLY) {
+    assert.ok(w.title && w.says.endsWith('.') && w.need > 0, w.id);
+    if (w.href) assert.ok(w.go, `${w.id} links to a room with no name for the link`);
+  }
+});
+
+test('every star an assignment names is in the catalogue, and its group has enough of them', () => {
+  const names = new Set(JSON.parse(readFileSync(new URL('../data/stars.json', import.meta.url))).names);
+  for (const w of WEEKLY.filter(x => x.kind === 'stars')) {
+    for (const n of w.stars) assert.ok(names.has(n), `${w.id}: ${n} is not in the catalogue`);
+    assert.ok(w.stars.length >= w.need, `${w.id} needs more stars than it names`);
+  }
+  for (const c of CHARTS) assert.ok(names.has(c.star), c.star);
+  const index = new Map([...names].map((n, i) => [n, i]));
+  assert.equal(assignedStars(WEEKLY.find(w => w.id === 'summer'), n => index.get(n)).length, 3);
+  assert.equal(assignedStars(WEEKLY.find(w => w.id === 'charts'), n => index.get(n)).length, CHARTS.length);
+  assert.equal(assignedStars(WEEKLY.find(w => w.id === 'maru')), null);
+});
+
+test('a week’s assignment counts what was done that week, each star once, and says when it was carried out', () => {
+  const week = { week: '2026-11-16', ends: '2026-11-22' };
+  const ids = { Vega: 11, Altair: 12, Deneb: 13, Sirius: 14 };
+  const find = n => ids[n];
+  const summer = { ...WEEKLY.find(w => w.id === 'summer'), ...week };
+  const log = [
+    entry('2026-11-15', 11), // the Sunday before: last week
+    { ...entry('2026-11-17', 11), id: at('2026-11-17', 9) },
+    { ...entry('2026-11-17', 11), id: at('2026-11-17', 10) }, // Vega again counts once
+    { ...entry('2026-11-18', 12), id: at('2026-11-18', 8) },
+  ];
+  let p = weeklyProgress(summer, { log, find });
+  assert.deepEqual([p.have, p.need, p.done, p.at], [2, 3, false, null]);
+  assert.equal(weeklySaid(summer, p), '2 of 3');
+  assert.deepEqual([...p.seen].sort(), [11, 12]);
+  p = weeklyProgress(summer, { log: [{ ...entry('2026-11-22', 13), id: at('2026-11-22', 21) }, ...log], find });
+  assert.deepEqual([p.have, p.done, p.at], [3, true, at('2026-11-22', 21)]);
+  // Monday starts afresh: last week's stars count for nothing.
+  assert.equal(weeklyProgress({ ...summer, week: '2026-11-23', ends: '2026-11-29' }, { log, find }).have, 0);
+  // Near home, by distance; new stars, never visited before; light years flown.
+  const near = { ...WEEKLY.find(w => w.id === 'near'), ...week };
+  const lyOf = i => ({ 11: 25, 12: 17, 14: 8.6, 5: 4.2 })[i];
+  assert.equal(weeklyProgress(near, { log: [entry('2026-11-19', 14), entry('2026-11-19', 5), entry('2026-11-19', 12)], lyOf }).have, 2);
+  const fresh = { ...WEEKLY.find(w => w.id === 'new'), ...week };
+  assert.equal(weeklyProgress(fresh, { log }).have, 1, 'Vega had been visited the week before; Altair is new');
+  const far = { ...WEEKLY.find(w => w.id === 'far'), ...week };
+  const flown = weeklyProgress(far, { log: [entry('2026-11-16', 3, { ly: 320.4 }), entry('2026-11-20', 4, { ly: 100 })] });
+  assert.equal(weeklySaid(far, flown), '420 of 500 light years');
+  assert.equal(weeklyProgress(far, { log: [entry('2026-11-16', 3, { ly: 320.4 }), entry('2026-11-20', 4, { ly: 200 })] }).done, true);
+  // A room's work: distress calls answered this week, not one left partway, and not last week's.
+  const calls = { ...WEEKLY.find(w => w.id === 'distress'), ...week };
+  const rec = { distress: { calls: [
+    { day: '2026-11-17', at: new Date(at('2026-11-17')).toISOString(), found: true },
+    { day: null, at: new Date(at('2026-11-18')).toISOString(), found: false },
+    { day: '2026-11-19', at: new Date(at('2026-11-19')).toISOString(), left: true },
+    { day: '2026-11-14', at: new Date(at('2026-11-14')).toISOString(), found: true },
+  ] } };
+  assert.equal(weeklyProgress(calls, { rec }).have, 2);
+  // Orders of the day carried out this week.
+  const orders = { ...WEEKLY.find(w => w.id === 'orders'), ...week };
+  assert.deepEqual(weeklyProgress(orders, { orders: ['2026-11-13', '2026-11-16', '2026-11-17', '2026-11-19', '2026-11-21'] }), { have: 4, need: 4, done: true, at: at('2026-11-21'), seen: new Set() });
+  // Every kind reads its room's record without falling over a missing one.
+  for (const w of WEEKLY) assert.equal(weeklyProgress({ ...w, ...week }, {}).have, 0, w.id);
+});
+
+// The first week from 16 November 2026 whose assignment is of `kind`.
+const weekWith = kind => {
+  for (let k = 0; k < 520; k++) { const a = assignmentOf(addDays('2026-11-16', 7 * k)); if (a.kind === kind) return a; }
+  throw new Error(`no week of ${kind}`);
+};
+
+test('a week’s assignment carried out is kept, gives a line in the log, and four earn a commendation', () => {
+  // A week of Kobayashi Maru runs: two sat, then the third carries it out, and it stays carried out once the runs go.
+  const a = weekWith('maru'), today = addDays(a.week, 3), t = at(addDays(a.week, 1));
+  const runs = n => ({ maru: { runs: Array.from({ length: n }, (_, k) => ({ title: 'The lifeboat', at: new Date(t + k * 60000).toISOString() })) } });
+  const two = update(null, { rec: runs(2), today, now: at(today), f: {} });
+  assert.deepEqual([two.weekly.id, two.weekly.have, two.weekly.done, two.duty.weeks], ['maru', 2, false, {}]);
+  const three = update(two.duty, { rec: runs(3), today, now: at(today), f: {} });
+  assert.deepEqual([three.weekly.have, three.weekly.done, three.duty.weeks], [3, true, { [a.week]: t + 120000 }]);
+  assert.equal(three.changed, true);
+  assert.equal(update(three.duty, { today, now: at(today), f: {} }).weekly.done, true, 'a week carried out was forgotten when the record went');
+  // Four weeks carried out: Special assignments.
+  const kept = { weeks: { '2026-10-26': at('2026-10-30'), '2026-11-02': at('2026-11-06'), '2026-11-09': at('2026-11-13') } };
+  assert.equal(update(kept, { today: '2026-11-20', f: {} }).medals.earned.some(c => c.id === 'weekly'), false);
+  const four = update({ weeks: { ...kept.weeks, '2026-10-19': at('2026-10-21') } }, { today: '2026-11-20', f: {} });
+  assert.equal(four.medals.earned.some(c => c.id === 'weekly'), true);
+  assert.equal(four.duty.medals.weekly, '2026-11-20');
+  assert.equal(four.f.weeks, 4);
+  // A line in the log for each, at its moment.
+  const lines = weeklyLines(four.duty);
+  assert.equal(lines.length, 4);
+  assert.deepEqual(lines.find(l => l.t === at('2026-10-30')), { t: at('2026-10-30'), room: 'bridge', kind: 'weekly', href: null,
+    text: `Supplemental: carried out the week’s assignment from Starfleet, “${assignmentOf('2026-10-26').title}”.` });
+  // Read back from a save, and two copies together: junk out, the earlier moment kept.
+  assert.deepEqual(tidyDuty({ weeks: { '2026-11-16': 5, x: 3, '2026-11-09': 'no', '2026-11-02': -1 } }).weeks, { '2026-11-16': 5 });
+  assert.deepEqual(tidyDuty({ days: ['2026-11-20'] }).weeks, {}, 'a record from before weeks were kept');
+  assert.deepEqual(mergeDuty({ weeks: { '2026-11-16': 9, '2026-11-09': 4 } }, { weeks: { '2026-11-16': 7 } }).weeks, { '2026-11-16': 7, '2026-11-09': 4 });
+});
+
+test('last week’s assignment carried out on Sunday is kept when the log is next opened on Monday', () => {
+  const a = weekWith('far'), monday = addDays(a.week, 7);
+  const u = update(null, { log: [entry(a.ends, 3, { ly: 600 })], today: monday, now: at(monday), f: {} });
+  assert.equal(u.duty.weeks[a.week], noon(a.ends), 'Sunday’s assignment was lost when Monday came');
+  assert.equal(u.weekly.week, monday, 'Monday shows the new week’s assignment');
+  assert.equal(u.weekly.done, false);
 });

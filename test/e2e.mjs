@@ -6843,6 +6843,54 @@ await page.emulateMedia({ reducedMotion: null });
   await oc.close();
 }
 
+// The weekly assignment, at the top of Today on the bridge: the same for every officer that week, with a bar for how far
+// along it is and a way to get on with it. Carried out, it says so, puts a line in the log, and the service record
+// counts it.
+{
+  const { assignmentOf, dayOf } = await import('../js/duty.js');
+  const { CHARTS } = await import('../js/charts.js');
+  const a = assignmentOf(dayOf(Date.now()));
+  const wc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await wc.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await wc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-log');
+  assert.deepEqual(await p.locator('#today > *').evaluateAll(els => els.slice(0, 2).map(el => el.id || el.tagName)), ['today-head', 'weekly'], 'the week’s assignment is not at the top of Today on the bridge');
+  assert.equal(await p.locator('#weekly .says').innerText(), `${a.title}. ${a.says}`);
+  assert.equal(await p.locator('#weekly .eyebrow').innerText(), 'THIS WEEK’S ASSIGNMENT · UNTIL SUNDAY');
+  assert.deepEqual(await p.locator('#weekly .bar').evaluate(b => [b.getAttribute('aria-valuenow'), b.getAttribute('aria-valuemax'), b.firstElementChild.style.width]), ['0', String(a.need), '0%']);
+  assert.equal(await p.locator('#weekly .count').innerText(), a.kind === 'far' ? '0 of 500 light years' : `0 of ${a.need}`);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the week’s assignment is wider than the phone');
+  const names = a.kind === 'stars' ? a.stars : a.kind === 'charts' ? CHARTS.map(c => c.star) : null;
+  if (names) {
+    // A star to visit: Set course chooses one the assignment wants; flying there counts it.
+    await p.locator('#weekly [data-course]').tap();
+    assert.ok(names.includes(await p.evaluate(() => engage.cat().names[engage.state.target])), 'Set course on the assignment chose a star it doesn’t want');
+    await p.evaluate(n => { for (const x of n) engage.jump(x); engage.closeSheets(); }, names.slice(0, a.need));
+    await p.tap('#open-log');
+    assert.equal(await p.locator('#weekly .count').innerText(), `Carried out on ${new Date().toLocaleDateString('en-GB', { weekday: 'long' })}. ${a.need} of ${a.need}`);
+  } else {
+    if (a.href) assert.equal(await p.locator('#weekly .go a').getAttribute('href'), a.href);
+    // Carried out (as the log would have kept it on the day): the bridge's save has it.
+    await p.evaluate(week => { engage.closeSheets(); const s = JSON.parse(localStorage.getItem('engage.v1')); s.duty = { days: [], orders: [], rank: 0, medals: {}, weeks: { [week]: Date.now() - 60000 } }; localStorage.setItem('engage.v1', JSON.stringify(s)); }, a.week);
+    await p.reload();
+    await bridgeReady(p);
+    await p.evaluate(() => engage.jump('Vega')); // a log, so the service record is there
+    await p.evaluate(() => engage.closeSheets());
+    await p.tap('#open-log');
+    assert.match(await p.locator('#weekly .count').innerText(), /^Carried out on \w+day\. /);
+  }
+  assert.equal(await p.locator('#weekly').getAttribute('class'), 'weekly is-done');
+  assert.equal(await p.locator('#weekly .go').count(), 0, 'a week carried out still offered a way to carry it out');
+  assert.equal(await p.locator('#weeks').innerText(), 'Weekly assignments: 1 completed');
+  assert.equal(await p.locator('#entries .supp', { hasText: 'assignment' }).innerText(), `Supplemental: carried out the week’s assignment from Starfleet, “${a.title}”.`);
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).duty.weeks);
+  assert.deepEqual(Object.keys(kept), [a.week]);
+  await wc.close();
+}
+
 // Subspace radio: the dial lights the shell of stars hearing a year tonight and names three; a star from the log opens
 // with the dial at its year; the messages in flight have their bars; a hail to a star is kept, once, and shows on its
 // way. The log's broadcast line and Set course both lead here.

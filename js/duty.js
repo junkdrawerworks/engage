@@ -14,6 +14,7 @@ import { entryTime } from './logbook.js';
 import { EXAM } from './quiz.js';
 import { requisition, tidyYard } from './shipyard-sim.js';
 import { fullName } from './myship.js';
+import { CHARTS } from './charts.js';
 
 const obj = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
 const list = x => (Array.isArray(x) ? x.filter(y => y && typeof y === 'object' && !Array.isArray(y)) : []);
@@ -234,6 +235,133 @@ export function todayItems(rec = {}, day, { landings = [], friend = null, answer
   return items;
 }
 
+// ---------- The weekly assignment ----------
+
+// The week a day is in, Monday to Sunday, by its Monday.
+export function weekOf(day) {
+  const [y, m, d] = day.split('-').map(Number);
+  return addDays(day, -((new Date(y, m - 1, d, 12).getDay() + 6) % 7));
+}
+
+// One assignment a week, the same for every officer that week, from these: a real star group to survey, the stars
+// near home, Starfleet's charts, or a room's work. `kind` says what counts: 'stars' an arrival this week at one of
+// `stars` (catalogue names, each counted once), 'near' at a star within `near` light years of home, 'charts' at a
+// star Starfleet's charts name, 'new' at a star never visited before, 'far' the light years flown, 'voyage' a leg of
+// a voyage flown, 'orders' an order of the day carried out, and the rest each thing done in that room this week. A
+// missed week costs nothing; the next starts fresh. The groups' members are the IAU's named stars (WGSN) as the
+// catalogue names them: the Pleiades' nine, the Hyades' five named stars (θ¹ Tauri and Chamukuy, θ² Tauri, Ain,
+// ε Tauri, Prima and Secunda Hyadum, γ and δ¹ Tauri; Aldebaran is in front of the cluster, not in it), the Big
+// Dipper's seven, Orion's shoulders, feet and belt, and the four of Cassiopeia's W the catalogue names (γ Cas is
+// unnamed in it).
+export const WEEKLY = [
+  { id: 'pleiades', kind: 'stars', title: 'Survey the Pleiades', says: 'Visit four of its nine named stars, the Seven Sisters and their parents.', need: 4,
+    stars: ['Alcyone', 'Atlas', 'Electra', 'Maia', 'Merope', 'Taygeta', 'Pleione', 'Celaeno', 'Asterope'] },
+  { id: 'hyades', kind: 'stars', title: 'Survey the Hyades', says: 'Visit three of its five named stars. The nearest open cluster to the Sun, 153 light years out.', need: 3,
+    stars: ['θ¹ Tauri', 'Chamukuy', 'Ain', 'Prima Hyadum', 'Secunda Hyadum'] },
+  { id: 'dipper', kind: 'stars', title: 'Fly the Big Dipper', says: 'Visit five of its seven stars, from Dubhe at the lip of the bowl to Alkaid at the end of the handle.', need: 5,
+    stars: ['Dubhe', 'Merak', 'Phecda', 'Megrez', 'Alioth', 'Mizar', 'Alkaid'] },
+  { id: 'orion', kind: 'stars', title: 'Orion, star by star', says: 'Visit five of the seven stars of the hunter’s shoulders, feet and belt.', need: 5,
+    stars: ['Betelgeuse', 'Bellatrix', 'Rigel', 'Saiph', 'Alnitak', 'Alnilam', 'Mintaka'] },
+  { id: 'summer', kind: 'stars', title: 'The Summer Triangle', says: 'Visit all three of its stars: Vega, Altair and Deneb.', need: 3,
+    stars: ['Vega', 'Altair', 'Deneb'] },
+  { id: 'hexagon', kind: 'stars', title: 'The Winter Hexagon', says: 'Visit four of its six stars: Sirius, Procyon, Pollux, Capella, Aldebaran and Rigel.', need: 4,
+    stars: ['Sirius', 'Procyon', 'Pollux', 'Capella', 'Aldebaran', 'Rigel'] },
+  { id: 'crux', kind: 'stars', title: 'The Southern Cross', says: 'Visit three of its four stars: Acrux, Mimosa, Gacrux and Imai.', need: 3,
+    stars: ['Acrux', 'Mimosa', 'Gacrux', 'Imai'] },
+  { id: 'cassiopeia', kind: 'stars', title: 'Cassiopeia’s W', says: 'Visit three of the four named stars of the queen’s W: Schedar, Caph, Ruchbah and Segin.', need: 3,
+    stars: ['Schedar', 'Caph', 'Ruchbah', 'Segin'] },
+  { id: 'swan', kind: 'stars', title: 'The Northern Cross', says: 'Visit four of the five stars of the swan: Deneb, Sadr, Aljanah, Fawaris and Albireo.', need: 4,
+    stars: ['Deneb', 'Sadr', 'Aljanah', 'Fawaris', 'Albireo'] },
+  { id: 'near', kind: 'near', near: 15, title: 'Chart the neighbourhood', says: 'Visit four of the 50 catalogued stars within 15 light years of home.', need: 4 },
+  { id: 'charts', kind: 'charts', title: 'Starfleet’s charts', says: 'Visit three of the stars Starfleet’s charts name: Vulcan, Wolf 359 and the rest.', need: 3 },
+  { id: 'new', kind: 'new', title: 'Explore', says: 'Visit eight stars you’ve never been to.', need: 8 },
+  { id: 'far', kind: 'far', title: 'Long-range patrol', says: 'Cover 500 light years, in as many trips as it takes.', need: 500 },
+  { id: 'voyage', kind: 'voyage', title: 'Voyages', says: 'Fly four legs of the voyages. They are at the top of Set course.', need: 4 },
+  { id: 'orders', kind: 'orders', title: 'Standing orders', says: 'Carry out four of Starfleet’s orders of the day.', need: 4 },
+  { id: 'distress', kind: 'distress', title: 'Distress calls', says: 'Answer three distress calls.', need: 3, href: 'distress.html', go: 'Distress call' },
+  { id: 'maru', kind: 'maru', title: 'Back to the Academy', says: 'Sit the Kobayashi Maru three times.', need: 3, href: 'maru.html', go: 'Kobayashi Maru' },
+  { id: 'contact', kind: 'contact', title: 'Diplomatic corps', says: 'Answer three hails in first contact.', need: 3, href: 'contact.html', go: 'First contact' },
+  { id: 'jars', kind: 'jars', title: 'Field biology', says: 'Keep three creatures in jars in the xenobiology lab.', need: 3, href: 'xeno.html', go: 'Xenobiology lab' },
+  { id: 'radio', kind: 'radio', title: 'Subspace traffic', says: 'Hail three stars on subspace radio.', need: 3, href: 'radio.html#hail', go: 'Subspace radio' },
+  { id: 'missions', kind: 'missions', title: 'Deep Space Network', says: 'Hail three of the long missions from Earth.', need: 3, href: 'missions.html', go: 'Long missions' },
+  { id: 'directive', kind: 'directive', title: 'Board of inquiry', says: 'Sit two hearings before the board of inquiry.', need: 2, href: 'directive.html', go: 'The Prime Directive' },
+  { id: 'shipyard', kind: 'shipyard', title: 'The shipyard', says: 'Lay down two ships at the shipyard.', need: 2, href: 'shipyard.html', go: 'The shipyard' },
+];
+
+// The assignment for the week `day` is in: { ...assignment, week (its Monday), ends (its Sunday) }. The weeks go
+// through every assignment once, in an order shuffled from the date, before any comes round again; any of the last
+// four of a round that would open the next is moved to the next one's middle, so the same one never comes back
+// within five weeks. (Moving them there leaves each round's last four where they were.)
+const FIRST_WEEK = '2026-01-05'; // a Monday
+const roundOf = n => {
+  const order = WEEKLY.map((_, k) => k);
+  for (let k = order.length - 1; k > 0; k--) { const j = hash(`weekly:${n}:${k}`) % (k + 1); [order[k], order[j]] = [order[j], order[k]]; }
+  return order;
+};
+export function assignmentOf(day) {
+  const week = weekOf(day);
+  const n = Math.round(daysBetween(FIRST_WEEK, week) / 7), size = WEEKLY.length;
+  const round = Math.floor(n / size), at = n - round * size;
+  const tail = roundOf(round - 1).slice(-4), raw = roundOf(round);
+  const early = [], order = [];
+  for (const k of raw) (order.length < 4 && tail.includes(k) ? early : order).push(k);
+  order.splice(Math.floor(size / 2), 0, ...early);
+  return { ...WEEKLY[order[at]], week, ends: addDays(week, 6) };
+}
+
+// The stars an assignment counts (catalogue indices), for the kinds that name them; null for the rest.
+export function assignedStars(a, find = () => undefined) {
+  const names = a.kind === 'stars' ? a.stars : a.kind === 'charts' ? CHARTS.map(c => c.star) : null;
+  return names ? names.map(find).filter(i => Number.isInteger(i)) : null;
+}
+
+// How far along a week's assignment is, from the records: { have, need, done, at, seen }, where `at` is the moment
+// it was carried out (or null) and `seen` the stars arrived at this week (catalogue indices). `orders` are the days
+// an order of the day was carried out; `find(name)` is a star's catalogue index and `lyOf(i)` how far it is from home.
+export function weeklyProgress(a, { rec = {}, log = [], orders = [], find = () => undefined, lyOf = () => undefined } = {}) {
+  const inWeek = t => { if (!Number.isFinite(t)) return false; const d = dayOf(t); return d >= a.week && d <= a.ends; };
+  const arrivals = log.filter(e => e.star !== 0 && inWeek(entryTime(e))).sort((x, y) => entryTime(x) - entryTime(y));
+  const seen = new Set(arrivals.map(e => e.star));
+  // Each thing that counts, as [moment, how much]: a star counts once, at its first arrival this week.
+  let marks = [];
+  const firsts = ok => { const got = new Set(); for (const e of arrivals) if (ok(e) && !got.has(e.star)) { got.add(e.star); marks.push([entryTime(e), 1]); } };
+  const times = xs => { for (const t of xs) if (inWeek(t)) marks.push([t, 1]); };
+  const at = x => Date.parse(x);
+  switch (a.kind) {
+    case 'stars': case 'charts': { const want = new Set(assignedStars(a, find)); firsts(e => want.has(e.star)); break; }
+    case 'near': firsts(e => lyOf(e.star) <= a.near); break;
+    case 'new': firsts(e => !log.some(x => x.star === e.star && (entryTime(x) ?? Infinity) < entryTime(e))); break;
+    case 'far': marks = arrivals.filter(e => e.ly > 0).map(e => [entryTime(e), e.ly]); break;
+    case 'voyage': marks = arrivals.filter(e => e.voyage).map(e => [entryTime(e), 1]); break;
+    case 'orders': times(orders.filter(d => DAY_RE.test(d)).map(d => new Date(`${d}T12:00:00`).getTime())); break;
+    case 'distress': times(list(obj(rec.distress).calls).filter(c => !c.left).map(c => at(c.at))); break;
+    case 'maru': times(list(obj(rec.maru).runs).map(r => at(r.at))); break;
+    case 'contact': times(list(obj(rec.contact).runs).map(r => at(r.at))); break;
+    case 'jars': times(list(obj(rec.xeno).jars).map(j => at(j.at))); break;
+    case 'radio': times(list(obj(rec.radio).hails).map(h => h.sent)); break;
+    case 'missions': times(Object.values(obj(obj(rec.missions).hails))); break;
+    case 'directive': times(list(obj(rec.directive).heard).map(h => h.t)); break;
+    case 'shipyard': times(tidyYard(rec.shipyard).designs.map(d => at(d.at))); break;
+    default: break;
+  }
+  marks.sort((x, y) => x[0] - y[0]);
+  let sum = 0, done = null;
+  for (const [t, n] of marks) { sum += n; if (done === null && sum >= a.need) done = t; }
+  const have = a.kind === 'far' ? Math.floor(sum) : sum;
+  return { have: Math.min(have, a.need), need: a.need, done: done !== null, at: done, seen };
+}
+
+// How far along, in words: "2 of 4", "120 of 500 light years".
+export const weeklySaid = (a, p) => `${p.have.toLocaleString('en-US')} of ${a.need.toLocaleString('en-US')}${a.kind === 'far' ? ' light years' : ''}`;
+
+// The captain's log's line for each week's assignment carried out, kept in the duty record (`weeks`, { Monday: moment }).
+export function weeklyLines(duty) {
+  return Object.entries(tidyDuty(duty).weeks).map(([week, t]) => ({
+    t, room: 'bridge', kind: 'weekly', href: null,
+    text: `Supplemental: carried out the week’s assignment from Starfleet, “${assignmentOf(week).title}”.`,
+  }));
+}
+
 // ---------- Rank ----------
 
 // The rooms whose records count toward a rank, and whether each has anything on it.
@@ -294,6 +422,7 @@ export const COMMENDATIONS = [
   { id: 'home', name: 'Home early', what: 'home from the Delta Quadrant in under 60 years', of: f => [f.homeEarly ? 1 : 0, 1] },
   { id: 'tour', name: 'A week on duty', what: 'a tour of seven days served', of: f => [f.bestTour, 7] },
   { id: 'orders', name: 'By the book', what: 'ten orders of the day carried out', of: f => [f.orders, 10] },
+  { id: 'weekly', name: 'Special assignments', what: 'four weekly assignments carried out', of: f => [f.weeks, 4] },
 ];
 
 // Which are earned (by what has been done, or kept from before in `kept`, { id: day }) and the nearest still to come:
@@ -311,32 +440,39 @@ export function commendations(f, kept = {}) {
 
 // ---------- What is kept ----------
 
-// The duty record, read back from the bridge's save: { days, orders, rank, medals, promoted }: the days served and
-// the days an order was carried out (each "YYYY-MM-DD"), the rank held (an index of RANKS) and the day it came, and
-// the commendations earned with the day each was. Anything else is left out.
+// The duty record, read back from the bridge's save: { days, orders, rank, medals, promoted, weeks }: the days served
+// and the days an order was carried out (each "YYYY-MM-DD"), the rank held (an index of RANKS) and the day it came,
+// the commendations earned with the day each was, and the weekly assignments carried out (by the week's Monday, the
+// moment each was). Anything else is left out; a record from before weeks were kept reads as none carried out.
 export function tidyDuty(d) {
   const x = obj(d);
   const days = arr => [...new Set(Array.isArray(arr) ? arr.filter(s => typeof s === 'string' && DAY_RE.test(s)) : [])].sort();
   const medals = {};
   for (const [k, v] of Object.entries(obj(x.medals))) if (COMMENDATIONS.some(c => c.id === k) && typeof v === 'string' && DAY_RE.test(v)) medals[k] = v;
   const rank = Number.isInteger(x.rank) && x.rank >= 0 && x.rank < RANKS.length ? x.rank : 0;
-  return { days: days(x.days), orders: days(x.orders), rank, promoted: typeof x.promoted === 'string' && DAY_RE.test(x.promoted) ? x.promoted : null, medals };
+  const weeks = {};
+  for (const [k, v] of Object.entries(obj(x.weeks))) if (DAY_RE.test(k) && Number.isFinite(v) && v > 0) weeks[k] = v;
+  return { days: days(x.days), orders: days(x.orders), rank, promoted: typeof x.promoted === 'string' && DAY_RE.test(x.promoted) ? x.promoted : null, medals, weeks };
 }
 
 // Two duty records as one, for Add to what's here and for another tab's: every day served and order carried out on
-// either, the higher rank, and every commendation (with the earlier day).
+// either, the higher rank, and every commendation and weekly assignment (with the earlier day).
 export function mergeDuty(a, b) {
   const x = tidyDuty(a), y = tidyDuty(b);
   const medals = { ...y.medals };
   for (const [k, v] of Object.entries(x.medals)) if (!medals[k] || v < medals[k]) medals[k] = v;
   const rank = Math.max(x.rank, y.rank);
-  return tidyDuty({ days: [...x.days, ...y.days], orders: [...x.orders, ...y.orders], rank, promoted: rank === x.rank ? x.promoted : y.promoted, medals });
+  const weeks = { ...y.weeks };
+  for (const [k, v] of Object.entries(x.weeks)) if (!weeks[k] || v < weeks[k]) weeks[k] = v;
+  return tidyDuty({ days: [...x.days, ...y.days], orders: [...x.orders, ...y.orders], rank, promoted: rank === x.rank ? x.promoted : y.promoted, medals, weeks });
 }
 
 // The duty record brought up to date for `today`: the days served the records show, each order of the last fortnight
-// carried out on its day, the rank and the commendations earned. `f` is what has been done (see facts in js/app.js),
-// without days and orders, which this adds; `here` is the star the ship holds at (see carriedOut). Returns { duty, f, rank, medals, changed }.
-export function update(kept, { rec = {}, log = [], supps = [], find = () => undefined, here, today, f: done = {} }) {
+// carried out on its day, this week's assignment and last week's carried out, the rank and the commendations earned.
+// `f` is what has been done (see facts in js/app.js), without days, orders and weeks, which this adds; `here` is the
+// star the ship holds at (see carriedOut); `lyOf(i)` how far star i is from home. Returns { duty, f, rank, medals,
+// weekly (this week's assignment, with how far along it is), changed }.
+export function update(kept, { rec = {}, log = [], supps = [], find = () => undefined, lyOf = () => undefined, here, today, now = Date.now(), f: done = {} }) {
   const was = tidyDuty(kept);
   const days = new Set([...was.days, ...activeDays(rec, log, supps)]);
   const orders = new Set(was.orders);
@@ -344,12 +480,19 @@ export function update(kept, { rec = {}, log = [], supps = [], find = () => unde
     const day = addDays(today, -k);
     if (!orders.has(day) && carriedOut(orderOf(day), rec, log, find, k === 0 ? here : undefined).done) orders.add(day);
   }
+  const weeks = { ...was.weeks };
+  let weekly = null;
+  for (const week of [weekOf(today), addDays(weekOf(today), -7)]) {
+    const a = assignmentOf(week), p = weeklyProgress(a, { rec, log, orders: [...orders], find, lyOf });
+    if (!weeks[week] && p.done) weeks[week] = Math.min(p.at, now); // an order counts at noon on its day, which may be still to come
+    if (!weekly) weekly = { ...a, ...p, done: !!weeks[week], at: weeks[week] || null, ...(weeks[week] ? { have: a.need } : {}) };
+  }
   const s = served([...days], today);
-  const f = { ...done, days: s.total, orders: orders.size, bestTour: s.best };
+  const f = { ...done, days: s.total, orders: orders.size, bestTour: s.best, weeks: Object.keys(weeks).length };
   const rank = rankOf(f, was.rank);
   const medals = { ...was.medals };
   for (const c of commendations(f, was.medals).earned) if (!medals[c.id]) medals[c.id] = today;
-  const duty = tidyDuty({ days: [...days], orders: [...orders], rank: rank.n, promoted: rank.n > was.rank ? today : was.promoted, medals });
+  const duty = tidyDuty({ days: [...days], orders: [...orders], rank: rank.n, promoted: rank.n > was.rank ? today : was.promoted, medals, weeks });
   const changed = JSON.stringify(duty) !== JSON.stringify(was);
-  return { duty, f, served: s, rank, medals: commendations(f, medals), changed };
+  return { duty, f, served: s, rank, medals: commendations(f, medals), weekly, changed };
 }
