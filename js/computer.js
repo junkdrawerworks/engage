@@ -239,3 +239,9 @@ function leftSaid(ly) {
   const au = ly * 63241.1;
   return `${au < 10 ? au.toFixed(1) : Math.round(au).toLocaleString('en-US')} AU`;
 }
+
+// The first time you look for the Sun from more than 100 light years out, where it has become too faint to see by eye, the
+// computer says one line, once (after Carl Sagan on the Pale Blue Dot).
+export const SUN_LINE = 'Everyone you have ever met is in that dot.';
+export const SUN_FAR = 100; // light years
+export const sunSaysHello = (lyFromSun, said) => !said && Number.isFinite(lyFromSun) && lyFromSun > SUN_FAR;

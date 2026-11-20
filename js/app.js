@@ -8,7 +8,7 @@ import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inT
 import { filesForStar, grows, label as classLabel } from './classes.js';
 import { systemFor } from './worlds.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
-import { ask, flightLine, report } from './computer.js';
+import { SUN_LINE, ask, flightLine, report, sunSaysHello } from './computer.js';
 import { SHOWN_IN, onScreen, onScreenParts, variableFor } from './variables.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, current, keep, watch } from './store.js';
@@ -69,6 +69,7 @@ function defaults() {
     voyage: null, // the voyage under way, if one is (see js/voyages.js)
     rooms: null, // the rooms the bridge has told of, by id (js/rooms.js), for the line that says what's new
     greeted: null, // the year First Contact Day's line was last closed (see greeting)
+    sunHello: false, // whether the Sun has said hello, once, from far out (see lookHome)
   };
 }
 
@@ -111,6 +112,7 @@ function tidy() {
   state.voyage = tidyVoyage(state.voyage);
   state.rooms = Array.isArray(state.rooms) ? state.rooms.filter(x => typeof x === 'string') : null;
   if (!Number.isInteger(state.greeted)) state.greeted = null;
+  state.sunHello = state.sunHello === true;
 }
 
 // Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
@@ -120,8 +122,8 @@ function tidy() {
 let unsaved = null;
 function save() {
   viewMoved = false;
-  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms, greeted } = state;
-  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}), ...(greeted ? { greeted } : {}) }) || null;
+  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms, greeted, sunHello } = state;
+  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}), ...(greeted ? { greeted } : {}), ...(sunHello ? { sunHello } : {}) }) || null;
   return !unsaved;
 }
 
@@ -1116,6 +1118,19 @@ function lookHome() {
   if (Math.hypot(...camAbs()) < 0.002) { lookAt(starPos(0)); return; }
   lookAt(starPos(0), 1400);
   if (!still.matches) state.sunPulse = performance.now() + 1000; // the Sun's ring beats a few times once the view gets there
+  // The first time from far out, the Sun says hello, once, as the view gets there (js/computer.js).
+  if (sunSaysHello(Math.hypot(...camAbs()) * LY_PER_PC, state.sunHello)) {
+    state.sunHello = true;
+    save();
+    setTimeout(() => {
+      const el = $('sun-note');
+      el.hidden = true;
+      void el.offsetWidth; // start its fade again
+      el.hidden = false;
+      say(SUN_LINE);
+      setTimeout(() => { el.hidden = true; }, 7000);
+    }, still.matches ? 0 : 1400);
+  }
 }
 
 // ---------- Sheets ----------

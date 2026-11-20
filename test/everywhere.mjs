@@ -432,6 +432,26 @@ try {
       assert.equal(await p.locator('#greeting').isVisible(), false);
     }
 
+    // The Sun says hello: the first time you look for the Sun from more than 100 light years out, one line, once.
+    await p.clock.setFixedTime(t0);
+    await p.goto(base);
+    await bridgeReady(p);
+    const sunNote = async () => { await p.waitForTimeout(1700); return p.locator('#sun-note').isVisible(); };
+    await p.evaluate(() => engage.jump('Sirius'));
+    await p.keyboard.press('Escape');
+    await p.locator('#look-home').click();
+    assert.equal(await sunNote(), false, 'the Sun said hello from 8.6 light years');
+    await p.evaluate(() => engage.jump('Rigel'));
+    await p.keyboard.press('Escape');
+    await p.locator('#look-home').click();
+    assert.equal(await sunNote(), true, 'the Sun said nothing from Rigel');
+    assert.equal(await p.locator('#sun-note').innerText(), 'Everyone you have ever met is in that dot.');
+    assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).sunHello), true);
+    await p.reload();
+    await bridgeReady(p);
+    await p.locator('#look-home').click();
+    assert.equal(await sunNote(), false, 'the Sun said hello twice');
+
     // Warp 10: Your warp on the warp scale pushed hard against its stop three times running says what happened in
     // Voyager's "Threshold". Twice, or three times slowly, is just using the slider.
     await p.clock.setFixedTime(t0);

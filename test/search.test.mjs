@@ -337,3 +337,15 @@ test('a flight is told in a few lines: setting out, halfway, closing in, and dro
   assert.equal(flightLine(cat, 'out', { ...trip, nominal: true }), 'Leaving Sol at warp 9 for Sirius. Its distance has never been measured.');
   assert.match(flightLine(cat, 'half', { ...trip, nominal: true }), /^Halfway: the rest unmeasured/);
 });
+
+// ---------- The Sun says hello ----------
+import { SUN_LINE, sunSaysHello } from '../js/computer.js';
+
+test('looking for the Sun from more than 100 light years out says hello once, and nowhere nearer', () => {
+  assert.equal(SUN_LINE, 'Everyone you have ever met is in that dot.');
+  assert.equal(sunSaysHello(101, false), true);
+  assert.equal(sunSaysHello(101, true), false, 'it said hello twice');
+  assert.equal(sunSaysHello(100, false), false);
+  assert.equal(sunSaysHello(8.6, false), false);
+  assert.equal(sunSaysHello(NaN, false), false);
+});
