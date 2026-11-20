@@ -6030,15 +6030,16 @@ await page.emulateMedia({ reducedMotion: null });
   });
   await p.tap('#open-log');
   assert.equal(await p.locator('#story').innerText(), 'First day out: two stars, one new species, one failed exam.');
-  // It heads the log, above the records.
+  // It heads the log, under Today on the bridge and above the records.
   const heads = await p.locator('#entries > *').evaluateAll(els => els.map(el => el.id));
-  assert.ok(heads[0] === 'story' && heads.indexOf('records') > 0, heads.join());
+  assert.ok(heads[0] === 'today' && heads[1] === 'story' && heads.indexOf('records') > 1, heads.join());
   await told.close();
 }
 
 // The service record, at the head of the captain's log: a row for each room that keeps a record, read from it, each
 // leading to its room. Each room kept its own record and none knew the others; nothing gave a reason to open a
-// second room. It only reads: nothing new is saved.
+// second room. It reads the other rooms and saves nothing of its own: what has been earned (see Today on the bridge,
+// below) goes in the bridge's save.
 {
   const career = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   await career.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
@@ -6077,7 +6078,7 @@ await page.emulateMedia({ reducedMotion: null });
     ['Supplemental: answered a distress call. Found at Procyon with 42% of their air left.', 'distress.html'],
   ]);
   // It sits under the voyage's sentence and over the log's own records, and every row is a 44 px tap.
-  assert.deepEqual(await p.locator('#entries > *').evaluateAll(els => els.slice(0, 3).map(el => el.id)), ['story', 'service', 'records']);
+  assert.deepEqual(await p.locator('#entries > *').evaluateAll(els => els.slice(0, 4).map(el => el.id)), ['today', 'story', 'service', 'records']);
   assert.ok((await p.locator('#service li a').evaluateAll(as => as.map(a => a.getBoundingClientRect().height))).every(h => h >= 44));
   assert.deepEqual(await p.evaluate(() => Object.keys(localStorage).sort()), [...before, 'engage.maru.v1', 'engage.missions.v1', 'engage.survey.v1', 'engage.distress.v1', 'engage.longway.v1'].sort(), 'the service record saved something of its own');
   await Promise.all([p.waitForNavigation(), p.locator('#service a[data-room="survey"]').tap()]);
@@ -6400,6 +6401,93 @@ await page.emulateMedia({ reducedMotion: null });
   await p.waitForFunction(() => window.survey);
   assert.equal(await p.locator('#file a', { hasText: 'Beam down' }).first().getAttribute('href'), './away.html#world=Proxima%20b');
   await sv.close();
+}
+
+// Today on the bridge, at the head of the log: Starfleet's order of the day (the same for every officer on the date),
+// carried out from the log or another room's record; today's simulation, hail and distress call; a friend hailing
+// again; the days served; and in the service record a rank with what the next one needs, kept once earned.
+{
+  const { orderOf, dayOf } = await import('../js/duty.js');
+  const day = dayOf(Date.now()), order = orderOf(day);
+  const dc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await dc.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await dc.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#order .says').innerText(), order.says, 'the order of the day is not the one for the date');
+  assert.equal(await p.locator('#order').getAttribute('class'), 'order');
+  assert.deepEqual(await p.locator('#today li b').allInnerTexts(), ['Today’s simulation', 'Today’s hail', 'Today’s distress call', 'Today’s exam']);
+  assert.match(await p.locator('#served').innerText(), /^Cadet · Your first day aboard$/);
+  assert.match(await p.locator('#today .served.next').innerText(), /^Next, Ensign: 10 more stars, 1 more Kobayashi Maru run\.$/);
+  assert.ok((await p.locator('#today li a').evaluateAll(as => as.map(a => a.getBoundingClientRect().height))).every(h => h >= 44));
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'today’s card is wider than the phone');
+  // A star to visit: Set course on the order chooses it.
+  if (order.kind === 'star') {
+    await p.locator('#order [data-course]').tap();
+    assert.equal(await p.evaluate(() => engage.cat().names[engage.state.target]), order.star);
+    assert.ok(await p.locator('#log').evaluate(el => el.hidden), 'Set course left the log open');
+    await p.tap('#open-log');
+  }
+  // Today's simulation sat and today's distress call answered, a friend hailing again, and the order carried out.
+  const now = Date.now();
+  await p.evaluate(([day, now]) => {
+    engage.closeSheets();
+    localStorage.setItem('engage.maru.v1', JSON.stringify({ runs: [{ title: 'The lifeboat', outcome: 'escaped', grades: [], at: new Date(now).toISOString(), id: 'a' }], taken: 1, seen: ['The lifeboat'], daily: { date: day, line: 'x' } }));
+    localStorage.setItem('engage.distress.v1', JSON.stringify({ answered: 1, rescued: 1, calls: [{ day, star: 'Procyon', found: true, air: 40, open: 2, wrong: 0, at: new Date(now).toISOString() }] }));
+    localStorage.setItem('engage.contact.v1', JSON.stringify({ runs: [], met: 1, contacts: 1, friends: [{ seed: 5, people: 'Qaethuk' }] }));
+  }, [day, now]);
+  const carry = {
+    star: () => p.evaluate(n => engage.jump(n), order.star),
+    contact: () => p.evaluate(day => { const c = JSON.parse(localStorage.getItem('engage.contact.v1')); localStorage.setItem('engage.contact.v1', JSON.stringify({ ...c, daily: { date: day, line: 'x' } })); }, day),
+    jar: () => p.evaluate(now => localStorage.setItem('engage.xeno.v1', JSON.stringify({ jars: [{ id: 'M', seed: 1, at: new Date(now).toISOString() }] })), now),
+    radio: () => p.evaluate(now => localStorage.setItem('engage.radio.v1', JSON.stringify({ hails: [{ star: 'Vega', sent: now - 1000 }] })), now),
+    missions: () => p.evaluate(now => localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { v1: now - 1000 } })), now),
+    directive: () => p.evaluate(now => localStorage.setItem('engage.directive.v1', JSON.stringify({ heard: [{ case: 'x', path: [], t: now - 1000 }] })), now),
+    new: () => p.evaluate(() => engage.jump('Vega')),
+    voyage: () => p.evaluate(() => { engage.state.voyage = { id: 'brightest', leg: 0 }; engage.jump('Sirius'); }),
+    far: () => p.evaluate(() => engage.jump('Deneb')),
+  };
+  if (carry[order.kind]) await carry[order.kind]();
+  await p.evaluate(() => engage.closeSheets());
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#order').getAttribute('class'), 'order is-done', `the order (${order.kind}) was carried out and the log did not say so`);
+  assert.match(await p.locator('#order .done').innerText(), /^Carried out\./);
+  if (order.kind === 'star') assert.ok((await p.locator('#order .done').innerText()).length > 20, 'a star order carried out reported nothing from the log');
+  assert.deepEqual(await p.locator('#today li').evaluateAll(els => els.map(el => [el.querySelector('b').textContent, el.className])), [
+    ['Today’s simulation', 'done'], ['Today’s hail', order.kind === 'contact' ? 'done' : ''], ['Today’s distress call', 'done'], ['Today’s exam', ''], ['The Qaethuk are hailing again', ''],
+  ]);
+  assert.equal(await p.locator('#today [data-today="friend"]').getAttribute('href'), 'contact.html');
+  assert.match(await p.locator('#served').innerText(), /^Cadet · 1 day served$/);
+  assert.match(await p.locator('#rank').innerText(), /^Cadet\nNext, Ensign: \d+ more stars?\.$/);
+  // Ten stars and a Kobayashi Maru sat: promoted, said on today's card, kept in the bridge's save.
+  await p.evaluate(() => { engage.closeSheets(); for (const n of ['Vega', 'Altair', 'Sirius', 'Procyon', 'Deneb', 'Rigel', 'Polaris', 'Capella', 'Arcturus', 'Spica']) engage.jump(n); engage.closeSheets(); });
+  await p.tap('#open-log');
+  assert.equal(await p.locator('#today .news').first().innerText(), 'Promoted today to Ensign.');
+  assert.match(await p.locator('#rank').innerText(), /^Ensign\nNext, Lieutenant junior grade: /);
+  const kept = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).duty);
+  assert.deepEqual([kept.rank, kept.promoted, kept.days.includes(day)], [1, day, true]);
+  assert.equal(kept.orders.includes(day), true, 'the order carried out today was not kept');
+  // The log cleared: the rank, the days served and the order stay earned.
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('engage.v1')); localStorage.setItem('engage.v1', JSON.stringify({ ...s, log: [], ly: 0, at: 0 })); });
+  await p.reload();
+  await bridgeReady(p);
+  await p.tap('#open-log');
+  assert.match(await p.locator('#rank').innerText(), /^Ensign\n/, 'clearing the log took the rank away');
+  assert.match(await p.locator('#served').innerText(), /^Ensign · 1 day served$/);
+  // Voyager 1's answer to a hail came in a minute ago: it is on today's card, leading to her file. (The day the hail
+  // went, two days back, is a day served too, so this comes last.)
+  {
+    const { readings, jdOf } = await import('../js/ephemeris.js');
+    const light = readings('v1', jdOf(new Date())).lightSeconds * 1000;
+    await p.evaluate(sent => { engage.closeSheets(); localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { v1: sent } })); }, Date.now() - 2 * light - 60000);
+    await p.tap('#open-log');
+    const answer = p.locator('#today [data-today="answer:v1"]');
+    assert.equal(await answer.getAttribute('href'), 'missions.html#v1');
+    assert.match(await answer.innerText(), /Voyager 1 answered your hail[\s\S]*Her answer came in at \d\d:\d\d/);
+  }
+  await dc.close();
 }
 
 // Subspace radio: the dial lights the shell of stars hearing a year tonight and names three; a star from the log opens

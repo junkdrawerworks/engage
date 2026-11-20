@@ -10,6 +10,7 @@
 // Engage that needs more adds keys, and a new version number only for a change an older Engage couldn't read.
 
 import { peoplesMet, peoplesMade } from './contact-sim.js';
+import { mergeDuty } from './duty.js';
 
 export const FORMAT = 'Engage ship’s records';
 export const VERSION = 1;
@@ -101,7 +102,9 @@ const MERGE = {
     const log = u.all.sort((a, b) => entryWhen(b) - entryWhen(a));
     const ly = (Number.isFinite(here.ly) ? here.ly : 0) + u.added.reduce((sum, e) => sum + (e.ly > 0 ? e.ly : 0), 0);
     // The Sun says hello once ever: said on either, it has been said.
-    return { ...here, log, ly, seenIntro: !!(here.seenIntro || theirs.seenIntro), ...(here.ship || !theirs.ship ? {} : { ship: theirs.ship }), ...(here.sunHello || theirs.sunHello ? { sunHello: true } : {}) };
+    // Days served, orders carried out, rank and commendations: everything earned on either.
+    const duty = here.duty || theirs.duty ? { duty: mergeDuty(here.duty, theirs.duty) } : {};
+    return { ...here, log, ly, seenIntro: !!(here.seenIntro || theirs.seenIntro), ...(here.ship || !theirs.ship ? {} : { ship: theirs.ship }), ...(here.sunHello || theirs.sunHello ? { sunHello: true } : {}), ...duty };
   },
   'engage.maru.v1'(here, theirs) {
     const u = union(list(here.runs), list(theirs.runs), RUN);

@@ -23,7 +23,11 @@ import { cleanName, cleanRegistry, fullName, shipOf, withRegistry } from './mysh
 import { carried, contents, fileName, fromRaw, jarsLeft, pack, plan, rawOf, unpack } from './records.js';
 import { hold as wakeHold, release as wakeRelease } from './wake.js';
 import { VOYAGES, arrivedAt, autopilotNext, flown, legLine, nextStop, routeLength, setOut, tidyVoyage, voyageById } from './voyages.js';
-import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, story, supplementals } from './voyage.js';
+import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, starHails, story, supplementals } from './voyage.js';
+import { answersDue, carriedOut, dayOf, orderOf, reportOf, roomsOnRecord, tidyDuty, todayItems, update as updateDuty } from './duty.js';
+import { jdOf, readings } from './ephemeris.js';
+import { byId as shipById } from './ships.js';
+import { CHALLENGES } from './contact-sim.js';
 import {
   AU_PER_PC, LY_PER_PC, apparentMag, formatDuration, formatLy, holdDistanceAU, roughLy, stardate, tripYears, warpSpeed,
 } from './physics.js';
@@ -70,6 +74,7 @@ function defaults() {
     rooms: null, // the rooms the bridge has told of, by id (js/rooms.js), for the line that says what's new
     greeted: null, // the year First Contact Day's line was last closed (see greeting)
     sunHello: false, // whether the Sun has said hello, once, from far out (see lookHome)
+    duty: null, // days served, orders carried out, rank and commendations, as js/duty.js keeps them (see dutyNow)
   };
 }
 
@@ -113,6 +118,7 @@ function tidy() {
   state.rooms = Array.isArray(state.rooms) ? state.rooms.filter(x => typeof x === 'string') : null;
   if (!Number.isInteger(state.greeted)) state.greeted = null;
   state.sunHello = state.sunHello === true;
+  state.duty = state.duty ? tidyDuty(state.duty) : null;
 }
 
 // Keeps the ship's position, the log and the settings. Returns whether it worked. When it doesn't, `unsaved` says why:
@@ -122,8 +128,8 @@ function tidy() {
 let unsaved = null;
 function save() {
   viewMoved = false;
-  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms, greeted, sunHello } = state;
-  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}), ...(greeted ? { greeted } : {}), ...(sunHello ? { sunHello } : {}) }) || null;
+  const { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ship, voyage, rooms, greeted, sunHello, duty } = state;
+  unsaved = keep(KEY, { at, offset, yaw, pitch, fov, target, warp, log, ly, opts, seenIntro, ...(ship ? { ship } : {}), ...(voyage ? { voyage } : {}), ...(rooms ? { rooms } : {}), ...(greeted ? { greeted } : {}), ...(sunHello ? { sunHello } : {}), ...(duty ? { duty } : {}) }) || null;
   return !unsaved;
 }
 
@@ -1586,6 +1592,7 @@ function drawLog() {
   contacts = readContacts();
   records = readRecords();
   supps = supplementals(records, Date.now(), { lyOf: starLy });
+  dutyNow();
   unsavedNote('log-unsaved', 'The log is full: new entries and the ship’s position aren’t being kept. Clearing the log, in settings, makes room.',
     'This browser isn’t letting the bridge save: the log and the ship’s position won’t be kept.');
   const n = new Set(state.log.map(e => e.star)).size;
@@ -1608,7 +1615,7 @@ function drawEntries() {
   const q = logView === 'chart' ? '' : $('log-search').value.trim();
   for (const [id, v] of [['log-by-day', 'day'], ['log-by-star', 'star'], ['log-chart', 'chart']]) $(id).setAttribute('aria-pressed', String(logView === v));
   if (logView === 'chart') { $('entries').innerHTML = chartHtml(); paintChart(); return; }
-  $('entries').innerHTML = (q ? '' : storyHtml() + serviceHtml() + recordsHtml()) + (logView === 'star' ? starsHtml(q) : daysHtml(q));
+  $('entries').innerHTML = (q ? '' : todayHtml() + storyHtml() + serviceHtml() + recordsHtml()) + (logView === 'star' ? starsHtml(q) : daysHtml(q));
 }
 
 // ---------- Stellar cartography ----------
@@ -1703,8 +1710,77 @@ function serviceHtml() {
   const c = state.opts.clock ? clockNow(state.log) : null;
   const clock = c ? `<p class="clock" id="service-clock">Mission ${c.n} · ${c.said}${c.done ? ` · ${c.done === 1 ? 'one' : c.done} complete` : ''}</p>` : '';
   const named = state.ship ? ` · ${esc(withRegistry(state.ship))}` : '';
-  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record${named}</h3>${clock}<ul>${rows.map(r =>
-    `<li><a href="${ROOM_BASE}${r.href}"${AWAY} data-room="${r.room}"><b>${esc(r.name)}</b><span${r.line ? '' : ' class="none"'}>${esc(r.line || r.none)}</span>${chev}</a></li>`).join('')}</ul></section>`;
+  const d = duty;
+  const rank = d ? `<p class="rank" id="rank"><b>${esc(d.rank.name)}</b>${d.rank.next ? `<span>Next, ${esc(d.rank.next)}: ${esc(d.rank.needs.join(', '))}.</span>` : '<span>The highest rank on the bridge.</span>'}</p>` : '';
+  const m = d?.medals;
+  const medals = m && (m.earned.length || m.next) ? `<p class="medals" id="medals"><b>Commendations</b>${m.earned.length ? `<span class="earned">${m.earned.map(c => `<span title="${esc(c.what)}">${esc(c.name)}</span>`).join('')}</span>` : ''}`
+    + `${m.next ? `<span class="next">Next, ${esc(m.next.name)}: ${esc(m.next.what)} (${esc(progressSaid(m.next))}).</span>` : ''}</p>` : '';
+  return `<section class="service" id="service" aria-labelledby="service-head"><h3 id="service-head">Service record${named}</h3>${rank}${clock}<ul>${rows.map(r =>
+    `<li><a href="${ROOM_BASE}${r.href}"${AWAY} data-room="${r.room}"><b>${esc(r.name)}</b><span${r.line ? '' : ' class="none"'}>${esc(r.line || r.none)}</span>${chev}</a></li>`).join('')}</ul>${medals}</section>`;
+}
+const progressSaid = c => (c.need === 1 ? 'not yet' : `${c.have.toLocaleString('en-US')} of ${c.need.toLocaleString('en-US')}`);
+
+// ---------- Duty ----------
+
+// What brings an officer back each day (js/duty.js): the order of the day, what is new today in every room, the days
+// served, the rank and the commendations. Worked out each time the log is drawn, from the date and every room's
+// record; what has been earned is kept in the bridge's save, so it stays earned.
+let duty = null;
+function dutyNow() {
+  const today = dayOf(Date.now());
+  const r = logRecords(state.log, recordOpts()), charted = chartedSaid(r.charted);
+  const maru = records.maru || {}, contact = records.contact || {};
+  const seen = new Set([...(Array.isArray(maru.seen) ? maru.seen : []), ...(Array.isArray(maru.runs) ? maru.runs.map(x => x?.title) : [])].filter(t => typeof t === 'string' && t));
+  const f = {
+    stars: new Set(state.log.filter(e => e.star !== 0).map(e => e.star)).size,
+    rooms: roomsOnRecord(records),
+    maru: Math.max(Number.isInteger(maru.taken) ? maru.taken : 0, Array.isArray(maru.runs) ? maru.runs.length : 0),
+    charted: charted.n, chartedOf: charted.of,
+    endings: Math.min(seen.size, 9),
+    challenges: CHALLENGES.filter(seed => contact.challenges?.[seed]?.contact).length,
+    rescued: Number.isInteger(records.distress?.rescued) ? records.distress.rescued : 0,
+    farthest: r.farthest?.ly || 0,
+    jars: Array.isArray(records.xeno?.jars) ? records.xeno.jars.length : 0,
+    homeEarly: records.longway?.best > 0 && records.longway.best < 60,
+  };
+  const u = updateDuty(state.duty, { rec: records, log: state.log, supps, find: findStar, here: state.at, today, f });
+  const order = orderOf(today), done = carriedOut(order, records, state.log, findStar, state.at);
+  duty = { ...u, today, order, done: done.done || u.duty.orders.includes(today), report: reportOf(order, done.entry) };
+  if (u.changed) { state.duty = u.duty; if (!stale) save(); }
+}
+
+// Today on the bridge, at the head of the log: Starfleet's order of the day, then what is new today in each room.
+function todayHtml() {
+  const d = duty;
+  if (!d) return '';
+  const o = d.order;
+  const star = o.kind === 'star' ? findStar(o.star) : undefined;
+  const go = d.done ? '' : star !== undefined && star !== state.at
+    ? `<button class="text-button" type="button" data-course="${star}">Set course for ${esc(titleFor(cat, star))}</button>`
+    : o.href ? `<a href="${ROOM_BASE}${o.href}"${AWAY}>${esc(o.go)}</a>` : '';
+  const said = d.done ? `<p class="done"><b>Carried out.</b>${d.report ? ` ${esc(d.report)}` : ''}</p>` : '';
+  const friend = (Array.isArray(records.contact?.friends) ? records.contact.friends : []).filter(x => x && !x.again && typeof x.people === 'string').pop()?.people || null;
+  const landings = starHails(records.radio, Date.now(), starLy).filter(h => h.landed && dayOf(h.lands) === d.today);
+  // A long mission's answer due today, from the light-time to her now (long missions works it out the same way).
+  const answers = answersDue(records.missions, Date.now(), id => {
+    const ship = shipById(id);
+    if (!ship || ship.status === 'silent') return null;
+    try { return readings(id, jdOf(new Date())).lightSeconds * 1000; } catch { return null; }
+  }).map(a => ({ ...a, name: shipById(a.id).name }));
+  const items = todayItems(records, d.today, { friend, landings, answers });
+  const served = d.served.total ? `${d.served.total.toLocaleString('en-US')} ${d.served.total === 1 ? 'day' : 'days'} served${d.served.tour > 1 && d.served.tour < d.served.total ? ` · this tour, ${d.served.tour} days` : ''}${d.served.best > d.served.tour && d.served.best > 1 ? ` · longest tour, ${d.served.best} days` : ''}` : 'Your first day aboard';
+  const promoted = d.duty.promoted === d.today && d.rank.n > 0 ? `<p class="news">Promoted today to ${esc(d.rank.name)}.</p>` : '';
+  const medals = Object.entries(d.duty.medals).filter(([, day]) => day === d.today).map(([id]) => d.medals.earned.find(c => c.id === id)?.name).filter(Boolean);
+  const commended = medals.length ? `<p class="news">Commended today: ${esc(medals.join(', '))}.</p>` : '';
+  const chev = '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  return `<section class="today" id="today" aria-labelledby="today-head">
+    <h3 id="today-head">Today on the bridge<span>${esc(new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }))}</span></h3>
+    ${promoted}${commended}
+    <div class="order${d.done ? ' is-done' : ''}" id="order"><p class="eyebrow">Orders from Starfleet</p><p class="says">${esc(o.says)}</p>${said}${go ? `<p class="go">${go}</p>` : ''}</div>
+    <ul>${items.map(x => `<li${x.done ? ' class="done"' : ''}><a href="${ROOM_BASE}${x.href}"${AWAY} data-today="${esc(x.id)}"><b>${esc(x.name)}</b><span>${esc(x.line)}</span>${chev}</a></li>`).join('')}</ul>
+    <p class="served" id="served"><b>${esc(d.rank.name)}</b> · ${esc(served)}</p>${serviceRecord(records).every(r => !r.line) && !state.log.length && d.rank.next
+      ? `<p class="served next">Next, ${esc(d.rank.next)}: ${esc(d.rank.needs.join(', '))}.</p>` : ''}
+  </section>`;
 }
 
 // The whole voyage in one sentence, at the head of the log: "Fourteen months out: nine stars, one new species, one

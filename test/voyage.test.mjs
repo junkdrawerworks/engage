@@ -356,6 +356,10 @@ test('ship’s records: everything Engage keeps in one file, read back, and adde
   const bothMet = plan({ keys: { 'engage.contact.v1': { runs: [{ id: 'z', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-19T10:00:00.000Z' }], met: 1, contacts: 1, friends: [{ people: 'Mipen', seed: 4 }] } } },
     { 'engage.contact.v1': { runs: [{ id: 'x', title: 'First contact', outcome: 'contact', people: 'Mipen', at: '2026-11-18T10:00:00.000Z' }], met: 1, contacts: 1, friends: [{ people: 'Mipen', seed: 4 }] } }, 'add').write['engage.contact.v1'];
   assert.deepEqual([bothMet.runs.length, bothMet.met, bothMet.contacts, bothMet.peoples], [2, 1, 1, ['Mipen']]);
+  // What has been earned on the bridge (days served, orders, rank, commendations): everything on either copy.
+  const earned = plan({ keys: { 'engage.v1': { log: [], duty: { days: ['2026-11-02'], orders: [], rank: 3, medals: { rescue: '2026-11-02' } } } } },
+    { 'engage.v1': { log: [], duty: { days: ['2026-11-01'], orders: ['2026-11-01'], rank: 1 } } }, 'add').write['engage.v1'].duty;
+  assert.deepEqual([earned.days, earned.orders, earned.rank, earned.medals], [['2026-11-01', '2026-11-02'], ['2026-11-01'], 3, { rescue: '2026-11-02' }]);
   // Subspace radio: one hail to each star, the later of two.
   const radio = plan({ keys: { 'engage.radio.v1': { hails: [{ star: 'Vega', sent: 5 }, { star: 'Altair', sent: 2 }] } } }, { 'engage.radio.v1': { hails: [{ star: 'Vega', sent: 3 }, { star: 'Sirius', sent: 4 }] } }, 'add').write['engage.radio.v1'];
   assert.deepEqual(radio.hails.map(h => [h.star, h.sent]), [['Vega', 5], ['Sirius', 4], ['Altair', 2]]);
