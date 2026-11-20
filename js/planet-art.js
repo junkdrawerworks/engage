@@ -557,11 +557,15 @@ function painter(style, seed, w) {
 // `light` is the direction the light comes from, x to the right, y up and z toward the viewer: the survey's globes
 // are lit from the upper left, a little in front; the system view lights a planet from where its star is.
 export class Globe {
-  constructor(canvas, light = [-0.62, 0.38, 0.69]) {
+  // `edge` is how soft the line between day and night is: the light it takes to go from dark to fully lit. The
+  // survey's half-lit globes take it slowly; a thin crescent, lit from behind (the bridge's planet beside its star),
+  // wants a crisp one, or it fades to nothing.
+  constructor(canvas, light = [-0.62, 0.38, 0.69], { edge = [-0.12, 0.6] } = {}) {
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
     this.size = 0;
     this.light = norm(light);
+    this.edge = edge;
   }
 
   setMap(map) { this.map = map; }
@@ -623,7 +627,7 @@ export class Globe {
       row0[k] = v * w; row1[k] = v2 * w; bv[k] = fv - v;
       const s = sun[k];
       // Soft terminator, and a little light from the night sky.
-      let l = dark ? 0.4 + 0.3 * Math.max(0, s) - 0.15 * rim[k] : smooth(-0.12, 0.6, s) * 1.05 + 0.025;
+      let l = dark ? 0.4 + 0.3 * Math.max(0, s) - 0.15 * rim[k] : smooth(this.edge[0], this.edge[1], s) * 1.05 + 0.025;
       if (look.gas) l *= 0.75 + 0.25 * Math.pow(view[k], 0.5); // gas giants darken toward their edges
       lit[k] = l;
       // Its own light shows most on the night side, and through the day side when it's bright enough.

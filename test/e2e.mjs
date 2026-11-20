@@ -1060,6 +1060,48 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   await ctx2.close();
 }
 
+// Holding in a planet's orbit, the viewscreen draws that planet beside its star: Proxima b at Proxima, wholly on
+// the screen clear of the header and the helm, 20° to 45° from the star, lit from the star's side as a crescent, and
+// its name under it. It stays where it is in the sky as the view turns. Not at a star with none held, nor in flight;
+// at home it is Earth, beside the Sun.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx2.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await ctx2.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  await p.evaluate(() => { engage.jump('Proxima Centauri'); engage.closeSheets(); });
+  await p.waitForFunction(() => engage.planet, null, { timeout: 20000 });
+  const pl = await p.evaluate(() => engage.planet);
+  assert.equal(pl.name, 'Proxima b');
+  assert.ok(pl.theta >= 20 && pl.theta <= 45, `Proxima b is ${pl.theta}° from its star`);
+  const helm = await p.locator('#console').boundingBox();
+  assert.ok(pl.x - pl.r > 0 && pl.x + pl.r < 1280 && pl.y + pl.r < 800 && !(pl.x - pl.r < helm.x + helm.width && pl.y + pl.r > helm.y), `Proxima b is not clear on the screen: ${JSON.stringify(pl)}`);
+  // Lit on the side toward the star: a point just inside its edge there is brighter than one on the far side.
+  const lit = await p.evaluate(() => {
+    const s = engage.project('Proxima Centauri'), q = engage.planet, c = document.getElementById('labels'), k = c.width / c.clientWidth;
+    const dx = s.x - q.x, dy = s.y - q.y, l = Math.hypot(dx, dy);
+    const at = f => { const x = Math.round((q.x + dx / l * q.r * f) * k), y = Math.round((q.y + dy / l * q.r * f) * k); const d = c.getContext('2d').getImageData(x, y, 1, 1).data; return d[0] + d[1] + d[2]; };
+    return [at(0.93), at(-0.93), at(0)];
+  });
+  assert.ok(lit[0] > 120 && lit[0] > lit[1] * 3 && lit[0] > lit[2] * 3, `Proxima b is not lit from its star: ${lit}`);
+  // It stays put in the sky: turned a little, it moves on the screen but not among the stars.
+  await p.keyboard.press('ArrowLeft');
+  await p.waitForTimeout(300);
+  const pl1 = await p.evaluate(() => engage.planet);
+  assert.ok(Math.abs(pl1.x - pl.x) > 10 && pl1.dir.every((v, k) => Math.abs(v - pl.dir[k]) < 1e-12), 'the planet did not stay put in the sky as the view turned');
+  // Vega has none held; in flight there is none.
+  await p.evaluate(() => { engage.jump('Vega'); engage.closeSheets(); });
+  await p.waitForTimeout(300);
+  assert.equal(await p.evaluate(() => engage.planet), null);
+  // Home: Earth beside the Sun, once the view turns to it.
+  await p.evaluate(() => { engage.jump('Sol'); engage.closeSheets(); });
+  await p.keyboard.press('h');
+  await p.waitForFunction(() => engage.planet?.name === 'Earth', null, { timeout: 20000 });
+  await ctx2.close();
+}
+
 // The captain's log pinned open: on a screen 1,200 pixels wide or more, Pin open on the log's header keeps it as a
 // column down the right, part of the bridge (no scrim, the helm in reach), while the ship flies. An arrival's entry
 // opens in its place and gives it back with the new entry at its head; autopilot's stops add to it as they come. It

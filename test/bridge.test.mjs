@@ -154,3 +154,22 @@ test('the viewscreen can be pointed so a star lands where it is wanted on the sc
   assert.equal(Sky.seen([-1, 0, 0], 0, 0), null);
   assert.ok(Sky.aim([0, 0, 1], 0, -0.5).pitch <= 89 * Math.PI / 180);
 });
+
+test('a planet held beside goes near its star, wholly on the screen, as far from it as fits', () => {
+  // A phone, 390 × 844, with a star on the horizon lifted 20° above the middle of the view as an arrival leaves it,
+  // clear of the header's 150 px and the helm's lower 220.
+  const box = { l: 0, t: 150, r: 390, b: 624, w: 390, h: 844 };
+  const F = Math.sqrt(390 * 844) / 2 / Math.tan(30 * Math.PI / 180);
+  const star = [1, 0, 0], size = 18 * Math.PI / 180, pitch = -20 * Math.PI / 180;
+  const spot = Sky.beside(star, 0, pitch, F, box, size);
+  assert.ok(spot.fits);
+  const angle = Math.acos(spot.dir[0]);
+  assert.ok(Math.abs(angle - spot.theta) < 1e-9 && spot.theta >= 20 * Math.PI / 180, `${angle} from the star`);
+  const seen = Sky.seen(spot.dir, 0, pitch), R = Math.tan(size / 2) * F;
+  const x = 195 + seen.tx * F, y = 422 - seen.ty * F;
+  assert.ok(x - R > box.l && x + R < box.r && y - R > box.t && y + R < box.b, `the disc is off the clear part: ${x}, ${y}`);
+  // The star off the screen behind: 30° below it, and it says it didn't fit.
+  const behind = Sky.beside([-1, 0, 0], 0, 0, F, box, size);
+  assert.equal(behind.fits, false);
+  assert.ok(Math.abs(Math.acos(-behind.dir[0]) - 30 * Math.PI / 180) < 1e-9);
+});

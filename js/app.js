@@ -6,7 +6,8 @@ import { buzz, canBuzz, follow, setPref, setUpRoom, textScale } from './room.js'
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, starKinds, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
-import { systemFor } from './worlds.js';
+import { HELD, artFor, planetByName, systemFor } from './worlds.js';
+import { Globe, paintSoon } from './planet-art.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
 import { SUN_LINE, ask, flightLine, report, sunSaysHello } from './computer.js';
 import { SHOWN_IN, onScreen, onScreenParts, variableFor } from './variables.js';
@@ -461,6 +462,8 @@ function drawLabels(now) {
   const red = document.body.classList.contains('red');
   const CYAN = red ? '#ffffff' : '#86d8ff';
 
+  drawPlanet(g, w, h);
+
   // The target: brackets and its name.
   const target = trip ? trip.i : state.target;
   if (target != null) {
@@ -545,6 +548,79 @@ function drawLabels(now) {
   }
 }
 let drawn = []; // the names on screen, for N and the tests: { text, x, y (the baseline), w, star (if a star's) }
+
+// ---------- The planet the ship holds beside ----------
+
+// Holding in a planet's orbit (in Earth orbit, in Proxima b's: see HELD in js/worlds.js), the viewscreen shows that
+// planet near its star, painted the way the survey files it (as the system view paints it) and lit from its star.
+// It is close by, 18° across, so the ship is near it on its orbit; and since the star is far beyond it, its
+// star lights it from behind: seen θ from the star, the lit part is a crescent on the side toward the star, the
+// rest of its face dark against the stars (lit by (1 − cos θ)/2 of its face). Where it is, θ and the side of the
+// star, is chosen on arrival so that it is on the screen, clear of the header and the helm (Sky.beside), and then
+// stays put in the sky as the view turns. Not during a flight, nor with Earth's sky held.
+const PLANET_SIZE = 18 * DEG;
+let planet = null; // { key, name, map, dir, theta, globe, light, size, at }
+const seedOf = name => { let h = 2166136261; for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return (h >>> 0) % 9999 + 1; };
+function heldPlanet() {
+  if (trip || earthHeld || !cat) return null;
+  const name = HELD[cat.names[state.at]];
+  if (!name) return null;
+  // Only once arrived: where the ship holds at its usual distance (a log entry, or home), not anywhere near.
+  const d = Math.hypot(...state.offset) * AU_PER_PC;
+  if (Math.abs(d / holdAU(state.at) - 1) > 0.05) return null;
+  return planetByName(name);
+}
+function drawPlanet(g, w, h) {
+  const held = heldPlanet();
+  if (!held) return;
+  const key = `${state.at}|${state.offset.map(v => v.toExponential(4)).join()}`;
+  if (planet?.key !== key) {
+    const star = { lum: cat.lum[state.at], temp: cat.temp[state.at] };
+    planet = { key, name: held.planet.name, map: null };
+    const mine = planet;
+    paintSoon(artFor(held.planet, star), seedOf(held.planet.name), 192, () => planet !== mine).then(map => { if (map && planet === mine) { mine.map = map; dirty = true; } });
+  }
+  const s = starPos(state.at).map((v, k) => v - camAbs()[k]), sl = Math.hypot(...s);
+  const toStar = s.map(v => v / sl);
+  // Placed once the view is still, clear of the header and the helm (the arrival's entry goes away; a column down the
+  // side stays). Placed while its star was off the screen (back in Earth orbit, facing Orion), it is placed again
+  // the first time the star is in view.
+  if ((!planet.dir || !planet.fits) && !turn) {
+    const box = clearPart({ helm: true, bottomSheets: false });
+    const spot = Sky.beside(toStar, state.yaw, state.pitch, Math.sqrt(box.w * box.h) / 2 / Math.tan(state.fov / 2), box, PLANET_SIZE);
+    if (!planet.dir || spot.fits) { Object.assign(planet, spot); planet.globe = null; }
+  }
+  if (!planet.dir) return;
+  if (!planet.map) return;
+  const p = sky.project({ dir: planet.dir });
+  if (!p || p.behind) return;
+  const L = sky.last;
+  const R = Math.tan(PLANET_SIZE / 2) * L.focal / sky.dpr; // its radius on the screen, in CSS pixels
+  if (p.x < -R || p.y < -R || p.x > w + R || p.y > h + R) return;
+  // The light: from the star's side of it on the screen, and from behind by cos θ.
+  const q = sky.project(state.at);
+  let dx = 0, dy = 1;
+  if (q && !q.behind) { const l = Math.hypot(q.x - p.x, q.y - p.y) || 1; dx = (q.x - p.x) / l; dy = -(q.y - p.y) / l; }
+  const light = [Math.sin(planet.theta) * dx, Math.sin(planet.theta) * dy, -Math.cos(planet.theta)];
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const size = Math.min(512, Math.round(R * 2 / 0.8 * dpr)); // the globe's disc is 0.8 of its canvas
+  if (!planet.globe || planet.size !== size || Math.hypot(...light.map((v, k) => v - planet.light[k])) > 0.03) {
+    planet.globe = new Globe(document.createElement('canvas'), light, { edge: [-0.02, 0.18] });
+    planet.globe.setMap(planet.map);
+    planet.globe.draw(0.6, size);
+    planet.light = light;
+    planet.size = size;
+  }
+  const c = R * 2 / 0.8;
+  g.drawImage(planet.globe.canvas, p.x - c / 2, p.y - c / 2, c, c);
+  planet.at = { x: p.x, y: p.y, r: R };
+  // Its name, small, under it.
+  g.font = `500 ${12 * TK}px "IBM Plex Sans", system-ui, sans-serif`;
+  g.textAlign = 'center';
+  g.fillStyle = document.body.classList.contains('red') ? 'rgba(255, 240, 236, 0.8)' : 'rgba(200, 212, 235, 0.7)';
+  g.fillText(planet.name, p.x, p.y + R + 16 * TK);
+  g.textAlign = 'left';
+}
 
 let TK = 1; // how much bigger than standard the names on the viewscreen are drawn
 function labelWidth(g, text, sub) {
@@ -1054,19 +1130,22 @@ const look = () => earthLook || state;
 // in the middle of what the log and the header leave clear, among the stars round it in Earth's sky. In sight
 // already, nothing turns. The clear part, in CSS pixels: below the header and the line Earth's sky shows, and beside
 // or above each open sheet (beside one that is a column down the side, above one across the bottom).
-function clearPart() {
+// `helm` keeps clear of the helm too; `bottomSheets` false leaves out a sheet across the bottom, which goes away.
+function clearPart({ helm = false, bottomSheets = true } = {}) {
   const s = $('sky').getBoundingClientRect();
   let l = 0, t = 0, r = s.width, b = s.height;
   for (const el of [document.querySelector('.hud .where'), document.querySelector('.hud-buttons'), $('earth-note')]) {
     const e = !el?.hidden && el?.getBoundingClientRect();
     if (e?.height) t = Math.max(t, e.bottom - s.top);
   }
+  const c = helm && !$('console').inert && $('console').getBoundingClientRect();
+  if (c?.height) b = Math.min(b, c.top - s.top);
   for (const id of SHEETS) {
     const el = $(id);
     if (el.hidden) continue;
     const e = el.getBoundingClientRect();
     if (!e.width) continue;
-    if (e.width >= s.width * 0.6) b = Math.min(b, e.top - s.top);
+    if (e.width >= s.width * 0.6) { if (bottomSheets) b = Math.min(b, e.top - s.top); }
     else if (e.left + e.width / 2 > s.width / 2) r = Math.min(r, e.left - s.left);
     else l = Math.max(l, e.right - s.left);
   }
@@ -2520,6 +2599,8 @@ function hooks() {
     earthSky,
     get earthHeld() { return earthHeld; },
     get earthTurned() { return !!earthLook; },
+    // The planet drawn beside the star the ship holds at: its name, where it is on the screen, and how far from its star.
+    get planet() { return planet?.at && heldPlanet() ? { name: planet.name, ...planet.at, theta: planet.theta / DEG, dir: planet.dir } : null; },
     autopilot,
     get auto() { return !!auto; },
     // The stars autopilot chooses among once the voyages are done (catalogue indices), and those it has flown to this

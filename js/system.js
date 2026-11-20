@@ -11,7 +11,7 @@ import { worldByName, grows, label } from './classes.js';
 import { paintSoon, Globe } from './planet-art.js';
 import {
   SYSTEMS, systemFor, planetByName, widthOf, standable, temperateZone, orbitAngle, readout, placed, SIZES, artFor,
-  auText, yearText, starDegrees, SUN_DEGREES, placedKey,
+  auText, yearText, starDegrees, SUN_DEGREES, placedKey, HELD,
 } from './worlds.js';
 import { sound } from './audio.js';
 import { setUpRoom } from './room.js';
@@ -75,7 +75,7 @@ function open() {
   view.unmeasured = !!cat.unmeasured[i];
   const planets = view.sys?.planets || [];
   // The planet flown in to: the one asked for, else the one the bridge holds in the orbit of (Earth at home).
-  const holdAt = { Sol: 'Earth', 'Proxima Centauri': 'Proxima b', 'Luyten\'s Star': 'Luyten b', 'Teegarden\'s Star': 'Teegarden’s Star b', 'TRAPPIST-1': 'TRAPPIST-1 e' }[view.name];
+  const holdAt = HELD[view.name];
   view.sel = planets.find(p => fromPlanet && p === fromPlanet.planet) || planets.find(p => p.name === holdAt) || planets[0] || null;
   view.scale = 'inner';
   // The placed planet starts where it would get Earth's sunlight.

@@ -105,6 +105,10 @@ export const SYSTEMS = [
   },
 ];
 
+// The planet whose orbit the bridge holds in at each of the stars it holds beside one (each destination's `hold`,
+// in js/destinations.js): the one the system view opens at, and the one the bridge's viewscreen draws.
+export const HELD = { Sol: 'Earth', 'Proxima Centauri': 'Proxima b', 'Luyten\'s Star': 'Luyten b', 'Teegarden\'s Star': 'Teegarden’s Star b', 'TRAPPIST-1': 'TRAPPIST-1 e' };
+
 // Capitals and the kind of apostrophe don't matter, since names travel in links.
 const plain = s => String(s ?? '').toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
 // A system by its star's catalogue name, or by the title the bridge's charts give it (Epsilon Eridani is Ran there).

@@ -252,6 +252,29 @@ export class Sky {
     return { yaw, pitch };
   }
 
+  // Where to put a planet the ship holds beside, near its star on the screen: a direction `theta` from the star's,
+  // so that a disc `size` wide (radians) sits wholly inside `box` ({ l, t, r, b, w, h } in CSS pixels, with `F`
+  // pixels to a unit of tangent) for the view at yaw and pitch. The widest angle that fits is taken, from 45° down
+  // to 20° (the wider, the more of its face is lit), trying round the star from below it, to its left first.
+  // Nothing fits (the star itself is off the screen): 30° straight below it. Returns { dir, theta, fits }.
+  static beside(star, yaw, pitch, F, box, size) {
+    const { r, u } = Sky.basis(yaw, pitch);
+    const off = v => { const d = v[0] * star[0] + v[1] * star[1] + v[2] * star[2]; const w = v.map((x, k) => x - d * star[k]); const l = Math.hypot(...w) || 1; return w.map(x => x / l); };
+    const a = off(r), b = off(u);
+    const at = (theta, phi) => star.map((x, k) => Math.cos(theta) * x + Math.sin(theta) * (Math.cos(phi) * a[k] + Math.sin(phi) * b[k]));
+    const DEG = Math.PI / 180;
+    for (const deg of [45, 40, 35, 30, 25, 20]) {
+      for (let n = 0; n < 16; n++) {
+        const phi = (240 + 22.5 * Math.ceil(n / 2) * (n % 2 ? 1 : -1)) * DEG; // 240° (below, a little left), then either side
+        const dir = at(deg * DEG, phi), seen = Sky.seen(dir, yaw, pitch);
+        if (!seen) continue;
+        const x = box.w / 2 + seen.tx * F, y = box.h / 2 - seen.ty * F, R = Math.tan(size / 2) * F / Math.max(0.2, Math.cos(Math.atan(Math.hypot(seen.tx, seen.ty))));
+        if (x - R > box.l && x + R < box.r && y - R > box.t && y + R < box.b) return { dir, theta: deg * DEG, fits: true };
+      }
+    }
+    return { dir: at(30 * DEG, 270 * DEG), theta: 30 * DEG, fits: false };
+  }
+
   // Pixels (device) per unit of tan(angle): the field of view spans the geometric mean of width and height.
   focal(fov) {
     const { width, height } = this.canvas;
