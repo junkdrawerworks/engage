@@ -123,10 +123,10 @@ export const hailSent = (t, now) => (Number.isFinite(t) && t > 0 && t <= now + 6
 //   idle: nothing sent · outbound: on its way out · inbound: it has arrived and her answer could be on its way back
 //   done: the answer could be home (or she is silent and it has arrived), so another can go
 // A hail still in flight is never replaced: the wait is the point, and sending again would start it over.
-export function hailState(sent, lightMs, now, silent = false) {
+export function hailState(sent, lightMs, now, silent = false, back = sent + 2 * lightMs) {
   if (!Number.isFinite(sent) || sent > now) return 'idle'; // a time in the future is a clock that was changed
   if (now < sent + lightMs) return 'outbound';
-  if (!silent && now < sent + 2 * lightMs) return 'inbound';
+  if (!silent && now < Math.max(back, sent + 2 * lightMs)) return 'inbound';
   return 'done';
 }
 
@@ -263,10 +263,13 @@ export function dishLine(watch, { silent = false, south = false, fmt }) {
 // ---------- Hails that land ----------
 
 // The latest thing that has happened to a hail by `now`: { stage, at } where stage is 'sent', 'arrived' or
-// 'answered' (an answer can only come from a ship that isn't silent), or null with no hail.
-export function hailChange(sent, lightMs, now, silent = false) {
+// 'answered' (an answer can only come from a ship that isn't silent), or null with no hail. `back` is when her answer
+// is heard: twice the light-time after the hail went, or later, when no dish could hear her then (heardAt in
+// astro.js); hailState takes it the same way.
+export function hailChange(sent, lightMs, now, silent = false, back = sent + 2 * lightMs) {
   if (!Number.isFinite(sent) || sent > now) return null;
-  if (!silent && now >= sent + 2 * lightMs) return { stage: 'answered', at: sent + 2 * lightMs };
+  back = Math.max(back, sent + 2 * lightMs);
+  if (!silent && now >= back) return { stage: 'answered', at: back };
   if (now >= sent + lightMs) return { stage: 'arrived', at: sent + lightMs };
   return { stage: 'sent', at: sent };
 }

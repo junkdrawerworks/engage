@@ -237,6 +237,33 @@ test('which dish could hear a ship follows her place in the sky', async () => {
   assert.equal(dishLine(v1, { fmt, silent: true }), 'Nobody listens for her any more. Goldstone and Madrid could hear her now, if she called. Canberra next, 22:30.');
 });
 
+test('her answer comes in when a dish could hear her, not while she is below every dish', async () => {
+  const { dishWatch, heardAt, DISH_LIMIT } = await import('../js/astro.js');
+  const { hailChange } = await import('../js/ships.js');
+  // Voyager 2 is heard only from Canberra, and on 20 November 2026 she sits just under its 6° limit from about 17:20
+  // to 19:28 UTC. An answer reaching Earth at 18:00 waits for her to climb past it.
+  const home = Date.parse('2026-11-20T18:00:00Z');
+  assert.equal(dishWatch('v2', new Date(home)).some(w => w.up), false);
+  const h = heardAt('v2', home);
+  assert.equal(h.site, 'Canberra');
+  assert.ok(h.at > home + 80 * 60000 && h.at < home + 100 * 60000, `heard at ${new Date(h.at).toISOString()}`);
+  const there = dishWatch('v2', new Date(h.at + 60000))[2];
+  assert.ok(there.up && there.alt < DISH_LIMIT + 0.2, `Canberra sees her ${there.alt.toFixed(2)}° up a minute after`);
+  // Heard at once when a dish can hear her: the site where she stands highest.
+  const now = Date.parse('2026-11-19T17:00:00Z');
+  assert.deepEqual(heardAt('v2', now), { at: now, site: 'Canberra' });
+  assert.equal(heardAt('v1', now).at, now);
+  // The hail's stages wait for it: her answer is still on its way after it reaches Earth, until it is heard.
+  const lt = 19.4 * 3600e3, sent = home - 2 * lt;
+  assert.equal(hailChange(sent, lt, home + 60000, false, h.at).stage, 'arrived');
+  assert.equal(hailState(sent, lt, home + 60000, false, h.at), 'inbound');
+  assert.deepEqual(hailChange(sent, lt, h.at, false, h.at), { stage: 'answered', at: h.at });
+  assert.equal(hailState(sent, lt, h.at, false, h.at), 'done');
+  // Never earlier than the light allows, and a silent ship still sends nothing.
+  assert.equal(hailChange(sent, lt, home, false, home - 3600e3).at, home);
+  assert.equal(hailChange(sent, lt, h.at, true, h.at).stage, 'arrived');
+});
+
 test('each ship is in the constellation NASA names for her', async () => {
   const { readFile } = await import('node:fs/promises');
   const { constellationIn, shipDir } = await import('../js/astro.js');

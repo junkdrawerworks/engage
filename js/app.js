@@ -27,6 +27,7 @@ import { VOYAGES, arrivedAt, autopilotNext, flown, legLine, nextStop, routeLengt
 import { clockNow, clockSaid, missionSaid, missionTally, missions, readRecords, serviceRecord, shipTimeSaid, starHails, story, supplementals } from './voyage.js';
 import { answersDue, carriedOut, dayOf, orderOf, reportOf, roomsOnRecord, tidyDuty, todayItems, update as updateDuty } from './duty.js';
 import { jdOf, readings } from './ephemeris.js';
+import { heardAt } from './astro.js';
 import { byId as shipById } from './ships.js';
 import { CHALLENGES } from './contact-sim.js';
 import {
@@ -2047,6 +2048,14 @@ function dutyNow() {
   if (u.changed) { state.duty = u.duty; if (!stale) save(); }
 }
 
+// When a long mission's answer reaching Earth at `at` is heard (heardAt in astro.js), worked out once for each answer.
+const heardTimes = new Map();
+function heardFor(id, at) {
+  const key = `${id}@${Math.round(at / 60000)}`;
+  if (!heardTimes.has(key)) { let t = at; try { t = heardAt(id, at).at; } catch { /* heard as it reaches Earth */ } heardTimes.set(key, t); }
+  return heardTimes.get(key);
+}
+
 // Today on the bridge, at the head of the log: Starfleet's order of the day, then what is new today in each room.
 function todayHtml() {
   const d = duty;
@@ -2059,12 +2068,13 @@ function todayHtml() {
   const said = d.done ? `<p class="done"><b>Carried out.</b>${d.report ? ` ${esc(d.report)}` : ''}</p>` : '';
   const friend = (Array.isArray(records.contact?.friends) ? records.contact.friends : []).filter(x => x && !x.again && typeof x.people === 'string').pop()?.people || null;
   const landings = starHails(records.radio, Date.now(), starLy).filter(h => h.landed && dayOf(h.lands) === d.today);
-  // A long mission's answer due today, from the light-time to her now (long missions works it out the same way).
+  // A long mission's answer due today, from the light-time to her now and heard when a dish could hear her (long
+  // missions works it out the same way).
   const answers = answersDue(records.missions, Date.now(), id => {
     const ship = shipById(id);
     if (!ship || ship.status === 'silent') return null;
     try { return readings(id, jdOf(new Date())).lightSeconds * 1000; } catch { return null; }
-  }).map(a => ({ ...a, name: shipById(a.id).name }));
+  }, heardFor).map(a => ({ ...a, name: shipById(a.id).name }));
   const items = todayItems(records, d.today, { friend, landings, answers });
   const served = d.served.total ? `${d.served.total.toLocaleString('en-US')} ${d.served.total === 1 ? 'day' : 'days'} served${d.served.tour > 1 && d.served.tour < d.served.total ? ` · this tour, ${d.served.tour} days` : ''}${d.served.best > d.served.tour && d.served.best > 1 ? ` · longest tour, ${d.served.best} days` : ''}` : 'Your first day aboard';
   const promoted = d.duty.promoted === d.today && d.rank.n > 0 ? `<p class="news">Promoted today to ${esc(d.rank.name)}.</p>` : '';

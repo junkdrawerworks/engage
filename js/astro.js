@@ -501,3 +501,14 @@ export function dishWatch(id, from, hours = 24) {
     return { name: site.name, alt, up: alt >= DISH_LIMIT, rise, always };
   });
 }
+
+// When a ship's signal reaching Earth at `at` (ms) is first heard: at once if a site could hear her then (the one where
+// she stands highest), or else when the first one next could. { at (ms), site: a site's name, or null when none could
+// in the next two days, and then `at` is left as it was }.
+export function heardAt(id, at) {
+  const watch = dishWatch(id, new Date(at), 48);
+  const up = watch.filter(w => w.up).sort((a, b) => b.alt - a.alt)[0];
+  if (up) return { at, site: up.name };
+  const next = watch.filter(w => w.rise).sort((a, b) => a.rise - b.rise)[0];
+  return next ? { at: Math.max(at, +next.rise), site: next.name } : { at, site: null };
+}

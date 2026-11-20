@@ -222,6 +222,11 @@ test('today on the bridge: a long mission’s answer due today, or come in, and 
   // hours after, at nine tonight. New Horizons: home two days ago. Pioneer 10 can't answer.
   const due = answersDue(missions, now, id => light[id] ?? null);
   assert.deepEqual(due.map(a => [a.id, new Date(a.at).getHours()]), [['v1', 18], ['v2', 21]]);
+  // Heard later when no dish could hear her as it reached Earth: Voyager 2's waits an hour and a half for Canberra.
+  const late = answersDue(missions, now, id => light[id] ?? null, (id, at) => (id === 'v2' ? at + 1.5 * hour : at));
+  assert.deepEqual(late.map(a => [a.id, new Date(a.at).getHours(), new Date(a.at).getMinutes(), new Date(a.home).getHours()]), [['v1', 18, 0, 18], ['v2', 22, 30, 21]]);
+  assert.equal(answersDue(missions, now, id => light[id] ?? null, (id, at) => at - hour)[0].at, now + 6 * hour, 'never before it reaches Earth');
+  assert.equal(todayItems({}, '2026-11-20', { now, answers: late.map(a => ({ ...a, name: a.id })) }).at(-1).line, 'At 22:30, when a dish can hear her');
   assert.deepEqual(answersDue({}, now, () => hour), []);
   assert.deepEqual(answersDue({ hails: { v1: now + hour } }, now, () => hour), [], 'a hail from a clock set ahead');
   const items = todayItems({}, '2026-11-20', { now, answers: [{ id: 'v1', name: 'Voyager 1', at: now + 6 * hour }, { id: 'nh', name: 'New Horizons', at: now - 2 * hour }] });

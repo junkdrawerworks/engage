@@ -6,7 +6,7 @@ import {
   jwstFromEarth, jwstSpan, jwstAroundL2, jwstTracked, moonAt, milestones,
 } from './ephemeris.js';
 import { warpSpeed, stardate, plural } from './physics.js';
-import { shipDir, dishWatch, constellationIn } from './astro.js';
+import { shipDir, dishWatch, heardAt, constellationIn } from './astro.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { LIVE, share } from './share.js';
@@ -26,6 +26,7 @@ const still = matchMedia('(prefers-reduced-motion: reduce)');
 const saved = load();
 // The room opens on the ship in the address, or else on the one whose hail last changed (it reached her or her answer
 // came in since you last looked, or else the latest sent), or else on Voyager 1.
+const answerTimes = new Map(); // each hail's answer, when it reaches Earth and when a dish hears it (answerOf)
 let sel = byId(location.hash.slice(1)) ? location.hash.slice(1) : latestHail() || 'v1';
 let view = byId(sel).near ? 'earth' : 'sun';
 let lastText = 0, lastSettle = 0;
@@ -52,10 +53,29 @@ function load() {
 
 function silentShip(id) { return byId(id)?.status === 'silent'; }
 function lightMsOf(id, ms) { return readings(id, jdOf(ms)).lightSeconds * 1000; }
+// Her answer to the hail sent at `sent`: { earth, at, site }. It reaches Earth twice the light-time after the hail went
+// (`earth`) and is heard `at` the first moment after that when one of the Deep Space Network's sites could hear her,
+// `site` (heardAt in astro.js). Worked out once for each hail (answerTimes, at the top): her light-time changes by
+// seconds over a day.
+function answerOf(id, sent, nowMs) {
+  const key = `${id}@${sent}`;
+  if (!answerTimes.has(key)) {
+    const earth = sent + 2 * lightMsOf(id, nowMs);
+    let heard = { at: earth, site: null };
+    try { heard = heardAt(id, earth); } catch { /* the geometry failed: she is heard as she reaches Earth */ }
+    answerTimes.set(key, { earth, at: heard.at, site: heard.site });
+  }
+  return answerTimes.get(key);
+}
+// A hail's state, with her answer heard when a dish could hear her.
+function stateOf(id, nowMs) {
+  const t = saved.hails[id], lt = lightMsOf(id, nowMs);
+  return hailState(t, lt, nowMs, silentShip(id), Number.isFinite(t) && !silentShip(id) ? answerOf(id, t, nowMs).at : undefined);
+}
 // The latest change to each ship's hail by now: [{ id, stage, at, key }].
 function hailChanges(nowMs) {
   return Object.entries(saved.hails).filter(([id]) => byId(id)).map(([id, t]) => {
-    const ch = hailChange(t, lightMsOf(id, nowMs), nowMs, silentShip(id));
+    const ch = hailChange(t, lightMsOf(id, nowMs), nowMs, silentShip(id), silentShip(id) ? undefined : answerOf(id, t, nowMs).at);
     return ch && { id, ...ch, key: `${ch.stage}@${t}` };
   }).filter(Boolean);
 }
@@ -217,7 +237,7 @@ function daysAgo(then, now) {
 function hail() {
   const now = Date.now();
   const ship = byId(sel);
-  const state = hailState(saved.hails[sel], readings(sel, jdOf(now)).lightSeconds * 1000, now, ship.status === 'silent');
+  const state = stateOf(sel, now);
   if (state === 'idle' || state === 'done') {
     settle(now); // an answer that came back is counted before its hail is replaced
     saved.hails[sel] = now;
@@ -253,19 +273,30 @@ function hailLabel(ship, state) {
 function hailText(ship, r, nowMs) {
   const sent = hailSent(saved.hails[ship.id], nowMs - 60000); // one the clock has since gone back behind was never sent
   const lt = r.lightSeconds * 1000;
-  if (!sent || nowMs - sent > 2 * lt + 864e5) {
+  const heard = sent && ship.status !== 'silent' ? answerOf(ship.id, sent, nowMs) : null;
+  if (!sent || nowMs - Math.max(sent + 2 * lt, heard?.at || 0) > 864e5) {
     if (ship.status === 'silent') return `She can’t answer: her last signal reached Earth on ${fmtDate(new Date(ship.silentSince + 'T12:00:00Z'), { timeZone: 'UTC' })}. A hail sent now would still find her in ${lightTime(r.lightSeconds)}.`;
     return `A hail sent now reaches her ${lt < 6e4 ? `in ${shortSpan(lt / 1000)}` : fmtWhen(new Date(nowMs + lt))}. The soonest her answer could get back is ${lt < 6e4 ? `${shortSpan(2 * lt / 1000)} after you sent it` : fmtWhen(new Date(nowMs + 2 * lt))}.`;
   }
-  const arrive = sent + lt, back = sent + 2 * lt;
+  const arrive = sent + lt, back = Math.max(sent + 2 * lt, heard?.at || 0);
   const sentText = fmtWhen(new Date(sent));
+  // Where she is heard: said once the answer has to wait for a dish, or whenever one is named.
+  const late = heard && back - (sent + 2 * lt) > 60000;
+  const at = heard?.site ? `, picked up at ${heard.site}` : '';
   if (nowMs < arrive) {
     const pct = (nowMs - sent) / lt * 100;
     return `Your hail, sent ${sentText}, is ${pct < 1 ? pct.toFixed(3) : pct < 10 ? pct.toFixed(1) : Math.floor(pct)}% of the way there. It reaches her ${lt < 6e4 ? `in ${shortSpan((arrive - nowMs) / 1000)}` : fmtWhen(new Date(arrive))}.`;
   }
   if (ship.status === 'silent') return `Your hail, sent ${sentText}, reached her ${lt < 6e4 ? 'already' : fmtWhen(new Date(arrive))}. Nothing came back: she has no power left to answer.`;
-  if (nowMs < back) return `Your hail reached her ${lt < 6e4 ? 'already' : fmtWhen(new Date(arrive))}. She answers at once, and her answer lands ${lt < 6e4 ? `in ${shortSpan((back - nowMs) / 1000)}` : fmtWhen(new Date(back))}.`;
-  return `Your hail, sent ${sentText}, reached her ${fmtWhen(new Date(arrive))}, and her answer came back ${fmtWhen(new Date(back))}. That’s how long every question to her takes.`;
+  if (nowMs < back) {
+    if (late) {
+      const home = nowMs < sent + 2 * lt ? `reaches Earth ${fmtWhen(new Date(sent + 2 * lt))}, when no dish can hear her` : `reached Earth ${fmtWhen(new Date(sent + 2 * lt))}, when no dish could hear her`;
+      return `Your hail reached her ${lt < 6e4 ? 'already' : fmtWhen(new Date(arrive))}. She answers at once. Her answer ${home}, and ${heard.site} picks it up ${fmtWhen(new Date(back))}.`;
+    }
+    return `Your hail reached her ${lt < 6e4 ? 'already' : fmtWhen(new Date(arrive))}. She answers at once, and her answer lands ${lt < 6e4 ? `in ${shortSpan((back - nowMs) / 1000)}` : fmtWhen(new Date(back))}${at}.`;
+  }
+  if (late) return `Your hail, sent ${sentText}, reached her ${fmtWhen(new Date(arrive))}. Her answer reached Earth ${fmtWhen(new Date(sent + 2 * lt))}, when no dish could hear her, and was picked up at ${heard.site} ${fmtWhen(new Date(back))}.`;
+  return `Your hail, sent ${sentText}, reached her ${fmtWhen(new Date(arrive))}, and her answer came back ${fmtWhen(new Date(back))}${at}. That’s how long every question to her takes.`;
 }
 
 // ---------- Where she is in the sky ----------
@@ -319,7 +350,8 @@ function showReply(ship, change, fresh, nowMs) {
       constellation: skyMeta ? constellationOf(ship.id, jdOf(arrive)) : null,
     });
     reply = { key, text, sky: !!skyMeta, start: reply.key === key ? reply.start : fresh && !still.matches ? nowMs : -Infinity };
-    $('reply-head').textContent = `Her answer came in ${fmtWhen(new Date(sent + 2 * lt))}`;
+    const heard = answerOf(ship.id, sent, nowMs);
+    $('reply-head').textContent = `Her answer came in ${fmtWhen(new Date(heard.at))}${heard.site ? `, picked up at ${heard.site}` : ''}`;
     $('reply-full').textContent = text;
     $('reply-note').textContent = `Written from her file and the numbers when your hail reached her, and typed out as fast as she sends: ${ship.reply.rate}. The real ${ship.near ? 'Webb' : ship.name} answers only ${ship.near ? 'her mission team' : 'NASA'}.`;
   }
@@ -431,7 +463,7 @@ function tick(force = false) {
   if (fresh) { saved.seen[sel] = mine.key; save(); }
   showReply(ship, mine, fresh, nowMs);
   showNews(changes, nowMs);
-  const state = hailState(saved.hails[sel], rNow.lightSeconds * 1000, nowMs, ship.status === 'silent');
+  const state = stateOf(sel, nowMs);
   if ($('hail').dataset.state !== `${sel}:${state}`) {
     $('hail').dataset.state = `${sel}:${state}`;
     $('hail').textContent = hailLabel(ship, state);

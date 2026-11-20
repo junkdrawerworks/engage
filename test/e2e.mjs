@@ -2105,6 +2105,7 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   const H = 3600e3, T = Date.parse('2026-11-19T08:00:00Z');
   const land = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, timezoneId: 'UTC' });
   await land.addInitScript(t => {
+    if (location.protocol !== 'http:') return; // about:blank, between visits, has no storage
     if (!localStorage.getItem('engage.missions.v1')) localStorage.setItem('engage.missions.v1', JSON.stringify({ hails: { v2: t - 30 * 3600e3, v1: t - 3600e3, p10: t - 40 * 3600e3 } }));
   }, T);
   const p = await land.newPage();
@@ -2123,15 +2124,30 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await p.locator('.ship-tab[data-id="p10"]').click();
   assert.equal(await p.locator('.ship-tab.ping').count(), 0);
   assert.equal(await p.locator('#reply').isHidden(), true, 'a silent ship answered');
-  // Evening: Voyager 2's answer is in. The room opens on her with the news, and types her answer out.
+  // Seven in the evening: Voyager 2's answer reached Earth at about ten past six, but she is below the lowest Canberra's
+  // dish can point, and no other site ever sees her, so it isn't in yet: the card says when Canberra picks it up, at
+  // the moment the line under Signal gives.
   await p.clock.setFixedTime(new Date(T + 11 * H));
+  await p.goto(base + 'missions.html');
+  await p.waitForFunction(() => window.missions && document.getElementById('dishes').textContent);
+  await p.locator('.ship-tab[data-id="v2"]').click();
+  assert.equal(await p.locator('#reply').isHidden(), true, 'her answer came in while no dish could hear her');
+  assert.equal(await p.locator('#tally').innerText(), 'HAILS SENT 3, ANSWERED 0');
+  const waiting = await p.locator('#hail-note').innerText();
+  const picks = waiting.match(/^Your hail reached her 18 Nov at 10:\d\d\u202fpm\. She answers at once\. Her answer reached Earth today at 6:\d\d\u202fpm, when no dish could hear her, and Canberra picks it up today at (7:\d\d\u202fpm)\.$/);
+  assert.ok(picks, waiting);
+  assert.match(await p.locator('#dishes').innerText(), new RegExp(`^No dish could hear her right now\\. Canberra next, today at ${picks[1]}\\.`));
+  assert.equal(await p.locator('#hail').innerText(), 'WAITING FOR HER ANSWER');
+  // Eight: Canberra has her. The room, opened again after a break, opens on her with the news, and types her answer out.
+  await p.goto('about:blank');
+  await p.clock.setFixedTime(new Date(T + 12 * H));
   await p.goto(base + 'missions.html');
   await p.waitForFunction(() => window.missions && !document.getElementById('reply').hidden);
   assert.equal(await p.evaluate(() => missions.sel), 'v2');
-  assert.match(await p.locator('#news-go').innerText(), /^Voyager 2’s answer to your hail came in today at 6:\d\d\u202fpm\.$/);
+  assert.equal(await p.locator('#news-go').innerText(), `Voyager 2’s answer to your hail came in today at ${picks[1]}.`);
   assert.equal(await p.locator('#tally').innerText(), 'HAILS SENT 3, ANSWERED 1');
-  assert.match(await p.locator('#hail-note').innerText(), /and her answer came back today at 6:\d\d\u202fpm\./);
-  assert.match(await p.locator('#reply-head').textContent(), /^Her answer came in today at 6:\d\d\u202fpm$/);
+  assert.match(await p.locator('#hail-note').innerText(), new RegExp(`Her answer reached Earth today at 6:\\d\\d\u202fpm, when no dish could hear her, and was picked up at Canberra today at ${picks[1]}\\.$`));
+  assert.equal(await p.locator('#reply-head').textContent(), `Her answer came in today at ${picks[1]}, picked up at Canberra`);
   const full = await p.locator('#reply-full').textContent();
   assert.match(full, /^Voyager 2 to Earth\. Your hail reached me 18 Nov at 10:\d\d\u202fpm, 144\.\d AU from the Sun and 20 hours out from you\..* Canberra .* I am sending this at 160 bits a second\. Voyager 2 out\.$/);
   assert.ok((await p.locator('#reply-text').textContent()).length < full.length, 'her answer did not type out');
@@ -2146,9 +2162,9 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   await p.click('#hail');
   assert.equal(await p.locator('#tally').innerText(), 'HAILS SENT 4, ANSWERED 1');
   await p.evaluate(() => { missions.choose('v1'); });
-  await p.clock.setFixedTime(new Date(T + 11 * H + 10 * H));
+  await p.clock.setFixedTime(new Date(T + 12 * H + 10 * H));
   await p.waitForFunction(() => document.querySelector('.ship-tab[data-id="nh"]').classList.contains('ping'), null, { timeout: 10000 });
-  assert.match(await p.locator('#news-go').innerText(), /^Your hail reached New Horizons (just now|today at)/);
+  assert.match(await p.locator('#news-go').innerText(), /^Your hail reached New Horizons (just now|today at|overnight)/);
   await p.click('#news-go');
   assert.equal(await p.evaluate(() => missions.sel), 'nh');
   assert.equal(await p.locator('.ship-tab[data-id="nh"]').getAttribute('class').then(c => c.includes('ping')), false);

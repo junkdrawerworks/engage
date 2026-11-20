@@ -159,17 +159,19 @@ export function reportOf(order, entry) {
 
 // ---------- Today on the bridge ----------
 
-// The long missions whose answer to your hail comes in today: [{ id, at }], soonest first. A hail's answer is home twice
+// The long missions whose answer to your hail comes in today: [{ id, at, home }], soonest first, `home` when it reaches
+// Earth and `at` when it is heard. A hail's answer is home twice
 // the light-time after it went (as long missions works it out); `lightMsOf(id)` is the light-time to her now, in
-// milliseconds, or null for a ship that can't answer (Pioneer 10 and 11 are silent).
-export function answersDue(missions = {}, now = Date.now(), lightMsOf = () => null) {
+// milliseconds, or null for a ship that can't answer (Pioneer 10 and 11 are silent). `heard(id, at)` is when an answer
+// reaching Earth at `at` is picked up, the first moment a Deep Space Network dish could hear her (heardAt in astro.js).
+export function answersDue(missions = {}, now = Date.now(), lightMsOf = () => null, heard = (id, at) => at) {
   const day = dayOf(now), out = [];
   for (const [id, sent] of Object.entries(obj(obj(missions).hails))) {
     if (!Number.isFinite(sent) || sent > now) continue;
     const light = lightMsOf(id);
     if (!(light > 0)) continue;
-    const at = sent + 2 * light;
-    if (dayOf(at) === day) out.push({ id, at });
+    const home = sent + 2 * light, at = Math.max(home, Number(heard(id, home)) || home);
+    if (dayOf(at) === day) out.push({ id, at, home });
   }
   return out.sort((a, b) => a.at - b.at);
 }
@@ -201,7 +203,7 @@ export function todayItems(rec = {}, day, { landings = [], friend = null, answer
   for (const a of answers) {
     items.push(a.at <= now
       ? { id: `answer:${a.id}`, name: `${a.name} answered your hail`, href: `missions.html#${a.id}`, done: true, line: `Her answer came in at ${clock(a.at)}` }
-      : { id: `answer:${a.id}`, name: `${a.name}’s answer is due today`, href: `missions.html#${a.id}`, done: false, line: `At ${clock(a.at)}, at the speed of light` });
+      : { id: `answer:${a.id}`, name: `${a.name}’s answer is due today`, href: `missions.html#${a.id}`, done: false, line: `At ${clock(a.at)}, ${a.at - a.home > 60000 ? 'when a dish can hear her' : 'at the speed of light'}` });
   }
   const trip = obj(obj(rec.longway).trip);
   if (Number.isInteger(trip.quarter) && trip.seed != null) {
