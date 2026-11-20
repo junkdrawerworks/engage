@@ -561,6 +561,7 @@ test('a log entry’s picture: its star, its stardate and what it says about see
   const e = { star: 7, title: 'Proxima Centauri', stardate: '2026.886', intro: 'We’ve dropped out of warp at Proxima Centauri.', sections: [['The star', 'Red dwarf.'], ['Looking home', 'The Sun is a magnitude 0.4 star in Cassiopeia.']] };
   const c = entryCard(e);
   assert.deepEqual(c, { eyebrow: 'ENGAGE · CAPTAIN’S LOG', title: 'Proxima Centauri', stardate: 'Stardate 2026.886', home: 'The Sun is a magnitude 0.4 star in Cassiopeia.', file: 'proxima-centauri-stardate-2026-886.png' });
+  assert.equal(entryCard({ title: 'τ Boötis', stardate: '2026.9' }).file, 'bootis-stardate-2026-9.png');
   assert.equal(entryCard(e, 'USS Meridian NCC-1987').eyebrow, 'CAPTAIN’S LOG · USS MERIDIAN NCC-1987');
   // Home has no line about seeing home: the opening line instead.
   assert.equal(entryCard({ title: 'Sol', stardate: '2026.9', intro: 'Back home, in Earth’s orbit.', sections: [] }).home, 'Back home, in Earth’s orbit.');

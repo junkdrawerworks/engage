@@ -116,7 +116,8 @@ export function entryCard(e, ship = '') {
     stardate: `Stardate ${e?.stardate ?? ''}`,
     // Home itself has no line about seeing home: the entry's opening says where the ship is instead.
     home: home || String(e?.intro || ''),
-    file: `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'log-entry'}-stardate-${String(e?.stardate ?? '').replace(/[^0-9]+/g, '-')}.png`,
+    // (Accents come off the name, so τ Boötis is bootis, not bo-tis.)
+    file: `${fold(title).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'log-entry'}-stardate-${String(e?.stardate ?? '').replace(/[^0-9]+/g, '-')}.png`,
   };
 }
 // The square of a picture `w` by `h` to show, as big as fits and centred as near (x, y) as the edges allow: the star.
