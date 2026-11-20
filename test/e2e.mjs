@@ -1179,6 +1179,9 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   assert.ok(await docked(), 'putting the arrival away did not give the log back');
   assert.equal(await p.locator('#entries .past').count(), before + 1, 'the new entry is not in the pinned log');
   assert.match(await p.locator('#entries .past').first().innerText(), /Vega/);
+  // ...and in sight: today's cards and the service record come first, and would fill the column.
+  const inSight = () => p.evaluate(() => { const l = document.getElementById('entries').getBoundingClientRect(), e = document.querySelector('#entries .past').getBoundingClientRect(); return e.top >= l.top - 1 && e.top < l.bottom - 20; });
+  assert.ok(await inSight(), 'the new entry is out of sight in the pinned log');
   // Escape leaves it pinned; a reload keeps it.
   await p.keyboard.press('Escape');
   assert.ok(await docked(), 'Escape put the pinned log away');
@@ -1191,6 +1194,7 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   await p.evaluate(() => engage.autopilot(true));
   await p.waitForFunction(n => document.querySelectorAll('#entries .past').length > n, n0, { timeout: 30000 });
   assert.ok(await docked(), 'the pinned log went away on autopilot');
+  assert.ok(await inSight(), 'autopilot’s new entry is out of sight in the pinned log');
   await p.evaluate(() => engage.autopilot(false));
   // Its close button unpins it, and so it stays.
   await p.click('#log .close');

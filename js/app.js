@@ -1009,7 +1009,7 @@ function arrive() {
   updateHud();
   say(T.i === 0 ? 'Dropped out of warp in Earth orbit.' : `Dropped out of warp at ${inTextFor(cat, T.i)}.`);
   if (auto) holdHere(entry); else showArrival(entry);
-  if (isDocked() && !$('log').hidden) renderLog(); // a pinned log takes the new entry at its head
+  if (isDocked() && !$('log').hidden) { renderLog(); showNewest(); } // a pinned log takes the new entry at its head, in sight
   dirty = true;
 }
 
@@ -1303,11 +1303,11 @@ function openSheet(id, from = null) {
 
 function closeSheets() {
   earthSky(false);
-  const open = SHEETS.some(up);
+  const open = SHEETS.some(up), fromArrival = !$('arrival').hidden;
   for (const id of SHEETS) $(id).hidden = true;
   $('scrim').hidden = true;
   if (open) steps?.closed();
-  dock(); // a pinned log comes back
+  dock(fromArrival); // a pinned log comes back, after an arrival at its newest entry
   behind(); // before focus goes back: nothing behind a sheet can take it while the sheet is up
   if (open && opener?.isConnected && !opener.disabled && opener.getClientRects().length) opener.focus({ preventScroll: true });
   opener = null;
@@ -1322,15 +1322,22 @@ function closeSheets() {
 // and an arrival's entry open in its place and give it back when they go. Its close button unpins it.
 const wideLog = matchMedia('(min-width: 1200px)');
 const isDocked = () => $('log').classList.contains('docked');
-function dock() {
+// `toNewest` (after an arrival) scrolls it to the newest entry: the cards for today and the service record come
+// first in the log, and on a laptop's screen they fill the column, so the entry just made would be out of sight.
+function dock(toNewest = false) {
   if (!state.opts.pinLog || !wideLog.matches || SHEETS.some(up) || !cat) { if (isDocked()) undock(true); return; }
   const fresh = !isDocked() || $('log').hidden;
   $('log').classList.add('docked');
   $('log').setAttribute('aria-modal', 'false');
   $('log').hidden = false;
   if (fresh) renderLog();
+  if (toNewest === true) showNewest();
   behind();
   placeReport();
+}
+function showNewest() {
+  const list = $('entries'), top = list.querySelector('.past');
+  if (top) list.scrollTop += top.getBoundingClientRect().top - list.getBoundingClientRect().top;
 }
 // `hide` puts it away (unpinned, or the screen too narrow); otherwise a sheet is about to open in its place.
 function undock(hide = false) {
