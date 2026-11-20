@@ -9,7 +9,7 @@ import { filesForStar, grows, label as classLabel } from './classes.js';
 import { HELD, artFor, planetByName, systemFor } from './worlds.js';
 import { Globe, paintSoon } from './planet-art.js';
 import { buildIndex, chartTag, litBy, named, pairLetters, search, yearAsked } from './search.js';
-import { SUN_LINE, ask, flightLine, report, sunSaysHello } from './computer.js';
+import { SUN_LINE, ask, flightLine, report, shoreLeave, shoreLeaveLine, sunSaysHello } from './computer.js';
 import { SHOWN_IN, onScreen, onScreenParts, variableFor } from './variables.js';
 import { LIVE, share } from './share.js';
 import { askToKeep, current, keep, watch } from './store.js';
@@ -1002,6 +1002,8 @@ function arrive() {
   else {
     state.log.unshift(entry);
     state.ly += T.ly;
+    // Ten different stars since home: the entry suggests shore leave, once for this time out (js/computer.js).
+    if (shoreLeave(state.log)) entry.sections.push(['Shore leave', shoreLeaveLine(Math.hypot(...T.S) * LY_PER_PC)]);
   }
   if (save() && !repeat) askToKeep(); // once ever: the first entry kept is worth keeping
   $('readout').hidden = true;

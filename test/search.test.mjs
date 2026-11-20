@@ -349,3 +349,19 @@ test('looking for the Sun from more than 100 light years out says hello once, an
   assert.equal(sunSaysHello(8.6, false), false);
   assert.equal(sunSaysHello(NaN, false), false);
 });
+
+import { SHORE_LEAVE, shoreLeave, shoreLeaveLine } from '../js/computer.js';
+test('shore leave is suggested by the arrival that makes ten different stars since home, once each time out', () => {
+  const log = stars => stars.map(star => ({ star })); // newest first
+  assert.equal(SHORE_LEAVE, 10);
+  assert.equal(shoreLeave(log([10, 9, 8, 7, 6, 5, 4, 3, 2, 1])), true, 'the tenth star of a first time out');
+  assert.equal(shoreLeave(log([10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 55, 0])), true, 'the tenth since the last time home');
+  assert.equal(shoreLeave(log([10, 9, 9, 8, 7, 6, 5, 4, 3, 2, 1])), true, 'a star visited twice counts once');
+  assert.equal(shoreLeave(log([9, 8, 7, 6, 5, 4, 3, 2, 1])), false, 'nine');
+  assert.equal(shoreLeave(log([11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1])), false, 'it asked at the tenth, and doesn’t ask again');
+  assert.equal(shoreLeave(log([3, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1])), false, 'back to a star of this time out');
+  assert.equal(shoreLeave(log([0, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1])), false, 'home is no time for shore leave');
+  assert.equal(shoreLeave(log([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 10, 9, 8, 7, 6, 5, 4, 3, 2])), true, 'home and out again, ten more');
+  for (const bad of [undefined, [], [{}], [null], 'log']) assert.equal(shoreLeave(bad), false);
+  assert.equal(shoreLeaveLine(340.2), 'Ten stars since the ship was last home. Starfleet would call shore leave earned: Earth is 340 light years off, whenever the crew want it.');
+});

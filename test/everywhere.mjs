@@ -572,6 +572,29 @@ try {
     await slide(9.2);
     assert.doesNotMatch(await p.locator('#race-note').innerText(), /Threshold/, 'the line stayed when the slider moved on');
 
+    // Shore leave: the arrival that makes ten different stars since the ship was last home says, in its log entry,
+    // that shore leave is earned. Nine stars, and a tenth visited before, say nothing; home and out again, ten more do.
+    {
+      await p.clock.setFixedTime(t0);
+      await p.evaluate(() => localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })));
+      await p.goto(base);
+      await bridgeReady(p);
+      const leave = () => p.evaluate(() => engage.state.log[0].sections.some(([h]) => h === 'Shore leave'));
+      const away = ['Sirius', 'Vega', 'Altair', 'Procyon', 'Arcturus', 'Capella', 'Rigel', 'Deneb', 'Betelgeuse'];
+      for (const star of away) { await p.evaluate(s => engage.jump(s), star); assert.equal(await leave(), false, `shore leave at ${star}`); }
+      await p.evaluate(() => engage.jump('Vega'));
+      assert.equal(await leave(), false, 'a star of this time out made ten');
+      await p.evaluate(() => engage.jump('Aldebaran'));
+      assert.equal(await leave(), true, 'no shore leave after ten stars');
+      assert.match(await p.locator('#arrival').innerText(), /SHORE LEAVE\s+Ten stars since the ship was last home\. Starfleet would call shore leave earned: Earth is 6\d light years off, whenever the crew want it\./i);
+      await p.evaluate(() => engage.jump('Spica'));
+      assert.equal(await leave(), false, 'shore leave suggested twice in one time out');
+      await p.evaluate(() => engage.jump('Sol'));
+      for (const star of [...away, 'Spica']) await p.evaluate(s => engage.jump(s), star);
+      assert.equal(await leave(), true, 'home and out again, ten more stars, no shore leave');
+      await p.keyboard.press('Escape');
+    }
+
     // The Kobayashi Maru's briefing, after a third run: Kirk's words scratched beside the line that nobody beats it.
     // Two runs, and the briefing is as it was.
     for (const [taken, shown] of [[0, false], [2, false], [3, true]]) {

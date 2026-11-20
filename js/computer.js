@@ -245,3 +245,19 @@ function leftSaid(ly) {
 export const SUN_LINE = 'Everyone you have ever met is in that dot.';
 export const SUN_FAR = 100; // light years
 export const sunSaysHello = (lyFromSun, said) => !said && Number.isFinite(lyFromSun) && lyFromSun > SUN_FAR;
+
+// Shore leave: the arrival that makes ten different stars since the ship was last home (Earth, star 0, or the start of
+// the log) suggests it in its log entry, once for each time out; home and away again, and ten more suggest it again.
+// It never asks twice or holds anything back. `log` is newest first, with the arrival already at its head.
+export const SHORE_LEAVE = 10;
+export function shoreLeave(log) {
+  if (!Array.isArray(log) || !log.length || !Number.isInteger(log[0]?.star) || log[0].star === 0) return false;
+  // The stars of this time out, before the arrival; it counts only if it is new among them and makes them ten.
+  const before = new Set();
+  for (let k = 1; k < log.length && log[k]?.star !== 0; k++) {
+    if (Number.isInteger(log[k]?.star)) before.add(log[k].star);
+    if (before.size >= SHORE_LEAVE) return false;
+  }
+  return before.size === SHORE_LEAVE - 1 && !before.has(log[0].star);
+}
+export const shoreLeaveLine = homeLy => `Ten stars since the ship was last home. Starfleet would call shore leave earned: Earth is ${roughLy(homeLy)} off, whenever the crew want it.`;
