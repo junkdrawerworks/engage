@@ -400,6 +400,19 @@ try {
     assert.equal((await lab()).tribble, undefined);
     assert.equal(await p.locator('#jars-wrap').isVisible(), false, 'an empty shelf is still shown');
     assert.equal(await p.locator('#cabinet [data-tribble]').count(), 1, 'no tribble to keep again');
+
+    // Warp 10: Your warp on the warp scale pushed hard against its stop three times running says what happened in
+    // Voyager's "Threshold". Twice, or three times slowly, is just using the slider.
+    await p.clock.setFixedTime(t0);
+    await p.goto(base + 'warp.html');
+    await ready(p, 'warp.html');
+    const slide = v => p.evaluate(x => { const r = document.getElementById('custom-warp'); r.value = x; r.dispatchEvent(new Event('input', { bubbles: true })); }, v);
+    for (const v of [9.5, 9.99, 9.6, 9.99, 9.7]) await slide(v);
+    assert.doesNotMatch(await p.locator('#race-note').innerText(), /Threshold/, 'twice against the stop said it');
+    await slide(9.99);
+    assert.match(await p.locator('#race-note').innerText(), /Tom Paris crossed it in a shuttle in Voyager’s “Threshold”, and came back turning into a salamander/);
+    await slide(9.2);
+    assert.doesNotMatch(await p.locator('#race-note').innerText(), /Threshold/, 'the line stayed when the slider moved on');
     await c.close();
   }
 

@@ -5,6 +5,7 @@ import {
   LANES, GROUPS, PLACES, byId, distanceLy, aboutOn, laneSpeed, tripYears, raceClock,
   formatSpan, formatShort, formatLight, arrivalYear, lightLeft, LADDER, ladderAt, customPlace, COURSE_GROUP,
   REAL_SHIPS, realShip, kirkSpeed,
+  againstStop, THRESHOLD,
 } from './warp-scale.js';
 import { hold, release } from './wake.js';
 import { keep, watch } from './store.js';
@@ -644,7 +645,16 @@ const fromLink = () => {
 };
 
 $('go').addEventListener('click', engage);
-$('custom-warp').addEventListener('input', e => setCustom(Number(e.target.value)));
+// Your warp pushed hard against its stop, three times running: what happened at warp 10 (js/warp-scale.js).
+let stopHits = [];
+$('custom-warp').addEventListener('input', e => {
+  const was = custom;
+  setCustom(Number(e.target.value));
+  if (custom < 9.99 || was >= 9.99) return;
+  const r = againstStop(stopHits, performance.now());
+  stopHits = r.hits;
+  if (r.said) note(THRESHOLD);
+});
 $('real-ship').append(...REAL_SHIPS.map(r => new Option(r.label, r.id)));
 $('real-ship').addEventListener('change', e => setReal(e.target.value));
 $('place').addEventListener('click', e => { const b = e.target.closest('[data-share]'); if (b) shareRace(b); });

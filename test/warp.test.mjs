@@ -254,3 +254,20 @@ test('at nine tenths of light speed half the sky is squeezed within 26° of dead
   assert.equal(speedSaid(0.9), '0.9 of light speed, 269,813 km/s');
   assert.equal(speedSaid(0), 'Full stop');
 });
+
+// ---------- Warp 10 ----------
+import { againstStop, THRESHOLD } from '../js/warp-scale.js';
+
+test('Your warp pushed against its stop three times running says what happened at warp 10, and twice does not', () => {
+  let hits = [];
+  const push = t => { const r = againstStop(hits, t); hits = r.hits; return r.said; };
+  assert.equal(push(1000), false);
+  assert.equal(push(2000), false);
+  assert.equal(push(3000), true);
+  assert.deepEqual(hits, [], 'the count did not start again');
+  // Three times spread over more than four seconds is just using the slider.
+  hits = [];
+  assert.deepEqual([push(0), push(2500), push(5000), push(9000)], [false, false, false, false]);
+  assert.match(THRESHOLD, /Threshold/);
+  assert.match(THRESHOLD, /salamander/);
+});

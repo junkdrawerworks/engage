@@ -357,3 +357,14 @@ export function formatShort(years) {
 }
 const shortN = x => (x < 10 ? Number(x.toFixed(1)) : Number(x.toPrecision(2)));
 const short = x => shortN(x).toLocaleString('en-US');
+
+// ---------- Warp 10 ----------
+// On the scale The Next Generation uses, warp 10 is the top and can't be reached: infinite speed, everywhere at once.
+// Push Your warp hard against its stop three times inside four seconds and the race says what happened to the one
+// man who crossed it, in Voyager's “Threshold”. `hits` is when Your warp last reached its stop (ms); returns the hits
+// to keep and whether to say it.
+export const THRESHOLD = 'Warp 10 is as far as the scale goes: infinite speed, everywhere in the universe at once. Tom Paris crossed it in a shuttle in Voyager’s “Threshold”, and came back turning into a salamander.';
+export function againstStop(hits, now, times = 3, within = 4000) {
+  const recent = [...hits.filter(t => now - t < within), now];
+  return recent.length >= times ? { hits: [], said: true } : { hits: recent, said: false };
+}
