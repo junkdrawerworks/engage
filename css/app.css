@@ -552,6 +552,18 @@ body.red .primary, body.red .engage:not(:disabled) { background: none; box-shado
   @keyframes slide { from { transform: translateX(30px); opacity: 0; } }
 }
 
+/* The captain's log pinned open: on a screen 1,200 px wide or more, a column down the right that stays while the
+   ship flies, so each arrival adds to a log you can see. It is part of the bridge then, not a sheet in front of it:
+   no scrim, the viewscreen and the helm still in reach. Other sheets open in its place and give it back. Narrower,
+   the pin isn't offered, and a pinned log waits for a wide screen again. */
+.log-pin { display: none; flex: none; margin-left: auto; min-height: 32px; padding: 6px 12px; border-radius: 999px; border: var(--bw) solid rgba(255, 210, 122, 0.45); background: transparent;
+  color: var(--amber); font: 600 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
+.log-pin[aria-pressed="true"] { background: rgba(255, 210, 122, 0.18); }
+@media (min-width: 1200px) {
+  .log-pin { display: inline-flex; align-items: center; }
+  #log.docked { animation: none; z-index: 5; }
+}
+
 /* A phone on its side with its keyboard up has about 180 px of screen left. The Set course sheet, with its heading
    above the search field, left the field half under the keyboard and no room for a single hit: you typed without
    seeing what you typed or what it found. There the sheet takes all the room above the keyboard (the "kb" class is

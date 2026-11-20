@@ -69,7 +69,7 @@ const state = defaults();
 function defaults() {
   return {
     at: 0, offset: homeOffset(), yaw: START_YAW, pitch: START_PITCH, fov: 60 * DEG,
-    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, clock: false, report: false }, seenIntro: false, ship: null,
+    target: null, warp: 9, log: [], ly: 0, opts: { lines: true, labels: true, clock: false, report: false, pinLog: false }, seenIntro: false, ship: null,
     voyage: null, // the voyage under way, if one is (see js/voyages.js)
     rooms: null, // the rooms the bridge has told of, by id (js/rooms.js), for the line that says what's new
     greeted: null, // the year First Contact Day's line was last closed (see greeting)
@@ -152,6 +152,10 @@ function adopt() {
   if (state.seenIntro && !$('intro').hidden) { $('intro').hidden = true; behind(); }
   if (!$('log').hidden) drawLog();
   if (!$('picker').hidden) renderList();
+  // Pinned or unpinned in the other tab: so here too.
+  $('log-pin').setAttribute('aria-pressed', String(!!state.opts.pinLog));
+  $('log-pin').textContent = state.opts.pinLog ? 'Pinned' : 'Pin open';
+  if (!state.opts.pinLog && isDocked()) undock(true); else dock();
   dirty = true;
 }
 
@@ -264,7 +268,7 @@ async function start() {
   }
   sky.setOrigin(starPos(state.at));
   // Before anything can open a sheet (a link that names no star opens Set course; coming back from a room, the log).
-  steps = backCloses({ close: closeSheets, isOpen: () => SHEETS.some(id => !$(id).hidden) });
+  steps = backCloses({ close: closeSheets, isOpen: () => SHEETS.some(up) });
   for (const id of SHEETS) swipeDown($(id), closeSheets);
   // The report's line stands just above the helm, however tall the helm is.
   if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty('--console-h', `${$('console').offsetHeight}px`)).observe($('console'));
@@ -287,6 +291,7 @@ async function start() {
   greeting();
   bind();
   restored();
+  dock(); // the captain's log, if it was pinned open
   watch(KEY, adopt);
   // Night vision switched in tonight's sky, in another tab or on the page before this one (Back can bring this
   // page back whole, as it was left).
@@ -709,7 +714,7 @@ function showReport(text) {
 // Out of the way of a sheet or the welcome card, which have the bottom of the screen; back when they go.
 function placeReport() {
   const el = $('report-line');
-  const off = !reporting || !el.textContent || SHEETS.some(id => !$(id).hidden) || !$('intro').hidden;
+  const off = !reporting || !el.textContent || SHEETS.some(up) || !$('intro').hidden;
   if (el.hidden !== off) el.hidden = off;
 }
 
@@ -928,6 +933,7 @@ function arrive() {
   updateHud();
   say(T.i === 0 ? 'Dropped out of warp in Earth orbit.' : `Dropped out of warp at ${inTextFor(cat, T.i)}.`);
   if (auto) holdHere(entry); else showArrival(entry);
+  if (isDocked() && !$('log').hidden) renderLog(); // a pinned log takes the new entry at its head
   dirty = true;
 }
 
@@ -1193,6 +1199,8 @@ function lookHome() {
 // ---------- Sheets ----------
 
 const SHEETS = ['picker', 'log', 'settings', 'arrival'];
+// A sheet that is up in front of the bridge. The captain's log pinned open is part of the bridge instead (see dock()).
+const up = id => !$(id).hidden && !(id === 'log' && $('log').classList.contains('docked'));
 // The sheets that have to be answered or put away before anything else: Set course, the log and the settings. The
 // arrival's log entry is not one of them: the new star is there to be looked at, and tapped around, behind it.
 const MODAL = ['picker', 'log', 'settings'];
@@ -1203,6 +1211,7 @@ let steps = null; // the sheets' steps in the tab's history: Back closes the she
 // `from` is the button that opened it. Then the sheet takes focus, so a keyboard carries on inside it: the search
 // field in Set course, or else the close button. On a touchscreen the search field would bring the keyboard up over the list.
 function openSheet(id, from = null) {
+  undock();
   for (const s of SHEETS) $(s).hidden = true;
   $(id).hidden = false;
   $('scrim').hidden = false;
@@ -1215,27 +1224,62 @@ function openSheet(id, from = null) {
 
 function closeSheets() {
   earthSky(false);
-  const open = SHEETS.some(id => !$(id).hidden);
+  const open = SHEETS.some(up);
   for (const id of SHEETS) $(id).hidden = true;
   $('scrim').hidden = true;
   if (open) steps?.closed();
+  dock(); // a pinned log comes back
   behind(); // before focus goes back: nothing behind a sheet can take it while the sheet is up
   if (open && opener?.isConnected && !opener.disabled && opener.getClientRects().length) opener.focus({ preventScroll: true });
   opener = null;
   placeReport();
 }
 
+// ---------- The captain's log pinned open ----------
+
+// On a screen 1,200 pixels wide or more, Pin open on the log's header keeps it open as a column down the right while
+// the ship flies, so each arrival (autopilot's too) adds to a log you can see. Off until you pin it, so the bridge
+// looks as it always has; once pinned it stays pinned, kept with the bridge's settings. Set course, Bridge settings
+// and an arrival's entry open in its place and give it back when they go. Its close button unpins it.
+const wideLog = matchMedia('(min-width: 1200px)');
+const isDocked = () => $('log').classList.contains('docked');
+function dock() {
+  if (!state.opts.pinLog || !wideLog.matches || SHEETS.some(up) || !cat) { if (isDocked()) undock(true); return; }
+  const fresh = !isDocked() || $('log').hidden;
+  $('log').classList.add('docked');
+  $('log').setAttribute('aria-modal', 'false');
+  $('log').hidden = false;
+  if (fresh) renderLog();
+  behind();
+  placeReport();
+}
+// `hide` puts it away (unpinned, or the screen too narrow); otherwise a sheet is about to open in its place.
+function undock(hide = false) {
+  if (!isDocked()) return;
+  $('log').classList.remove('docked');
+  $('log').setAttribute('aria-modal', 'true');
+  if (hide) $('log').hidden = true;
+}
+function pinLog(on) {
+  state.opts.pinLog = on;
+  save();
+  $('log-pin').setAttribute('aria-pressed', String(on));
+  $('log-pin').textContent = on ? 'Pinned' : 'Pin open';
+  if (on) { if (up('log')) { $('log').hidden = true; $('scrim').hidden = true; steps?.closed(); opener = null; } dock(); say('The captain’s log is pinned open.'); }
+  else { undock(true); behind(); placeReport(); say('The captain’s log is unpinned.'); }
+}
+
 // What is behind a sheet that is up, or behind the welcome card, is out of reach of a keyboard and a screen reader
 // as well as of a finger: Tab used to walk out of Bridge settings to the round buttons under the scrim.
 function behind() {
   const card = !$('intro').hidden;
-  $('bridge').inert = card || MODAL.some(id => !$(id).hidden);
+  $('bridge').inert = card || MODAL.some(up);
   for (const id of SHEETS) $(id).inert = card;
 }
 
 // Tab goes round inside the sheet or the card that is up, and not out to the browser and back in somewhere else.
 function keepTab(e) {
-  const box = !$('intro').hidden ? $('intro') : MODAL.map($).find(el => !el.hidden);
+  const box = !$('intro').hidden ? $('intro') : MODAL.map($).find(el => up(el.id));
   if (!box) return;
   const stops = [...box.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), summary')].filter(el => el.getClientRects().length);
   if (!stops.length) return;
@@ -1253,7 +1297,7 @@ function dismissIntro(byPointer = false) {
   behind();
   // The card's button has gone, so the keyboard's place goes to the first thing to do: choosing a destination (or
   // the search field, when a link that named no star has opened Set course under the card).
-  const next = MODAL.map($).find(el => !el.hidden);
+  const next = MODAL.map($).find(el => up(el.id));
   const to = next ? (next.id === 'picker' && !touchy ? $('search') : next.querySelector('.close')) : $('choose');
   to.focus({ preventScroll: true });
   if (byPointer) quiet(to);
@@ -2127,7 +2171,16 @@ function bind() {
     if (b && $('search').value.trim()) { e.preventDefault(); pick(b); }
   });
   watchKeyboard();
-  $('open-log').addEventListener('click', e => { renderLog(); openSheet('log', e.currentTarget); });
+  $('open-log').addEventListener('click', e => {
+    if (isDocked() && !$('log').hidden) { $('log').querySelector('h2').tabIndex = -1; $('log').querySelector('h2').focus(); return; } // pinned open already
+    renderLog(); openSheet('log', e.currentTarget);
+  });
+  $('log-pin').addEventListener('click', () => pinLog(!state.opts.pinLog));
+  $('log-pin').setAttribute('aria-pressed', String(!!state.opts.pinLog));
+  $('log-pin').textContent = state.opts.pinLog ? 'Pinned' : 'Pin open';
+  // The log's own close button unpins it (Escape and Back leave a pinned log where it is).
+  $('log').querySelector('.close').addEventListener('click', () => { if (state.opts.pinLog) pinLog(false); });
+  wideLog.addEventListener?.('change', dock);
   $('log-print').addEventListener('click', () => { contacts = readContacts(); printLog(); print(); });
   addEventListener('beforeprint', () => { contacts = readContacts(); printLog(); });
   addEventListener('afterprint', () => { $('print-log').innerHTML = ''; });

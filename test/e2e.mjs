@@ -1060,6 +1060,63 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   await ctx2.close();
 }
 
+// The captain's log pinned open: on a screen 1,200 pixels wide or more, Pin open on the log's header keeps it as a
+// column down the right, part of the bridge (no scrim, the helm in reach), while the ship flies. An arrival's entry
+// opens in its place and gives it back with the new entry at its head; autopilot's stops add to it as they come. It
+// stays pinned after a reload; Escape leaves it, and its close button unpins it. Narrower, there is no pin, and the
+// bridge looks as it always has until you pin it.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx2.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } })); });
+  const p = await ctx2.newPage();
+  p.on('pageerror', e => problems.push(e.message));
+  await p.goto(base);
+  await bridgeReady(p);
+  assert.ok(await p.locator('#log').isHidden(), 'the log is open before anyone pinned it');
+  await p.evaluate(() => engage.jump('Proxima Centauri'));
+  await p.evaluate(() => engage.closeSheets());
+  await p.click('#open-log');
+  assert.ok(await p.locator('#log-pin').isVisible());
+  assert.equal(await p.locator('#log-pin').getAttribute('aria-pressed'), 'false');
+  await p.click('#log-pin');
+  const docked = () => p.evaluate(() => { const l = document.getElementById('log'); return !l.hidden && l.classList.contains('docked') && document.getElementById('scrim').hidden && !document.getElementById('bridge').inert; });
+  assert.ok(await docked(), 'pinning did not leave the log open beside the bridge');
+  assert.equal(await p.locator('#log-pin').innerText(), 'PINNED');
+  const box = await p.locator('#log').boundingBox();
+  assert.ok(box.x > 640 && box.x + box.width <= 1280 && box.height > 600, `the pinned log is not a column down the right: ${JSON.stringify(box)}`);
+  // The helm is still in reach: a course can be set and flown with the log open.
+  assert.equal(await p.locator('#choose').evaluate(el => el.closest('[inert]')), null);
+  const before = await p.locator('#entries .past').count();
+  await p.evaluate(() => engage.jump('Vega'));
+  assert.ok(await p.locator('#arrival').isVisible() && await p.locator('#log').isHidden(), 'the arrival did not open in the log’s place');
+  await p.click('#arrival .close');
+  assert.ok(await docked(), 'putting the arrival away did not give the log back');
+  assert.equal(await p.locator('#entries .past').count(), before + 1, 'the new entry is not in the pinned log');
+  assert.match(await p.locator('#entries .past').first().innerText(), /Vega/);
+  // Escape leaves it pinned; a reload keeps it.
+  await p.keyboard.press('Escape');
+  assert.ok(await docked(), 'Escape put the pinned log away');
+  await p.reload();
+  await bridgeReady(p);
+  await p.waitForFunction(() => document.getElementById('log').classList.contains('docked') && !document.getElementById('log').hidden);
+  // Autopilot's stops add to it as they are made.
+  await p.evaluate(() => engage.speed(30));
+  const n0 = await p.locator('#entries .past').count();
+  await p.evaluate(() => engage.autopilot(true));
+  await p.waitForFunction(n => document.querySelectorAll('#entries .past').length > n, n0, { timeout: 30000 });
+  assert.ok(await docked(), 'the pinned log went away on autopilot');
+  await p.evaluate(() => engage.autopilot(false));
+  // Its close button unpins it, and so it stays.
+  await p.click('#log .close');
+  assert.ok(await p.locator('#log').isHidden());
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')).opts.pinLog), false);
+  // On a narrower screen there is no pin.
+  await p.setViewportSize({ width: 1100, height: 800 });
+  await p.click('#open-log');
+  assert.ok(await p.locator('#log-pin').isHidden(), 'the pin is offered on a screen under 1,200 pixels');
+  await ctx2.close();
+}
+
 // Autopilot: from Bridge settings the helm and the round buttons go and the ship flies itself, to the nearest
 // destination with notes not yet in the log, holding at each with two lines on screen and writing each stop in the
 // log, then on again. A voyage under way flies its next leg. A touch takes the helm back without picking a star; at a
@@ -2847,9 +2904,9 @@ await bridgeReady();
   assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 35 KINDS OF STAR \d of 7 OBAFGKM( Rare kinds: [\w, -]+)?$/);
   const after = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')));
   assert.deepEqual(after.log, bridge.log, 'the old log was changed');
-  // (Settings that came later, the mission clock and Report, are added to the old ones, off.)
-  const { clock, report, ...opts } = after.opts;
-  assert.deepEqual([after.warp, after.ly, opts, clock, report], [bridge.warp, bridge.ly, bridge.opts, false, false]);
+  // (Settings that came later, the mission clock, Report and the pinned log, are added to the old ones, off.)
+  const { clock, report, pinLog, ...opts } = after.opts;
+  assert.deepEqual([after.warp, after.ly, opts, clock, report, pinLog], [bridge.warp, bridge.ly, bridge.opts, false, false, false]);
   await old.close();
 }
 
