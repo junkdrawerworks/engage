@@ -6926,6 +6926,13 @@ await page.emulateMedia({ reducedMotion: null });
   await p.goto(base + 'astrometrics.html#star=Sirius');
   await p.waitForFunction(() => window.astrometrics?.ready && astrometrics.pick === 'Sirius');
   assert.match(await p.locator('#card').innerText(), /On the main sequence/);
+  // A star Starfleet has a name for shows it beside its own, inside the card (the survey's own .tag, a caption laid
+  // over its globe, once pulled it out above the card's top edge).
+  await p.goto(base + 'astrometrics.html#star=Keid');
+  await p.waitForFunction(() => window.astrometrics?.ready && astrometrics.pick === 'Keid');
+  const [tagBox, cardBox, headBox] = await Promise.all(['#card .tag', '#card', '#card h2'].map(s => p.locator(s).boundingBox()));
+  assert.equal(await p.locator('#card .tag').innerText(), 'VULCAN');
+  assert.ok(tagBox.y >= headBox.y && tagBox.y + tagBox.height <= headBox.y + headBox.height + 1 && tagBox.y > cardBox.y, `Vulcan's tag sits at ${tagBox.y}, its heading at ${headBox.y}`);
   await ac.close();
 }
 

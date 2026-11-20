@@ -19,7 +19,7 @@
 .card { padding: 12px 14px; border-radius: 16px; border: var(--bw) solid rgba(134, 216, 255, 0.35); background: var(--panel); }
 .card .hint { margin: 0; color: var(--muted); font-size: calc(14 * var(--px)); }
 .card h2 { margin: 0; font: 600 calc(20 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
-.card h2 .tag { font: 600 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); vertical-align: 3px; }
+.card h2 .tag { position: static; font: 600 calc(11 * var(--px))/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); vertical-align: 3px; }
 .card .kind { margin: 4px 0 0; color: var(--muted); font-size: calc(14 * var(--px)); }
 .card .where { margin: 8px 0 0; font-size: calc(15 * var(--px)); }
 .links { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 10px 0 0; }
