@@ -2086,6 +2086,19 @@ assert.equal(await text('#target-name'), 'Ross 248', 'set course did not choose 
   assert.equal(await p.locator('#tl-date').innerText(), '31 December 2100');
   assert.match(await p.locator('#sun-au').innerText(), /^43\d\.\d{3} AU$/);
   assert.equal(await p.locator('#ship-agency').innerText(), 'NASA · WHERE SHE’LL BE');
+  // Webb in 2050: her fuel was planned to last about 20 years, so her file says where she is isn't known, and the
+  // near-Earth map draws her faded at L2. In 2041 she is still on station.
+  await p.locator('.ship-tab[data-id="jwst"]').click();
+  await p.locator('#tl').fill(String(await day('2041-06-01T12:00:00Z')));
+  assert.equal(await p.locator('#ship-agency').innerText(), 'NASA, ESA AND CSA · WHERE SHE’LL BE');
+  await p.waitForFunction(() => missions.nearLabels.webbFaded === false);
+  await p.locator('#tl').fill(String(await day('2050-06-01T12:00:00Z')));
+  assert.equal(await p.locator('#ship-agency').innerText(), 'NASA, ESA AND CSA · PAST HER PLANNED FUEL');
+  assert.equal(await p.locator('#earth-au').innerText(), 'if she is still at the L2 point. Her fuel was planned to last about 20 years from her launch, so where she is by then isn’t known');
+  assert.equal(await p.locator('.ship-tab[data-id="jwst"] .t-sub').innerText(), 'where, not known');
+  assert.match(await p.locator('#scale').innerText(), /so where she is by then isn’t known: she is drawn faded at L2, where she was last known\./);
+  await p.waitForFunction(() => missions.nearLabels.webbFaded === true);
+  await p.locator('.ship-tab[data-id="v1"]').click();
   // Now brings the room back to today, as it opened.
   await p.click('#tl-now');
   assert.equal(await p.evaluate(() => missions.at), null);

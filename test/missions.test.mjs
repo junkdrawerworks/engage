@@ -237,6 +237,17 @@ test('which dish could hear a ship follows her place in the sky', async () => {
   assert.equal(dishLine(v1, { fmt, silent: true }), 'Nobody listens for her any more. Goldstone and Madrid could hear her now, if she called. Canberra next, 22:30.');
 });
 
+test('Webb’s planned fuel runs out about 20 years after her launch, and only hers', async () => {
+  const { pastFuel, FUEL_LINE } = await import('../js/ships.js');
+  const webb = byId('jwst');
+  assert.equal(pastFuel(webb, Date.parse('2041-12-31T12:00:00Z')), false);
+  assert.equal(pastFuel(webb, Date.parse('2042-01-01T12:00:00Z')), true);
+  assert.equal(pastFuel(webb, Date.parse('2100-12-31T12:00:00Z')), true);
+  assert.ok(Date.parse(webb.fuelOut) - Date.parse(webb.launched) > 19.9 * 365.25 * 864e5);
+  for (const s of SHIPS.filter(s => s.id !== 'jwst')) assert.equal(pastFuel(s, Date.parse('2100-01-01')), false, s.id);
+  assert.match(FUEL_LINE, /about 20 years .* isn’t known$/);
+});
+
 test('her answer comes in when a dish could hear her, not while she is below every dish', async () => {
   const { dishWatch, heardAt, DISH_LIMIT } = await import('../js/astro.js');
   const { hailChange } = await import('../js/ships.js');

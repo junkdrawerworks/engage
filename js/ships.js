@@ -76,6 +76,10 @@ export const SHIPS = [
     ],
     bound: { text: 'She isn’t going anywhere. L2 keeps pace with Earth, so she circles the Sun with us once a year.' },
     near: true,
+    // Her fuel, which keeps her circling L2, was planned to last about 20 years from launch after the precise launch and
+    // first course correction (Wikipedia's "James Webb Space Telescope", citing NASA; NASA's Webb blog of 29 December
+    // 2021: "significantly more than a 10-year science lifetime"). From then on where she is isn't known (pastFuel).
+    fuelOut: '2042-01-01',
     // 28 million bits a second, on her Ka-band downlink (NASA's Webb blog, August 2023, and its Webb and the Deep
     // Space Network page).
     reply: { bps: 28e6, rate: '28 million bits a second', news: 'My sunshield keeps me colder than −223 °C, and I am looking at galaxies whose light left them 13 billion years ago.' },
@@ -259,6 +263,10 @@ export function dishLine(watch, { silent = false, south = false, fmt }) {
   if (silent) parts.unshift('Nobody listens for her any more.');
   return parts.join(' ');
 }
+
+// Whether a date is past the end of a ship's planned fuel (only Webb has one), when where she is isn't known.
+export const pastFuel = (ship, ms) => !!ship?.fuelOut && ms >= Date.parse(ship.fuelOut + 'T00:00:00Z');
+export const FUEL_LINE = 'Her fuel was planned to last about 20 years from her launch, so where she is by then isn’t known';
 
 // ---------- Hails that land ----------
 
