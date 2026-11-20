@@ -153,7 +153,8 @@ function scrap(id) {
   renderFleet();
 }
 
-const raceLink = d => `${BRIDGE}warp.html?warp=${stats(d).cruise}&ship=yard:${encodeURIComponent(encodeDesign(d))}`;
+// The race leaves your own warp factor as it was: she has a lane of her own, at her cruising warp.
+const raceLink = d => `${BRIDGE}warp.html?ship=yard:${encodeURIComponent(encodeDesign(d))}`;
 function renderFleet() {
   const list = [...yard.designs].reverse();
   $('fleet-none').hidden = !!list.length;
