@@ -227,6 +227,99 @@ try {
     await c.close();
   }
 
+  // ---------- Text size ----------
+  // Bridge settings has Text size: Standard, Large, Largest, for every room. Each is counted on the browser's own text
+  // size, so a browser set to larger text is larger here too. The names drawn into pictures (the viewscreen,
+  // tonight's tags, the missions map) grow with the page's words, and at Largest on a narrow phone no room's header
+  // pushes the speaker or the page off the screen.
+  {
+    const c = await phone();
+    const p = watch(await c.newPage());
+    await p.addInitScript(() => { if (!localStorage.getItem('engage.v1')) localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); });
+    const bodyPx = () => p.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
+    const nameWidths = () => p.evaluate(() => Object.fromEntries(engage.labels().map(l => [l.text, l.w])));
+    await p.goto(base);
+    await bridgeReady(p);
+    await p.waitForTimeout(400);
+    assert.equal(await bodyPx(), 15, 'Standard is not the size it always was');
+    const before = await nameWidths();
+    await p.click('#open-settings');
+    const sizes = p.locator('#text-size button');
+    assert.deepEqual((await sizes.allTextContents()).map(t => t.trim()), ['Standard', 'Large', 'Largest']);
+    assert.equal(await sizes.nth(0).getAttribute('aria-pressed'), 'true');
+    await sizes.nth(2).tap();
+    assert.equal(await sizes.nth(2).getAttribute('aria-pressed'), 'true');
+    assert.equal(await sizes.nth(0).getAttribute('aria-pressed'), 'false');
+    assert.equal(await p.evaluate(() => document.documentElement.dataset.text), 'largest');
+    assert.equal(await bodyPx(), 19.5, 'Largest did not make the words larger');
+    assert.deepEqual(await prefs(p), { sound: true, buzz: true, text: 'largest' });
+    await p.keyboard.press('Escape');
+    await p.click('#settings .close').catch(() => {});
+    await p.waitForTimeout(500);
+    const after = await nameWidths();
+    const both = Object.keys(before).filter(t => after[t]);
+    assert.ok(both.length, `no name on the viewscreen to compare: ${Object.keys(before)} then ${Object.keys(after)}`);
+    for (const t of both) assert.ok(after[t] > before[t] * 1.2, `${t} on the viewscreen did not grow: ${before[t]} then ${after[t]}`);
+
+    // Kept: a reload, and every other room, open at Largest before anything is drawn.
+    await p.reload();
+    await bridgeReady(p);
+    assert.equal(await bodyPx(), 19.5);
+    await p.goto(base + 'tonight.html');
+    await ready(p, 'tonight.html');
+    assert.equal(await bodyPx(), 19.5, 'tonight did not follow the text size');
+    await p.evaluate(() => { tonight.at('2026-01-15T03:00:00Z'); tonight.place(51.48, 0, 'Greenwich', 'Europe/London'); tonight.look(180, 35, 90); });
+    await p.waitForTimeout(800);
+    const bigTags = await p.evaluate(() => tonight.tags().map(t => t.h));
+    await p.evaluate(() => localStorage.setItem('engage.prefs', JSON.stringify({ sound: true, buzz: true, text: 'standard' })));
+    await p.reload();
+    await ready(p, 'tonight.html');
+    await p.evaluate(() => { tonight.at('2026-01-15T03:00:00Z'); tonight.place(51.48, 0, 'Greenwich', 'Europe/London'); tonight.look(180, 35, 90); });
+    await p.waitForTimeout(800);
+    const tags = await p.evaluate(() => tonight.tags().map(t => t.h));
+    assert.ok(tags.length && bigTags.length, 'no tags on tonight\'s sky to measure');
+    assert.ok(Math.max(...bigTags) > Math.max(...tags) * 1.2, `tonight's tags did not grow: ${Math.max(...tags)} then ${Math.max(...bigTags)}`);
+
+    // Changed in another tab, a room follows at once.
+    await p.goto(base + 'missions.html');
+    await ready(p, 'missions.html');
+    await p.waitForFunction(() => !!missions.nearLabels.earth || missions.draws > 2, null, { timeout: 20000 }).catch(() => {});
+    const other = watch(await c.newPage());
+    await other.goto(base + 'survey.html');
+    await ready(other, 'survey.html');
+    await other.evaluate(() => localStorage.setItem('engage.prefs', JSON.stringify({ sound: true, buzz: true, text: 'large' })));
+    await other.close();
+    await p.waitForFunction(() => document.documentElement.dataset.text === 'large', null, { timeout: 5000 });
+    assert.equal(await bodyPx(), 17.25);
+
+    // The browser's own text size: a browser set to 20 px rather than the usual 16 has every word a quarter larger.
+    await p.evaluate(() => localStorage.setItem('engage.prefs', JSON.stringify({ sound: true, buzz: true, text: 'standard' })));
+    await p.goto(base + 'survey.html');
+    await ready(p, 'survey.html');
+    const h1 = () => p.evaluate(() => parseFloat(getComputedStyle(document.querySelector('h1')).fontSize));
+    const h1Standard = await h1();
+    await p.addStyleTag({ content: 'html { font-size: 20px !important; }' });
+    assert.equal(await bodyPx(), 18.75, 'the browser\'s own text size is ignored');
+    assert.equal(await h1(), h1Standard * 1.25);
+
+    // Largest on a narrow phone: every room fits, with its speaker on the screen and clear of the room's name.
+    await p.evaluate(() => localStorage.setItem('engage.prefs', JSON.stringify({ sound: true, buzz: true, text: 'largest' })));
+    await p.setViewportSize({ width: 360, height: 780 });
+    for (const room of Object.keys(ROOMS)) {
+      await p.goto(base + room);
+      await ready(p, room);
+      const fit = await p.evaluate(() => {
+        const r = document.getElementById('speaker').getBoundingClientRect();
+        const h = document.querySelector('header h1')?.getBoundingClientRect();
+        return { wide: document.documentElement.scrollWidth, right: r.right, clash: !!h && h.right > r.left + 1 && h.left < r.right - 1 && h.bottom > r.top + 1 && h.top < r.bottom - 1 };
+      });
+      assert.ok(fit.wide <= 360, `${room} at Largest is ${fit.wide} px wide on a 360 px phone`);
+      assert.ok(fit.right <= 360 - 8, `${room} at Largest: the speaker runs off the screen`);
+      assert.equal(fit.clash, false, `${room} at Largest: the speaker sits on the room's name`);
+    }
+    await c.close();
+  }
+
   // ---------- Computer, report ----------
   // Report, on the helm, says what is on the viewscreen in a line above the helm, and says it again once the view is
   // still after moving; in flight it tells the trip in timed lines. It stays on, through a reload, until turned off.

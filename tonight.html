@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
   <title>Tonight’s sky · Engage</title>
   <meta name="description" content="Point your phone at the night sky and see which stars Starfleet knows: Vulcan’s sun, Farpoint, the Vega colony, Wolf 359. Tap one to set course for it on the bridge.">
   <meta property="og:site_name" content="Engage">

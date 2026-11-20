@@ -7,7 +7,7 @@ import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { fullName, readShip } from './myship.js';
-import { buzz, setUpRoom, typing } from './room.js';
+import { buzz, setUpRoom, textScale, typing } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound, keys: [['1 to 9', 'Give the order with that number, counting down the list']] });
@@ -537,7 +537,7 @@ const scene = {
       c.fillStyle = `rgba(200, 215, 255, ${0.12 + b * 0.35})`;
       c.fillRect(x, y, b > 0.8 ? 2 : 1.2, b > 0.8 ? 2 : 1.2);
     }
-    const z = at.zone(), m = at.maru();
+    const z = at.zone(), m = at.maru(), ts = textScale(); // the words grow with the text size (Bridge settings)
     c.save();
     c.beginPath(); c.rect(z, 0, W - z, H); c.clip();
     c.fillStyle = 'rgba(255, 70, 60, 0.05)';
@@ -547,11 +547,11 @@ const scene = {
     c.restore();
     c.strokeStyle = 'rgba(255, 107, 94, 0.55)'; c.lineWidth = 1.5; c.setLineDash([8, 7]);
     c.beginPath(); c.moveTo(z, 0); c.lineTo(z, H); c.stroke(); c.setLineDash([]);
-    c.font = '600 16px "Chakra Petch", sans-serif';
+    c.font = `600 ${16 * ts}px "Chakra Petch", sans-serif`;
     c.fillStyle = 'rgba(255, 107, 94, 0.75)';
-    c.save(); c.translate(z + 8, 64); c.rotate(Math.PI / 2); c.fillText('KLINGON NEUTRAL ZONE', 0, 0); c.restore();
+    c.save(); c.translate(z + 8 * ts, 64); c.rotate(Math.PI / 2); c.fillText('KLINGON NEUTRAL ZONE', 0, 0); c.restore();
     c.fillStyle = 'rgba(134, 216, 255, 0.45)';
-    c.fillText('FEDERATION SPACE', 16, 70);
+    c.fillText('FEDERATION SPACE', 16, 54 + 16 * ts);
     c.strokeStyle = 'rgba(134, 216, 255, 0.07)'; c.lineWidth = 1;
     for (const r of [90, 180, 270, 360]) { c.beginPath(); c.arc(m.x, m.y, r, 0, Math.PI * 2); c.stroke(); }
 
@@ -567,10 +567,10 @@ const scene = {
       }
       c.globalAlpha = ma;
       drawMaru(c, m.x, m.y, g ? g.maru.hull : 100, now);
-      c.fillStyle = '#86d8ff'; c.font = '600 17px "Chakra Petch", sans-serif'; c.textAlign = 'center';
-      c.fillText('KOBAYASHI MARU', m.x, m.y + 36);
-      c.font = '500 15px "IBM Plex Sans", sans-serif'; c.fillStyle = 'rgba(205, 213, 227, 0.8)';
-      if (g) c.fillText(g.over === 'stayed' && now > mg.fade + 800 ? 'signal lost' : `${g.maru.aboard} aboard`, m.x, m.y + 55);
+      c.fillStyle = '#86d8ff'; c.font = `600 ${17 * ts}px "Chakra Petch", sans-serif`; c.textAlign = 'center';
+      c.fillText('KOBAYASHI MARU', m.x, m.y + 19 + 17 * ts);
+      c.font = `500 ${15 * ts}px "IBM Plex Sans", sans-serif`; c.fillStyle = 'rgba(205, 213, 227, 0.8)';
+      if (g) c.fillText(g.over === 'stayed' && now > mg.fade + 800 ? 'signal lost' : `${g.maru.aboard} aboard`, m.x, m.y + 21 + 34 * ts);
       c.textAlign = 'left'; c.globalAlpha = 1;
     } else drawDebris(c, m.x, m.y, now - mg.gone, 7);
 

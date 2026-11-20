@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
   <title>Engage</title>
   <meta name="description" content="Take the helm of a starship and warp to real stars. The sky on the viewscreen is drawn from a real star catalogue, so constellations shift as you travel, and the captain’s log tells you what you’d find when you arrive.">
   <meta property="og:site_name" content="Engage">
@@ -160,6 +162,14 @@
       <label class="toggle"><input type="checkbox" id="opt-labels" checked> <span>Star names</span></label>
       <label class="toggle"><input type="checkbox" id="opt-sound" checked> <span>Sound<small>In every room: each room’s speaker turns it on and off too.</small></span></label>
       <label class="toggle" id="opt-buzz-row" hidden><input type="checkbox" id="opt-buzz" checked> <span>Vibration<small>A short buzz as you go to warp and drop out of it, and when your ship is hit in the Kobayashi Maru.</small></span></label>
+      <div class="text-size">
+        <p id="text-size-label">Text size<small>In every room, on top of your phone’s or browser’s own text size.</small></p>
+        <div class="log-view" id="text-size" role="group" aria-labelledby="text-size-label">
+          <button type="button" data-text="standard" aria-pressed="true">Standard</button>
+          <button type="button" data-text="large" aria-pressed="false">Large</button>
+          <button type="button" data-text="largest" aria-pressed="false">Largest</button>
+        </div>
+      </div>
       <label class="toggle"><input type="checkbox" id="opt-night"> <span>Night vision</span></label>
       <label class="toggle"><input type="checkbox" id="opt-clock"> <span>Five-year mission clock<small>Each trip’s time at warp counts toward five years.</small></span></label>
       <div class="autopilot-row">

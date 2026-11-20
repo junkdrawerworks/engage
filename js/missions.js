@@ -11,7 +11,7 @@ import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { LIVE, share } from './share.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { setUpRoom, textScale } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound });
@@ -582,17 +582,19 @@ function ring(r, style, dash = []) {
   ctx.beginPath(); ctx.setLineDash(dash); ctx.strokeStyle = style; ctx.lineWidth = 1;
   ctx.arc(W / 2, CY(), r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
 }
+// The words on the map grow with the text size (Bridge settings) and the browser's own, as the page's words do.
 function label(text, x, y, color, align = 'left', size = 11) {
-  ctx.font = `600 ${size}px 'Chakra Petch', 'Arial Narrow', sans-serif`;
+  ctx.font = `600 ${size * textScale()}px 'Chakra Petch', 'Arial Narrow', sans-serif`;
   ctx.textAlign = align; ctx.textBaseline = 'middle';
   ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(4, 6, 11, 0.85)'; ctx.strokeText(text, x, y);
   ctx.fillStyle = color; ctx.fillText(text, x, y);
 }
 // Where label() would put some text: { x0, x1, y0, y1 }.
 function labelBox(text, x, y, align, size) {
-  ctx.font = `600 ${size}px 'Chakra Petch', 'Arial Narrow', sans-serif`;
+  const px = size * textScale();
+  ctx.font = `600 ${px}px 'Chakra Petch', 'Arial Narrow', sans-serif`;
   const w = ctx.measureText(text).width, x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
-  return { x0, x1: x0 + w, y0: y - size / 2, y1: y + size / 2 };
+  return { x0, x1: x0 + w, y0: y - px / 2, y1: y + px / 2 };
 }
 const nearLabels = { earth: null, moon: null }; // the names on the near-Earth map, for the tests
 function ringLabel(text, r, color, a) {
@@ -736,13 +738,13 @@ function drawNear(jd, now, nowMs) {
 
 // A ship's name beside it, nudged up or down until it clears the names already drawn.
 function shipLabel(s, x, y, on) {
-  const size = on ? 12 : 11;
-  ctx.font = `600 ${size}px 'Chakra Petch', 'Arial Narrow', sans-serif`;
+  const size = on ? 12 : 11, k = textScale();
+  ctx.font = `600 ${size * k}px 'Chakra Petch', 'Arial Narrow', sans-serif`;
   const w = ctx.measureText(s.name).width + 4, left = x < W / 2;
   const lx = left ? x - 10 : x + 10, x0 = left ? lx - w : lx;
-  let ly = y + (y < CY() ? -11 : 12);
-  const step = y < CY() ? -14 : 14;
-  for (let k = 0; k < 6 && placed.some(r => x0 < r.x1 && x0 + w > r.x0 && Math.abs(ly - r.y) < 13); k++) ly += step;
+  let ly = y + (y < CY() ? -11 : 12) * k;
+  const step = (y < CY() ? -14 : 14) * k;
+  for (let n = 0; n < 6 && placed.some(r => x0 < r.x1 && x0 + w > r.x0 && Math.abs(ly - r.y) < 13 * k); n++) ly += step;
   placed.push({ x0, x1: x0 + w, y: ly });
   label(s.name, lx, ly, on ? s.color : withAlpha(s.color, 0.75), left ? 'right' : 'left', size);
 }

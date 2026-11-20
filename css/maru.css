@@ -9,13 +9,13 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 /* Header, as on the survey */
 .top { max-width: 1120px; margin: 0 auto; padding: calc(14px + var(--safe-t)) max(16px, var(--safe-r)) 10px max(16px, var(--safe-l)); display: grid; grid-template-columns: auto 1fr auto; gap: 10px 14px; align-items: center; }
 .back { display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--panel);
-  color: var(--text); text-decoration: none; font: 600 13px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+  color: var(--text); text-decoration: none; font: 600 calc(13 * var(--px))/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
 .back:hover { border-color: var(--cyan); }
 .back svg { width: 20px; height: 20px; }
-.title h1 { margin: 2px 0 0; font: 600 22px/1.15 var(--display); letter-spacing: 0.04em; }
+.title h1 { margin: 2px 0 0; font: 600 calc(22 * var(--px))/1.15 var(--display); letter-spacing: 0.04em; }
 
 .card { padding: 20px 18px 16px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); }
-.card h2 { margin: 4px 0 10px; font: 600 28px/1.1 var(--display); letter-spacing: 0.03em; }
+.card h2 { margin: 4px 0 10px; font: 600 calc(28 * var(--px))/1.1 var(--display); letter-spacing: 0.03em; }
 .card p { margin: 0 0 10px; color: #cdd5e3; }
 .card .unsaved { margin: 0 0 12px; color: var(--amber); }
 .card .eyebrow { color: var(--red); }
@@ -24,46 +24,46 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 /* One-switch play (js/switch.js): the toggle on the briefing, and the highlight on the choice a press would pick. */
 .brief .one-switch { margin-top: 10px; border: 0; padding: 8px 0 0; align-items: flex-start; }
 .brief .one-switch input { margin-top: 2px; }
-.brief .one-switch span { font-size: 13px; line-height: 1.4; color: var(--muted); }
-.brief .one-switch b { display: block; font-size: 14px; font-weight: 600; color: var(--text); }
+.brief .one-switch span { font-size: calc(13 * var(--px)); line-height: 1.4; color: var(--muted); }
+.brief .one-switch b { display: block; font-size: calc(14 * var(--px)); font-weight: 600; color: var(--text); }
 .one-switch-on .scan, html.one-switch .scan { outline: 3px solid var(--amber) !important; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(255, 181, 74, 0.25) !important; }
 #brief:not([hidden]) { display: grid; gap: 12px; max-width: 640px; margin: 6px auto 0; }
 .brief .how { color: var(--muted); }
 /* The examiners' line for a cadet who has been here before. */
 .brief .returning { padding: 8px 12px; border-left: 3px solid var(--red); border-radius: 0 10px 10px 0; background: rgba(255, 107, 94, 0.07); color: var(--text); }
 /* Where the film puts the Maru, and the real star of that name: small print, with the two links a log entry has. */
-.brief .where { margin: 0; font-size: 14px; color: var(--muted); }
+.brief .where { margin: 0; font-size: calc(14 * var(--px)); color: var(--muted); }
 .brief .where-links { display: flex; flex-wrap: wrap; gap: 0 18px; }
 .brief .where-links a { min-height: 44px; display: inline-flex; align-items: center; color: var(--cyan); text-underline-offset: 3px; }
 .brief .primary, .brief .secondary { width: 100%; margin-top: 6px; }
-.brief .resume-note { margin: 8px 0 4px; font-size: 14px; color: var(--muted); }
-.brief .text-button { display: block; margin: 8px auto 0; color: var(--muted); font-size: 13px; }
+.brief .resume-note { margin: 8px 0 4px; font-size: calc(14 * var(--px)); color: var(--muted); }
+.brief .text-button { display: block; margin: 8px auto 0; color: var(--muted); font-size: calc(13 * var(--px)); }
 /* Today's simulation: the same dice for every cadet that day, once, and the line to send afterwards. */
 .daily { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 10px; margin-top: 4px; }
 .daily .secondary { grid-column: 1 / -1; }
-.daily .daily-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
-.daily .daily-note b { display: block; font: 600 11px/1.3 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+.daily .daily-note { margin: 6px 0 0; font-size: calc(13 * var(--px)); color: var(--muted); }
+.daily .daily-note b { display: block; font: 600 calc(11 * var(--px))/1.3 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
 .daily .text-button { margin: 6px 0 0; color: var(--cyan); min-height: 44px; }
-.record .endings-head, .record .best-head, .record .runs-head { margin: 10px 0 0; font: 600 11px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; }
+.record .endings-head, .record .best-head, .record .runs-head { margin: 10px 0 0; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; }
 .endings-head b { font-weight: 600; }
 .endings-head span, .best-head span { color: var(--text); letter-spacing: 0.06em; }
 .record .best-head, .record .runs-head { margin-top: 18px; }
 .record .endings { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.record .endings li { display: block; padding: 6px 11px; border: 1px dashed var(--line-strong); border-radius: 999px; font: 600 13px/1.2 var(--display); letter-spacing: 0.03em; color: var(--dim); min-width: 44px; text-align: center; }
+.record .endings li { display: block; padding: 6px 11px; border: 1px dashed var(--line-strong); border-radius: 999px; font: 600 calc(13 * var(--px))/1.2 var(--display); letter-spacing: 0.03em; color: var(--dim); min-width: 44px; text-align: center; }
 .record .endings li.seen { border-style: solid; border-color: rgba(134, 216, 255, 0.45); color: var(--cyan); background: rgba(134, 216, 255, 0.06); }
 .record .best { margin: 8px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.best span { display: grid; justify-items: center; gap: 3px; padding: 8px 2px; border: 1px solid var(--line); border-radius: 12px; font: 600 10px/1.2 var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-width: 0; }
-.best b { font: 600 24px/1 var(--display); color: var(--dim); }
+.best span { display: grid; justify-items: center; gap: 3px; padding: 8px 2px; border: 1px solid var(--line); border-radius: 12px; font: 600 calc(10 * var(--px))/1.2 var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-width: 0; }
+.best b { font: 600 calc(24 * var(--px))/1 var(--display); color: var(--dim); }
 .best .A b { color: var(--green); } .best .B b { color: var(--cyan); } .best .C b { color: var(--amber); } .best .D b, .best .F b { color: var(--red); }
 .record ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 0; }
 .record li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--line); }
-.record li b { font: 600 16px/1.2 var(--display); letter-spacing: 0.02em; }
-.record li .when { font-size: 12px; color: var(--dim); text-align: right; }
-.record li .letters { grid-column: 1 / -1; font: 500 13px/1.3 var(--display); letter-spacing: 0.08em; color: var(--muted); }
+.record li b { font: 600 calc(16 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
+.record li .when { font-size: calc(12 * var(--px)); color: var(--dim); text-align: right; }
+.record li .letters { grid-column: 1 / -1; font: 500 calc(13 * var(--px))/1.3 var(--display); letter-spacing: 0.08em; color: var(--muted); }
 
 /* The Bridge Officer's Test: its card on the briefing, and its verdict. Its screen is the Maru's, with its own canvas. */
-.officer-card h2 { font-size: 22px; }
-.officer-card .officer-record { font-size: 14px; color: var(--cyan); }
+.officer-card h2 { font-size: calc(22 * var(--px)); }
+.officer-card .officer-record { font-size: calc(14 * var(--px)); color: var(--cyan); }
 .officer-card .secondary { width: 100%; margin-top: 4px; }
 .officer-card .go-board { display: grid; place-items: center; text-decoration: none; }
 #officer:not([hidden]) { display: block; }
@@ -75,21 +75,21 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 /* The tactical display */
 .plot-wrap { position: relative; margin: 4px -16px 0; border-block: 1px solid rgba(255, 107, 94, 0.18); background: #04060b; }
 #plot { display: block; width: 100%; aspect-ratio: 10 / 8; touch-action: manipulation; }
-.turn { position: absolute; left: 12px; top: 8px; margin: 0; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
-.alert { position: absolute; right: 12px; top: 8px; margin: 0; padding: 4px 8px; border-radius: 6px; font: 600 11px/1.2 var(--display); letter-spacing: 0.18em; text-transform: uppercase;
+.turn { position: absolute; left: 12px; top: 8px; margin: 0; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+.alert { position: absolute; right: 12px; top: 8px; margin: 0; padding: 4px 8px; border-radius: 6px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.18em; text-transform: uppercase;
   color: #fff; background: rgba(255, 70, 60, 0.85); animation: pulse 1.2s ease-in-out infinite; }
-.caption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 26px 14px 10px; font-size: 14px; line-height: 1.4; color: #e3e8f1;
+.caption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 26px 14px 10px; font-size: calc(14 * var(--px)); line-height: 1.4; color: #e3e8f1;
   background: linear-gradient(to top, rgba(4, 6, 11, 0.95) 40%, rgba(4, 6, 11, 0)); pointer-events: none; min-height: 1em; }
 .caption:empty { display: none; }
-.caption .who { display: block; font: 600 10px/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.caption .who { display: block; font: 600 calc(10 * var(--px))/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 .caption.bad .who { color: var(--red); } .caption.good .who { color: var(--green); } .caption.klingon .who { color: var(--klingon); }
 @keyframes pulse { 50% { opacity: 0.45; } }
 
 .side { display: grid; gap: 10px; margin-top: 10px; }
 .status { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
 .gauge { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 8px; min-width: 0; }
-.g-k { font: 600 10px/1.3 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
-.g-v { font: 600 17px/1.2 var(--display); font-variant-numeric: tabular-nums; }
+.g-k { font: 600 calc(10 * var(--px))/1.3 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.g-v { font: 600 calc(17 * var(--px))/1.2 var(--display); font-variant-numeric: tabular-nums; }
 .bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
 .bar i { display: block; height: 100%; width: 100%; border-radius: 3px; background: var(--cyan); transition: width .6s, background .6s; }
 #hull-bar { background: var(--amber); }
@@ -100,8 +100,8 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 .orders { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .order { display: grid; align-content: start; gap: 3px; min-height: 64px; padding: 10px 12px; text-align: left; border-radius: 14px; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.03); transition: border-color .15s, background .15s, opacity .2s; }
 .order:hover:not([aria-disabled="true"]) { border-color: var(--cyan); background: rgba(134, 216, 255, 0.05); }
-.order b { font: 600 15px/1.2 var(--display); letter-spacing: 0.02em; }
-.order span { font-size: 12px; line-height: 1.3; color: var(--muted); }
+.order b { font: 600 calc(15 * var(--px))/1.2 var(--display); letter-spacing: 0.02em; }
+.order span { font-size: calc(12 * var(--px)); line-height: 1.3; color: var(--muted); }
 .order.primary-order { border-color: rgba(255, 181, 74, 0.55); background: rgba(255, 181, 74, 0.07); }
 .order.primary-order b { color: var(--amber); }
 .order.danger { border-color: rgba(255, 107, 94, 0.55); }
@@ -114,39 +114,39 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 /* A run someone shared, played back: what they ordered each turn, in place of the orders. */
 .watching { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; padding: 10px 14px; border-radius: 16px; border: 1px dashed rgba(255, 181, 74, 0.55); background: rgba(255, 181, 74, 0.06); }
 .watching[hidden] { display: none; }
-.watching p { margin: 0; font-size: 14px; color: var(--text); }
-.watching p b { display: block; font: 600 10px/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
-.watching .text-button { color: var(--cyan); font-size: 13px; min-height: 44px; }
+.watching p { margin: 0; font-size: calc(14 * var(--px)); color: var(--text); }
+.watching p b { display: block; font: 600 calc(10 * var(--px))/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+.watching .text-button { color: var(--cyan); font-size: calc(13 * var(--px)); min-height: 44px; }
 .comms { margin-top: 10px; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 14px; border-radius: 16px; border: 1px solid var(--line); background: rgba(5, 8, 15, 0.7); }
-.line { margin: 0; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; color: #cdd5e3; animation: in .3s ease-out; }
+.line { margin: 0; padding: 7px 0; border-top: 1px solid var(--line); font-size: calc(14 * var(--px)); color: #cdd5e3; animation: in .3s ease-out; }
 .line:first-child { border-top: 0; }
-.line .who { display: block; font: 600 10px/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.line .who { display: block; font: 600 calc(10 * var(--px))/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
 .line.bad { color: #ffc2bb; }
 .line.bad .who { color: var(--red); }
 .line.good .who { color: var(--green); }
 .line.klingon { color: #ffd2b8; }
 .line.klingon .who { color: var(--klingon); }
-.line.turn-mark { padding: 10px 0 2px; border: 0; font: 600 10px/1.2 var(--display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
+.line.turn-mark { padding: 10px 0 2px; border: 0; font: 600 calc(10 * var(--px))/1.2 var(--display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
 @keyframes in { from { opacity: 0; transform: translateY(4px); } }
 
 /* Evaluation */
 #eval:not([hidden]) { display: block; max-width: 680px; margin: 6px auto 0; }
-.evaluation h2 { font-size: 34px; color: var(--text); }
-.evaluation .summary { font-size: 16px; color: var(--text); }
+.evaluation h2 { font-size: calc(34 * var(--px)); color: var(--text); }
+.evaluation .summary { font-size: calc(16 * var(--px)); color: var(--text); }
 /* What this run added to the record: a new ending under the title, "best yet" on a grade that beat the record. */
-.evaluation .firsts { margin: -4px 0 10px; font: 600 12px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--green); }
-.grade .best-yet { margin-left: 6px; padding: 2px 6px; border-radius: 999px; border: 1px solid currentColor; font-size: 9px; letter-spacing: 0.1em; color: var(--green); white-space: nowrap; }
+.evaluation .firsts { margin: -4px 0 10px; font: 600 calc(12 * var(--px))/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--green); }
+.grade .best-yet { margin-left: 6px; padding: 2px 6px; border-radius: 999px; border: 1px solid currentColor; font-size: calc(9 * var(--px)); letter-spacing: 0.1em; color: var(--green); white-space: nowrap; }
 /* How rare the ending is, from the archive of trials run with orders at random (js/archive.js). */
-.evaluation .archive { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: var(--muted); }
-.evaluation .archive b { display: block; font: 600 10px/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
-.evaluation h3 { margin: 18px 0 6px; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
+.evaluation .archive { margin: 0 0 12px; font-size: calc(13 * var(--px)); line-height: 1.45; color: var(--muted); }
+.evaluation .archive b { display: block; font: 600 calc(10 * var(--px))/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.evaluation h3 { margin: 18px 0 6px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .grades { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 4px; }
 .grade { display: grid; grid-template-columns: auto 1fr; gap: 0 12px; align-items: center; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); }
-.grade .l { grid-row: span 2; font: 600 40px/1 var(--display); width: 1.1em; text-align: center; }
-.grade .n { font: 600 11px/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.grade .w { font-size: 13px; line-height: 1.35; color: #cdd5e3; }
+.grade .l { grid-row: span 2; font: 600 calc(40 * var(--px))/1 var(--display); width: 1.1em; text-align: center; }
+.grade .n { font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.grade .w { font-size: calc(13 * var(--px)); line-height: 1.35; color: #cdd5e3; }
 /* Under a grade that reached the most the simulation lets anyone earn (Judgment's B). */
-.grade .ceil { grid-column: 2; margin-top: 3px; font: 600 10px/1.3 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); }
+.grade .ceil { grid-column: 2; margin-top: 3px; font: 600 calc(10 * var(--px))/1.3 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); }
 .grade.A .l { color: var(--green); } .grade.B .l { color: var(--cyan); } .grade.C .l { color: var(--amber); } .grade.D .l, .grade.F .l { color: var(--red); }
 .moral { margin-top: 16px !important; padding-top: 12px; border-top: 1px solid var(--line); font-style: italic; color: var(--muted) !important; }
 .eval-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
@@ -162,7 +162,7 @@ body.maru.red-alert { background: radial-gradient(ellipse at 50% -10%, #4a1016 0
 
 @media (min-width: 760px) {
   .top { padding: calc(20px + var(--safe-t)) max(24px, var(--safe-r)) 14px max(24px, var(--safe-l)); }
-  .title h1 { font-size: 26px; }
+  .title h1 { font-size: calc(26 * var(--px)); }
   .maru main { padding: 0 max(24px, var(--safe-r)) 0 max(24px, var(--safe-l)); }
   #officer:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); grid-template-areas: 'plot side' 'comms side'; gap: 12px 20px; align-items: start; }
   #sim:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); grid-template-areas: 'plot side' 'comms side'; gap: 12px 20px; align-items: start; }

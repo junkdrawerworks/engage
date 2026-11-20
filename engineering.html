@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
   <title>Main engineering · Engage</title>
   <meta name="description" content="Keep a warp core steady through one shift while the bridge asks for warp after warp: deuterium, antimatter and coolant on three sliders, and what the shift burned against real yardsticks. A kilogram of antimatter meeting a kilogram of matter gives about 43 megatons.">
   <meta property="og:site_name" content="Engage">

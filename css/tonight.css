@@ -7,14 +7,14 @@
 .tonight .hud { align-items: center; }
 .tonight .title { flex: 1; min-width: 0; pointer-events: auto; }
 .back { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--panel);
-  color: var(--text); text-decoration: none; font: 600 13px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; pointer-events: auto;
+  color: var(--text); text-decoration: none; font: 600 calc(13 * var(--px))/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; pointer-events: auto;
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .back:hover { border-color: var(--cyan); }
 .back svg { width: 20px; height: 20px; }
 /* The only way into "Where you are", so its tap area is 44 px tall; the negative margins keep the header where it was. */
 .place { display: block; max-width: 100%; margin: -9px 0 -12px; padding: 12px 0; border: 0; background: none; text-align: left; color: var(--text);
-  font: 600 16px/1.25 var(--display); letter-spacing: 0.02em; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.place #clock { color: var(--muted); font-weight: 500; font-size: 13px; font-variant-numeric: tabular-nums; }
+  font: 600 calc(16 * var(--px))/1.25 var(--display); letter-spacing: 0.02em; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.place #clock { color: var(--muted); font-weight: 500; font-size: calc(13 * var(--px)); font-variant-numeric: tabular-nums; }
 .place #clock::before { content: '· '; }
 .place #clock:empty::before { content: none; } /* no time yet while the sky is being charted, so no dot either */
 .place:hover #place-name { text-decoration: underline; text-underline-offset: 3px; }
@@ -23,37 +23,37 @@
 /* Daylight notice */
 .daylight { position: absolute; left: 50%; top: calc(84px + var(--safe-t)); transform: translateX(-50%); width: min(420px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px;
   padding: 10px 10px 10px 14px; border-radius: 16px; border: 1px solid var(--line-strong); background: var(--panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-.daylight p { margin: 0; flex: 1; font-size: 13px; line-height: 1.4; color: #cdd5e3; }
-.daylight .secondary { flex: none; height: 38px; padding: 0 12px; font-size: 12px; white-space: nowrap; }
+.daylight p { margin: 0; flex: 1; font-size: calc(13 * var(--px)); line-height: 1.4; color: #cdd5e3; }
+.daylight .secondary { flex: none; height: 38px; padding: 0 12px; font-size: calc(12 * var(--px)); white-space: nowrap; }
 
 /* Controls at the bottom */
 .controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px max(16px, var(--safe-r)) calc(14px + var(--safe-b)) max(16px, var(--safe-l)); background: linear-gradient(to top, rgba(5, 7, 13, 0.85) 40%, rgba(5, 7, 13, 0)); pointer-events: none; }
 .controls > * { pointer-events: auto; }
-.hint { margin: 0 auto 10px; max-width: 520px; text-align: center; font-size: 13px; color: var(--muted); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
+.hint { margin: 0 auto 10px; max-width: 520px; text-align: center; font-size: calc(13 * var(--px)); color: var(--muted); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
 /* (.row is also a line of the bridge's star list in css/app.css: its rule under each line, and its hover, are not for this row.) */
 .controls .row { display: flex; gap: 12px; align-items: center; max-width: 520px; margin: 0 auto; padding: 10px 4px 11px; border: 0; background: none; }
 .controls .primary, .controls .secondary { flex: none; height: 46px; }
 .time { flex: 1; min-width: 0; display: grid; gap: 4px; }
-.time-label { font: 600 12px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); }
+.time-label { font: 600 calc(12 * var(--px))/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); }
 .time input { width: 100%; accent-color: var(--amber); margin: 0; height: 26px; }
 
 /* The arrow at the edge toward something off screen */
 .pointer { position: absolute; left: 0; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: -16px 0 0 -16px; pointer-events: none;
-  color: var(--amber); font: 600 12px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 1px 6px #000; }
+  color: var(--amber); font: 600 calc(12 * var(--px))/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 1px 6px #000; }
 .pointer svg { width: 32px; height: 32px; padding: 6px; border-radius: 50%; background: rgba(5, 7, 13, 0.75); border: 1px solid rgba(255, 181, 74, 0.6); flex: none; }
 .pointer span { position: absolute; top: 38px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
 
 /* The card for whatever you tapped */
 .card { gap: 0; }
 .card .sheet-head { padding-bottom: 0; }
-.card h2 { font-size: 26px; letter-spacing: 0.04em; }
-.card-sub { margin: 2px 0 8px; color: var(--muted); font-size: 14px; }
-.card .look { margin: 0 0 10px; padding: 8px 12px; border-left: 3px solid var(--cyan); background: rgba(134, 216, 255, 0.06); border-radius: 0 12px 12px 0; font-size: 14px; color: var(--text); }
+.card h2 { font-size: calc(26 * var(--px)); letter-spacing: 0.04em; }
+.card-sub { margin: 2px 0 8px; color: var(--muted); font-size: calc(14 * var(--px)); }
+.card .look { margin: 0 0 10px; padding: 8px 12px; border-left: 3px solid var(--cyan); background: rgba(134, 216, 255, 0.06); border-radius: 0 12px 12px 0; font-size: calc(14 * var(--px)); color: var(--text); }
 .card .story { margin: 0 0 8px; color: #dfe6f2; }
-.card .facts { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
-.card .now { margin: 0 0 12px; color: #dfe6f2; font-size: 14px; }
-.card .now::before { content: 'Right now'; display: block; margin-bottom: 2px; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-.card .been { margin: 0 0 12px; padding-left: 20px; position: relative; color: var(--amber); font-size: 14px; }
+.card .facts { margin: 0 0 12px; color: var(--muted); font-size: calc(14 * var(--px)); }
+.card .now { margin: 0 0 12px; color: #dfe6f2; font-size: calc(14 * var(--px)); }
+.card .now::before { content: 'Right now'; display: block; margin-bottom: 2px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.card .been { margin: 0 0 12px; padding-left: 20px; position: relative; color: var(--amber); font-size: calc(14 * var(--px)); }
 .card .been::before { content: ''; position: absolute; left: 2px; top: 3px; width: 11px; height: 13px; background: currentColor; clip-path: polygon(50% 0, 100% 100%, 50% 76%, 0 100%); }
 /* The words scroll when the card is taller than the room it has (a phone on its side); Set course stays in view under them. */
 .card-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px; }
@@ -64,14 +64,14 @@
 /* Under Set course: doors to the rooms that know this star or planet, and Share this star. */
 .card .share-row { flex: none; gap: 0 18px; }
 .card .doors { display: contents; }
-.card .doors a { min-height: 44px; display: inline-flex; align-items: center; color: var(--cyan); font-size: 13px; text-underline-offset: 3px; white-space: nowrap; }
+.card .doors a { min-height: 44px; display: inline-flex; align-items: center; color: var(--cyan); font-size: calc(13 * var(--px)); text-underline-offset: 3px; white-space: nowrap; }
 body.carded .controls { visibility: hidden; }
 
 /* The list of systems, under tonight's plan: when it's dark, the best time to look, and any meteor shower */
-.plan { flex: none; margin: 0 0 10px; padding: 8px 12px; border-left: 3px solid var(--amber); background: rgba(255, 181, 74, 0.06); border-radius: 0 12px 12px 0; font-size: 14px; }
+.plan { flex: none; margin: 0 0 10px; padding: 8px 12px; border-left: 3px solid var(--amber); background: rgba(255, 181, 74, 0.06); border-radius: 0 12px 12px 0; font-size: calc(14 * var(--px)); }
 .plan p { margin: 0; padding: 3px 0; }
-.plan .text-button { padding: 4px 0; margin-left: 4px; font-size: 14px; white-space: nowrap; }
-.list-note { margin: 0 0 8px; color: var(--muted); font-size: 14px; flex: none; }
+.plan .text-button { padding: 4px 0; margin-left: 4px; font-size: calc(14 * var(--px)); white-space: nowrap; }
+.list-note { margin: 0 0 8px; color: var(--muted); font-size: calc(14 * var(--px)); flex: none; }
 .systems { overflow-y: auto; margin: 0 -16px; padding: 0 16px; overscroll-behavior: contain; }
 .system { display: grid; grid-template-columns: 14px 1fr; gap: 0 10px; width: 100%; padding: 10px 2px; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; align-items: center; }
 .system i { grid-row: span 2; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--amber); }
@@ -80,30 +80,30 @@ body.carded .controls { visibility: hidden; }
 .system.trek.s0 i { color: var(--cyan); }
 .system.s1 i { border-style: dashed; }
 .system.s2 { opacity: 0.55; }
-.s-name { font: 600 16px/1.25 var(--display); letter-spacing: 0.03em; }
+.s-name { font: 600 calc(16 * var(--px))/1.25 var(--display); letter-spacing: 0.03em; }
 .system.trek .s-name { color: var(--cyan); }
 /* The deep sky, under its own heading, in the violet its tags have on the sky. */
-.systems-head { margin: 18px 0 2px; font: 600 11px/1.3 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: #c9a2ff; }
+.systems-head { margin: 18px 0 2px; font: 600 calc(11 * var(--px))/1.3 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: #c9a2ff; }
 .system.sight i { border-color: #c9a2ff; }
 .system.sight.s0 i { color: #c9a2ff; }
 .system.sight .s-name { color: #e2d2ff; }
 body.red .system.sight .s-name, body.red .systems-head { color: var(--text); }
-.s-been { margin-left: 8px; padding: 1px 7px; border: 1px solid currentColor; border-radius: 999px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber); vertical-align: 1px; }
-.s-sub { font-size: 13px; color: var(--muted); }
+.s-been { margin-left: 8px; padding: 1px 7px; border: 1px solid currentColor; border-radius: 999px; font-size: calc(11 * var(--px)); letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber); vertical-align: 1px; }
+.s-sub { font-size: calc(13 * var(--px)); color: var(--muted); }
 .system:hover .s-name { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Where you are */
 .scroll { overflow-y: auto; margin: 0 -16px; padding: 0 16px; overscroll-behavior: contain; }
 .wide { width: 100%; }
-.place-note { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
-#places h3 { margin: 18px 0 8px; font: 600 11px/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
+.place-note { margin: 8px 0 0; font-size: calc(13 * var(--px)); color: var(--muted); }
+#places h3 { margin: 18px 0 8px; font: 600 calc(11 * var(--px))/1.2 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
 .skies { display: grid; gap: 6px; }
 .sky-opt { display: grid; gap: 2px; padding: 10px 12px; text-align: left; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
-.sky-opt b { font: 600 15px/1.2 var(--display); letter-spacing: 0.04em; }
-.sky-opt span { font-size: 13px; color: var(--muted); }
+.sky-opt b { font: 600 calc(15 * var(--px))/1.2 var(--display); letter-spacing: 0.04em; }
+.sky-opt span { font-size: calc(13 * var(--px)); color: var(--muted); }
 .sky-opt[aria-checked="true"] { border-color: var(--amber); background: rgba(255, 181, 74, 0.08); }
 .cities { display: flex; flex-wrap: wrap; gap: 6px; }
-.city { height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); font-size: 14px; }
+.city { height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); font-size: calc(14 * var(--px)); }
 .city[aria-pressed="true"] { border-color: var(--amber); color: var(--amber); }
 
 /* Night vision (the red light itself is in css/app.css: the bridge wears it too). Under it, what stands out is

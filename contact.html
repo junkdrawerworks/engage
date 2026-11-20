@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
   <title>First contact · Engage</title>
   <meta name="description" content="An unknown ship hails you. The universal translator gives you their words but not their meaning: they speak in images from their own stories. Work out what each phrase means from when they say it, and answer in their language.">
   <meta property="og:site_name" content="Engage">

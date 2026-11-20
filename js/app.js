@@ -2,7 +2,7 @@
 import { loadCatalog } from './catalog.js';
 import { Sky } from './sky.js';
 import { sound } from './audio.js';
-import { buzz, canBuzz, follow, setPref, setUpRoom } from './room.js';
+import { buzz, canBuzz, follow, setPref, setUpRoom, textScale } from './room.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, starKinds, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
@@ -229,7 +229,12 @@ async function start() {
   // Sound and the text size are every room's settings (js/room.js), followed here and in Bridge settings; ? shows the
   // bridge's keys.
   setUpRoom({ sound, keys: BRIDGE_KEYS });
-  follow(p => { $('opt-sound').checked = p.sound; $('opt-buzz').checked = p.buzz; });
+  follow(p => {
+    $('opt-sound').checked = p.sound;
+    $('opt-buzz').checked = p.buzz;
+    for (const b of $('text-size').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.text === p.text));
+    dirty = true; // the names on the viewscreen are drawn at the text size
+  });
   $('opt-buzz-row').hidden = !canBuzz(); // iPhones and computers can't vibrate: no setting for it there
   const img = new Image();
   img.src = 'img/milkyway.png';
@@ -410,7 +415,7 @@ function drawLabels(now) {
     const b = el.getBoundingClientRect();
     return [b.left - 4, b.top - 4, b.right + 4, b.bottom + 4];
   });
-  const box = (x, y, tw) => [x - 2, y - 12, x + tw + 2, y + 4];
+  const box = (x, y, tw) => [x - 2, y - 12 * TK, x + tw + 2, y + 4 * TK];
   const free = (x, y, tw) => {
     const r = box(x, y, tw);
     if (taken.some(t => r[0] < t[2] && r[2] > t[0] && r[1] < t[3] && r[3] > t[1])) return false;
@@ -420,6 +425,7 @@ function drawLabels(now) {
   // A name sits to the right of its star, or to the left where it would run off the screen.
   const side = (x, gap, tw) => (x + gap + tw > w - 4 ? x - gap - tw : x + gap);
   drawn = [];
+  TK = textScale(); // the names grow with the text size (Bridge settings) and the browser's own
   const onScreen = p => p && !p.behind && p.x > -20 && p.y > -20 && p.x < w + 20 && p.y < h + 20;
   // Under night vision only the red in a colour is left, and the helm's cyan has little: its marks are white there.
   const red = document.body.classList.contains('red');
@@ -497,7 +503,7 @@ function drawLabels(now) {
     shown.push([m, i, p]);
   }
   shown.sort((a, b) => a[0] - b[0]);
-  g.font = '500 12px "IBM Plex Sans", system-ui, sans-serif';
+  g.font = `500 ${12 * TK}px "IBM Plex Sans", system-ui, sans-serif`;
   for (const [, i, p] of shown.slice(0, 24)) {
     const text = titleFor(cat, i);
     const tw = g.measureText(text).width;
@@ -510,21 +516,22 @@ function drawLabels(now) {
 }
 let drawn = []; // the names on screen, for N and the tests: { text, x, y (the baseline), w, star (if a star's) }
 
+let TK = 1; // how much bigger than standard the names on the viewscreen are drawn
 function labelWidth(g, text, sub) {
-  g.font = '600 13px "Chakra Petch", system-ui, sans-serif';
+  g.font = `600 ${13 * TK}px "Chakra Petch", system-ui, sans-serif`;
   const tw = g.measureText(text).width;
-  g.font = '500 11px "Chakra Petch", system-ui, sans-serif';
+  g.font = `500 ${11 * TK}px "Chakra Petch", system-ui, sans-serif`;
   return tw + 7 + g.measureText(sub).width;
 }
 
 function label(g, text, sub, x, y, color) {
-  g.font = '600 13px "Chakra Petch", system-ui, sans-serif';
+  g.font = `600 ${13 * TK}px "Chakra Petch", system-ui, sans-serif`;
   g.fillStyle = color;
   g.shadowColor = 'rgba(0,0,0,0.9)';
   g.shadowBlur = 4;
   g.fillText(text, x, y);
   const tw = g.measureText(text).width;
-  g.font = '500 11px "Chakra Petch", system-ui, sans-serif';
+  g.font = `500 ${11 * TK}px "Chakra Petch", system-ui, sans-serif`;
   g.globalAlpha = 0.75;
   g.fillText(sub, x + tw + 7, y);
   g.globalAlpha = 1;
@@ -2038,6 +2045,7 @@ function bind() {
   $('opt-sound').addEventListener('change', e => setPref('sound', e.target.checked));
   $('report').addEventListener('click', () => setReporting(!reporting));
   $('opt-buzz').addEventListener('change', e => setPref('buzz', e.target.checked));
+  $('text-size').addEventListener('click', e => { const b = e.target.closest('[data-text]'); if (b) setPref('text', b.dataset.text); });
   $('records-save').addEventListener('click', saveCopy);
   $('records-restore').addEventListener('click', () => $('records-file').click());
   $('records-file').addEventListener('change', e => readCopy(e.target));

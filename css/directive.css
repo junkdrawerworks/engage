@@ -1,54 +1,54 @@
 /* The Prime Directive. Builds on css/app.css and the survey's header from css/survey.css. */
 
-.lab-intro { margin: 2px 0 0; color: var(--muted); font-size: 14px; max-width: 760px; }
+.lab-intro { margin: 2px 0 0; color: var(--muted); font-size: calc(14 * var(--px)); max-width: 760px; }
 .directive-page main > * { max-width: 760px; }
-.directive-page h2 { font: 600 24px/1.15 var(--display); letter-spacing: 0.03em; margin: 4px 0 8px; }
+.directive-page h2 { font: 600 calc(24 * var(--px))/1.15 var(--display); letter-spacing: 0.03em; margin: 4px 0 8px; }
 .directive-page h2:focus, .step-text:focus { outline: none; }
-.directive-page h3 { margin: 14px 0 6px; font: 600 15px/1.2 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.directive-page h3 { margin: 14px 0 6px; font: 600 calc(15 * var(--px))/1.2 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
 .pd-card { margin-top: 14px; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--line-strong); background: var(--panel); }
 .pd-card[hidden] { display: none; }
 .pd-card p { margin: 0 0 10px; }
 #brief .primary { width: 100%; margin-top: 4px; }
-.pd-record { color: var(--sun); font-size: 14px; }
+.pd-record { color: var(--sun); font-size: calc(14 * var(--px)); }
 
 /* The hearing */
 .transcript { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 10px; }
 .transcript:empty { display: none; }
 .transcript li { padding: 0 0 10px 12px; border-left: 2px solid var(--line-strong); }
-.transcript p { margin: 0 0 4px; font-size: 14px; }
+.transcript p { margin: 0 0 4px; font-size: calc(14 * var(--px)); }
 .transcript .was { color: var(--dim); }
 .transcript .order b { color: var(--amber); font-weight: 600; }
 .transcript .said { color: var(--muted); }
-.step-text { font-size: 17px; line-height: 1.45; }
+.step-text { font-size: calc(17 * var(--px)); line-height: 1.45; }
 .pd-choices { display: grid; gap: 8px; }
 .pd-choice { min-height: 52px; padding: 10px 14px; border-radius: 14px; border: 1px solid rgba(255, 181, 74, 0.5); background: rgba(255, 181, 74, 0.08); color: var(--text);
-  font-family: inherit; font-size: 16px; font-weight: 500; line-height: 1.3; text-align: left; }
+  font-family: inherit; font-size: calc(16 * var(--px)); font-weight: 500; line-height: 1.3; text-align: left; }
 .pd-choice:hover { border-color: var(--amber); }
 
 /* The finding */
 .finding { border-color: rgba(255, 181, 74, 0.5); }
 .grades { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .grades li { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: start; }
-.grades li b { display: block; font: 600 13px/1.3 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
-.grades li span:last-child { font-size: 14px; color: var(--muted); }
-.letter { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line-strong); font: 600 24px/1 var(--display); }
+.grades li b { display: block; font: 600 calc(13 * var(--px))/1.3 var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+.grades li span:last-child { font-size: calc(14 * var(--px)); color: var(--muted); }
+.letter { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line-strong); font: 600 calc(24 * var(--px))/1 var(--display); }
 .l-A { color: #4fd1a5; border-color: rgba(79, 209, 165, 0.5); }
 .l-B { color: var(--cyan); }
 .l-C { color: var(--sun); }
 .l-D, .l-F { color: #ff8a7a; border-color: rgba(255, 138, 122, 0.5); }
-.happened { margin: 0; padding-left: 20px; font-size: 14px; }
+.happened { margin: 0; padding-left: 20px; font-size: calc(14 * var(--px)); }
 .happened li { margin: 0 0 6px; color: var(--muted); }
 .happened b { color: var(--text); font-weight: 600; }
 .on-screen { margin-top: 14px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(134, 216, 255, 0.04); }
-.on-screen h3 { margin: 4px 0 6px; text-transform: none; letter-spacing: 0.02em; color: var(--text); font-size: 16px; }
-.on-screen p { font-size: 14px; }
+.on-screen h3 { margin: 4px 0 6px; text-transform: none; letter-spacing: 0.02em; color: var(--text); font-size: calc(16 * var(--px)); }
+.on-screen p { font-size: calc(14 * var(--px)); }
 .on-screen .same { margin: 0; color: var(--sun); }
 .pd-row { display: flex; gap: 10px; margin-top: 14px; }
 .pd-row { flex-wrap: wrap; }
 .pd-row button { flex: 1 1 180px; }
 
-.also { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
+.also { margin: 16px 0 0; font-size: calc(14 * var(--px)); color: var(--muted); }
 .also a { color: var(--amber); }
-.sources { margin: 10px 0 0; font-size: 12px; color: var(--dim); }
+.sources { margin: 10px 0 0; font-size: calc(12 * var(--px)); color: var(--dim); }
 .directive-page .jd-foot { padding: 28px 0 calc(18px + var(--safe-b)); }

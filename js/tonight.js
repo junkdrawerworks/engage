@@ -22,7 +22,7 @@ import { linesForStar, readContacts } from './contacts.js';
 import { nowLine, variableFor } from './variables.js';
 import { DEEP_SKY, KINDS, sightById, sightDir, sightSize, sightWidthLy, seenIn } from './deepsky.js';
 import { sound } from './audio.js';
-import { setUpRoom } from './room.js';
+import { follow, setUpRoom, textScale } from './room.js';
 
 // The speaker in the header, the text size from Bridge settings, and the Keys card (press ?).
 setUpRoom({ sound, keys: [['← → ↑ ↓', 'Look around']] });
@@ -534,10 +534,10 @@ function drawGround() {
   for (const [az, name] of [[0, 'N'], [45, 'NE'], [90, 'E'], [135, 'SE'], [180, 'S'], [225, 'SW'], [270, 'W'], [315, 'NW']]) {
     const p = project(fromAltAz(0, az));
     if (!p || p.z < 0 || p.x < -20 || p.x > W + 20 || p.y < -20 || p.y > H + 20) continue;
-    ctx.font = `600 ${name.length === 1 ? 15 : 11}px ${FONT}`;
+    ctx.font = `600 ${z(name.length === 1 ? 15 : 11)}px ${FONT}`;
     ctx.fillStyle = name.length === 1 ? '#ffb54a' : 'rgba(255, 181, 74, 0.7)';
-    ctx.fillText(name, p.x, p.y + 18);
-    labelBoxes.push({ x: p.x - 12, y: p.y + 4, w: 24, h: 18 });
+    ctx.fillText(name, p.x, p.y + z(18));
+    labelBoxes.push({ x: p.x - z(12), y: p.y + 4, w: z(24), h: z(18) });
   }
   ctx.textAlign = 'left';
 }
@@ -577,7 +577,7 @@ function drawNames(ghost) {
   named = [];
   if (view.fov < NAMES_FOV * DEG || sky.sunAlt > -2) return;
   ctx.save();
-  ctx.font = `600 10px ${FONT}`;
+  ctx.font = `600 ${z(10)}px ${FONT}`;
   if ('letterSpacing' in ctx) ctx.letterSpacing = '2px';
   ctx.fillStyle = `rgba(${saved.night ? '235, 205, 196' : '150, 196, 255'}, ${ghost ? 0.34 : 0.6})`;
   // A tag's ring is not a label box (a tag with no room for its words is a ring alone), so keep clear of those too.
@@ -590,11 +590,11 @@ function drawNames(ghost) {
     const text = c.name.toUpperCase(), w = ctx.measureText(text).width;
     if (p.x - w / 2 < 4 || p.x + w / 2 > W - 4 || p.y < 10 || p.y > H - 10) continue;
     // In the middle of the figure, or a line above or below it where that is taken.
-    for (const dy of [0, 15, -15]) {
-      const box = { x: p.x - w / 2 - 2, y: p.y + dy - 8, w: w + 4, h: 13 };
+    for (const dy of [0, z(15), -z(15)]) {
+      const box = { x: p.x - w / 2 - 2, y: p.y + dy - z(8), w: w + 4, h: z(13) };
       if (overlaps(box) || onRing(box)) continue;
       labelBoxes.push(box);
-      ctx.fillText(text, p.x - w / 2, p.y + dy + 3);
+      ctx.fillText(text, p.x - w / 2, p.y + dy + z(3));
       named.push({ name: c.name, ...box });
       break;
     }
@@ -625,6 +625,10 @@ function drawRadiant() {
 }
 
 const FONT = "'Chakra Petch', 'Avenir Next Condensed', 'Arial Narrow', sans-serif";
+// The words on the sky grow with the text size (Bridge settings) and the browser's own, as the page's words do.
+let TS = 1;
+const z = n => n * TS;
+follow(() => { TS = textScale(); dirty = true; });
 const WHITE = [1, 1, 1];
 // A tag's colours: Starfleet's stars in cyan, the others in amber, and the line under the name. Night vision lays red
 // light over the page, which keeps only the red in each colour: cyan has little, so Starfleet's tags came out the
@@ -644,10 +648,10 @@ let labelled = []; // the names written beside things last frame, with their box
 // written, where it covers the least, unless the only places on the screen are under the header, the controls or
 // the daylight notice.
 function label(text, x, y, gap, style) {
-  ctx.font = `${style === 'star' ? 500 : 600} ${style === 'star' ? 11 : 12}px ${FONT}`;
-  const w = ctx.measureText(text).width, h = 14;
+  ctx.font = `${style === 'star' ? 500 : 600} ${z(style === 'star' ? 11 : 12)}px ${FONT}`;
+  const w = ctx.measureText(text).width, h = z(14);
   const mid = Math.min(Math.max(x - w / 2, 2), Math.max(2, W - 2 - w)); // centred under or over it, but kept on the screen
-  const spots = [{ x: x + gap, y: y - 8 }, { x: x - gap - w, y: y - 8 }, { x: mid, y: y + gap - 4 }, { x: mid, y: y - gap - h + 4 }];
+  const spots = [{ x: x + gap, y: y - z(8) }, { x: x - gap - w, y: y - z(8) }, { x: mid, y: y + gap - 4 }, { x: mid, y: y - gap - h + 4 }];
   let box = null, least = Infinity;
   for (const s of spots) {
     const b = { x: s.x, y: s.y, w, h };
@@ -662,7 +666,7 @@ function label(text, x, y, gap, style) {
   labelBoxes.push(box);
   labelled.push({ text, style, ...box });
   ctx.fillStyle = style === 'planet' ? '#ffd28a' : style === 'shower' ? 'rgba(190, 255, 214, 0.9)' : 'rgba(200, 210, 230, 0.62)';
-  ctx.fillText(text, box.x, box.y + 12);
+  ctx.fillText(text, box.x, box.y + z(12));
 }
 const meets = (b, o) => b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h;
 const overlaps = b => labelBoxes.some(o => b.x < o.x + o.w + 4 && o.x < b.x + b.w + 4 && b.y < o.y + o.h && o.y < b.y + b.h);
@@ -711,13 +715,13 @@ function drawTag(t) {
   // A star the catalogue has no distance for (only ever one from the log) isn't given the charts' nominal one here either.
   const far = cat.unmeasured[t.i] ? 'distance not measured' : formatLy(t.ly);
   const sub = below ? 'below the horizon' : faint ? 'too faint to see' : t.chart ? `${titleFor(cat, t.i)} · ${far}` : far;
-  ctx.font = `600 ${trek ? 14 : 12}px ${FONT}`;
+  ctx.font = `600 ${z(trek ? 14 : 12)}px ${FONT}`;
   const name = trek ? t.name.toUpperCase() : t.name;
   const tick = t.been ? 15 : 0; // room for the mark that says the ship has been there
   const wName = ctx.measureText(name).width + (trek ? name.length * 1.2 : 0) + tick;
-  ctx.font = `500 11px ${FONT}`;
+  ctx.font = `500 ${z(11)}px ${FONT}`;
   const wSub = ctx.measureText(sub).width;
-  const w = Math.max(wName, wSub) + 14, h = 34;
+  const w = Math.max(wName, wSub) + 14, h = z(34);
   let x = p.x + R + 9, y = p.y - h / 2;
   const left = p.x - R - 9 - w;
   const onRing = b => ringsAhead.some(o => o.i !== t.i && b.x < o.x + o.r && o.x - o.r < b.x + b.w && b.y < o.y + o.r && o.y - o.r < b.y + b.h);
@@ -733,20 +737,20 @@ function drawTag(t) {
   roundRect(x, y, w, h, 7); ctx.fill();
   ctx.fillStyle = `rgba(${color}, ${a})`;
   ctx.fillRect(x, y + 5, 2, h - 10);
-  ctx.font = `600 ${trek ? 14 : 12}px ${FONT}`;
+  ctx.font = `600 ${z(trek ? 14 : 12)}px ${FONT}`;
   if (trek && 'letterSpacing' in ctx) ctx.letterSpacing = '1.2px';
-  ctx.fillText(name, x + 8, y + 15);
+  ctx.fillText(name, x + 8, y + z(15));
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   if (t.been) {
     // A small filled Starfleet delta after the name: you've dropped out of warp here.
-    const mx = x + 8 + wName - 6, my = y + 10.5;
+    const mx = x + 8 + wName - 6, my = y + z(10.5);
     ctx.beginPath();
     ctx.moveTo(mx, my - 5.5); ctx.lineTo(mx + 4.4, my + 5); ctx.lineTo(mx, my + 2.4); ctx.lineTo(mx - 4.4, my + 5);
     ctx.closePath(); ctx.fill();
   }
-  ctx.font = `500 11px ${FONT}`;
+  ctx.font = `500 ${z(11)}px ${FONT}`;
   ctx.fillStyle = `rgba(${trek ? pal.sub : pal.otherSub || pal.sub}, ${pal.subA * a})`;
-  ctx.fillText(sub, x + 8, y + 28);
+  ctx.fillText(sub, x + 8, y + z(28));
   ctx.restore();
   placed.push({ x: p.x, y: p.y, r: 26, box, been: t.been, hit: { kind: 'star', i: t.i }, rank: trek ? -40 : -20 });
 }
@@ -789,11 +793,11 @@ function drawSight(x) {
   ctx.restore();
   // The tag beside it, clear of the patch's edge where the screen allows, and never under the page's own boxes.
   const sub = x.seen ? `${KINDS[x.o.kind]} · ${sightLy(x.ly)}` : x.o.vis > 6.5 ? 'needs a telescope' : 'too faint to see';
-  ctx.font = `600 12px ${FONT}`;
+  ctx.font = `600 ${z(12)}px ${FONT}`;
   const tick = x.been ? 15 : 0;
   const wName = ctx.measureText(x.o.name).width + tick;
-  ctx.font = `500 11px ${FONT}`;
-  const w = Math.max(wName, ctx.measureText(sub).width) + 14, h = 34;
+  ctx.font = `500 ${z(11)}px ${FONT}`;
+  const w = Math.max(wName, ctx.measureText(sub).width) + 14, h = z(34);
   const gap = Math.min(R, 60) + 8;
   const spots = [[p.x + gap, p.y - h / 2], [p.x - gap - w, p.y - h / 2], [p.x - w / 2, p.y + Math.min(b, 60) + 6], [p.x - w / 2, p.y - Math.min(b, 60) - 6 - h]];
   let box = null;
@@ -812,17 +816,17 @@ function drawSight(x) {
     roundRect(box.x, box.y, w, h, 7); ctx.fill();
     ctx.fillStyle = `rgb(${color})`;
     ctx.fillRect(box.x, box.y + 5, 2, h - 10);
-    ctx.font = `600 12px ${FONT}`;
-    ctx.fillText(x.o.name, box.x + 8, box.y + 15);
+    ctx.font = `600 ${z(12)}px ${FONT}`;
+    ctx.fillText(x.o.name, box.x + 8, box.y + z(15));
     if (x.been) {
-      const mx = box.x + 8 + wName - 6, my = box.y + 10.5;
+      const mx = box.x + 8 + wName - 6, my = box.y + z(10.5);
       ctx.beginPath();
       ctx.moveTo(mx, my - 5.5); ctx.lineTo(mx + 4.4, my + 5); ctx.lineTo(mx, my + 2.4); ctx.lineTo(mx - 4.4, my + 5);
       ctx.closePath(); ctx.fill();
     }
-    ctx.font = `500 11px ${FONT}`;
+    ctx.font = `500 ${z(11)}px ${FONT}`;
     ctx.fillStyle = `rgba(${pal.otherSub || pal.sub}, ${pal.subA})`;
-    ctx.fillText(sub, box.x + 8, box.y + 28);
+    ctx.fillText(sub, box.x + 8, box.y + z(28));
     ctx.restore();
   }
   placed.push({ x: p.x, y: p.y, r: Math.max(22, Math.min(a, b, 80)), box, sight: true, been: x.been, hit: { kind: 'sight', id: x.o.id }, rank: -30 });

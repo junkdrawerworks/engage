@@ -27,6 +27,7 @@ const followers = new Set();
 export function follow(fn) { followers.add(fn); fn(current()); }
 function applyPrefs() {
   const p = current();
+  scale = null;
   applyText(p.text);
   for (const fn of followers) fn(p);
 }
@@ -39,9 +40,12 @@ export function applyText(text = current().text) {
   else root.dataset.text = text;
 }
 
-// How much bigger to draw words into a picture than its standard size (see js/prefs.js).
+// How much bigger to draw words into a picture than its standard size (see js/prefs.js). Worked out once for each
+// change of the setting, so a picture drawn every frame can ask every frame.
+let scale = null;
 export function textScale() {
-  return scaleFor(current().text, parseFloat(getComputedStyle(document.documentElement).fontSize));
+  if (scale === null) scale = scaleFor(current().text, parseFloat(getComputedStyle(document.documentElement).fontSize));
+  return scale;
 }
 
 // A short vibration, where the phone has one and it is wanted: engaging, dropping out of warp, a hit on the hull.

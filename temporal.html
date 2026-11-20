@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The text size from Bridge settings, before anything is drawn (js/room.js keeps it up to date). -->
+  <script>try { var t = JSON.parse(localStorage.getItem('engage.prefs') || '{}').text; if (t === 'large' || t === 'largest') document.documentElement.dataset.text = t; } catch (e) {}</script>
   <title>Temporal observatory · Engage</title>
   <meta name="description" content="Turn a dial of years from 100,000 in the past to 100,000 ahead and watch the real constellations come apart as every star moves through space, the pole star change from Thuban to Polaris to Vega, and the nearest star stop being Proxima.">
   <meta property="og:site_name" content="Engage">
