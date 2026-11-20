@@ -6453,7 +6453,7 @@ await page.emulateMedia({ reducedMotion: null });
   await p.tap('#open-log');
   assert.equal(await p.locator('#order .says').innerText(), order.says, 'the order of the day is not the one for the date');
   assert.equal(await p.locator('#order').getAttribute('class'), 'order');
-  assert.deepEqual(await p.locator('#today li b').allInnerTexts(), ['Today’s simulation', 'Today’s hail', 'Today’s distress call', 'Today’s exam']);
+  assert.deepEqual(await p.locator('#today li b').allInnerTexts(), ['Today’s simulation', 'Today’s hail', 'Today’s distress call', 'Today’s exam', 'Today’s rescue test']);
   assert.match(await p.locator('#served').innerText(), /^Cadet · Your first day aboard$/);
   assert.match(await p.locator('#today .served.next').innerText(), /^Next, Ensign: 10 more stars, 1 more Kobayashi Maru run\.$/);
   assert.ok((await p.locator('#today li a').evaluateAll(as => as.map(a => a.getBoundingClientRect().height))).every(h => h >= 44));
@@ -6491,7 +6491,7 @@ await page.emulateMedia({ reducedMotion: null });
   assert.match(await p.locator('#order .done').innerText(), /^Carried out\./);
   if (order.kind === 'star') assert.ok((await p.locator('#order .done').innerText()).length > 20, 'a star order carried out reported nothing from the log');
   assert.deepEqual(await p.locator('#today li').evaluateAll(els => els.map(el => [el.querySelector('b').textContent, el.className])), [
-    ['Today’s simulation', 'done'], ['Today’s hail', order.kind === 'contact' ? 'done' : ''], ['Today’s distress call', 'done'], ['Today’s exam', ''], ['The Qaethuk are hailing again', ''],
+    ['Today’s simulation', 'done'], ['Today’s hail', order.kind === 'contact' ? 'done' : ''], ['Today’s distress call', 'done'], ['Today’s exam', ''], ['Today’s rescue test', ''], ['The Qaethuk are hailing again', ''],
   ]);
   assert.equal(await p.locator('#today [data-today="friend"]').getAttribute('href'), 'contact.html');
   assert.match(await p.locator('#served').innerText(), /^Cadet · 1 day served$/);

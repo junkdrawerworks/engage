@@ -147,10 +147,10 @@ test('today on the bridge: today’s simulation, hail and distress call, a frien
   const blank = todayItems({}, day);
   assert.deepEqual(blank.map(x => [x.name, x.done, x.href]), [
     ['Today’s simulation', false, 'maru.html'], ['Today’s hail', false, 'contact.html'], ['Today’s distress call', false, 'distress.html'],
-    ['Today’s exam', false, 'survey.html#exam'],
+    ['Today’s exam', false, 'survey.html#exam'], ['Today’s rescue test', false, 'maru.html'],
   ]);
   const rec = {
-    maru: { daily: { date: day } }, contact: { daily: { date: '2026-11-19' } },
+    maru: { daily: { date: day }, rescue: { daily: { date: day, line: 'Rescue test, 20 Nov: 450 home, of the 480 it allowed' } } }, contact: { daily: { date: '2026-11-19' } },
     distress: { calls: [{ day, star: 'Procyon', found: true }] },
     longway: { trip: { seed: 3, quarter: 9, left: 61234.5 } }, survey: { exam: { day, marks: [true, false] } },
   };
@@ -160,11 +160,14 @@ test('today on the bridge: today’s simulation, hail and distress call, a frien
     ['Today’s hail', 'An unknown ship, the same for everyone', false],
     ['Today’s distress call', 'Rescued at Procyon', true],
     ['Today’s exam', 'Cover your tracks: 2 of 5 worlds so far', false],
+    ['Today’s rescue test', '450 home, of the 480 it allowed', true],
     ['The Qaethuk are hailing again', 'Second contact', false],
     ['Your hail reached Proxima Centauri', 'Today, after the long way there', true],
     ['The long way home', 'Under way: year 3, 61,235 light years to go', false],
   ]);
-  assert.equal(items[5].href, 'radio.html#hail=Proxima%20Centauri');
+  assert.equal(items[6].href, 'radio.html#hail=Proxima%20Centauri');
+  // Yesterday's rescue is not today's.
+  assert.equal(todayItems({ maru: { rescue: { daily: { date: '2026-11-19', line: 'x' } } } }, day)[4].done, false);
   assert.equal(todayItems({ distress: { calls: [{ day, star: 'Vega', left: true }] } }, day)[2].line, 'Lost');
   // Today's exam: all five filed is done; yesterday's exam is not today's.
   const filed = todayItems({ survey: { exam: { day, marks: [true, true, false, true, true] } } }, day)[3];

@@ -38,7 +38,7 @@ const LETTERS = /^[ABCDF]$/;
 // href leads to what the line is about in its room. Each is read from that room's own record, so nothing is written
 // twice and nothing goes out of step. The Kobayashi Maru and first contact list their last 30 runs, and these lines
 // go back as far as those do.
-//   maru:     a simulation sat, and the Bridge Officer's Test passed
+//   maru:     a simulation sat, the Bridge Officer's Test passed, and each rescue test sat (the latest 30)
 //   contact:  each encounter answered
 //   xeno:     each creature kept in a jar (a jar kept before jars carried a date has no line)
 //   survey:   the latest best streak in Cover your tracks
@@ -62,6 +62,10 @@ export function supplementals({ maru, contact, xeno, survey, missions, radio, di
   }
   const officer = obj(m.officer);
   if (text(officer.passed, 40)) add(officer.passed, 'maru', 'passed', 'passed the Bridge Officer’s Test.', 'maru.html');
+  for (const r of list(obj(m.rescue).runs)) {
+    if (!(Number.isInteger(r.rescued) && Number.isInteger(r.most) && r.most > 0)) continue;
+    add(r.at, 'maru', 'rescuetest', `sat the Academy’s rescue test. ${r.rescued} home, of the ${r.most} it allowed${r.rescued >= r.most ? ': the most there was' : ''}.`, 'maru.html');
+  }
   const met = new Set(); // a people answered again is a line in the log, but not a new species met
   for (const r of list(obj(contact).runs)) {
     const people = text(r.people, 30), title = text(r.title, 40);
@@ -196,6 +200,8 @@ export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
   const best = obj(maru.best);
   const grades = ['Compassion', 'Judgment', 'Restraint', 'Nerve'].map(g => (LETTERS.test(best[g]) ? best[g] : '–'));
   const passed = !!text(obj(maru.officer).passed, 40);
+  const rescue = obj(maru.rescue), rescueBest = Number.isFinite(rescue.best) && rescue.best > 0 ? Math.min(1, rescue.best) : 0;
+  const rescueSaid = count(rescue.taken) ? `rescue test best ${Math.round(rescueBest * 100)}%` : '';
   const contact = obj(rec.contact);
   const made = contactStanding(contact).contacts;
   const survey = obj(rec.survey);
@@ -206,7 +212,8 @@ export function serviceRecord(rec, now = Date.now(), { lyOf } = {}) {
   const hearings = list(obj(rec.directive).heard).filter(h => Number.isFinite(h.t)).length;
   return [
     { room: 'maru', name: 'Kobayashi Maru', href: 'maru.html', none: 'Not sat yet',
-      line: taken ? `${Math.min(seen.size, 9)} of 9 endings · best ${grades.join(' ')}${passed ? ' · Officer’s Test passed' : ''}` : '' },
+      line: taken ? `${Math.min(seen.size, 9)} of 9 endings · best ${grades.join(' ')}${passed ? ' · Officer’s Test passed' : ''}${rescueSaid ? ` · ${rescueSaid}` : ''}`
+        : rescueSaid ? `Not sat yet · ${rescueSaid}` : '' },
     { room: 'contact', name: 'First contact', href: 'contact.html', none: 'No one met yet',
       line: n.met ? `${capital(some(n.met, 'people', 'peoples'))} met · ${made === 1 ? 'one contact' : `${words(made)} contacts`} made` : '' },
     { room: 'survey', name: 'Cover your tracks', href: 'survey.html#drill', none: 'Not played yet',

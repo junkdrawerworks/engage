@@ -88,6 +88,7 @@ test('each room adds a line to the log when something in it finishes, read from 
         { title: '<b>no</b>', at: '2026-11-17T11:00:00.000Z' },
       ],
       officer: { taken: 2, passed: '2026-11-18T11:00:00.000Z' },
+      rescue: { taken: 2, runs: [{ at: '2026-11-18T11:30:00.000Z', rescued: 480, of: 600, most: 480 }, { at: '2026-11-17T09:00:00.000Z', rescued: 390, of: 600, most: 450 }, { at: '2026-11-17T09:30:00.000Z', rescued: 'x' }] },
     },
     contact: { runs: [
       { title: 'First contact', people: 'Qaethuk', decoded: 9, of: 11, outcome: 'contact', at: '2026-11-18T12:00:00.000Z' },
@@ -104,9 +105,11 @@ test('each room adds a line to the log when something in it finishes, read from 
     ['xeno', 'Supplemental: kept a creature from a Class M world in a jar.', 'xeno.html#M-42'],
     ['contact', 'Supplemental: the Qaethuk hailed again. Second contact, 10 of 12 phrases decoded.', 'contact.html'],
     ['contact', 'Supplemental: answered a hail from the Qaethuk. First contact, 9 of 11 phrases decoded.', 'contact.html'],
+    ['maru', 'Supplemental: sat the Academy’s rescue test. 480 home, of the 480 it allowed: the most there was.', 'maru.html'],
     ['maru', 'Supplemental: passed the Bridge Officer’s Test.', 'maru.html'],
     ['maru', 'Supplemental: sat the Kobayashi Maru. The lifeboat, 150 home, C B B B.', 'maru.html'],
     ['maru', 'Supplemental: sat the Kobayashi Maru. Died trying, A C.', 'maru.html'],
+    ['maru', 'Supplemental: sat the Academy’s rescue test. 390 home, of the 450 it allowed.', 'maru.html'],
   ]);
   assert.equal(lines[0].t, at('2026-11-18T17:00:00Z'));
   // Nothing on record, or records that aren't records: no lines.
@@ -223,6 +226,9 @@ test('the service record: a row for each room’s record, saying what is on it o
   // Main engineering and the Prime Directive: the shifts stood and the hearings sat.
   const more = serviceRecord({ engineering: { shifts: 3, best: 0.8234 }, directive: { heard: [{ case: 'a', path: [], t: 1 }, { case: 'a', path: [], t: 2 }] } });
   assert.deepEqual(more.slice(-2).map(r => r.line), ['Three shifts stood · best 82% held', 'Two hearings before the board of inquiry']);
+  // The rescue test's best goes on the Kobayashi Maru's row, and is there before the Maru itself is sat.
+  assert.equal(serviceRecord({ maru: { taken: 1, runs: [{ title: 'The lifeboat' }], best: {}, rescue: { taken: 3, best: 0.9134 } } })[0].line, '1 of 9 endings · best – – – – · rescue test best 91%');
+  assert.equal(serviceRecord({ maru: { rescue: { taken: 1, best: 1 } } })[0].line, 'Not sat yet · rescue test best 100%');
   // Played but never right: a streak of nought is still a record.
   assert.equal(serviceRecord({ survey: { best: 0, seen: 3 } })[2].line, 'Best streak 0');
 });

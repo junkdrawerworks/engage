@@ -1,7 +1,7 @@
 // Duty: what brings an officer back to the bridge each day, read from every room's record. Today on the bridge, at
 // the head of the captain's log, gathers what is new today across the rooms: Starfleet's order of the day, today's
 // hail, simulation, exam and distress call, a friend hailing again, a hail landing, a long mission's answer due, a trip
-// home under way. The service record
+// home under way, today's rescue test. The service record
 // carries a rank, from Cadet to Captain, earned from what has been done in every room, with what the next one needs,
 // the days served (and the tour under way, which a single missed day doesn't end), and commendations to see coming.
 // Everything is worked out in the page from the date and the records, the same for every officer on the same day:
@@ -186,6 +186,10 @@ export function todayItems(rec = {}, day, { landings = [], friend = null, answer
   const exam = obj(obj(rec.survey).exam), marks = exam.day === day && Array.isArray(exam.marks) ? exam.marks.filter(m => typeof m === 'boolean') : [];
   items.push({ id: 'exam', name: 'Today’s exam', href: 'survey.html#exam', done: marks.length >= EXAM,
     line: marks.length >= EXAM ? `Cover your tracks: ${marks.filter(Boolean).length} of ${EXAM} filed` : marks.length ? `Cover your tracks: ${marks.length} of ${EXAM} worlds so far` : 'Cover your tracks: five worlds, the same for everyone' });
+  // Today's rescue test, on the Kobayashi Maru's page: its line to send says how it went ("450 home, of the 480 it allowed").
+  const rescue = obj(obj(obj(rec.maru).rescue).daily), rescued = rescue.date === day && typeof rescue.line === 'string';
+  items.push({ id: 'rescue', name: 'Today’s rescue test', href: 'maru.html', done: rescued,
+    line: rescued ? rescue.line.replace(/^Rescue test, [^:]+: /, '') : 'Two ships, one transporter, the same for every cadet' });
   if (friend) items.push({ id: 'friend', name: `The ${friend} are hailing again`, href: 'contact.html', done: false, line: 'Second contact' });
   for (const h of landings) items.push({ id: `landed:${h.star}`, name: `Your hail reached ${h.title}`, href: `radio.html#hail=${encodeURIComponent(h.star)}`, done: true, line: 'Today, after the long way there' });
   for (const a of answers) {
@@ -204,7 +208,7 @@ export function todayItems(rec = {}, day, { landings = [], friend = null, answer
 
 // The rooms whose records count toward a rank, and whether each has anything on it.
 export const ROOM_RECORDS = {
-  maru: r => count(r.taken) > 0 || list(r.runs).length > 0,
+  maru: r => count(r.taken) > 0 || list(r.runs).length > 0 || count(obj(r.rescue).taken) > 0,
   contact: r => count(r.met) > 0 || list(r.runs).length > 0,
   survey: r => count(r.seen) > 0,
   xeno: r => list(r.jars).length > 0 || !!r.tribble,
