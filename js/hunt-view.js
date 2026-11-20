@@ -1,7 +1,7 @@
 // The planetary survey's Long-range sensors tab: Planet hunt. A star's light (or its wobble) drawn point by point;
 // tap three dips for the planet's year, drag a line to the floor of the dip for its size, then say which survey file
 // it is. The rules are in js/hunt.js; this draws them and takes the taps.
-import { curve, events, eventAt, yearFrom, fold, binsFor, tried, tolerance, depthOf, sizeLine, massLine, yearLine, near, linkOf, fromLink, newSeed, LEVELS } from './hunt.js';
+import { curve, events, eventAt, yearFrom, fold, binsFor, tried, tolerance, depthOf, sizeLine, massLine, yearLine, near, linkOf, fromLink, newSeed, LEVELS, TOP_REACH } from './hunt.js';
 import { byId, label } from './classes.js';
 import { fourWith } from './quiz.js';
 import { Globe, paint } from './planet-art.js';
@@ -156,7 +156,7 @@ function tapAt(e) {
   const row = Math.max(0, Math.min(c.rows - 1, Math.floor(yy / L.rowH)));
   const t = row * c.level.rowDays + (x - L.x0) / (L.x1 - L.x0) * c.level.rowDays;
   // A fingertip, in days; for the wobble, whose tops fall between readings, a sixth of its year.
-  const tol = Math.max(16 / (L.x1 - L.x0) * c.level.rowDays, c.level.wobble ? c.planets[0].days / 6 : 0);
+  const tol = Math.max(16 / (L.x1 - L.x0) * c.level.rowDays, c.level.wobble ? c.planets[0].days * TOP_REACH : 0);
   dip(t, tol);
 }
 

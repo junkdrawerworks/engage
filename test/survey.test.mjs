@@ -224,6 +224,24 @@ test('every curve has three of its planet’s dips (or tops) to tap, and the sam
   }
 });
 
+test('every wobble shows three tops with a reading close by, never only a gap between cloudy nights', () => {
+  for (let seed = 1; seed <= 2000; seed++) {
+    const c = H.curve(4, seed);
+    const near = c.planets[0].days / 12, reach = c.planets[0].days * H.TOP_REACH;
+    const seen = H.events(c).filter(e => c.t.some(t => Math.abs(t - e.at) <= near));
+    assert.ok(seen.length >= 3, `seed ${seed}: only ${seen.length} tops with a reading near them`);
+    // A tap on the highest reading near each top seen counts as that top.
+    for (const e of seen) {
+      let best = -1;
+      c.t.forEach((t, i) => { if (Math.abs(t - e.at) <= near && (best < 0 || c.y[i] > c.y[best])) best = i; });
+      assert.equal(H.eventAt(c, c.t[best], reach)?.at, e.at, `seed ${seed}: the top at day ${e.at.toFixed(2)}`);
+    }
+  }
+  // Seed 77 used to leave its second top (day 7.7) in the gap after three cloudy nights.
+  const c = H.curve(4, 77);
+  assert.equal(H.topsSeen(c), H.events(c).length);
+});
+
 test('three dips of one planet give its year; dips of two give nothing but a warning', () => {
   const c = H.curve(3, 9);
   const ev = H.events(c);

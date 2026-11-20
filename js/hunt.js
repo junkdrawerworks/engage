@@ -93,15 +93,21 @@ export function curve(levelId, seed) {
   const days = rows * level.rowDays;
   const t = [], y = [];
   if (level.wobble) {
-    // Four readings a night, through fourteen nights, one night in seven lost to cloud.
+    // Four readings a night, through fourteen nights, one night in seven lost to cloud. The nights are drawn again
+    // (from the same seed, so a link still draws one star) until three of the wave's tops have a reading close by,
+    // so the three the brief asks for can be seen, not guessed in a gap between nights. Most seeds keep their first draw.
     const p = planets[0];
-    for (let night = 0; night < days; night++) {
-      if (r() < 1 / 7) continue;
-      for (const at of [0.02 + r() * 0.08, 0.12 + r() * 0.08, 0.22 + r() * 0.08, 0.32 + r() * 0.08]) {
-        const tt = night + at;
-        t.push(tt);
-        y.push(p.kms * Math.cos(2 * Math.PI * (tt - mids[0]) / p.days) + noise * gauss(r));
+    for (let tries = 0; tries < 40; tries++) {
+      t.length = 0; y.length = 0;
+      for (let night = 0; night < days; night++) {
+        if (r() < 1 / 7) continue;
+        for (const at of [0.02 + r() * 0.08, 0.12 + r() * 0.08, 0.22 + r() * 0.08, 0.32 + r() * 0.08]) {
+          const tt = night + at;
+          t.push(tt);
+          y.push(p.kms * Math.cos(2 * Math.PI * (tt - mids[0]) / p.days) + noise * gauss(r));
+        }
       }
+      if (topsSeen({ planets, mids, days, t }) >= 3) break;
     }
   } else {
     for (let tt = 0; tt < days; tt += level.cadence) {
@@ -123,6 +129,16 @@ export function events(c) {
     for (let n = 0, at = first; at < c.days; n++, at += p.days) out.push({ planet: p, n, at });
   });
   return out.sort((a, b) => a.at - b.at);
+}
+
+// For the wobble: a tap counts within a sixth of the planet's year of a top (the hunt view's fingertip), and a top
+// is seen when a reading lies within a twelfth of the year of it, where the star's speed is still within 87% of its
+// top (cos 30°): with every night clear there always is one. How many of the curve's tops are seen.
+export const TOP_REACH = 1 / 6;
+export const TOP_SEEN = 1 / 12;
+export function topsSeen(c) {
+  const near = c.planets[0].days * TOP_SEEN;
+  return events(c).filter(e => c.t.some(tt => Math.abs(tt - e.at) <= near)).length;
 }
 
 // The crossing (or top) nearest a tap at time t, if it is within `tol` days: else null.
