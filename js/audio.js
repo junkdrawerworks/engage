@@ -154,6 +154,7 @@ export const sound = {
   // Dropping out of warp: a falling whoosh.
   arrive() {
     if (!this.on || !ensure()) return;
+    heard('arrive');
     const t = ctx.currentTime;
     const n = noise(1.6), bp = ctx.createBiquadFilter(), g = ctx.createGain();
     bp.type = 'bandpass';
@@ -166,6 +167,16 @@ export const sound = {
     n.connect(bp).connect(g).connect(master);
     n.start(t);
     n.stop(t + 1.5);
+    hum = null;
+  },
+
+  // Dropping out of warp somewhere the bridge falls quiet (Wolf 359): the engine's hum cuts out at once, and there is
+  // no whoosh, only silence for the first seconds there.
+  hush() {
+    heard('hush');
+    if (!hum || !ctx) return;
+    const t = ctx.currentTime;
+    for (const g of [hum.og, hum.ng]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + 0.06); }
     hum = null;
   },
 

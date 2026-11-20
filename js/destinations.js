@@ -52,6 +52,9 @@ export const DESTINATIONS = [
   },
   {
     star: 'Wolf 359', title: 'Wolf 359', find: ['The Borg'], group: 'neighbors',
+    // Where the Borg destroyed a Starfleet armada (The Next Generation, “The Best of Both Worlds”): the bridge falls
+    // quiet as the ship drops out of warp here, the engine's hum cut off and no whoosh (js/audio.js).
+    quiet: true,
     kind: 'Red dwarf, spectral type M6', temp: 2800, lum: 0.0014, radius: 0.16,
     planets: 'None confirmed.',
     notes: [

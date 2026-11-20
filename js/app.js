@@ -812,7 +812,8 @@ function fly(now) {
       T.phase = 'drop';
       if (!T.rebased) { T.rebased = true; sky.setOrigin(T.S); }
       flash(0.7);
-      sound.arrive();
+      if (DESTINATIONS.some(d => d.quiet && cat.byName.get(d.star) === T.i)) sound.hush(); // Wolf 359 falls quiet
+      else sound.arrive();
       buzz(90);
       tell('drop');
       updateHud();

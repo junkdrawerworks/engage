@@ -401,6 +401,22 @@ try {
     assert.equal(await p.locator('#jars-wrap').isVisible(), false, 'an empty shelf is still shown');
     assert.equal(await p.locator('#cabinet [data-tribble]').count(), 1, 'no tribble to keep again');
 
+    // Wolf 359 falls quiet: dropping out of warp there, the engine's hum is cut off and there is no whoosh. Anywhere
+    // else the ship arrives as it always has.
+    await p.clock.setFixedTime(t0);
+    await p.goto(base);
+    await bridgeReady(p);
+    await p.evaluate(() => { window.engageHeard = []; engage.speed(8); });
+    for (const [star, quiet] of [['Wolf 359', true], ['Sirius', false]]) {
+      await p.evaluate(s => { engageHeard.length = 0; engage.target(s); }, star);
+      await p.click('#engage');
+      await p.waitForFunction(() => !engage.trip && !document.getElementById('arrival').hidden, null, { timeout: 30000 });
+      const heard = await p.evaluate(() => engageHeard.slice());
+      assert.equal(heard.includes('hush'), quiet, `${star}: ${heard}`);
+      assert.equal(heard.includes('arrive'), !quiet, `${star}: ${heard}`);
+      await p.keyboard.press('Escape');
+    }
+
     // Warp 10: Your warp on the warp scale pushed hard against its stop three times running says what happened in
     // Voyager's "Threshold". Twice, or three times slowly, is just using the slider.
     await p.clock.setFixedTime(t0);

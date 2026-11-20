@@ -116,3 +116,7 @@ test('words drawn into pictures grow with the text size and with the browser’s
   assert.equal(textScale('standard', NaN), 1);
   assert.equal(textScale('odd', 16), 1);
 });
+
+test('the bridge falls quiet on arrival at Wolf 359, and only there', () => {
+  assert.deepEqual(DESTINATIONS.filter(d => d.quiet).map(d => d.star), ['Wolf 359']);
+});
