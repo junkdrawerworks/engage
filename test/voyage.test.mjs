@@ -376,6 +376,18 @@ test('autopilot flies a voyage’s next leg, else the nearest star not yet in th
   assert.equal(go(0, [], 5), 5, 'a voyage under way did not fly its next leg');
   assert.equal(go(5, [], 5), 1);
   assert.equal(autopilotNext({ at: 0, log: [], tiers: [[0]], distance: () => 1 }), null, 'nowhere to go is nowhere');
+  // Its later rounds aren't written in the log: the stars it has flown to since count as visited after the log's, so
+  // it goes round them all rather than back and forth between the two the log has longest ago.
+  const log = [5, 4, 3, 2, 1].map(star => ({ star }));
+  let here = 0;
+  const since = [], order = [];
+  for (let n = 0; n < 15; n++) {
+    here = autopilotNext({ at: here, log, tiers: [[1, 2, 3], [4, 5]], distance: i => far[i], since });
+    since.push(here);
+    order.push(here);
+  }
+  assert.deepEqual(order, [1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5]);
+  assert.equal(go(0, [5, 4, 3, 2, 1]), 1);
 });
 
 // ---------- Stellar cartography: the log's chart ----------

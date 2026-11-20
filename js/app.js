@@ -906,9 +906,16 @@ function arrive() {
     const next = leg.voyage ? nextStop(leg.voyage, findStar) : null;
     entry.sections.unshift(['Voyage', legLine(leg.tag, next === 0 ? 'home to Sol' : next != null ? inTextFor(cat, next) : '')]);
   }
-  state.log.unshift(entry);
-  state.ly += T.ly;
-  if (save()) askToKeep(); // once ever: the first entry kept is worth keeping
+  // Autopilot writes only its first visit to a star (and every leg of a voyage, which the log marks flown): a night
+  // left running would otherwise add a thousand repeats, bury your own visits and fill the browser's storage.
+  // A repeat is still flown and shown; it goes on autopilot's own list of where it has been, for where to go next.
+  const repeat = auto && !leg && state.log.some(e => e.star === T.i);
+  if (repeat) auto.since = [...auto.since.filter(i => i !== T.i), T.i];
+  else {
+    state.log.unshift(entry);
+    state.ly += T.ly;
+  }
+  if (save() && !repeat) askToKeep(); // once ever: the first entry kept is worth keeping
   $('readout').hidden = true;
   if (!auto) helmAway(false);
   setTarget(null, false);
@@ -938,7 +945,8 @@ function flash(strength) {
 // and the ship flies itself. A voyage under way flies its next leg; otherwise it goes to the nearest destination
 // with notes not yet in the log, then the brightest named stars, then wherever it was longest ago (see
 // autopilotNext in js/voyages.js). At each star it holds about 20 seconds with two lines on screen, then goes on.
-// Every stop is written to the log as any arrival is. Any key or touch drops back to the helm (a flight under way
+// Its first stop at each star is written to the log as any arrival is; later rounds fly there and hold, but write
+// nothing. Any key or touch drops back to the helm (a flight under way
 // finishes first, and its log entry comes up as usual). Under reduced motion each flight is the cross-fade it always is.
 const AUTO_HOLD = 20; // seconds at each star
 let auto = null; // { timer, full } while it flies
@@ -947,7 +955,7 @@ function autopilot(on) {
   if (on === !!auto) return;
   if (on) {
     closeSheets();
-    auto = { timer: 0, full: false };
+    auto = { timer: 0, full: false, since: [] };
     document.body.classList.add('auto');
     helmAway(true);
     wakeHold();
@@ -983,6 +991,7 @@ function autoNext() {
     // Home is where it set out from, not somewhere to explore.
     tiers: [DESTINATIONS.map(d => findStar(d.star)).filter(i => i > 0 && !cat.unmeasured[i]), candidates().filter(i => i > 0 && !cat.unmeasured[i])],
     voyageNext: state.voyage ? nextStop(state.voyage, findStar) : null,
+    since: auto.since,
   });
   if (i == null) { autopilot(false); return; }
   setTarget(i, false);
@@ -2339,6 +2348,10 @@ function hooks() {
     get earthHeld() { return earthHeld; },
     autopilot,
     get auto() { return !!auto; },
+    // The stars autopilot chooses among once the voyages are done (catalogue indices), and those it has flown to this
+    // time without writing them in the log, oldest first.
+    autoStars: () => candidates().slice(),
+    get autoSince() { return auto ? auto.since.slice() : null; },
   };
 }
 

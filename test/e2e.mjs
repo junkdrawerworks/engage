@@ -1065,9 +1065,26 @@ assert.equal(await page.locator('#console').evaluate(el => el.inert), false, 'th
   const n = await p.evaluate(() => engage.state.log.length);
   await p.waitForTimeout(1500);
   assert.equal(await p.evaluate(() => engage.state.log.length), n, 'it went on flying after the helm was taken back');
+  // Once it has been everywhere, its later rounds fly and hold but write nothing: a night left on adds no repeats.
+  // It goes on round them all, not back and forth between two.
+  const everywhere = await p.evaluate(() => {
+    engage.closeSheets();
+    engage.state.log = engage.autoStars().filter(i => i > 0).map((star, k) => ({ id: Date.now() - 1e6 + k, star, title: `Star ${star}`, stardate: '2026.880', intro: '', sections: [], ly: 1 }));
+    engage.autopilot(true);
+    return engage.state.log.length;
+  });
+  await p.waitForFunction(() => engage.autoSince?.length >= 3 && !engage.trip && !document.getElementById('caption').hidden, null, { timeout: 60000 });
+  const since = await p.evaluate(() => engage.autoSince);
+  assert.equal(new Set(since).size, since.length, `autopilot flew back to a star it had just been to: ${since}`);
+  assert.equal(await p.evaluate(() => engage.state.log.length), everywhere, 'autopilot wrote a repeat visit in the log');
+  assert.notEqual(await p.locator('#cap-title').innerText(), '', 'a repeat stop showed no caption');
+  await p.evaluate(() => engage.autopilot(false));
+  await p.waitForFunction(() => !engage.trip, null, { timeout: 30000 });
+  await p.evaluate(() => engage.closeSheets());
   // With a voyage under way it flies the next leg, not the nearest new star.
+  // (Sirius is in the log already, and a voyage's leg is written all the same: the log marks the voyage flown.)
   await p.evaluate(() => { engage.closeSheets(); engage.state.voyage = { id: 'brightest', leg: 0 }; engage.autopilot(true); });
-  await stop(n + 1);
+  await stop(everywhere + 1);
   assert.equal(await p.locator('#cap-title').innerText(), 'Sirius', 'autopilot did not fly the voyage’s next leg');
   assert.match(await p.locator('#cap-sub').innerText(), /^Leg 1 of 7, The brightest seven · /);
   await p.evaluate(() => engage.autopilot(false));

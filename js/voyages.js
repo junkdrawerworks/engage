@@ -100,8 +100,11 @@ export function legLine(tag, next) {
 // Autopilot: where the ship goes next on its own. A voyage under way flies its next leg. Otherwise, the nearest star
 // of the first tier (the destinations with notes) not yet in the log, then of the next tier (the brightest named
 // stars), and once every one has been visited, the one visited longest ago. Never the star the ship is at.
-// `tiers` are lists of star indices, `distance(i)` how far star i is from the ship, `log` newest first.
-export function autopilotNext({ at, log, tiers, distance, voyageNext = null }) {
+// `tiers` are lists of star indices, `distance(i)` how far star i is from the ship, `log` newest first. Autopilot
+// writes only its first visit to each star in the log, so its later rounds aren't in it: `since` is the stars it has
+// flown to this time without writing them, oldest first, and they count as visited later than anything in the log.
+// Without them it would go back and forth between the two stars the log has longest ago.
+export function autopilotNext({ at, log, tiers, distance, voyageNext = null, since = [] }) {
   if (voyageNext != null && voyageNext !== at) return voyageNext;
   const visited = new Set(log.map(e => e.star));
   for (const tier of tiers) {
@@ -115,8 +118,10 @@ export function autopilotNext({ at, log, tiers, distance, voyageNext = null }) {
   }
   // Everything visited: the star whose last visit is furthest back in the log.
   const last = new Map();
+  // How far back each star's latest visit is: 0 the newest in the log, and below that, newer still, autopilot's own.
+  for (let k = since.length - 1; k >= 0; k--) if (!last.has(since[k])) last.set(since[k], -(k + 1));
   log.forEach((e, k) => { if (!last.has(e.star)) last.set(e.star, k); });
-  let best = null, oldest = -1;
+  let best = null, oldest = -Infinity;
   for (const i of tiers.flat()) {
     if (i === at) continue;
     const k = last.get(i) ?? Infinity;
