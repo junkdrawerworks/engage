@@ -249,14 +249,15 @@ export function weekOf(day) {
 // star Starfleet's charts name, 'new' at a star never visited before, 'far' the light years flown, 'voyage' a leg of
 // a voyage flown, 'orders' an order of the day carried out, and the rest each thing done in that room this week. A
 // missed week costs nothing; the next starts fresh. The groups' members are the IAU's named stars (WGSN) as the
-// catalogue names them: the Pleiades' nine, the Hyades' five named stars (θ¹ Tauri and Chamukuy, θ² Tauri, Ain,
-// ε Tauri, Prima and Secunda Hyadum, γ and δ¹ Tauri; Aldebaran is in front of the cluster, not in it), the Big
+// catalogue names them: the Pleiades' nine, five of the Hyades' brightest (θ¹ Tauri, the catalogue's own Bayer name,
+// with Chamukuy (θ² Tauri), Ain (ε), Prima Hyadum (γ) and Secunda Hyadum (δ¹); Aldebaran is in front of the cluster,
+// not in it), the Big
 // Dipper's seven, Orion's shoulders, feet and belt, and the four of Cassiopeia's W the catalogue names (γ Cas is
 // unnamed in it).
 export const WEEKLY = [
   { id: 'pleiades', kind: 'stars', title: 'Survey the Pleiades', says: 'Visit four of its nine named stars, the Seven Sisters and their parents.', need: 4,
     stars: ['Alcyone', 'Atlas', 'Electra', 'Maia', 'Merope', 'Taygeta', 'Pleione', 'Celaeno', 'Asterope'] },
-  { id: 'hyades', kind: 'stars', title: 'Survey the Hyades', says: 'Visit three of its five named stars. The nearest open cluster to the Sun, 153 light years out.', need: 3,
+  { id: 'hyades', kind: 'stars', title: 'Survey the Hyades', says: 'Visit three of these five: θ¹\u00a0Tauri, Chamukuy, Ain, Prima Hyadum and Secunda Hyadum. The nearest open cluster to the Sun, 153 light years out.', need: 3,
     stars: ['θ¹ Tauri', 'Chamukuy', 'Ain', 'Prima Hyadum', 'Secunda Hyadum'] },
   { id: 'dipper', kind: 'stars', title: 'Fly the Big Dipper', says: 'Visit five of its seven stars, from Dubhe at the lip of the bowl to Alkaid at the end of the handle.', need: 5,
     stars: ['Dubhe', 'Merak', 'Phecda', 'Megrez', 'Alioth', 'Mizar', 'Alkaid'] },
@@ -320,17 +321,19 @@ export function assignedStars(a, find = () => undefined) {
 // an order of the day was carried out; `find(name)` is a star's catalogue index and `lyOf(i)` how far it is from home.
 export function weeklyProgress(a, { rec = {}, log = [], orders = [], find = () => undefined, lyOf = () => undefined } = {}) {
   const inWeek = t => { if (!Number.isFinite(t)) return false; const d = dayOf(t); return d >= a.week && d <= a.ends; };
-  const arrivals = log.filter(e => e.star !== 0 && inWeek(entryTime(e))).sort((x, y) => entryTime(x) - entryTime(y));
-  const seen = new Set(arrivals.map(e => e.star));
+  // Every arrival this week, home's too: a trip home covers light years and can be a voyage's leg, as it is for the
+  // orders of the day. Home is never one of the stars an assignment asks you to visit.
+  const arrivals = log.filter(e => inWeek(entryTime(e))).sort((x, y) => entryTime(x) - entryTime(y));
+  const seen = new Set(arrivals.filter(e => e.star !== 0).map(e => e.star));
   // Each thing that counts, as [moment, how much]: a star counts once, at its first arrival this week.
   let marks = [];
   const firsts = ok => { const got = new Set(); for (const e of arrivals) if (ok(e) && !got.has(e.star)) { got.add(e.star); marks.push([entryTime(e), 1]); } };
   const times = xs => { for (const t of xs) if (inWeek(t)) marks.push([t, 1]); };
   const at = x => Date.parse(x);
   switch (a.kind) {
-    case 'stars': case 'charts': { const want = new Set(assignedStars(a, find)); firsts(e => want.has(e.star)); break; }
-    case 'near': firsts(e => lyOf(e.star) <= a.near); break;
-    case 'new': firsts(e => !log.some(x => x.star === e.star && (entryTime(x) ?? Infinity) < entryTime(e))); break;
+    case 'stars': case 'charts': { const want = new Set(assignedStars(a, find)); firsts(e => e.star !== 0 && want.has(e.star)); break; }
+    case 'near': firsts(e => e.star !== 0 && lyOf(e.star) <= a.near); break;
+    case 'new': firsts(e => e.star !== 0 && !log.some(x => x.star === e.star && (entryTime(x) ?? Infinity) < entryTime(e))); break;
     case 'far': marks = arrivals.filter(e => e.ly > 0).map(e => [entryTime(e), e.ly]); break;
     case 'voyage': marks = arrivals.filter(e => e.voyage).map(e => [entryTime(e), 1]); break;
     case 'orders': times(orders.filter(d => DAY_RE.test(d)).map(d => new Date(`${d}T12:00:00`).getTime())); break;
@@ -468,7 +471,7 @@ export function mergeDuty(a, b) {
 }
 
 // The duty record brought up to date for `today`: the days served the records show, each order of the last fortnight
-// carried out on its day, this week's assignment and last week's carried out, the rank and the commendations earned.
+// carried out on its day, the weekly assignments of this week and the two before carried out, the rank and the commendations earned.
 // `f` is what has been done (see facts in js/app.js), without days, orders and weeks, which this adds; `here` is the
 // star the ship holds at (see carriedOut); `lyOf(i)` how far star i is from home. Returns { duty, f, rank, medals,
 // weekly (this week's assignment, with how far along it is), changed }.
@@ -482,7 +485,9 @@ export function update(kept, { rec = {}, log = [], supps = [], find = () => unde
   }
   const weeks = { ...was.weeks };
   let weekly = null;
-  for (const week of [weekOf(today), addDays(weekOf(today), -7)]) {
+  // This week and the two before it, so an assignment carried out while the log stayed shut is kept for a fortnight,
+  // as an order of the day is.
+  for (const week of [weekOf(today), addDays(weekOf(today), -7), addDays(weekOf(today), -14)]) {
     const a = assignmentOf(week), p = weeklyProgress(a, { rec, log, orders: [...orders], find, lyOf });
     if (!weeks[week] && p.done) weeks[week] = Math.min(p.at, now); // an order counts at noon on its day, which may be still to come
     if (!weekly) weekly = { ...a, ...p, done: !!weeks[week], at: weeks[week] || null, ...(weeks[week] ? { have: a.need } : {}) };

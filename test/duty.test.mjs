@@ -327,6 +327,13 @@ test('a week’s assignment counts what was done that week, each star once, and 
   const flown = weeklyProgress(far, { log: [entry('2026-11-16', 3, { ly: 320.4 }), entry('2026-11-20', 4, { ly: 100 })] });
   assert.equal(weeklySaid(far, flown), '420 of 500 light years');
   assert.equal(weeklyProgress(far, { log: [entry('2026-11-16', 3, { ly: 320.4 }), entry('2026-11-20', 4, { ly: 200 })] }).done, true);
+  // A trip home counts its light years and its voyage leg, as it does for the orders of the day, but home is never a
+  // star you've never been to.
+  const homeward = [entry('2026-11-16', 3, { ly: 320.4 }), entry('2026-11-20', 0, { ly: 320.4, voyage: { id: 'neighbours', leg: 2 } })];
+  assert.equal(weeklyProgress(far, { log: homeward }).have, 500);
+  assert.equal(weeklyProgress({ ...WEEKLY.find(w => w.id === 'voyage'), ...week }, { log: homeward }).have, 1);
+  assert.equal(weeklyProgress(fresh, { log: homeward }).have, 1);
+  assert.deepEqual([...weeklyProgress(far, { log: homeward }).seen], [3]);
   // A room's work: distress calls answered this week, not one left partway, and not last week's.
   const calls = { ...WEEKLY.find(w => w.id === 'distress'), ...week };
   const rec = { distress: { calls: [
@@ -383,4 +390,7 @@ test('last week’s assignment carried out on Sunday is kept when the log is nex
   assert.equal(u.duty.weeks[a.week], noon(a.ends), 'Sunday’s assignment was lost when Monday came');
   assert.equal(u.weekly.week, monday, 'Monday shows the new week’s assignment');
   assert.equal(u.weekly.done, false);
+  // With the log left shut for nine days after, it is still kept, as an order of the day is for a fortnight.
+  const later = update(null, { log: [entry(a.ends, 3, { ly: 600 })], today: addDays(a.ends, 9), now: at(addDays(a.ends, 9)), f: {} });
+  assert.equal(later.duty.weeks[a.week], noon(a.ends), 'a week carried out was lost when the log stayed shut for nine days');
 });
