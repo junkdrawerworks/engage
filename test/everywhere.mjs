@@ -105,6 +105,56 @@ try {
     assert.equal(await p.locator('#speaker').getAttribute('aria-pressed'), 'false', 'the old Engine sound setting was forgotten');
     await c.close();
   }
+
+  // ---------- Vibration, on the phones that can ----------
+  // On Android a short buzz goes with engaging, dropping out of warp, and each hit on your ship in the Kobayashi
+  // Maru, under a setting of its own; where the browser can't vibrate (an iPhone, a computer) there's no setting.
+  {
+    const c = await phone();
+    await c.addInitScript(() => {
+      localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true, opts: { sound: false } }));
+      navigator.vibrate = pattern => { (window.buzzed ||= []).push(pattern); return true; };
+    });
+    const p = watch(await c.newPage());
+    await p.goto(base);
+    await bridgeReady(p);
+    assert.equal(await p.locator('#opt-buzz-row').evaluate(el => el.hidden), false, 'no Vibration setting on a phone that vibrates');
+    const fly = async () => {
+      await p.evaluate(() => { engage.speed(40); engage.target(engage.state.at === 0 ? 'Proxima Centauri' : 'Sol'); });
+      await p.locator('#engage').tap();
+      await p.waitForFunction(() => !engage.trip && !document.getElementById('arrival').hidden, null, { timeout: 30000 });
+      await p.evaluate(() => engage.closeSheets());
+    };
+    await fly();
+    assert.deepEqual(await p.evaluate(() => window.buzzed), [[20, 40, 40, 40, 90], 90], 'no buzz going to warp and dropping out');
+    await p.click('#open-settings');
+    await p.locator('label:has(#opt-buzz)').click();
+    assert.equal((await prefs(p)).buzz, false);
+    await p.evaluate(() => engage.closeSheets());
+    await fly();
+    assert.equal(await p.evaluate(() => window.buzzed.length), 2, 'it buzzed with Vibration off');
+    // The Maru: hits on your ship buzz, and nothing else does.
+    await p.evaluate(() => localStorage.setItem('engage.prefs', JSON.stringify({ sound: false, buzz: true, text: 'standard' })));
+    await p.goto(base + 'maru.html');
+    await ready(p, 'maru.html');
+    await p.locator('#start').tap();
+    for (const id of ['enter', 'beam', 'beam']) {
+      await p.locator(`.order[data-id="${id}"]`).tap();
+      await p.waitForFunction(() => !maru.busy, null, { timeout: 20000 });
+    }
+    const hits = await p.evaluate(() => window.buzzed || []);
+    assert.ok(hits.length >= 1 && hits.every(x => x === 70), `the Maru's hits buzzed ${JSON.stringify(hits)}`);
+    await c.close();
+  }
+  {
+    const c = await phone();
+    await c.addInitScript(() => { localStorage.setItem('engage.v1', JSON.stringify({ seenIntro: true })); delete Navigator.prototype.vibrate; });
+    const p = watch(await c.newPage());
+    await p.goto(base);
+    await bridgeReady(p);
+    assert.equal(await p.locator('#opt-buzz-row').evaluate(el => el.hidden), true, 'a Vibration setting where nothing can vibrate');
+    await c.close();
+  }
 } finally {
   await browser.close();
   server.close();

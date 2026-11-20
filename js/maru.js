@@ -7,7 +7,7 @@ import { sound } from './audio.js';
 import { keep, unkept, watch } from './store.js';
 import { onScreen } from './onscreen.js';
 import { fullName, readShip } from './myship.js';
-import { setUpRoom } from './room.js';
+import { buzz, setUpRoom } from './room.js';
 
 // The speaker in the header, and the text size from Bridge settings.
 setUpRoom({ sound });
@@ -478,7 +478,7 @@ const scene = {
         this.fx.push({ type: 'disruptor', id: e.from, t0: at0(t + i * 110), dur: 380 });
         if (i === kfires.length - 1) {
           const hitAt = t + i * 110 + 380;
-          later(hitAt, () => { sound.thud(); this.shieldHit = performance.now(); });
+          later(hitAt, () => { sound.thud(); buzz(70); this.shieldHit = performance.now(); });
           t = hitAt + 200;
         }
       } else if (e.type === 'fire-maru') {
@@ -507,12 +507,12 @@ const scene = {
         t += 1800;
         this.ship.gone = at0(t);
         this.fx.push({ type: 'boom', at: 'ship', t0: at0(t), dur: 1800, size: 2 });
-        later(t, () => sound.boom(true));
+        later(t, () => { sound.boom(true); buzz(250); });
         t += 1200;
       } else if (e.type === 'destroyed') {
         this.ship.gone = at0(t);
         this.fx.push({ type: 'boom', at: 'ship', t0: at0(t), dur: 1800, size: 2 });
-        later(t, () => sound.boom(true));
+        later(t, () => { sound.boom(true); buzz(250); });
         t += 1400;
       }
     }

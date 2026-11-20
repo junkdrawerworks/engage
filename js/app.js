@@ -2,7 +2,7 @@
 import { loadCatalog } from './catalog.js';
 import { Sky } from './sky.js';
 import { sound } from './audio.js';
-import { follow, setPref, setUpRoom } from './room.js';
+import { buzz, canBuzz, follow, setPref, setUpRoom } from './room.js';
 import { DESTINATIONS, GROUPS } from './destinations.js';
 import { arrivalFirsts, chartedSaid, companions, composeEntry, describeKind, inTextFor, logRecords, nearestStars, notesFor, starKinds, titleFor } from './log.js';
 import { filesForStar, grows, label as classLabel } from './classes.js';
@@ -227,7 +227,8 @@ async function start() {
   showNight(); // before the stars are in: no bright moment on the way
   // Sound and the text size are every room's settings (js/room.js), followed here and in Bridge settings.
   setUpRoom({ sound });
-  follow(p => { $('opt-sound').checked = p.sound; });
+  follow(p => { $('opt-sound').checked = p.sound; $('opt-buzz').checked = p.buzz; });
+  $('opt-buzz-row').hidden = !canBuzz(); // iPhones and computers can't vibrate: no setting for it there
   const img = new Image();
   img.src = 'img/milkyway.png';
   try {
@@ -697,7 +698,7 @@ function fly(now) {
     T.phase = 'align';
   } else if (s < T.align + T.spool) {
     const k = (s - T.align) / T.spool;
-    if (T.phase !== 'spool') { T.phase = 'spool'; sound.engage(T.spool + T.cruise); updateHud(); }
+    if (T.phase !== 'spool') { T.phase = 'spool'; sound.engage(T.spool + T.cruise); buzz([20, 40, 40, 40, 90]); updateHud(); }
     state.yaw = T.yaw1; state.pitch = T.pitch1; state.fov = 60 * DEG;
     if (calm) lit = 1 - (1 - DIM) * ease(k);
     else {
@@ -728,6 +729,7 @@ function fly(now) {
       if (!T.rebased) { T.rebased = true; sky.setOrigin(T.S); }
       flash(0.7);
       sound.arrive();
+      buzz(90);
       updateHud();
     }
     dist = T.D;
@@ -1954,6 +1956,7 @@ function bind() {
   $('opt-night').addEventListener('change', e => setNight(e.target.checked));
   // Sound is every room's setting, not only the bridge's: the speaker in any room's header changes it too.
   $('opt-sound').addEventListener('change', e => setPref('sound', e.target.checked));
+  $('opt-buzz').addEventListener('change', e => setPref('buzz', e.target.checked));
   $('records-save').addEventListener('click', saveCopy);
   $('records-restore').addEventListener('click', () => $('records-file').click());
   $('records-file').addEventListener('change', e => readCopy(e.target));
