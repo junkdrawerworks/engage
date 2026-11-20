@@ -2753,9 +2753,9 @@ await bridgeReady();
   assert.match((await p.locator('#records').innerText()).replace(/\s+/g, ' '), /CHARTED DESTINATIONS \d+ of 35 KINDS OF STAR \d of 7 OBAFGKM( Rare kinds: [\w, -]+)?$/);
   const after = await p.evaluate(() => JSON.parse(localStorage.getItem('engage.v1')));
   assert.deepEqual(after.log, bridge.log, 'the old log was changed');
-  // (A setting that came later, the mission clock, is added to the old ones, off.)
-  const { clock, ...opts } = after.opts;
-  assert.deepEqual([after.warp, after.ly, opts, clock], [bridge.warp, bridge.ly, bridge.opts, false]);
+  // (Settings that came later, the mission clock and Report, are added to the old ones, off.)
+  const { clock, report, ...opts } = after.opts;
+  assert.deepEqual([after.warp, after.ly, opts, clock, report], [bridge.warp, bridge.ly, bridge.opts, false, false]);
   await old.close();
 }
 
