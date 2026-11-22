@@ -107,7 +107,7 @@ python3 tools/build-data.py HYG_CSV D3_CELESTIAL_DATA   # rebuilds data/ and img
 python3 tools/build-motion.py HYG_CSV                    # rebuilds data/motion.bin from the same file, after build-data.py
 ```
 
-To put it online with GitHub Pages: **Settings → Pages → Build and deployment → Deploy from a branch**, then pick `main` and `/ (root)`. The `CNAME` file puts it at its own address, engage.junkdrawer.works, which needs a DNS record (type CNAME, name `engage`, target `markjf99702.github.io`, not proxied) and then **Enforce HTTPS** ticked in the Pages settings. Links to the old address, junkdrawer.works/engage/, are forwarded there by GitHub with the rest of the link kept, so `junkdrawer.works/engage/?course=Vega` still sets the course.
+To put it online with GitHub Pages: **Settings → Pages → Build and deployment → Deploy from a branch**, then pick `main` and `/ (root)`. The `CNAME` file puts it at its own address, engage.junkdrawer.works, which needs a DNS record (type CNAME, name `engage`, target `junkdrawerworks.github.io`, not proxied) and then **Enforce HTTPS** ticked in the Pages settings. Links to the old address, junkdrawer.works/engage/, are forwarded there by GitHub with the rest of the link kept, so `junkdrawer.works/engage/?course=Vega` still sets the course.
 
 ### Ship’s records: the file
 
